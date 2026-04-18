@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Login · HayaFlash{% endblock %}
+
+{% block body %}
+  <main style="max-width: 420px; margin: 0 auto; padding: 1rem;">
+    <h1 style="font-size: 1.4rem; margin-bottom: 0.75rem;">Connexion</h1>
+
+    <form
+      hx-post="/api/v1/accounts/auth/login/"
+      hx-target="#login-result"
+      hx-swap="innerHTML"
+      hx-headers='{"Content-Type": "application/json"}'
+      onsubmit="this.querySelector('button[type=submit]').disabled=true;"
+    >
+      <label style="display:block; margin-bottom:0.5rem;">
+        <span>Phone (E.164)</span>
+        <input
+          type="tel"
+          name="phone"
+          required
+          style="width:100%; padding:0.5rem; margin-top:0.25rem;"
+        />
+      </label>
+
+      <label style="display:block; margin-bottom:0.75rem;">
+        <span>Password</span>
+        <input
+          type="password"
+          name="password"
+          required
+          minlength="8"
+          style="width:100%; padding:0.5rem; margin-top:0.25rem;"
+        />
+      </label>
+
+      <button
+        type="submit"
+        style="width:100%; padding:0.6rem; font-weight:600;"
+      >
+        Se connecter
+      </button>
+    </form>
+
+    <div id="login-result" style="margin-top:0.75rem; font-size:0.9rem;"></div>
+  </main>
+{% endblock %}
+
