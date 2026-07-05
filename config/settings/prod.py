@@ -1,4 +1,4 @@
-"""Production-oriented settings (PostgreSQL, strict cookies, JSON API)."""
+"""Production: PostgreSQL, strict hosts, no DEBUG, JSON API only."""
 from __future__ import annotations
 
 import os
@@ -7,7 +7,28 @@ from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa: F403
 from .base import REST_FRAMEWORK as BASE_REST_FRAMEWORK
-from .base import SECRET_KEY, _csv  # noqa: F401
+from .base import SECRET_KEY, SENTRY_DSN  # noqa: F401
+
+# ── Sentry ────────────────────────────────────────────────────────────────────
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+    from sentry_sdk.integrations.celery import CeleryIntegration
+    from sentry_sdk.integrations.logging import LoggingIntegration
+    import logging
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[
+            DjangoIntegration(transaction_style="url"),
+            CeleryIntegration(monitor_beat_tasks=True),
+            LoggingIntegration(level=logging.INFO, event_level=logging.ERROR),
+        ],
+        traces_sample_rate=float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
+        profiles_sample_rate=float(os.environ.get("SENTRY_PROFILES_SAMPLE_RATE", "0.05")),
+        environment="prod",
+        send_default_pii=False,
+    )
 
 DEBUG = False
 
@@ -16,49 +37,19 @@ if not SECRET_KEY:
         "SECRET_KEY must be set in the environment for production."
     )
 
-ALLOWED_HOSTS = _csv("ALLOWED_HOSTS")
+try:
+    raw_hosts = os.environ["ALLOWED_HOSTS"]
+except KeyError as exc:
+    raise ImproperlyConfigured(
+        "ALLOWED_HOSTS must be set in the environment for production "
+        "(comma-separated list)."
+    ) from exc
+
+ALLOWED_HOSTS = [h.strip() for h in raw_hosts.split(",") if h.strip()]
 if not ALLOWED_HOSTS:
     raise ImproperlyConfigured(
-        "ALLOWED_HOSTS must be set (comma-separated) for production."
+        "ALLOWED_HOSTS must contain at least one non-empty hostname."
     )
-
-db_name = (os.environ.get("DB_NAME") or os.environ.get("POSTGRES_DB") or "").strip()
-db_user = (os.environ.get("DB_USER") or os.environ.get("POSTGRES_USER") or "").strip()
-db_password = os.environ.get("DB_PASSWORD") or os.environ.get(
-    "POSTGRES_PASSWORD", ""
-)
-db_host = (
-    os.environ.get("DB_HOST")
-    or os.environ.get("POSTGRES_HOST")
-    or "localhost"
-).strip()
-db_port = (
-    os.environ.get("DB_PORT") or os.environ.get("POSTGRES_PORT") or "5432"
-).strip()
-
-missing_db: list[str] = []
-if not db_name:
-    missing_db.append("DB_NAME (or legacy POSTGRES_DB)")
-if not db_user:
-    missing_db.append("DB_USER (or legacy POSTGRES_USER)")
-if not db_password:
-    missing_db.append("DB_PASSWORD (or legacy POSTGRES_PASSWORD)")
-if missing_db:
-    raise ImproperlyConfigured(
-        "PostgreSQL settings are required in production: " + ", ".join(missing_db)
-    )
-
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": db_name,
-        "USER": db_user,
-        "PASSWORD": db_password,
-        "HOST": db_host,
-        "PORT": db_port,
-        "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", "600")),
-    }
-}
 
 CORS_ALLOW_ALL_ORIGINS = False
 
@@ -68,6 +59,20 @@ SECURE_SSL_REDIRECT = os.environ.get(
 ).lower() in ("1", "true", "yes")
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+
+# HSTS — 1 an, sous-domaines inclus, preload
+SECURE_HSTS_SECONDS = 31_536_000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+
+# Divers headers sécurité
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
 csrf_origins = _csv("CSRF_TRUSTED_ORIGINS")
 if csrf_origins:

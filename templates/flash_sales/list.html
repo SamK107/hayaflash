@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Mes ventes flash — HayaFlash{% endblock %}
+{% block navbar %}{% include "partials/_nav_seller.html" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+
+  <div class="flex items-center justify-between mb-8">
+    <h1 class="text-2xl font-bold text-gray-900">Mes ventes flash</h1>
+    <a href="{% url 'flash_sales:create' %}"
+       class="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-primary-dark transition-colors shadow-sm">
+      <i data-lucide="plus" class="w-5 h-5"></i>Nouvelle vente
+    </a>
+  </div>
+
+  <!-- Tabs Alpine -->
+  <div x-data="{ tab: 'scheduled' }">
+    <div class="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit">
+      {% for tab_id, label, count in tab_list %}
+      <button @click="tab = '{{ tab_id }}'"
+              :class="tab === '{{ tab_id }}' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'"
+              class="px-4 py-2 rounded-lg text-sm font-medium transition-all">
+        {{ label }}
+        {% if count %}<span class="ml-1.5 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">{{ count }}</span>{% endif %}
+      </button>
+      {% endfor %}
+    </div>
+
+    <!-- Programmées -->
+    <div x-show="tab === 'scheduled'">
+      {% include "flash_sales/_sale_list_section.html" with sales=sales_scheduled empty_msg="Aucune vente programmée." %}
+    </div>
+    <!-- En cours -->
+    <div x-show="tab === 'live'" x-cloak>
+      {% include "flash_sales/_sale_list_section.html" with sales=sales_live empty_msg="Aucune vente en cours." live=True %}
+    </div>
+    <!-- En traitement -->
+    <div x-show="tab === 'closed'" x-cloak>
+      {% include "flash_sales/_sale_list_section.html" with sales=sales_closed empty_msg="Aucune vente en traitement." %}
+    </div>
+    <!-- Terminées -->
+    <div x-show="tab === 'done'" x-cloak>
+      {% include "flash_sales/_sale_list_section.html" with sales=sales_done empty_msg="Aucune vente terminée." %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

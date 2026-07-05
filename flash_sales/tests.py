@@ -10,7 +10,8 @@ from django.utils import timezone
 from accounts.models import SellerProfile
 from flash_sales.models import FlashSale, FlashSaleStatus
 from flash_sales.services.ordering import assert_flash_sale_accepts_orders
-from orders.models import Order
+from orders.services.create_order import create_order
+from orders.tests import valid_delivery_payload
 from products.models import Product
 
 
@@ -43,17 +44,13 @@ class FlashSaleTests(TestCase):
         defaults.update(kwargs)
         return FlashSale.objects.create(**defaults)
 
-    def test_is_live_requires_status_and_window(self) -> None:
+    def test_is_live_is_time_window_only(self) -> None:
         now = timezone.now()
         sale = self._sale(
-            status=FlashSaleStatus.DRAFT,
+            status=FlashSaleStatus.SCHEDULED,
             start_time=now - timedelta(hours=1),
             end_time=now + timedelta(hours=1),
         )
-        self.assertFalse(sale.is_live())
-
-        sale.status = FlashSaleStatus.LIVE
-        sale.save()
         self.assertTrue(sale.is_live())
 
         sale.end_time = now - timedelta(minutes=1)
@@ -61,7 +58,7 @@ class FlashSaleTests(TestCase):
         self.assertFalse(sale.is_live())
 
     def test_open_and_close_sale(self) -> None:
-        sale = self._sale(status=FlashSaleStatus.DRAFT)
+        sale = self._sale(status=FlashSaleStatus.SCHEDULED)
         sale.open_sale()
         sale.refresh_from_db()
         self.assertEqual(sale.status, FlashSaleStatus.LIVE)
@@ -88,9 +85,25 @@ class FlashSaleTests(TestCase):
         sale.save()
         assert_flash_sale_accepts_orders(sale)
 
-        product = Product.objects.create(flash_sale=sale, name="SKU-1")
-        order = Order.objects.create(product=product, buyer=self.user)
+        product = Product.objects.create(
+            flash_sale=sale,
+            name="SKU-1",
+            stock_available=5, stock_initial=5,
+            price="10.00",
+        )
+        order = create_order(
+            {
+                "flash_sale_id": sale.pk,
+                "customer_name": "Ada",
+                "customer_phone": "+10000000000",
+                "client_request_id": "test-fs-live-1",
+                "items": [{"product_id": product.pk, "quantity": 1}],
+                "delivery": valid_delivery_payload(),
+            }
+        )
         self.assertIsNotNone(order.pk)
+        product.refresh_from_db()
+        self.assertEqual(product.stock_available, 4)
 
     def test_assert_flash_sale_accepts_orders_rejects_missing_flash_sale(self) -> None:
         product = Product.objects.create(flash_sale=None, name="Orphan")

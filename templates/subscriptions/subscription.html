@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Mon abonnement — HayaFlash{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50">
+  <div class="max-w-lg mx-auto px-4 py-6 space-y-5">
+
+    <div class="flex items-center gap-3 mb-2">
+      <a href="{% url 'seller_home' %}" class="text-gray-400 hover:text-gray-600">
+        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+      </a>
+      <h1 class="text-xl font-bold text-gray-900">Mon abonnement</h1>
+    </div>
+
+    <!-- Plan actuel -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm text-gray-500">Plan actuel</p>
+          <p class="text-2xl font-bold text-gray-900 mt-0.5">
+            {% if sub.is_pro %}Pro{% else %}Gratuit{% endif %}
+          </p>
+        </div>
+        <div class="w-14 h-14 rounded-2xl flex items-center justify-center
+          {% if sub.is_pro %}bg-amber-100{% else %}bg-gray-100{% endif %}">
+          <i data-lucide="{% if sub.is_pro %}crown{% else %}user{% endif %}"
+             class="w-7 h-7 {% if sub.is_pro %}text-amber-600{% else %}text-gray-400{% endif %}"></i>
+        </div>
+      </div>
+      {% if sub.is_pro and sub.expires_at %}
+      <p class="text-xs text-gray-400 mt-3">
+        Expire le {{ sub.expires_at|date:"d/m/Y" }}
+      </p>
+      {% endif %}
+    </div>
+
+    <!-- Utilisation (plan Free) -->
+    {% if not sub.is_pro %}
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-sm font-semibold text-gray-700">Ventes ce mois-ci</p>
+        <p class="text-sm font-bold {% if sales_this_month >= free_limit %}text-red-600{% else %}text-gray-900{% endif %}">
+          {{ sales_this_month }} / {{ free_limit }}
+        </p>
+      </div>
+      <!-- Barre de progression -->
+      <div class="bg-gray-100 rounded-full h-2.5 overflow-hidden">
+        <div
+          class="h-full rounded-full transition-all {% if sales_this_month >= free_limit %}bg-red-500{% elif sales_this_month >= free_limit|add:"-1" %}bg-amber-400{% else %}bg-success{% endif %}"
+          style="width: {% widthratio sales_this_month free_limit 100 %}%"
+        ></div>
+      </div>
+      {% if sales_this_month >= free_limit %}
+      <div class="mt-3 bg-red-50 border border-red-100 rounded-xl p-3 flex items-start gap-2">
+        <i data-lucide="alert-circle" class="w-4 h-4 text-red-500 shrink-0 mt-0.5"></i>
+        <p class="text-red-700 text-xs">Limite atteinte. Passez au plan Pro pour creer des ventes illimitees.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Avantages Pro -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      <h2 class="font-bold text-gray-900 mb-4">Plan Pro — 5 000 FCFA / mois</h2>
+      <ul class="space-y-3">
+        {% comment %}loop removed{% endcomment %}{% if False %}
+        <li class="flex items-center gap-3 text-sm text-gray-700">
+          <i data-lucide="check-circle" class="w-4 h-4 text-success shrink-0"></i>
+          {{ feature }}
+        </li>
+        {% endif %}
+      </ul>
+      <div class="mt-3 space-y-2">
+        <div class="flex items-center gap-3 text-sm text-gray-700">
+          <i data-lucide="check-circle" class="w-4 h-4 text-success shrink-0"></i>
+          Ventes illimitees par mois
+        </div>
+        <div class="flex items-center gap-3 text-sm text-gray-700">
+          <i data-lucide="check-circle" class="w-4 h-4 text-success shrink-0"></i>
+          Dashboard LIVE avance avec stats
+        </div>
+        <div class="flex items-center gap-3 text-sm text-gray-700">
+          <i data-lucide="check-circle" class="w-4 h-4 text-success shrink-0"></i>
+          Notifications SMS automatiques
+        </div>
+        <div class="flex items-center gap-3 text-sm text-gray-700">
+          <i data-lucide="check-circle" class="w-4 h-4 text-success shrink-0"></i>
+          Support prioritaire WhatsApp
+        </div>
+      </div>
+    </div>
+
+    <!-- CTA Upgrade -->
+    <a
+      href="https://wa.me/22370000000?text=Je%20souhaite%20passer%20au%20plan%20Pro%20HayaFlash"
+      target="_blank"
+      rel="noopener"
+      class="flex items-center justify-center gap-2 bg-amber-500 text-white font-bold py-4 rounded-xl hover:bg-amber-600 transition-colors w-full"
+    >
+      <i data-lucide="crown" class="w-5 h-5"></i>
+      Passer au plan Pro — 5 000 FCFA/mois
+    </a>
+    <p class="text-center text-xs text-gray-400">Paiement via Orange Money · Sans engagement</p>
+
+    {% else %}
+    <!-- Deja Pro -->
+    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
+      <i data-lucide="crown" class="w-8 h-8 text-amber-500 mx-auto mb-2"></i>
+      <p class="font-bold text-amber-800">Vous etes sur le plan Pro</p>
+      <p class="text-amber-600 text-sm mt-1">Ventes illimitees, toutes les fonctionnalites activees.</p>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

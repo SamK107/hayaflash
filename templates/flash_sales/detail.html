@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}{{ sale.title }} — HayaFlash{% endblock %}
+{% block navbar %}{% include "partials/_nav_seller.html" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+
+  <!-- Breadcrumb -->
+  <nav class="flex items-center gap-2 text-sm text-gray-400 mb-6">
+    <a href="{% url 'flash_sales:list' %}" class="hover:text-primary transition-colors">Mes ventes</a>
+    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+    <span class="text-gray-700 font-medium truncate max-w-xs">{{ sale.title }}</span>
+  </nav>
+
+  <div class="grid lg:grid-cols-3 gap-6">
+
+    <!-- Colonne principale -->
+    <div class="lg:col-span-2 space-y-5">
+
+      <!-- Card infos vente -->
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        {% if sale.cover_image %}
+        <img src="{{ sale.cover_image.url }}" alt="{{ sale.title }}"
+             class="w-full h-40 object-cover">
+        {% endif %}
+        <div class="p-6">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h1 class="text-xl font-bold text-gray-900">{{ sale.title }}</h1>
+              {% if sale.description %}
+              <p class="text-gray-500 text-sm mt-1">{{ sale.description }}</p>
+              {% endif %}
+            </div>
+            <!-- Badge statut -->
+            {% if sale.status == "live" %}
+            <span class="flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-700 rounded-full text-sm font-bold flex-shrink-0">
+              <span class="w-2 h-2 bg-green-500 rounded-full animate-ping"></span>LIVE
+            </span>
+            {% elif sale.status == "scheduled" %}
+            <span class="px-3 py-1.5 bg-blue-100 text-blue-600 rounded-full text-sm font-semibold flex-shrink-0">Programmée</span>
+            {% elif sale.status == "closed" %}
+            <span class="px-3 py-1.5 bg-orange-100 text-orange-600 rounded-full text-sm font-semibold flex-shrink-0">Fermée</span>
+            {% elif sale.status == "completed" %}
+            <span class="px-3 py-1.5 bg-gray-100 text-gray-500 rounded-full text-sm font-medium flex-shrink-0">Terminée</span>
+            {% elif sale.status == "cancelled" %}
+            <span class="px-3 py-1.5 bg-red-100 text-red-500 rounded-full text-sm font-medium flex-shrink-0">Annulée</span>
+            {% endif %}
+          </div>
+
+          <div class="grid grid-cols-2 gap-4 mt-5 pt-5 border-t border-gray-50">
+            <div>
+              <p class="text-xs text-gray-400 font-medium">Début</p>
+              <p class="text-sm font-semibold text-gray-900 mt-0.5">{{ sale.start_time|date:"d/m/Y H:i" }}</p>
+            </div>
+            <div>
+              <p class="text-xs text-gray-400 font-medium">Fin</p>
+              <p class="text-sm font-semibold text-gray-900 mt-0.5">{{ sale.end_time|date:"d/m/Y H:i" }}</p>
+            </div>
+            {% if sale.delivery_zone %}
+            <div>
+              <p class="text-xs text-gray-400 font-medium">Zone de livraison</p>
+              <p class="text-sm font-semibold text-gray-900 mt-0.5">{{ sale.delivery_zone }}</p>
+            </div>
+            {% endif %}
+            {% if sale.max_orders %}
+            <div>
+              <p class="text-xs text-gray-400 font-medium">Plafond commandes</p>
+              <p class="text-sm font-semibold text-gray-900 mt-0.5">{{ sale.max_orders }}</p>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Produits -->
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-50">
+          <h2 class="font-bold text-gray-900 flex items-center gap-2">
+            <i data-lucide="package" class="w-5 h-5 text-gray-400"></i>
+            Produits ({{ products|length }})
+          </h2>
+          {% if sale.status == "scheduled" %}
+          <a href="{% url 'products:create' sale.pk %}"
+             class="flex items-center gap-1.5 text-sm text-primary font-semibold hover:bg-primary/5 px-3 py-1.5 rounded-lg transition-colors">
+            <i data-lucide="plus" class="w-4 h-4"></i>Ajouter
+          </a>
+          {% endif %}
+        </div>
+
+        {% if products %}
+        <div class="divide-y divide-gray-50">
+          {% for product in products %}
+          <div class="flex items-center gap-4 px-6 py-4 hover:bg-gray-50/50 transition-colors">
+            {% if product.media.all.0 %}
+            <img src="{{ product.media.all.0.file.url }}" alt="{{ product.name }}"
+                 class="w-12 h-12 rounded-xl object-cover flex-shrink-0">
+            {% else %}
+            <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
+              <i data-lucide="package" class="w-6 h-6 text-gray-300"></i>
+            </div>
+            {% endif %}
+            <div class="flex-1 min-w-0">
+              <p class="font-medium text-gray-900 truncate">{{ product.name }}</p>
+              <p class="text-sm text-gray-400">{{ product.price|floatformat:0 }} FCFA · {{ product.unit }}</p>
+            </div>
+            <!-- Barre de stock -->
+            <div class="text-right flex-shrink-0">
+              <p class="text-sm font-semibold text-gray-700">{{ product.stock_available }}/{{ product.stock_initial }}</p>
+              <div class="w-20 h-1.5 bg-gray-100 rounded-full mt-1 overflow-hidden">
+                <div class="h-full rounded-full transition-all
+                  {% if product.stock_percentage > 50 %}bg-green-400
+                  {% elif product.stock_percentage > 20 %}bg-yellow-400
+                  {% else %}bg-red-400{% endif %}"
+                     style="width: {{ product.stock_percentage }}%"></div>
+              </div>
+            </div>
+            {% if sale.status == "scheduled" %}
+            <a href="{% url 'products:edit' sale.pk product.pk %}"
+               class="p-2 text-gray-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors">
+              <i data-lucide="pencil" class="w-4 h-4"></i>
+            </a>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-10 text-gray-400">
+          <i data-lucide="package-open" class="w-10 h-10 mx-auto mb-2 opacity-30"></i>
+          <p class="text-sm">Aucun produit ajouté.</p>
+          {% if sale.status == "scheduled" %}
+          <a href="{% url 'products:create' sale.pk %}"
+             class="inline-flex items-center gap-1.5 mt-3 text-sm text-primary font-semibold hover:underline">
+            <i data-lucide="plus" class="w-4 h-4"></i>Ajouter le premier produit
+          </a>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- Colonne actions -->
+    <div class="space-y-4">
+
+      <!-- Actions principales -->
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
+        <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Actions</h3>
+
+        {% if sale.status == "scheduled" %}
+        <form method="post" action="{% url 'flash_sales:open' sale.pk %}">
+          {% csrf_token %}
+          <button type="submit"
+                  class="w-full flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-semibold transition-colors"
+                  onclick="return confirm('Ouvrir la vente maintenant ?')">
+            <i data-lucide="play" class="w-5 h-5"></i>Ouvrir la vente
+          </button>
+        </form>
+        <a href="{% url 'flash_sales:edit' sale.pk %}"
+           class="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-600 py-2.5 rounded-xl font-medium hover:bg-gray-50 transition-colors">
+          <i data-lucide="pencil" class="w-4 h-4"></i>Modifier
+        </a>
+        <form method="post" action="{% url 'flash_sales:cancel' sale.pk %}">
+          {% csrf_token %}
+          <button type="submit"
+                  class="w-full flex items-center justify-center gap-2 text-red-500 border border-red-100 py-2.5 rounded-xl font-medium hover:bg-red-50 transition-colors text-sm"
+                  onclick="return confirm('Annuler cette vente ? Cette action est irréversible.')">
+            <i data-lucide="x-circle" class="w-4 h-4"></i>Annuler la vente
+          </button>
+        </form>
+
+        {% elif sale.status == "live" %}
+        <a href="{% url 'orders:dashboard' %}"
+           class="w-full flex items-center justify-center gap-2 bg-primary text-white py-3 rounded-xl font-semibold hover:bg-primary-dark transition-colors">
+          <i data-lucide="activity" class="w-5 h-5"></i>Tableau LIVE
+        </a>
+        <form method="post" action="{% url 'flash_sales:close' sale.pk %}">
+          {% csrf_token %}
+          <button type="submit"
+                  class="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-600 py-2.5 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+                  onclick="return confirm('Fermer la vente maintenant ?')">
+            <i data-lucide="square" class="w-4 h-4"></i>Fermer la vente
+          </button>
+        </form>
+
+        {% else %}
+        <a href="{% url 'orders:dashboard' %}"
+           class="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-600 py-2.5 rounded-xl font-medium hover:bg-gray-50 transition-colors">
+          <i data-lucide="list" class="w-4 h-4"></i>Voir les commandes
+        </a>
+        {% endif %}
+      </div>
+
+      <!-- Lien de partage -->
+      {% if sale.public_slug %}
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5"
+           x-data="{ copied: false }">
+        <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide mb-3">Lien de partage</h3>
+        <div class="flex gap-2">
+          <input type="text" readonly
+                 value="{{ request.scheme }}://{{ request.get_host }}/f/{{ sale.public_slug }}/"
+                 class="flex-1 text-xs bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-gray-600 truncate">
+          <button @click="navigator.clipboard.writeText('{{ request.scheme }}://{{ request.get_host }}/f/{{ sale.public_slug }}/'); copied=true; setTimeout(()=>copied=false, 2000)"
+                  class="p-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors flex-shrink-0">
+            <i data-lucide="copy" class="w-4 h-4" x-show="!copied"></i>
+            <i data-lucide="check" class="w-4 h-4 text-green-500" x-show="copied" x-cloak></i>
+          </button>
+        </div>
+        <p class="text-xs text-gray-400 mt-2" x-show="copied" x-cloak x-transition>Lien copié !</p>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

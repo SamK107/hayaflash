@@ -6,57 +6,120 @@ from django.utils import timezone
 
 
 class FlashSaleStatus(models.TextChoices):
-    DRAFT = "draft", "Draft"
-    LIVE = "live", "Live"
-    CLOSED = "closed", "Closed"
+    SCHEDULED = "scheduled", "Programmee"
+    LIVE      = "live",      "En cours"
+    CLOSED    = "closed",    "Fermee"
+    EXECUTING = "executing", "En execution"
+    COMPLETED = "completed", "Terminee"
+    CANCELLED = "cancelled", "Annulee"
 
 
 class FlashSale(models.Model):
-    title = models.CharField(max_length=255)
-    start_time = models.DateTimeField()
-    end_time = models.DateTimeField()
+    title = models.CharField(max_length=255, verbose_name="Titre")
+    description = models.TextField(blank=True, verbose_name="Description")
+    cover_image = models.ImageField(
+        upload_to="flash_sales/covers/",
+        null=True,
+        blank=True,
+        verbose_name="Image de couverture",
+    )
+    public_slug = models.SlugField(
+        max_length=80,
+        unique=True,
+        blank=True,
+        db_index=True,
+        help_text="Slug public pour la page de partage (/f/<slug>/).",
+    )
+    start_time = models.DateTimeField(verbose_name="Debut")
+    end_time = models.DateTimeField(verbose_name="Fin")
     status = models.CharField(
         max_length=16,
         choices=FlashSaleStatus.choices,
-        default=FlashSaleStatus.DRAFT,
+        default=FlashSaleStatus.SCHEDULED,
         db_index=True,
+        verbose_name="Statut",
     )
     owner = models.ForeignKey(
         "accounts.SellerProfile",
         on_delete=models.PROTECT,
         related_name="flash_sales",
+        verbose_name="Vendeur",
+    )
+    delivery_zone = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="Zone de livraison",
+        help_text="Ex: Bamako, ACI 2000, Kalaban Coura",
+    )
+    max_orders = models.IntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Plafond de commandes",
+        help_text="Laisser vide pour illimite",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["-start_time"]
+        verbose_name = "Vente flash"
+        verbose_name_plural = "Ventes flash"
 
-    def __str__(self) -> str:
+    def __str__(self):
         return self.title
 
-    def save(self, *args, **kwargs) -> None:
-        self.full_clean()
-        super().save(*args, **kwargs)
-
-    def clean(self) -> None:
+    def clean(self):
         super().clean()
         if self.end_time <= self.start_time:
-            raise ValidationError({"end_time": "End time must be after start time."})
+            raise ValidationError({"end_time": "La fin doit etre apres le debut."})
 
-    def is_live(self) -> bool:
-        """Whether an order may be placed now; uses django.utils.timezone.now() plus schedule and live status."""
+    def save(self, *args, **kwargs):
+        if not self.public_slug:
+            from flash_sales.services.slugs import generate_unique_flash_sale_public_slug
+            self.public_slug = generate_unique_flash_sale_public_slug(self)
+        super().save(*args, **kwargs)
+
+    def is_live(self):
         now = timezone.now()
-        in_window = self.start_time <= now <= self.end_time
-        published = self.status == FlashSaleStatus.LIVE
-        return published and in_window
+        return self.start_time <= now <= self.end_time
 
-    def open_sale(self) -> None:
-        if self.status == FlashSaleStatus.CLOSED:
-            raise ValueError("Cannot open a closed flash sale.")
+    @property
+    def is_scheduled(self):
+        return self.status == FlashSaleStatus.SCHEDULED
+
+    @property
+    def accepts_orders(self):
+        now = timezone.now()
+        return (
+            self.status == FlashSaleStatus.LIVE
+            and self.start_time <= now <= self.end_time
+        )
+
+    def open_sale(self):
+        non_reopenable = {
+            FlashSaleStatus.CANCELLED,
+            FlashSaleStatus.COMPLETED,
+            FlashSaleStatus.CLOSED,
+            FlashSaleStatus.EXECUTING,
+            FlashSaleStatus.LIVE,
+        }
+        if self.status in non_reopenable:
+            raise ValueError(
+                f"Impossible d'ouvrir une vente avec le statut '{self.status}'."
+            )
         self.status = FlashSaleStatus.LIVE
         self.save(update_fields=["status", "updated_at"])
 
-    def close_sale(self) -> None:
+    def close_sale(self):
         self.status = FlashSaleStatus.CLOSED
+        self.save(update_fields=["status", "updated_at"])
+
+    def complete_sale(self):
+        self.status = FlashSaleStatus.COMPLETED
+        self.save(update_fields=["status", "updated_at"])
+
+    def cancel_sale(self):
+        if self.status == FlashSaleStatus.LIVE:
+            raise ValueError("Impossible d'annuler une vente en cours. Fermez-la d'abord.")
+        self.status = FlashSaleStatus.CANCELLED
         self.save(update_fields=["status", "updated_at"])

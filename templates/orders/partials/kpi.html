@@ -1,0 +1,17 @@
+<div class="grid grid-cols-3 gap-3">
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+    <i data-lucide="shopping-bag" class="w-5 h-5 text-primary mx-auto mb-1"></i>
+    <p class="text-2xl font-bold text-gray-900">{{ kpis.total_orders|default:"0" }}</p>
+    <p class="text-xs text-gray-500 mt-0.5">Commandes</p>
+  </div>
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+    <i data-lucide="package" class="w-5 h-5 text-blue-500 mx-auto mb-1"></i>
+    <p class="text-2xl font-bold text-gray-900">{{ kpis.total_quantity|default:"0" }}</p>
+    <p class="text-xs text-gray-500 mt-0.5">Articles</p>
+  </div>
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+    <i data-lucide="banknote" class="w-5 h-5 text-success mx-auto mb-1"></i>
+    <p class="text-lg font-bold text-gray-900">{{ kpis.total_revenue|floatformat:0|default:"0" }}</p>
+    <p class="text-xs text-gray-500 mt-0.5">FCFA</p>
+  </div>
+</div>

@@ -8,20 +8,28 @@ class SellerProfileInline(admin.StackedInline):
     model = SellerProfile
     extra = 0
     can_delete = False
+    max_num = 1
 
 
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
     ordering = ("phone",)
+
     list_display = (
         "phone",
         "display_name",
         "is_staff",
         "is_active",
         "is_phone_verified",
+        "date_joined",
     )
+
+    list_filter = ("is_active", "is_staff", "is_phone_verified")
+
     search_fields = ("phone", "display_name", "email")
+
     readonly_fields = ("date_joined", "updated_at")
+
     inlines = [SellerProfileInline]
 
     fieldsets = (
@@ -47,6 +55,7 @@ class UserAdmin(DjangoUserAdmin):
             {"fields": ("last_login", "date_joined", "updated_at")},
         ),
     )
+
     add_fieldsets = (
         (
             None,
@@ -56,6 +65,15 @@ class UserAdmin(DjangoUserAdmin):
             },
         ),
     )
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj:
+            return self.readonly_fields + ("phone",)
+        return self.readonly_fields
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related("seller_profile")
 
 
 @admin.register(SellerProfile)

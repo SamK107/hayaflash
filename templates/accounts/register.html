@@ -1,72 +1,141 @@
 {% extends "base.html" %}
+{% block title %}Inscription — HayaFlash{% endblock %}
 
-{% block title %}Inscription · HayaFlash{% endblock %}
+{% block content %}
+<div class="min-h-screen bg-white flex flex-col">
+  <div class="flex-1 flex flex-col items-center justify-center px-6 py-12">
 
-{% block body %}
-  <main style="max-width: 420px; margin: 0 auto; padding: 1rem;">
-    <h1 style="font-size: 1.4rem; margin-bottom: 0.75rem;">Inscription vendeur</h1>
+    <!-- Logo -->
+    <div class="mb-6 text-center">
+      <div class="inline-flex items-center justify-center w-14 h-14 bg-primary rounded-2xl mb-2 shadow-md">
+        <i data-lucide="zap" class="w-7 h-7 text-white"></i>
+      </div>
+      <h1 class="text-xl font-bold text-gray-900">HAYAFLASH</h1>
+    </div>
 
-    <form
-      hx-post="/api/v1/accounts/auth/register/"
-      hx-target="#register-result"
-      hx-swap="innerHTML"
-      hx-headers='{"Content-Type": "application/json"}'
-      onsubmit="this.querySelector('button[type=submit]').disabled=true;"
-    >
-      <label style="display:block; margin-bottom:0.5rem;">
-        <span>Phone (E.164)</span>
-        <input
-          type="tel"
-          name="phone"
-          required
-          style="width:100%; padding:0.5rem; margin-top:0.25rem;"
-        />
-      </label>
+    <div class="w-full max-w-sm" x-data="{
+      step: 1,
+      phone: '',
+      code: '',
+      shop: '',
+      password: '',
+      loading: false,
+    }">
 
-      <label style="display:block; margin-bottom:0.5rem;">
-        <span>Display name</span>
-        <input
-          type="text"
-          name="display_name"
-          required
-          style="width:100%; padding:0.5rem; margin-top:0.25rem;"
-        />
-      </label>
+      <!-- Step indicator -->
+      <div class="flex items-center justify-center gap-2 mb-6">
+        <template x-for="i in [1,2,3]" :key="i">
+          <div
+            class="w-2.5 h-2.5 rounded-full transition-colors"
+            :class="i === step ? 'bg-primary w-6' : (i < step ? 'bg-green-500' : 'bg-gray-200')"
+          ></div>
+        </template>
+      </div>
 
-      <label style="display:block; margin-bottom:0.5rem;">
-        <span>Password</span>
-        <input
-          type="password"
-          name="password"
-          required
-          minlength="8"
-          style="width:100%; padding:0.5rem; margin-top:0.25rem;"
-        />
-      </label>
+      <!-- Etape 1 : Telephone -->
+      <div x-show="step === 1" x-transition>
+        <h2 class="text-xl font-bold text-gray-900 mb-1">Votre telephone</h2>
+        <p class="text-gray-500 text-sm mb-6">Nous enverrons un code de verification par SMS.</p>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Numero de telephone</label>
+            <input
+              type="tel"
+              x-model="phone"
+              placeholder="+223 70 00 00 00"
+              class="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+            >
+          </div>
+          <button
+            @click="if(phone.trim()) step = 2"
+            class="w-full bg-primary text-white font-bold py-4 rounded-xl text-base hover:bg-red-700 transition-colors min-h-[56px]"
+          >
+            Recevoir le code SMS
+          </button>
+        </div>
+      </div>
 
-      <label style="display:block; margin-bottom:0.5rem;">
-        <span>Business name (optional)</span>
-        <input
-          type="text"
-          name="business_name"
-          style="width:100%; padding:0.5rem; margin-top:0.25rem;"
-        />
-      </label>
+      <!-- Etape 2 : Code OTP -->
+      <div x-show="step === 2" x-transition>
+        <h2 class="text-xl font-bold text-gray-900 mb-1">Code de verification</h2>
+        <p class="text-gray-500 text-sm mb-6">Entrez le code recu par SMS au <span class="font-semibold text-gray-700" x-text="phone"></span>.</p>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Code a 6 chiffres</label>
+            <input
+              type="number"
+              x-model="code"
+              placeholder="123456"
+              maxlength="6"
+              class="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-2xl font-mono text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+            >
+          </div>
+          <button
+            @click="if(code.trim().length >= 4) step = 3"
+            class="w-full bg-primary text-white font-bold py-4 rounded-xl text-base hover:bg-red-700 transition-colors min-h-[56px]"
+          >
+            Verifier le code
+          </button>
+          <button @click="step = 1" class="w-full text-gray-500 text-sm">
+            Changer de numero
+          </button>
+        </div>
+      </div>
 
-      <label style="display:flex; align-items:center; gap:0.4rem; margin-bottom:0.75rem;">
-        <input type="checkbox" name="create_seller_profile" checked />
-        <span>Créer un profil vendeur maintenant</span>
-      </label>
+      <!-- Etape 3 : Nom de boutique + Formulaire final -->
+      <div x-show="step === 3" x-transition>
+        <h2 class="text-xl font-bold text-gray-900 mb-1">Votre boutique</h2>
+        <p class="text-gray-500 text-sm mb-6">Derniere etape — donnez un nom a votre boutique.</p>
+        <form method="POST" action="{% block register_url %}{% url 'register' %}{% endblock %}" class="space-y-4"
+              @submit="loading = true">
+          {% csrf_token %}
+          <input type="hidden" name="phone" :value="phone">
+          <input type="hidden" name="otp_code" :value="code">
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Nom de votre boutique</label>
+            <input
+              type="text"
+              name="business_name"
+              x-model="shop"
+              placeholder="Ex: Boutique Aminata Mode"
+              required
+              class="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+            >
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Mot de passe</label>
+            <input
+              type="password"
+              name="password1"
+              x-model="password"
+              placeholder="Min. 8 caracteres"
+              required
+              class="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+            >
+          </div>
+          <button
+            type="submit"
+            :disabled="loading"
+            class="w-full bg-primary text-white font-bold py-4 rounded-xl text-base hover:bg-red-700 transition-colors disabled:opacity-60 min-h-[56px] flex items-center justify-center gap-2"
+          >
+            <span x-show="!loading">Creer mon compte</span>
+            <span x-show="loading" class="flex items-center gap-2">
+              <span class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+              Creation...
+            </span>
+          </button>
+        </form>
+      </div>
 
-      <button
-        type="submit"
-        style="width:100%; padding:0.6rem; font-weight:600;"
-      >
-        Créer le compte
-      </button>
-    </form>
+      <p class="text-center text-sm text-gray-500 mt-6">
+        Deja un compte ?
+        <a href="{% url 'login' %}" class="text-primary font-semibold hover:underline">Se connecter</a>
+      </p>
+    </div>
+  </div>
 
-    <div id="register-result" style="margin-top:0.75rem; font-size:0.9rem;"></div>
-  </main>
+  <div class="py-4 text-center">
+    <p class="text-xs text-gray-400">Commande via HayaFlash · Mali</p>
+  </div>
+</div>
 {% endblock %}
-

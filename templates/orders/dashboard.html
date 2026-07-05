@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}Dashboard LIVE — HayaFlash{% endblock %}
+
+{% block extra_head %}
+<style>
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+.live-pulse { animation: live-pulse 1.5s ease-in-out infinite; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50">
+
+  {% if live_sale %}
+  <!-- Header LIVE fixe -->
+  <div class="sticky top-0 z-30 bg-white border-b border-gray-100 shadow-sm">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="inline-flex items-center gap-1.5 bg-red-600 text-white text-xs font-bold px-2.5 py-1 rounded-full shrink-0">
+          <span class="w-2 h-2 rounded-full bg-white live-pulse"></span>
+          LIVE
+        </span>
+        <span class="font-semibold text-gray-900 truncate text-sm">{{ live_sale.title }}</span>
+      </div>
+      <!-- Countdown Alpine -->
+      <div
+        x-data="countdown('{{ live_sale.end_time.isoformat }}')"
+        x-init="init()"
+        @destroy.window="destroy()"
+        class="font-mono text-lg font-bold shrink-0"
+        :class="isUrgent ? 'text-red-500 animate-pulse' : 'text-gray-800'"
+      >
+        <span x-text="remaining">--:--:--</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="max-w-3xl mx-auto px-4 py-5 space-y-5">
+
+    <!-- KPI cards (HTMX polling 4s) -->
+    <div
+      hx-get="{% url 'orders:seller_dashboard_kpi' %}"
+      hx-trigger="load, every 4s"
+      hx-swap="innerHTML"
+    >
+      {% include "orders/partials/kpi.html" %}
+    </div>
+
+    <!-- Stock critique -->
+    {% if live_sale %}
+    {% with critical=live_sale.products.filter %}
+    {% for product in live_sale.products.all %}
+      {% if product.stock_available <= product.stock_initial|default:1|add:0 and product.stock_available > 0 and product.stock_initial > 0 %}
+        {% if product.stock_available|floatformat:0 <= product.stock_initial|floatformat:0|add:"-1" %}
+        <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
+          <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600 shrink-0"></i>
+          <span class="text-sm text-amber-900 font-medium">Stock critique : <strong>{{ product.name }}</strong> — {{ product.stock_available }} restant(s)</span>
+        </div>
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+    {% endwith %}
+    {% endif %}
+
+    <!-- Commandes (HTMX polling 3s) -->
+    <div>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Commandes</h2>
+        <span class="text-xs text-gray-400">Actualisation auto</span>
+      </div>
+      <div
+        hx-get="{% url 'orders:seller_dashboard_orders' %}"
+        hx-trigger="load, every 3s"
+        hx-swap="innerHTML"
+      >
+        {% include "orders/partials/orders_list.html" %}
+      </div>
+    </div>
+
+    <!-- Actions vente -->
+    <div class="space-y-3">
+      <!-- Fermer la vente (modal Alpine) -->
+      <div x-data="{ open: false }">
+        <button
+          @click="open = true"
+          class="w-full flex items-center justify-center gap-2 bg-white border-2 border-red-500 text-red-600 font-bold py-4 rounded-xl hover:bg-red-50 transition-colors"
+        >
+          <i data-lucide="x-circle" class="w-5 h-5"></i>
+          Fermer la vente
+        </button>
+        <!-- Modal -->
+        <div
+          x-show="open"
+          x-cloak
+          class="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
+          @click.self="open = false"
+        >
+          <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <h3 class="text-lg font-bold text-gray-900 mb-2">Fermer la vente ?</h3>
+            <p class="text-gray-500 text-sm mb-5">Plus aucune commande ne sera acceptee. Cette action est definitive.</p>
+            <div class="flex gap-3">
+              <button @click="open = false" class="flex-1 border border-gray-300 text-gray-700 font-semibold py-3 rounded-xl hover:bg-gray-50">
+                Annuler
+              </button>
+              <form method="POST" action="{% url 'flash_sales:close' pk=live_sale.pk %}" class="flex-1">
+                {% csrf_token %}
+                <button type="submit" class="w-full bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700">
+                  Fermer
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Voir le detail de la vente -->
+      <a
+        href="{% url 'flash_sales:detail' pk=live_sale.pk %}"
+        class="flex items-center justify-center gap-2 bg-gray-100 text-gray-700 font-semibold py-3 rounded-xl hover:bg-gray-200 transition-colors text-sm"
+      >
+        <i data-lucide="eye" class="w-4 h-4"></i>
+        Voir la vente
+      </a>
+    </div>
+
+  </div>
+
+  {% elif next_sale %}
+  <!-- Prochaine vente programmee -->
+  <div class="max-w-3xl mx-auto px-4 py-8 space-y-5">
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center">
+      <div class="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i data-lucide="clock" class="w-7 h-7 text-amber-600"></i>
+      </div>
+      <h2 class="text-xl font-bold text-gray-900 mb-1">Prochaine vente</h2>
+      <p class="text-gray-600 font-medium mb-1">{{ next_sale.title }}</p>
+      <p class="text-sm text-gray-400 mb-5">Debut : {{ next_sale.start_time|date:"d/m/Y H:i" }}</p>
+
+      <!-- Countdown vers ouverture -->
+      <div
+        x-data="countdown('{{ next_sale.start_time.isoformat }}')"
+        x-init="init()"
+        class="inline-flex items-center gap-2 bg-gray-900 text-white px-5 py-3 rounded-2xl font-mono text-2xl font-bold"
+      >
+        <i data-lucide="timer" class="w-5 h-5 text-gray-400"></i>
+        <span x-text="remaining">--:--:--</span>
+      </div>
+      <p class="text-xs text-gray-400 mt-3">avant ouverture automatique</p>
+    </div>
+
+    <a href="{% url 'flash_sales:detail' pk=next_sale.pk %}" class="flex items-center justify-center gap-2 bg-primary text-white font-bold py-4 rounded-xl hover:bg-red-700 transition-colors">
+      <i data-lucide="zap" class="w-5 h-5"></i>
+      Voir la vente
+    </a>
+  </div>
+
+  {% else %}
+  <!-- Aucune vente active -->
+  <div class="max-w-3xl mx-auto px-4 py-16 text-center">
+    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+      <i data-lucide="zap" class="w-8 h-8 text-gray-400"></i>
+    </div>
+    <h2 class="text-xl font-bold text-gray-900 mb-2">Aucune vente active</h2>
+    <p class="text-gray-500 text-sm mb-6">Creez une vente flash pour voir votre dashboard LIVE ici.</p>
+    <a href="{% url 'flash_sales:create' %}" class="inline-flex items-center gap-2 bg-primary text-white font-bold px-6 py-3 rounded-xl hover:bg-red-700">
+      <i data-lucide="plus" class="w-4 h-4"></i>
+      Creer une vente
+    </a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

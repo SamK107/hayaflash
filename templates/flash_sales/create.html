@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}{% if sale %}Modifier{% else %}Créer{% endif %} une vente — HayaFlash{% endblock %}
+{% block navbar %}{% include "partials/_nav_seller.html" %}{% endblock %}
+
+{% block extra_head %}
+<style>
+  .hf-input {
+    @apply w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-white;
+  }
+</style>
+<style>
+  .hf-input {
+    width: 100%; padding: 0.75rem 1rem;
+    border: 1px solid #e5e7eb; border-radius: 0.75rem;
+    font-size: 0.875rem; transition: border-color 0.15s, box-shadow 0.15s;
+    background: white; color: #111827;
+  }
+  .hf-input:focus { outline: none; border-color: #E63946; box-shadow: 0 0 0 3px rgba(230,57,70,0.12); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+
+  <!-- Breadcrumb -->
+  <nav class="flex items-center gap-2 text-sm text-gray-400 mb-6">
+    <a href="{% url 'flash_sales:list' %}" class="hover:text-primary transition-colors">Mes ventes</a>
+    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+    <span class="text-gray-700 font-medium">{% if sale %}Modifier « {{ sale.title }}»{% else %}Nouvelle vente{% endif %}</span>
+  </nav>
+
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div class="px-6 py-5 border-b border-gray-50 bg-gradient-to-r from-primary/5 to-gold/5">
+      <h1 class="text-xl font-bold text-gray-900">
+        {% if sale %}Modifier la vente{% else %}Créer une vente flash{% endif %}
+      </h1>
+      <p class="text-sm text-gray-400 mt-1">Complétez les informations ci-dessous</p>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="px-6 py-6 space-y-5"
+          x-data="{ preview: null }"
+          hx-boost="false">
+      {% csrf_token %}
+
+      <!-- Titre -->
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1.5">
+          {{ form.title.label }}
+        </label>
+        {{ form.title }}
+        {% if form.title.errors %}
+        <p class="text-red-500 text-xs mt-1">{{ form.title.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Description -->
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1.5">{{ form.description.label }}</label>
+        {{ form.description }}
+      </div>
+
+      <!-- Dates côte à côte -->
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1.5">{{ form.start_time.label }}</label>
+          {{ form.start_time }}
+          {% if form.start_time.errors %}
+          <p class="text-red-500 text-xs mt-1">{{ form.start_time.errors.0 }}</p>
+          {% endif %}
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1.5">{{ form.end_time.label }}</label>
+          {{ form.end_time }}
+          {% if form.end_time.errors %}
+          <p class="text-red-500 text-xs mt-1">{{ form.end_time.errors.0 }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Zone de livraison + plafond -->
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1.5">{{ form.delivery_zone.label }}</label>
+          {{ form.delivery_zone }}
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1.5">{{ form.max_orders.label }}</label>
+          {{ form.max_orders }}
+        </div>
+      </div>
+
+      <!-- Image de couverture -->
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1.5">Image de couverture</label>
+        <div class="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
+             @click="$refs.imgInput.click()">
+          <template x-if="!preview">
+            <div>
+              <i data-lucide="image-plus" class="w-8 h-8 text-gray-300 mx-auto mb-2"></i>
+              <p class="text-sm text-gray-400">Cliquez pour ajouter une photo</p>
+              <p class="text-xs text-gray-300 mt-1">JPG, PNG — max 5 Mo</p>
+            </div>
+          </template>
+          <template x-if="preview">
+            <img :src="preview" class="max-h-40 mx-auto rounded-lg object-cover">
+          </template>
+        </div>
+        <input type="file" accept="image/*" name="cover_image" class="hidden" x-ref="imgInput"
+               @change="preview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null">
+        {% if sale.cover_image and not preview %}
+        <p class="text-xs text-gray-400 mt-1">Image actuelle : {{ sale.cover_image.name }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Erreurs globales -->
+      {% if form.non_field_errors %}
+      <div class="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+        {{ form.non_field_errors.0 }}
+      </div>
+      {% endif %}
+
+      <!-- Actions -->
+      <div class="flex gap-3 pt-2">
+        <button type="submit"
+                class="flex-1 bg-primary text-white py-3 rounded-xl font-semibold hover:bg-primary-dark transition-colors">
+          {% if sale %}Enregistrer les modifications{% else %}Créer la vente{% endif %}
+        </button>
+        <a href="{% if sale %}{% url 'flash_sales:detail' sale.pk %}{% else %}{% url 'flash_sales:list' %}{% endif %}"
+           class="px-6 py-3 border border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-colors text-center">
+          Annuler
+        </a>
+      </div>
+    </form>
+  </div>
+
+</div>
+{% endblock %}
