@@ -205,8 +205,9 @@ class AuditLogTest(TestCase):
 
     def test_audit_log_admin_readonly(self) -> None:
         from core.admin import AuditLogAdmin
+        from core.models import AuditLog
         from django.contrib.admin.sites import AdminSite
 
-        admin = AuditLogAdmin(model=None, admin_site=AdminSite())
+        admin = AuditLogAdmin(model=AuditLog, admin_site=AdminSite())
         self.assertFalse(admin.has_add_permission(None))
         self.assertFalse(admin.has_change_permission(None))
