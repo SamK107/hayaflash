@@ -7,8 +7,8 @@ from django.utils import timezone
 
 class FlashSaleStatus(models.TextChoices):
     SCHEDULED = "scheduled", "Programmee"
-    LIVE      = "live",      "En cours"
-    CLOSED    = "closed",    "Fermee"
+    LIVE = "live", "En cours"
+    CLOSED = "closed", "Fermee"
     EXECUTING = "executing", "En execution"
     COMPLETED = "completed", "Terminee"
     CANCELLED = "cancelled", "Annulee"
@@ -89,7 +89,10 @@ class FlashSale(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.public_slug:
-            from flash_sales.services.slugs import generate_unique_flash_sale_public_slug
+            from flash_sales.services.slugs import (
+                generate_unique_flash_sale_public_slug,
+            )
+
             self.public_slug = generate_unique_flash_sale_public_slug(self)
         super().save(*args, **kwargs)
 
@@ -134,7 +137,9 @@ class FlashSale(models.Model):
 
     def cancel_sale(self):
         if self.status == FlashSaleStatus.LIVE:
-            raise ValueError("Impossible d'annuler une vente en cours. Fermez-la d'abord.")
+            raise ValueError(
+                "Impossible d'annuler une vente en cours. Fermez-la d'abord."
+            )
         self.status = FlashSaleStatus.CANCELLED
         self.save(update_fields=["status", "updated_at"])
 
@@ -144,6 +149,7 @@ class SaleInterest(models.Model):
     Réservation d'intérêt d'un client pour la prochaine vente flash d'un vendeur.
     Créée depuis la page publique /f/<slug>/ quand la vente est terminée.
     """
+
     flash_sale = models.ForeignKey(
         FlashSale,
         on_delete=models.CASCADE,

@@ -12,7 +12,9 @@ def _stats_ttl() -> int:
 
 
 def _version_ttl() -> int:
-    val = int(getattr(settings, "VIRAL_PAGE_VERSION_TTL_SECONDS", DEFAULT_PAGE_VERSION_TTL))
+    val = int(
+        getattr(settings, "VIRAL_PAGE_VERSION_TTL_SECONDS", DEFAULT_PAGE_VERSION_TTL)
+    )
     return max(val, 1)  # TTL=0 means "don't cache" in Django — always store at least 1s
 
 
@@ -45,12 +47,16 @@ def invalidate_seller_public_cache(*, seller_id: int, seller_slug: str) -> None:
     bump_page_version(seller_page_version_key(seller_slug))
 
 
-def invalidate_flash_sale_public_cache(*, flash_slug: str, seller_id: int, seller_slug: str) -> None:
+def invalidate_flash_sale_public_cache(
+    *, flash_slug: str, seller_id: int, seller_slug: str
+) -> None:
     bump_page_version(flash_page_version_key(flash_slug))
     invalidate_seller_public_cache(seller_id=seller_id, seller_slug=seller_slug)
 
 
-def invalidate_for_order(*, flash_sale_id: int, seller_id: int, seller_slug: str, flash_slug: str) -> None:
+def invalidate_for_order(
+    *, flash_sale_id: int, seller_id: int, seller_slug: str, flash_slug: str
+) -> None:
     invalidate_flash_sale_public_cache(
         flash_slug=flash_slug,
         seller_id=seller_id,

@@ -47,7 +47,16 @@ def create_product(
 
 
 def update_product(*, product: Product, **kwargs) -> Product:
-    allowed = {"name", "description", "price", "unit", "characteristics", "display_order", "is_active", "description_audio"}
+    allowed = {
+        "name",
+        "description",
+        "price",
+        "unit",
+        "characteristics",
+        "display_order",
+        "is_active",
+        "description_audio",
+    }
     for key, value in kwargs.items():
         if key in allowed:
             setattr(product, key, value)

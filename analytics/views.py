@@ -14,10 +14,15 @@ from analytics.services.public_pages import (
 from analytics.services.seo import build_flash_sale_seo, build_seller_seo
 from analytics.services.share_links import validate_whatsapp_redirect_target
 from analytics.services.share_tracking import record_whatsapp_share
-from analytics.services.view_tracking import record_page_view, resolve_share_link_by_token
+from analytics.services.view_tracking import (
+    record_page_view,
+    resolve_share_link_by_token,
+)
 
 
-def _apply_public_cache_headers(response: HttpResponse, *, etag: str | None) -> HttpResponse:
+def _apply_public_cache_headers(
+    response: HttpResponse, *, etag: str | None
+) -> HttpResponse:
     response["Cache-Control"] = "public, max-age=60, stale-while-revalidate=120"
     if etag:
         response["ETag"] = f'"{etag}"'

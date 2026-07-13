@@ -7,7 +7,11 @@ from django.utils import timezone
 
 from accounts.models import SellerProfile
 from analytics.aggregators.seller_stats import get_seller_public_stats
-from analytics.services.cache import flash_page_version_key, get_page_version, seller_page_version_key
+from analytics.services.cache import (
+    flash_page_version_key,
+    get_page_version,
+    seller_page_version_key,
+)
 from analytics.services.seo import compute_page_etag
 from analytics.services.share_links import (
     absolute_url,
@@ -151,7 +155,9 @@ def resolve_flash_sale_public_page(request: HttpRequest, slug: str) -> dict[str,
         )
 
     is_live = flash_sale.is_live()
-    teasers_list = [t.strip() for t in (flash_sale.teasers or "").splitlines() if t.strip()]
+    teasers_list = [
+        t.strip() for t in (flash_sale.teasers or "").splitlines() if t.strip()
+    ]
     open_ts_ms = int(flash_sale.start_time.timestamp() * 1000)
     etag = compute_page_etag(
         slug=cleaned,
@@ -172,7 +178,9 @@ def resolve_flash_sale_public_page(request: HttpRequest, slug: str) -> dict[str,
         "products": products,
         "product_links": product_links,
         "flash_sale_url": flash_url,
-        "seller_url": absolute_url(request, seller_public_path(flash_sale.owner.public_slug)),
+        "seller_url": absolute_url(
+            request, seller_public_path(flash_sale.owner.public_slug)
+        ),
         "whatsapp_url": whatsapp_tracked,
         "whatsapp_mobile_url": wa["mobile"],
         "whatsapp_desktop_url": wa["desktop"],

@@ -13,7 +13,6 @@ def populate_seller_slugs(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("accounts", "0002_sellerprofile_public_slug"),
     ]

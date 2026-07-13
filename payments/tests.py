@@ -156,7 +156,9 @@ class PaymentFlowTests(LiveFlashSaleProductFixture):
         self.assertEqual(a.status_code, 201)
         self.assertEqual(b.status_code, 200)
         self.assertEqual(a.data["id"], b.data["id"])
-        self.assertEqual(PaymentTransaction.objects.filter(client_reference=cref).count(), 1)
+        self.assertEqual(
+            PaymentTransaction.objects.filter(client_reference=cref).count(), 1
+        )
 
     def test_invalid_signature_rejected(self) -> None:
         order = self._make_order()
@@ -216,7 +218,9 @@ class MockImmediateFailureTests(LiveFlashSaleProductFixture):
         self.assertEqual(LedgerEntry.objects.filter(transaction=pt).count(), 0)
 
 
-@skipIf(connection.vendor == "sqlite", "SQLite does not support concurrency tests reliably")
+@skipIf(
+    connection.vendor == "sqlite", "SQLite does not support concurrency tests reliably"
+)
 @override_settings(PAYMENTS_WEBHOOK_SECRET="concurrent-webhook-secret")
 class WebhookConcurrencyTests(TransactionTestCase):
     reset_sequences = True
@@ -248,7 +252,8 @@ class WebhookConcurrencyTests(TransactionTestCase):
         product = Product.objects.create(
             flash_sale=sale,
             name="Item",
-            stock_available=10, stock_initial=10,
+            stock_available=10,
+            stock_initial=10,
             price=Decimal("3.00"),
         )
         self.order = create_order(

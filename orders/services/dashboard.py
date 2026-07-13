@@ -59,42 +59,38 @@ def get_dashboard_kpis(user) -> dict[str, Any]:
     )
 
     # CA réel : seulement "Livré et payé"
-    delivered_agg = (
-        OrderItem.objects.filter(
-            order__flash_sale__owner__user=user,
-            order__status=OrderStatus.DELIVERED,
-        )
-        .aggregate(
-            total_quantity=Coalesce(
-                Sum("quantity"), Value(0, output_field=IntegerField())
+    delivered_agg = OrderItem.objects.filter(
+        order__flash_sale__owner__user=user,
+        order__status=OrderStatus.DELIVERED,
+    ).aggregate(
+        total_quantity=Coalesce(Sum("quantity"), Value(0, output_field=IntegerField())),
+        total_revenue=Coalesce(
+            Sum(revenue_expr),
+            Value(
+                Decimal("0.00"),
+                output_field=DecimalField(max_digits=14, decimal_places=2),
             ),
-            total_revenue=Coalesce(
-                Sum(revenue_expr),
-                Value(Decimal("0.00"),
-                      output_field=DecimalField(max_digits=14, decimal_places=2)),
-            ),
-        )
+        ),
     )
 
     # CA potentiel : commandes confirmées ou en livraison (pas encore encaissées)
-    pending_revenue_agg = (
-        OrderItem.objects.filter(
-            order__flash_sale__owner__user=user,
-            order__status__in=[OrderStatus.CONFIRMED, OrderStatus.OUT_FOR_DELIVERY],
-        )
-        .aggregate(
-            pending_revenue=Coalesce(
-                Sum(revenue_expr),
-                Value(Decimal("0.00"),
-                      output_field=DecimalField(max_digits=14, decimal_places=2)),
-            )
+    pending_revenue_agg = OrderItem.objects.filter(
+        order__flash_sale__owner__user=user,
+        order__status__in=[OrderStatus.CONFIRMED, OrderStatus.OUT_FOR_DELIVERY],
+    ).aggregate(
+        pending_revenue=Coalesce(
+            Sum(revenue_expr),
+            Value(
+                Decimal("0.00"),
+                output_field=DecimalField(max_digits=14, decimal_places=2),
+            ),
         )
     )
 
     return {
-        "total_orders":    total_orders,
-        "total_quantity":  int(delivered_agg["total_quantity"] or 0),
-        "total_revenue":   delivered_agg["total_revenue"] or Decimal("0.00"),
+        "total_orders": total_orders,
+        "total_quantity": int(delivered_agg["total_quantity"] or 0),
+        "total_revenue": delivered_agg["total_revenue"] or Decimal("0.00"),
         "pending_revenue": pending_revenue_agg["pending_revenue"] or Decimal("0.00"),
     }
 
@@ -131,9 +127,7 @@ def _row_dict_for_order(order: Order) -> dict[str, Any]:
         "order": order,
         "can_advance": nxt is not None,
         "next_status": nxt or "",
-        "next_status_label": (
-            dict(OrderStatus.choices).get(nxt, nxt) if nxt else ""
-        ),
+        "next_status_label": (dict(OrderStatus.choices).get(nxt, nxt) if nxt else ""),
     }
 
 
@@ -158,6 +152,7 @@ def _sync_delivery_for_order(*, order: Order, new_status: str, user) -> None:
     try:
         from delivery.models import Delivery
         from django.utils import timezone
+
         now = timezone.now()
 
         delivery = Delivery.objects.filter(order_id=order.pk).first()
@@ -165,22 +160,32 @@ def _sync_delivery_for_order(*, order: Order, new_status: str, user) -> None:
             return
 
         if new_status == OrderStatus.OUT_FOR_DELIVERY and delivery.status in (
-            Delivery.Status.PENDING, Delivery.Status.ASSIGNED
+            Delivery.Status.PENDING,
+            Delivery.Status.ASSIGNED,
         ):
             delivery.status = Delivery.Status.IN_TRANSIT
             delivery.scheduled_at = now
             delivery.save(update_fields=["status", "scheduled_at", "updated_at"])
 
-        elif new_status == OrderStatus.DELIVERED and delivery.status != Delivery.Status.DELIVERED:
+        elif (
+            new_status == OrderStatus.DELIVERED
+            and delivery.status != Delivery.Status.DELIVERED
+        ):
             delivery.status = Delivery.Status.DELIVERED
             delivery.delivered_at = now
             delivery.cod_collected = True
             delivery.cod_collected_at = now
             delivery.cod_confirmed_by = user
-            delivery.save(update_fields=[
-                "status", "delivered_at", "cod_collected",
-                "cod_collected_at", "cod_confirmed_by", "updated_at",
-            ])
+            delivery.save(
+                update_fields=[
+                    "status",
+                    "delivered_at",
+                    "cod_collected",
+                    "cod_collected_at",
+                    "cod_confirmed_by",
+                    "updated_at",
+                ]
+            )
     except Exception:
         pass  # Ne jamais bloquer l'avancement d'une commande pour une sync delivery
 
@@ -203,9 +208,7 @@ def advance_order_status(*, user, order_id: int) -> Order:
 
     nxt = _next_status(order.status)
     if nxt is None:
-        raise ValidationError(
-            "This order cannot be advanced from its current status."
-        )
+        raise ValidationError("This order cannot be advanced from its current status.")
 
     order.status = nxt
     order.save(update_fields=["status", "updated_at"])

@@ -13,7 +13,6 @@ def populate_flash_sale_slugs(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("flash_sales", "0002_flashsale_public_slug"),
     ]

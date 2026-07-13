@@ -1,4 +1,5 @@
 """Verification des limites par plan."""
+
 from __future__ import annotations
 
 from django.utils import timezone
@@ -11,6 +12,7 @@ FREE_MONTHLY_SALES_LIMIT = PLAN_MONTHLY_SALES_LIMIT[Plan.FREE]
 def get_or_create_subscription(seller):
     """Retourne (ou cree) l'abonnement du vendeur."""
     from subscriptions.models import Subscription
+
     sub, _ = Subscription.objects.get_or_create(
         seller=seller,
         defaults={"plan": Plan.FREE},
@@ -28,10 +30,10 @@ def get_sale_quota(seller) -> dict:
     if sub.is_pro:
         return {
             "can_create": True,
-            "is_pro":     True,
-            "is_medium":  False,
-            "is_paid":    True,
-            "plan":       Plan.PRO,
+            "is_pro": True,
+            "is_medium": False,
+            "is_paid": True,
+            "plan": Plan.PRO,
             "monthly_count": 0,
             "monthly_limit": None,
             "reason": "",
@@ -39,7 +41,8 @@ def get_sale_quota(seller) -> dict:
 
     # Compter les ventes du mois
     from flash_sales.models import FlashSale
-    now         = timezone.now()
+
+    now = timezone.now()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     count = FlashSale.objects.filter(
         owner=seller,
@@ -51,10 +54,10 @@ def get_sale_quota(seller) -> dict:
     if limit is not None and count >= limit:
         return {
             "can_create": False,
-            "is_pro":     False,
-            "is_medium":  sub.is_medium,
-            "is_paid":    sub.is_paid,
-            "plan":       sub.plan,
+            "is_pro": False,
+            "is_medium": sub.is_medium,
+            "is_paid": sub.is_paid,
+            "plan": sub.plan,
             "monthly_count": count,
             "monthly_limit": limit,
             "reason": (
@@ -65,10 +68,10 @@ def get_sale_quota(seller) -> dict:
 
     return {
         "can_create": True,
-        "is_pro":     False,
-        "is_medium":  sub.is_medium,
-        "is_paid":    sub.is_paid,
-        "plan":       sub.plan,
+        "is_pro": False,
+        "is_medium": sub.is_medium,
+        "is_paid": sub.is_paid,
+        "plan": sub.plan,
         "monthly_count": count,
         "monthly_limit": limit,
         "reason": "",

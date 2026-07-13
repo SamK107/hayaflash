@@ -20,17 +20,29 @@ def public_flash_sale_calendar(request):
         .select_related("owner")
         .order_by("start_time")[:20]
     )
-    return render(request, "flash_sales/public_calendar.html", {
-        "live_sales": live_sales,
-        "scheduled_sales": scheduled_sales,
-    })
+    return render(
+        request,
+        "flash_sales/public_calendar.html",
+        {
+            "live_sales": live_sales,
+            "scheduled_sales": scheduled_sales,
+        },
+    )
 
 
 def public_flash_sale_detail(request, slug):
     """Page publique d'une vente flash (SEO + partage)."""
     sale = get_object_or_404(FlashSale, public_slug=slug)
-    products = sale.products.filter(is_active=True).prefetch_related("media").order_by("display_order")
-    return render(request, "flash_sales/public_detail.html", {
-        "sale": sale,
-        "products": products,
-    })
+    products = (
+        sale.products.filter(is_active=True)
+        .prefetch_related("media")
+        .order_by("display_order")
+    )
+    return render(
+        request,
+        "flash_sales/public_detail.html",
+        {
+            "sale": sale,
+            "products": products,
+        },
+    )

@@ -1,4 +1,5 @@
 """Service WhatsApp — lien wa.me en V1, WhatsApp Business API en V1.1."""
+
 import logging
 import urllib.parse
 

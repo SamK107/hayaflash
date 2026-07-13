@@ -1,4 +1,5 @@
 """Staging: PostgreSQL, no DEBUG, strict configuration from environment."""
+
 from __future__ import annotations
 
 
@@ -16,9 +17,7 @@ if ENVIRONMENT == "prod":
     )
 
 if not SECRET_KEY:
-    raise ImproperlyConfigured(
-        "SECRET_KEY must be set in the environment for staging."
-    )
+    raise ImproperlyConfigured("SECRET_KEY must be set in the environment for staging.")
 
 ALLOWED_HOSTS = _csv("ALLOWED_HOSTS")
 if not ALLOWED_HOSTS:

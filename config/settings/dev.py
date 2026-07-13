@@ -1,4 +1,5 @@
 """Local development: SQLite (or DATABASE_URL), DEBUG enabled."""
+
 from __future__ import annotations
 
 import os
@@ -52,4 +53,3 @@ STORAGES = {
 # INTERNAL_IPS = ["127.0.0.1", "::1"]
 
 # Celery synchrone en dev si pas de Redis
-CELERY_TASK_ALWAYS_EAGER = False  # Mettre True pour débugger sans worker

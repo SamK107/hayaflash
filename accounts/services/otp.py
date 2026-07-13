@@ -123,11 +123,7 @@ def verify_phone_otp(phone: str, code: str) -> bool:
             logger.warning("OTP verify rejected: locked.")
         return False
 
-    if (
-        not isinstance(code, str)
-        or len(code) != OTP_LENGTH
-        or not code.isdigit()
-    ):
+    if not isinstance(code, str) or len(code) != OTP_LENGTH or not code.isdigit():
         return False
 
     key = _cache_key(normalized_phone)

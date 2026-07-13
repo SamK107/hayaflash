@@ -63,6 +63,7 @@ def seller_dashboard(request):
     if not _require_seller(request.user):
         return HttpResponseForbidden("Seller profile required.")
     from flash_sales.models import FlashSale, FlashSaleStatus
+
     seller = request.user.seller_profile
     live_sale = (
         FlashSale.objects.filter(owner=seller, status=FlashSaleStatus.LIVE)
@@ -76,10 +77,14 @@ def seller_dashboard(request):
             .order_by("start_time")
             .first()
         )
-    return render(request, "orders/dashboard.html", {
-        "live_sale": live_sale,
-        "next_sale": next_sale,
-    })
+    return render(
+        request,
+        "orders/dashboard.html",
+        {
+            "live_sale": live_sale,
+            "next_sale": next_sale,
+        },
+    )
 
 
 @login_required
@@ -125,8 +130,7 @@ def export_orders_csv(request, pk: int):
     seller = request.user.seller_profile
     flash_sale = get_object_or_404(FlashSale, pk=pk, owner=seller)
     orders = (
-        Order.service_objects
-        .filter(flash_sale=flash_sale)
+        Order.service_objects.filter(flash_sale=flash_sale)
         .prefetch_related("items")
         .order_by("created_at")
     )
@@ -137,23 +141,25 @@ def export_orders_csv(request, pk: int):
     )
 
     writer = csv.writer(response)
-    writer.writerow([
-        "#", "Client", "Téléphone", "Produits", "Total FCFA", "Statut", "Heure"
-    ])
+    writer.writerow(
+        ["#", "Client", "Téléphone", "Produits", "Total FCFA", "Statut", "Heure"]
+    )
     for order in orders:
         produits = " | ".join(
             f"{item.product_name_snapshot} x{item.quantity}"
             for item in order.items.all()
         )
-        writer.writerow([
-            order.pk,
-            order.customer_name or "",
-            order.customer_phone or "",
-            produits,
-            int(order.total_amount),
-            order.get_status_display(),
-            order.created_at.strftime("%H:%M"),
-        ])
+        writer.writerow(
+            [
+                order.pk,
+                order.customer_name or "",
+                order.customer_phone or "",
+                produits,
+                int(order.total_amount),
+                order.get_status_display(),
+                order.created_at.strftime("%H:%M"),
+            ]
+        )
 
     return response
 
@@ -194,19 +200,17 @@ def bulk_confirm_orders(request):
         return HttpResponse("Aucune commande sélectionnée.", status=400)
 
     from orders.models import Order, OrderStatus
+
     seller = request.user.seller_profile
-    updated = (
-        Order.service_objects
-        .filter(
-            pk__in=order_ids,
-            flash_sale__owner=seller,
-            status=OrderStatus.PENDING,
-        )
-        .update(status=OrderStatus.CONFIRMED)
-    )
+    updated = Order.service_objects.filter(
+        pk__in=order_ids,
+        flash_sale__owner=seller,
+        status=OrderStatus.PENDING,
+    ).update(status=OrderStatus.CONFIRMED)
 
     try:
         from core.models import audit
+
         audit(
             "orders.bulk_confirmed",
             entity_type="Order",
@@ -236,19 +240,17 @@ def bulk_mark_delivered(request):
         return HttpResponse("Aucune commande sélectionnée.", status=400)
 
     from orders.models import Order, OrderStatus
+
     seller = request.user.seller_profile
-    updated = (
-        Order.service_objects
-        .filter(
-            pk__in=order_ids,
-            flash_sale__owner=seller,
-            status=OrderStatus.CONFIRMED,
-        )
-        .update(status=OrderStatus.DELIVERED)
-    )
+    updated = Order.service_objects.filter(
+        pk__in=order_ids,
+        flash_sale__owner=seller,
+        status=OrderStatus.CONFIRMED,
+    ).update(status=OrderStatus.DELIVERED)
 
     try:
         from core.models import audit
+
         audit(
             "orders.bulk_delivered",
             entity_type="Order",

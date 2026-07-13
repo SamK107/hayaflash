@@ -3,11 +3,18 @@ from __future__ import annotations
 from django.core.exceptions import ValidationError
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
-from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.decorators import (
+    api_view,
+    authentication_classes,
+    permission_classes,
+)
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from payments.services.payments import initiate_payment_for_order, payment_public_snapshot
+from payments.services.payments import (
+    initiate_payment_for_order,
+    payment_public_snapshot,
+)
 from payments.services.webhooks import WebhookProcessingError, apply_provider_webhook
 
 

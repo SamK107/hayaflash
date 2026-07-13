@@ -7,7 +7,12 @@ from uuid import UUID
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponseRedirect
+from django.http import (
+    HttpResponse,
+    HttpResponseBadRequest,
+    HttpResponseForbidden,
+    HttpResponseRedirect,
+)
 from django.shortcuts import render
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_GET, require_POST
@@ -80,9 +85,16 @@ def seller_deliveries_dashboard(request):
     # Auto-redirect: if no sale selected, pick the seller's most recent one
     if flash_sale_id is None:
         from flash_sales.models import FlashSale
-        first = FlashSale.objects.filter(owner__user=request.user).order_by("-created_at").first()
+
+        first = (
+            FlashSale.objects.filter(owner__user=request.user)
+            .order_by("-created_at")
+            .first()
+        )
         if first is not None:
-            return HttpResponseRedirect(f"{request.path}?flash_sale_id={first.pk}&status={status_filter}")
+            return HttpResponseRedirect(
+                f"{request.path}?flash_sale_id={first.pk}&status={status_filter}"
+            )
 
     context = resolve_delivery_dashboard_page(
         user=request.user,

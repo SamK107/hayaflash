@@ -24,9 +24,15 @@ class ProductPublicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            "id", "name", "description", "price",
-            "stock_available", "unit", "is_available",
-            "display_order", "media",
+            "id",
+            "name",
+            "description",
+            "price",
+            "stock_available",
+            "unit",
+            "is_available",
+            "display_order",
+            "media",
         ]
 
 
@@ -38,9 +44,17 @@ class FlashSalePublicSerializer(serializers.ModelSerializer):
     class Meta:
         model = FlashSale
         fields = [
-            "id", "title", "description", "public_slug", "status",
-            "start_time", "end_time", "cover_image_url",
-            "delivery_zone", "seller_name", "seller_slug",
+            "id",
+            "title",
+            "description",
+            "public_slug",
+            "status",
+            "start_time",
+            "end_time",
+            "cover_image_url",
+            "delivery_zone",
+            "seller_name",
+            "seller_slug",
         ]
 
     def get_cover_image_url(self, obj):

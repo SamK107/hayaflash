@@ -3,7 +3,6 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("flash_sales", "0004_extend_statuts_and_fields"),
     ]
@@ -12,9 +11,20 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="SaleInterest",
             fields=[
-                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
                 ("phone", models.CharField(max_length=32, verbose_name="Téléphone")),
-                ("name", models.CharField(blank=True, max_length=150, verbose_name="Nom")),
+                (
+                    "name",
+                    models.CharField(blank=True, max_length=150, verbose_name="Nom"),
+                ),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
                 (
                     "flash_sale",
@@ -34,6 +44,9 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="saleinterest",
-            index=models.Index(fields=["flash_sale", "created_at"], name="flash_sales_flash_s_created_idx"),
+            index=models.Index(
+                fields=["flash_sale", "created_at"],
+                name="flash_sales_flash_s_created_idx",
+            ),
         ),
     ]

@@ -1,4 +1,5 @@
 """Views pour la gestion des ventes flash (vendeur authentifie)."""
+
 from __future__ import annotations
 
 from django.contrib import messages
@@ -7,7 +8,13 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import FlashSaleForm
 from .models import FlashSale, FlashSaleStatus, SaleInterest
-from .services.crud import can_seller_create_sale, clone_flash_sale, create_flash_sale, save_sale_audio, update_flash_sale
+from .services.crud import (
+    can_seller_create_sale,
+    clone_flash_sale,
+    create_flash_sale,
+    save_sale_audio,
+    update_flash_sale,
+)
 from subscriptions.services.limits import get_sale_quota
 
 
@@ -20,9 +27,13 @@ def flash_sale_list_view(request):
     seller = _get_seller(request)
     sales = FlashSale.objects.filter(owner=seller).select_related("owner")
     sales_scheduled = sales.filter(status=FlashSaleStatus.SCHEDULED)
-    sales_live      = sales.filter(status=FlashSaleStatus.LIVE)
-    sales_closed    = sales.filter(status__in=[FlashSaleStatus.CLOSED, FlashSaleStatus.EXECUTING])
-    sales_done      = sales.filter(status__in=[FlashSaleStatus.COMPLETED, FlashSaleStatus.CANCELLED])
+    sales_live = sales.filter(status=FlashSaleStatus.LIVE)
+    sales_closed = sales.filter(
+        status__in=[FlashSaleStatus.CLOSED, FlashSaleStatus.EXECUTING]
+    )
+    sales_done = sales.filter(
+        status__in=[FlashSaleStatus.COMPLETED, FlashSaleStatus.CANCELLED]
+    )
     quota = get_sale_quota(seller)
     ctx = {
         "sales_scheduled": sales_scheduled,
@@ -32,9 +43,9 @@ def flash_sale_list_view(request):
         "quota": quota,
         "tab_list": [
             ("scheduled", "Programmees", sales_scheduled.count()),
-            ("live",      "En cours",    sales_live.count()),
-            ("closed",    "Traitement",  sales_closed.count()),
-            ("done",      "Terminees",   sales_done.count()),
+            ("live", "En cours", sales_live.count()),
+            ("closed", "Traitement", sales_closed.count()),
+            ("done", "Terminees", sales_done.count()),
         ],
         "pro_features": [
             "Ventes flash illimitees chaque mois",
@@ -89,10 +100,14 @@ def flash_sale_detail_view(request, pk: int):
     seller = _get_seller(request)
     sale = get_object_or_404(FlashSale, pk=pk, owner=seller)
     products = sale.products.prefetch_related("media").order_by("display_order")
-    return render(request, "flash_sales/detail.html", {
-        "sale": sale,
-        "products": products,
-    })
+    return render(
+        request,
+        "flash_sales/detail.html",
+        {
+            "sale": sale,
+            "products": products,
+        },
+    )
 
 
 @login_required
@@ -140,8 +155,14 @@ def flash_sale_open_view(request, pk: int):
         messages.success(request, "Vente ouverte ! Les commandes sont acceptees.")
         try:
             from core.models import audit
-            audit("flashsale.opened", entity_type="FlashSale", entity_id=sale.pk,
-                  request=request, title=sale.title)
+
+            audit(
+                "flashsale.opened",
+                entity_type="FlashSale",
+                entity_id=sale.pk,
+                request=request,
+                title=sale.title,
+            )
         except Exception:
             pass
     except ValueError as e:
@@ -160,8 +181,14 @@ def flash_sale_close_view(request, pk: int):
         messages.success(request, "Vente fermee.")
         try:
             from core.models import audit
-            audit("flashsale.closed", entity_type="FlashSale", entity_id=sale.pk,
-                  request=request, title=sale.title)
+
+            audit(
+                "flashsale.closed",
+                entity_type="FlashSale",
+                entity_id=sale.pk,
+                request=request,
+                title=sale.title,
+            )
         except Exception:
             pass
     except ValueError as e:
@@ -180,8 +207,14 @@ def flash_sale_cancel_view(request, pk: int):
         messages.success(request, "Vente annulee.")
         try:
             from core.models import audit
-            audit("flashsale.cancelled", entity_type="FlashSale", entity_id=sale.pk,
-                  request=request, title=sale.title)
+
+            audit(
+                "flashsale.cancelled",
+                entity_type="FlashSale",
+                entity_id=sale.pk,
+                request=request,
+                title=sale.title,
+            )
         except Exception:
             pass
     except ValueError as e:
@@ -190,6 +223,7 @@ def flash_sale_cancel_view(request, pk: int):
 
 
 # Clone / Reprendre une vente
+
 
 @login_required
 def flash_sale_clone_view(request, pk: int):
@@ -209,13 +243,13 @@ def flash_sale_clone_view(request, pk: int):
 
 # Reservations d'interet
 
+
 @login_required
 def sale_interests_view(request):
     """Liste des reservations d'interet pour toutes les ventes du vendeur."""
     seller = _get_seller(request)
     sales_with_interests = (
-        FlashSale.objects
-        .filter(owner=seller, interests__isnull=False)
+        FlashSale.objects.filter(owner=seller, interests__isnull=False)
         .prefetch_related("interests")
         .distinct()
         .order_by("-start_time")

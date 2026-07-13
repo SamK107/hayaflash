@@ -15,7 +15,11 @@ from rest_framework.test import APIClient
 from accounts.models import SellerProfile
 from accounts.services.slugs import generate_unique_seller_public_slug
 from analytics.models import ShareEvent, ShareEventType, ShareLinkType
-from analytics.services.cache import flash_page_version_key, get_page_version, seller_stats_key
+from analytics.services.cache import (
+    flash_page_version_key,
+    get_page_version,
+    seller_stats_key,
+)
 from analytics.services.share_links import (
     build_order_share_urls,
     build_whatsapp_message,
@@ -58,7 +62,8 @@ class ViralGrowthFixture(TestCase):
         self.product = Product.objects.create(
             flash_sale=self.sale,
             name="Sac wax",
-            stock_available=5, stock_initial=5,
+            stock_available=5,
+            stock_initial=5,
             price=Decimal("15000.00"),
         )
         self.client = Client()
@@ -91,21 +96,31 @@ class SlugGenerationTests(ViralGrowthFixture):
             password="x",
             display_name="Awa Shop",
         )
-        other = SellerProfile.objects.create(user=other_user, business_name="Awa Boutique")
+        other = SellerProfile.objects.create(
+            user=other_user, business_name="Awa Boutique"
+        )
         self.assertNotEqual(self.seller.public_slug, other.public_slug)
 
     def test_flash_sale_slug_from_title(self) -> None:
         self.assertTrue(self.sale.public_slug.startswith("mega-drop"))
 
     def test_slugify_helpers_are_deterministic_for_base(self) -> None:
-        self.assertEqual(self.seller.public_slug, generate_unique_seller_public_slug(self.seller))
-        self.assertEqual(self.sale.public_slug, generate_unique_flash_sale_public_slug(self.sale))
+        self.assertEqual(
+            self.seller.public_slug, generate_unique_seller_public_slug(self.seller)
+        )
+        self.assertEqual(
+            self.sale.public_slug, generate_unique_flash_sale_public_slug(self.sale)
+        )
 
 
 class ShareLinkTests(ViralGrowthFixture):
     def test_product_share_link_stable_token(self) -> None:
-        link1 = get_or_create_product_share_link(flash_sale=self.sale, product=self.product)
-        link2 = get_or_create_product_share_link(flash_sale=self.sale, product=self.product)
+        link1 = get_or_create_product_share_link(
+            flash_sale=self.sale, product=self.product
+        )
+        link2 = get_or_create_product_share_link(
+            flash_sale=self.sale, product=self.product
+        )
         self.assertEqual(link1.pk, link2.pk)
         self.assertEqual(link1.link_type, ShareLinkType.PRODUCT)
 
@@ -117,12 +132,16 @@ class ShareLinkTests(ViralGrowthFixture):
         self.assertIn("HayaFlash", decoded)
         self.assertIn("Sac wax", decoded)
         mobile_desktop = build_whatsapp_urls(message=decoded)
-        self.assertTrue(mobile_desktop["desktop"].startswith("https://api.whatsapp.com/send"))
+        self.assertTrue(
+            mobile_desktop["desktop"].startswith("https://api.whatsapp.com/send")
+        )
 
     def test_whatsapp_redirect_validation(self) -> None:
         good = build_whatsapp_share_url(message="Hi")
         self.assertTrue(validate_whatsapp_redirect_target(good))
-        self.assertFalse(validate_whatsapp_redirect_target("https://evil.example/phish"))
+        self.assertFalse(
+            validate_whatsapp_redirect_target("https://evil.example/phish")
+        )
 
 
 class PublicPageTests(ViralGrowthFixture):
@@ -146,14 +165,22 @@ class PublicPageTests(ViralGrowthFixture):
         self.assertContains(resp, "Mega Drop")
 
     def test_unknown_slug_returns_404(self) -> None:
-        resp = self.client.get(reverse("public_seller", kwargs={"slug": "does-not-exist"}))
+        resp = self.client.get(
+            reverse("public_seller", kwargs={"slug": "does-not-exist"})
+        )
         self.assertEqual(resp.status_code, 404)
 
     def test_page_view_increments_click_count(self) -> None:
-        link = get_or_create_product_share_link(flash_sale=self.sale, product=self.product)
+        link = get_or_create_product_share_link(
+            flash_sale=self.sale, product=self.product
+        )
         self.client.get(
             reverse("client_order"),
-            {"flash_sale_id": self.sale.pk, "product_id": self.product.pk, "ref": link.token},
+            {
+                "flash_sale_id": self.sale.pk,
+                "product_id": self.product.pk,
+                "ref": link.token,
+            },
         )
         link.refresh_from_db()
         self.assertGreaterEqual(link.click_count, 1)
@@ -161,7 +188,9 @@ class PublicPageTests(ViralGrowthFixture):
 
 class TrackingConversionTests(ViralGrowthFixture):
     def test_order_with_ref_records_conversion(self) -> None:
-        link = get_or_create_product_share_link(flash_sale=self.sale, product=self.product)
+        link = get_or_create_product_share_link(
+            flash_sale=self.sale, product=self.product
+        )
         rid = str(uuid4())
         resp = self.api.post(
             "/api/v1/orders/",
@@ -195,7 +224,9 @@ class TrackingConversionTests(ViralGrowthFixture):
         self.assertEqual(link.conversion_count, 1)
 
     def test_idempotent_order_does_not_double_count_conversion(self) -> None:
-        link = get_or_create_product_share_link(flash_sale=self.sale, product=self.product)
+        link = get_or_create_product_share_link(
+            flash_sale=self.sale, product=self.product
+        )
         body = {
             "flash_sale_id": self.sale.pk,
             "product_id": self.product.pk,
@@ -220,7 +251,9 @@ class TrackingConversionTests(ViralGrowthFixture):
 
 class WhatsAppTrackingRedirectTests(ViralGrowthFixture):
     def test_track_whatsapp_share_redirect_and_event(self) -> None:
-        link = get_or_create_product_share_link(flash_sale=self.sale, product=self.product)
+        link = get_or_create_product_share_link(
+            flash_sale=self.sale, product=self.product
+        )
         msg = build_whatsapp_message(headline="X", url="https://example.com")
         wa_target = build_whatsapp_share_url(message=msg)
         track_url = reverse("track_whatsapp_share")
@@ -234,7 +267,9 @@ class WhatsAppTrackingRedirectTests(ViralGrowthFixture):
         self.assertEqual(link.share_count, 1)
 
     def test_spam_whatsapp_clicks_deduped(self) -> None:
-        link = get_or_create_product_share_link(flash_sale=self.sale, product=self.product)
+        link = get_or_create_product_share_link(
+            flash_sale=self.sale, product=self.product
+        )
         wa_target = build_whatsapp_share_url(message="x")
         track_url = reverse("track_whatsapp_share")
         for _ in range(5):
@@ -243,7 +278,9 @@ class WhatsAppTrackingRedirectTests(ViralGrowthFixture):
         self.assertEqual(link.share_count, 1)
 
     def test_track_rejects_non_whatsapp_target(self) -> None:
-        link = get_or_create_product_share_link(flash_sale=self.sale, product=self.product)
+        link = get_or_create_product_share_link(
+            flash_sale=self.sale, product=self.product
+        )
         resp = self.client.get(
             reverse("track_whatsapp_share"),
             {"ref": link.token, "to": "https://evil.example/phish"},
@@ -253,7 +290,11 @@ class WhatsAppTrackingRedirectTests(ViralGrowthFixture):
 
 class CacheInvalidationTests(ViralGrowthFixture):
     def test_order_invalidates_seller_stats_cache(self) -> None:
-        cache.set(seller_stats_key(self.seller.pk), {"total_orders": 0, "products_sold": 0}, 300)
+        cache.set(
+            seller_stats_key(self.seller.pk),
+            {"total_orders": 0, "products_sold": 0},
+            300,
+        )
         create_order(self._payload())
         self.assertIsNone(cache.get(seller_stats_key(self.seller.pk)))
 

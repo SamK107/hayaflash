@@ -53,7 +53,8 @@ class DeliveryTestFixture(TestCase):
         self.product = Product.objects.create(
             flash_sale=self.sale,
             name="Widget",
-            stock_available=10, stock_initial=10,
+            stock_available=10,
+            stock_initial=10,
             price=Decimal("19.99"),
         )
         self.api = APIClient()

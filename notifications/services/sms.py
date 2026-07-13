@@ -1,4 +1,5 @@
 """Service SMS — Orange SMS Gateway Mali."""
+
 import logging
 
 import requests
@@ -9,13 +10,14 @@ logger = logging.getLogger(__name__)
 
 def send_sms(phone: str, message: str) -> bool:
     """Envoie un SMS via la gateway Orange Mali."""
-    api_key  = getattr(settings, "ORANGE_SMS_API_KEY", "").strip()
+    api_key = getattr(settings, "ORANGE_SMS_API_KEY", "").strip()
     base_url = getattr(settings, "ORANGE_SMS_BASE_URL", "").strip()
 
     if not api_key or not base_url:
         logger.warning(
             "SMS non configure (ORANGE_SMS_API_KEY ou ORANGE_SMS_BASE_URL manquant) "
-            "— SMS non envoye a %s", phone
+            "— SMS non envoye a %s",
+            phone,
         )
         return False
 

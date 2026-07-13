@@ -2,9 +2,11 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ("flash_sales", "0006_rename_flash_sales_flash_s_created_idx_flash_sales_flash_s_4bd4c8_idx"),
+        (
+            "flash_sales",
+            "0006_rename_flash_sales_flash_s_created_idx_flash_sales_flash_s_4bd4c8_idx",
+        ),
     ]
 
     operations = [

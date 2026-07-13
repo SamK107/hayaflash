@@ -143,9 +143,9 @@ class ProductVariant(models.Model):
 class StockMovement(models.Model):
     class MovementType(models.TextChoices):
         RESERVATION = "reservation", "Reservation (commande)"
-        RELEASE     = "release",     "Liberation (annulation)"
-        CORRECTION  = "correction",  "Correction manuelle"
-        INITIAL     = "initial",     "Stock initial"
+        RELEASE = "release", "Liberation (annulation)"
+        CORRECTION = "correction", "Correction manuelle"
+        INITIAL = "initial", "Stock initial"
 
     product = models.ForeignKey(
         Product,
@@ -183,4 +183,6 @@ class StockMovement(models.Model):
 
     def __str__(self):
         sign = "+" if self.quantity_change > 0 else ""
-        return f"{self.product.name} {sign}{self.quantity_change} ({self.movement_type})"
+        return (
+            f"{self.product.name} {sign}{self.quantity_change} ({self.movement_type})"
+        )

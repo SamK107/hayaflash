@@ -15,116 +15,226 @@ def copy_stock_to_new_fields(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('flash_sales', '0004_extend_statuts_and_fields'),
-        ('orders', '0004_migrate_shipped_to_out_for_delivery'),
-        ('products', '0001_initial'),
+        ("flash_sales", "0004_extend_statuts_and_fields"),
+        ("orders", "0004_migrate_shipped_to_out_for_delivery"),
+        ("products", "0001_initial"),
     ]
 
     operations = [
         # 1. Creer les nouveaux modeles
         migrations.CreateModel(
-            name='ProductMedia',
+            name="ProductMedia",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('media_type', models.CharField(choices=[('image', 'Image'), ('video', 'Video')], default='image', max_length=10, verbose_name='Type')),
-                ('file', models.ImageField(blank=True, null=True, upload_to='products/images/', verbose_name='Fichier image')),
-                ('video_url', models.URLField(blank=True, help_text='Lien YouTube, TikTok ou autre', verbose_name='URL video')),
-                ('alt_text', models.CharField(blank=True, max_length=200, verbose_name='Texte alt')),
-                ('order', models.IntegerField(default=0, verbose_name='Ordre')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "media_type",
+                    models.CharField(
+                        choices=[("image", "Image"), ("video", "Video")],
+                        default="image",
+                        max_length=10,
+                        verbose_name="Type",
+                    ),
+                ),
+                (
+                    "file",
+                    models.ImageField(
+                        blank=True,
+                        null=True,
+                        upload_to="products/images/",
+                        verbose_name="Fichier image",
+                    ),
+                ),
+                (
+                    "video_url",
+                    models.URLField(
+                        blank=True,
+                        help_text="Lien YouTube, TikTok ou autre",
+                        verbose_name="URL video",
+                    ),
+                ),
+                (
+                    "alt_text",
+                    models.CharField(
+                        blank=True, max_length=200, verbose_name="Texte alt"
+                    ),
+                ),
+                ("order", models.IntegerField(default=0, verbose_name="Ordre")),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
             ],
             options={
-                'verbose_name': 'Media produit',
-                'verbose_name_plural': 'Medias produits',
-                'ordering': ['order'],
+                "verbose_name": "Media produit",
+                "verbose_name_plural": "Medias produits",
+                "ordering": ["order"],
             },
         ),
         migrations.CreateModel(
-            name='ProductVariant',
+            name="ProductVariant",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('type', models.CharField(help_text='couleur, taille, pointure...', max_length=50, verbose_name='Type')),
-                ('value', models.CharField(max_length=100, verbose_name='Valeur')),
-                ('stock', models.IntegerField(default=0, verbose_name='Stock variante')),
-                ('price_delta', models.DecimalField(decimal_places=2, default=0, max_digits=10, verbose_name='Difference de prix')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "type",
+                    models.CharField(
+                        help_text="couleur, taille, pointure...",
+                        max_length=50,
+                        verbose_name="Type",
+                    ),
+                ),
+                ("value", models.CharField(max_length=100, verbose_name="Valeur")),
+                (
+                    "stock",
+                    models.IntegerField(default=0, verbose_name="Stock variante"),
+                ),
+                (
+                    "price_delta",
+                    models.DecimalField(
+                        decimal_places=2,
+                        default=0,
+                        max_digits=10,
+                        verbose_name="Difference de prix",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Variante',
-                'verbose_name_plural': 'Variantes',
+                "verbose_name": "Variante",
+                "verbose_name_plural": "Variantes",
             },
         ),
         migrations.CreateModel(
-            name='StockMovement',
+            name="StockMovement",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('quantity_change', models.IntegerField(help_text='Negatif = sortie, positif = entree', verbose_name='Variation de stock')),
-                ('movement_type', models.CharField(choices=[('reservation', 'Reservation (commande)'), ('release', 'Liberation (annulation)'), ('correction', 'Correction manuelle'), ('initial', 'Stock initial')], max_length=20, verbose_name='Type de mouvement')),
-                ('notes', models.TextField(blank=True, verbose_name='Notes')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "quantity_change",
+                    models.IntegerField(
+                        help_text="Negatif = sortie, positif = entree",
+                        verbose_name="Variation de stock",
+                    ),
+                ),
+                (
+                    "movement_type",
+                    models.CharField(
+                        choices=[
+                            ("reservation", "Reservation (commande)"),
+                            ("release", "Liberation (annulation)"),
+                            ("correction", "Correction manuelle"),
+                            ("initial", "Stock initial"),
+                        ],
+                        max_length=20,
+                        verbose_name="Type de mouvement",
+                    ),
+                ),
+                ("notes", models.TextField(blank=True, verbose_name="Notes")),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
             ],
             options={
-                'verbose_name': 'Mouvement de stock',
-                'verbose_name_plural': 'Mouvements de stock',
-                'ordering': ['-created_at'],
+                "verbose_name": "Mouvement de stock",
+                "verbose_name_plural": "Mouvements de stock",
+                "ordering": ["-created_at"],
             },
         ),
         # 2. Modifier les meta + champs existants
         migrations.AlterModelOptions(
-            name='product',
-            options={'ordering': ['display_order', '-created_at'], 'verbose_name': 'Produit', 'verbose_name_plural': 'Produits'},
+            name="product",
+            options={
+                "ordering": ["display_order", "-created_at"],
+                "verbose_name": "Produit",
+                "verbose_name_plural": "Produits",
+            },
         ),
         migrations.AlterField(
-            model_name='product',
-            name='flash_sale',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='products', to='flash_sales.flashsale', verbose_name='Vente flash'),
+            model_name="product",
+            name="flash_sale",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="products",
+                to="flash_sales.flashsale",
+                verbose_name="Vente flash",
+            ),
         ),
         migrations.AlterField(
-            model_name='product',
-            name='name',
-            field=models.CharField(max_length=255, verbose_name='Nom du produit'),
+            model_name="product",
+            name="name",
+            field=models.CharField(max_length=255, verbose_name="Nom du produit"),
         ),
         migrations.AlterField(
-            model_name='product',
-            name='price',
-            field=models.DecimalField(decimal_places=2, default=Decimal('0.00'), max_digits=12, verbose_name='Prix (FCFA)'),
+            model_name="product",
+            name="price",
+            field=models.DecimalField(
+                decimal_places=2,
+                default=Decimal("0.00"),
+                max_digits=12,
+                verbose_name="Prix (FCFA)",
+            ),
         ),
         # 3. Ajouter les nouveaux champs Product (avec defaults)
         migrations.AddField(
-            model_name='product',
-            name='characteristics',
-            field=models.JSONField(blank=True, default=dict, verbose_name='Caracteristiques'),
+            model_name="product",
+            name="characteristics",
+            field=models.JSONField(
+                blank=True, default=dict, verbose_name="Caracteristiques"
+            ),
         ),
         migrations.AddField(
-            model_name='product',
-            name='description',
-            field=models.TextField(blank=True, verbose_name='Description'),
+            model_name="product",
+            name="description",
+            field=models.TextField(blank=True, verbose_name="Description"),
         ),
         migrations.AddField(
-            model_name='product',
-            name='display_order',
+            model_name="product",
+            name="display_order",
             field=models.IntegerField(default=0, verbose_name="Ordre d'affichage"),
         ),
         migrations.AddField(
-            model_name='product',
-            name='is_active',
-            field=models.BooleanField(default=True, verbose_name='Actif'),
+            model_name="product",
+            name="is_active",
+            field=models.BooleanField(default=True, verbose_name="Actif"),
         ),
         migrations.AddField(
-            model_name='product',
-            name='stock_available',
-            field=models.IntegerField(default=0, verbose_name='Stock disponible'),
+            model_name="product",
+            name="stock_available",
+            field=models.IntegerField(default=0, verbose_name="Stock disponible"),
         ),
         migrations.AddField(
-            model_name='product',
-            name='stock_initial',
-            field=models.IntegerField(default=0, verbose_name='Stock initial'),
+            model_name="product",
+            name="stock_initial",
+            field=models.IntegerField(default=0, verbose_name="Stock initial"),
         ),
         migrations.AddField(
-            model_name='product',
-            name='unit',
-            field=models.CharField(default='piece', help_text='piece, kg, lot, carton...', max_length=50, verbose_name='Unite'),
+            model_name="product",
+            name="unit",
+            field=models.CharField(
+                default="piece",
+                help_text="piece, kg, lot, carton...",
+                max_length=50,
+                verbose_name="Unite",
+            ),
         ),
         # 4. Copier stock -> stock_initial + stock_available AVANT suppression
         migrations.RunPython(
@@ -133,41 +243,68 @@ class Migration(migrations.Migration):
         ),
         # 5. Supprimer l'ancien champ stock
         migrations.RemoveField(
-            model_name='product',
-            name='stock',
+            model_name="product",
+            name="stock",
         ),
         # 6. Indexes
         migrations.AddIndex(
-            model_name='product',
-            index=models.Index(fields=['flash_sale', 'is_active'], name='products_pr_flash_s_3a2186_idx'),
+            model_name="product",
+            index=models.Index(
+                fields=["flash_sale", "is_active"],
+                name="products_pr_flash_s_3a2186_idx",
+            ),
         ),
         # 7. FK pour les nouveaux modeles
         migrations.AddField(
-            model_name='productmedia',
-            name='product',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='media', to='products.product', verbose_name='Produit'),
+            model_name="productmedia",
+            name="product",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="media",
+                to="products.product",
+                verbose_name="Produit",
+            ),
         ),
         migrations.AddField(
-            model_name='productvariant',
-            name='product',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='variants', to='products.product', verbose_name='Produit'),
+            model_name="productvariant",
+            name="product",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="variants",
+                to="products.product",
+                verbose_name="Produit",
+            ),
         ),
         migrations.AddField(
-            model_name='stockmovement',
-            name='order',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='stock_movements', to='orders.order', verbose_name='Commande'),
+            model_name="stockmovement",
+            name="order",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="stock_movements",
+                to="orders.order",
+                verbose_name="Commande",
+            ),
         ),
         migrations.AddField(
-            model_name='stockmovement',
-            name='product',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='stock_movements', to='products.product', verbose_name='Produit'),
+            model_name="stockmovement",
+            name="product",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="stock_movements",
+                to="products.product",
+                verbose_name="Produit",
+            ),
         ),
         migrations.AlterUniqueTogether(
-            name='productvariant',
-            unique_together={('product', 'type', 'value')},
+            name="productvariant",
+            unique_together={("product", "type", "value")},
         ),
         migrations.AddIndex(
-            model_name='stockmovement',
-            index=models.Index(fields=['product', 'created_at'], name='products_st_product_a806c1_idx'),
+            model_name="stockmovement",
+            index=models.Index(
+                fields=["product", "created_at"], name="products_st_product_a806c1_idx"
+            ),
         ),
     ]

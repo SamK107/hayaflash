@@ -2,6 +2,7 @@
 Client Orange Money Web Payment — Mali
 API Reference: https://developer.orange.com/apis/orange-money-webpay-ml
 """
+
 from __future__ import annotations
 
 import logging
@@ -13,10 +14,10 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 # URLs Orange Money Mali
-OM_TOKEN_URL   = "https://api.orange.com/oauth/v3/token"
+OM_TOKEN_URL = "https://api.orange.com/oauth/v3/token"
 OM_PAYMENT_URL = "https://api.orange.com/orange-money-webpay/ml/v1/webpayment"
-OM_CURRENCY    = "XOF"  # Devise Orange Money Mali (FCFA)
-OM_LANG        = "fr"
+OM_CURRENCY = "XOF"  # Devise Orange Money Mali (FCFA)
+OM_LANG = "fr"
 
 
 class OrangeMoneyError(Exception):
@@ -25,10 +26,12 @@ class OrangeMoneyError(Exception):
 
 def _get_access_token() -> str:
     """Obtient un Bearer token OAuth2 via client_credentials."""
-    client_id     = settings.ORANGE_MONEY_CLIENT_ID
+    client_id = settings.ORANGE_MONEY_CLIENT_ID
     client_secret = settings.ORANGE_MONEY_CLIENT_SECRET
     if not client_id or not client_secret:
-        raise OrangeMoneyError("ORANGE_MONEY_CLIENT_ID / ORANGE_MONEY_CLIENT_SECRET manquants.")
+        raise OrangeMoneyError(
+            "ORANGE_MONEY_CLIENT_ID / ORANGE_MONEY_CLIENT_SECRET manquants."
+        )
 
     resp = requests.post(
         OM_TOKEN_URL,
@@ -46,6 +49,7 @@ def _get_access_token() -> str:
 def _safe_reference(ref: str, max_len: int = 50) -> str:
     """Nettoie la reference : ASCII alphanumerique + espaces + tirets simples uniquement."""
     import unicodedata
+
     # Normaliser les accents
     nfkd = unicodedata.normalize("NFKD", ref)
     ascii_str = nfkd.encode("ascii", "ignore").decode("ascii")
@@ -79,14 +83,14 @@ def initiate_payment(
 
     payload = {
         "merchant_key": merchant_key,
-        "currency":     OM_CURRENCY,
-        "order_id":     order_id,
-        "amount":       amount,
-        "return_url":   return_url,
-        "cancel_url":   cancel_url,
-        "notif_url":    notif_url,
-        "lang":         OM_LANG,
-        "reference":    _safe_reference(reference),
+        "currency": OM_CURRENCY,
+        "order_id": order_id,
+        "amount": amount,
+        "return_url": return_url,
+        "cancel_url": cancel_url,
+        "notif_url": notif_url,
+        "lang": OM_LANG,
+        "reference": _safe_reference(reference),
     }
 
     resp = requests.post(
@@ -94,13 +98,15 @@ def initiate_payment(
         json=payload,
         headers={
             "Authorization": f"Bearer {token}",
-            "Content-Type":  "application/json",
-            "Accept":        "application/json",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
         },
         timeout=20,
     )
 
-    logger.info("Orange Money initiate — order_id=%s status=%s", order_id, resp.status_code)
+    logger.info(
+        "Orange Money initiate — order_id=%s status=%s", order_id, resp.status_code
+    )
 
     if resp.status_code not in (200, 201):
         raise OrangeMoneyError(
@@ -109,15 +115,15 @@ def initiate_payment(
 
     data = resp.json()
     payment_url = data.get("payment_url") or data.get("paymentUrl") or ""
-    pay_token   = data.get("notif_token") or data.get("payToken") or ""
+    pay_token = data.get("notif_token") or data.get("payToken") or ""
 
     if not payment_url:
         raise OrangeMoneyError(f"Pas d'URL de paiement dans la reponse: {data}")
 
     return {
         "payment_url": payment_url,
-        "pay_token":   pay_token,
-        "raw":         data,
+        "pay_token": pay_token,
+        "raw": data,
     }
 
 
@@ -130,20 +136,22 @@ def verify_callback(callback_data: dict) -> dict[str, Any]:
       - txn_id   (str)
       - phone    (str) — numero payeur
     """
-    status   = (callback_data.get("status") or "").upper()
+    status = (callback_data.get("status") or "").upper()
     order_id = callback_data.get("orderId") or callback_data.get("order_id") or ""
-    txn_id   = callback_data.get("txnid") or callback_data.get("txnId") or ""
-    phone    = callback_data.get("subscribernumber") or callback_data.get("phone") or ""
+    txn_id = callback_data.get("txnid") or callback_data.get("txnId") or ""
+    phone = callback_data.get("subscribernumber") or callback_data.get("phone") or ""
 
     logger.info(
         "Orange Money callback — order_id=%s status=%s txn_id=%s",
-        order_id, status, txn_id,
+        order_id,
+        status,
+        txn_id,
     )
 
     return {
-        "success":  status in ("SUCCESS", "200", "SUCCESSFULL"),
+        "success": status in ("SUCCESS", "200", "SUCCESSFULL"),
         "order_id": order_id,
-        "txn_id":   txn_id,
-        "phone":    phone,
-        "raw":      callback_data,
+        "txn_id": txn_id,
+        "phone": phone,
+        "raw": callback_data,
     }

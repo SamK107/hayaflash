@@ -34,7 +34,9 @@ def build_seller_seo(request: HttpRequest, context: dict[str, Any]) -> dict[str,
     )
 
 
-def build_flash_sale_seo(request: HttpRequest, context: dict[str, Any]) -> dict[str, Any]:
+def build_flash_sale_seo(
+    request: HttpRequest, context: dict[str, Any]
+) -> dict[str, Any]:
     sale = context["flash_sale"]
     title = f"{sale.title} — HayaFlash"
     description = (

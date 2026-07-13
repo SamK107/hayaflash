@@ -63,6 +63,12 @@ def product_edit_view(request, sale_pk: int, pk: int):
         except Exception as e:
             messages.error(request, str(e))
 
-    return render(request, "products/product_form.html", {
-        "form": form, "sale": sale, "product": product,
-    })
+    return render(
+        request,
+        "products/product_form.html",
+        {
+            "form": form,
+            "sale": sale,
+            "product": product,
+        },
+    )

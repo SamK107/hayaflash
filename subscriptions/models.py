@@ -7,21 +7,21 @@ from django.utils import timezone
 
 
 class Plan(models.TextChoices):
-    FREE   = "free",   "Gratuit"
+    FREE = "free", "Gratuit"
     MEDIUM = "medium", "Medium"
-    PRO    = "pro",    "Pro"
+    PRO = "pro", "Pro"
 
 
 PLAN_PRICES = {
-    Plan.FREE:   0,
+    Plan.FREE: 0,
     Plan.MEDIUM: 2000,
-    Plan.PRO:    5000,
+    Plan.PRO: 5000,
 }
 
 PLAN_MONTHLY_SALES_LIMIT = {
-    Plan.FREE:   3,
+    Plan.FREE: 3,
     Plan.MEDIUM: 3,
-    Plan.PRO:    None,   # illimite
+    Plan.PRO: None,  # illimite
 }
 
 PLAN_FEATURES = {
@@ -65,7 +65,8 @@ class Subscription(models.Model):
         verbose_name="Plan",
     )
     expires_at = models.DateTimeField(
-        null=True, blank=True,
+        null=True,
+        blank=True,
         verbose_name="Expire le",
         help_text="Null = Free perpetuel ou plan actif sans expiration",
     )
@@ -78,9 +79,7 @@ class Subscription(models.Model):
 
     @property
     def is_free(self) -> bool:
-        return self.plan == Plan.FREE or (
-            self.plan != Plan.FREE and self.is_expired
-        )
+        return self.plan == Plan.FREE or (self.plan != Plan.FREE and self.is_expired)
 
     @property
     def is_expired(self) -> bool:
@@ -130,46 +129,49 @@ class Subscription(models.Model):
 
 
 class PaymentStatus(models.TextChoices):
-    PENDING   = "pending",   "En attente"
-    SUCCESS   = "success",   "Succes"
-    FAILED    = "failed",    "Echec"
+    PENDING = "pending", "En attente"
+    SUCCESS = "success", "Succes"
+    FAILED = "failed", "Echec"
     CANCELLED = "cancelled", "Annule"
-    EXPIRED   = "expired",   "Expire"
+    EXPIRED = "expired", "Expire"
 
 
 class PaymentProvider(models.TextChoices):
     ORANGE = "orange", "Orange Money"
-    MOOV   = "moov",   "Moov Money"
-    WAVE   = "wave",   "Wave"
+    MOOV = "moov", "Moov Money"
+    WAVE = "wave", "Wave"
 
 
 class SubscriptionPayment(models.Model):
     """Trace chaque tentative de paiement d'abonnement."""
-    id          = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    seller      = models.ForeignKey(
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    seller = models.ForeignKey(
         "accounts.SellerProfile",
         on_delete=models.CASCADE,
         related_name="subscription_payments",
     )
-    plan        = models.CharField(max_length=20, choices=Plan.choices)
-    provider    = models.CharField(max_length=20, choices=PaymentProvider.choices)
-    amount      = models.PositiveIntegerField(help_text="Montant en FCFA")
-    phone       = models.CharField(max_length=20, help_text="Numero paye")
-    status      = models.CharField(
-        max_length=20, choices=PaymentStatus.choices,
-        default=PaymentStatus.PENDING, db_index=True,
+    plan = models.CharField(max_length=20, choices=Plan.choices)
+    provider = models.CharField(max_length=20, choices=PaymentProvider.choices)
+    amount = models.PositiveIntegerField(help_text="Montant en FCFA")
+    phone = models.CharField(max_length=20, help_text="Numero paye")
+    status = models.CharField(
+        max_length=20,
+        choices=PaymentStatus.choices,
+        default=PaymentStatus.PENDING,
+        db_index=True,
     )
     # Orange Money specifics
-    order_id    = models.CharField(max_length=100, unique=True, db_index=True)
-    pay_token   = models.CharField(max_length=200, blank=True, default="")
-    txn_id      = models.CharField(max_length=200, blank=True, default="")
+    order_id = models.CharField(max_length=100, unique=True, db_index=True)
+    pay_token = models.CharField(max_length=200, blank=True, default="")
+    txn_id = models.CharField(max_length=200, blank=True, default="")
     payment_url = models.URLField(blank=True, default="")
     raw_response = models.JSONField(default=dict, blank=True)
     raw_callback = models.JSONField(default=dict, blank=True)
     # Dates
-    created_at  = models.DateTimeField(auto_now_add=True)
-    updated_at  = models.DateTimeField(auto_now=True)
-    paid_at     = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = "Paiement abonnement"
@@ -181,4 +183,6 @@ class SubscriptionPayment(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.seller} — {self.plan} — {self.status} — {self.created_at:%d/%m/%Y}"
+        return (
+            f"{self.seller} — {self.plan} — {self.status} — {self.created_at:%d/%m/%Y}"
+        )

@@ -188,11 +188,13 @@ def _record_stock_movements(*, order: Order, totals_by_product: dict[int, int]) 
 
 def _compute_order_total(order: Order):
     from delivery.services.delivery import compute_order_total
+
     return compute_order_total(order)
 
 
 def _create_delivery_for_order(*, order: Order, delivery_data: dict):
     from delivery.services.delivery import create_delivery_for_order
+
     return create_delivery_for_order(order=order, delivery_data=delivery_data)
 
 
@@ -203,6 +205,7 @@ def _invalidate_seller_kpi_for_order(order: Order) -> None:
     invalidate_seller_kpi_cache(fs.owner.user)
     if fs.public_slug and fs.owner.public_slug:
         from analytics.services.cache import invalidate_for_order
+
         invalidate_for_order(
             flash_sale_id=fs.pk,
             seller_id=fs.owner_id,
@@ -229,6 +232,7 @@ def create_order(data: dict[str, Any]) -> Order:
     # AuditLog (best-effort, hors transaction)
     try:
         from core.models import audit
+
         audit(
             "order.created",
             entity_type="Order",
@@ -242,6 +246,7 @@ def create_order(data: dict[str, Any]) -> Order:
     # Notification async (hors transaction, best-effort)
     try:
         from notifications.tasks import send_order_confirmation
+
         send_order_confirmation.delay(order.pk)
     except Exception:
         pass  # Ne jamais bloquer une commande pour une notif

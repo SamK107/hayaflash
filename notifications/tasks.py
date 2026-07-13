@@ -1,4 +1,5 @@
 """Taches Celery pour les notifications."""
+
 from __future__ import annotations
 
 import logging
@@ -16,8 +17,7 @@ def send_order_confirmation(order_id: int) -> None:
 
     try:
         order = (
-            Order.service_objects
-            .select_related("flash_sale")
+            Order.service_objects.select_related("flash_sale")
             .prefetch_related("items")
             .get(pk=order_id)
         )

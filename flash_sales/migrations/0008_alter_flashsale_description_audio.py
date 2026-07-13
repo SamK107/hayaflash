@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("flash_sales", "0007_flashsale_description_audio"),
     ]

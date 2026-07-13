@@ -15,7 +15,9 @@ class SellerProfileForm(forms.ModelForm):
     display_name = forms.CharField(
         max_length=150,
         label="Nom d'affichage",
-        widget=forms.TextInput(attrs={"class": "hf-input", "placeholder": "Votre nom ou pseudo"}),
+        widget=forms.TextInput(
+            attrs={"class": "hf-input", "placeholder": "Votre nom ou pseudo"}
+        ),
     )
 
     class Meta:
@@ -23,19 +25,25 @@ class SellerProfileForm(forms.ModelForm):
         fields = ["avatar", "business_name", "bio", "delivery_zones"]
         widgets = {
             "avatar": forms.FileInput(attrs={"class": "hidden", "accept": "image/*"}),
-            "business_name": forms.TextInput(attrs={
-                "class": "hf-input",
-                "placeholder": "Ex : Boutique Aminata Mode",
-            }),
-            "bio": forms.Textarea(attrs={
-                "class": "hf-input",
-                "rows": 3,
-                "placeholder": "Décrivez votre boutique en quelques mots…",
-            }),
-            "delivery_zones": forms.TextInput(attrs={
-                "class": "hf-input",
-                "placeholder": "Ex : Bamako, Kati, Koulikoro",
-            }),
+            "business_name": forms.TextInput(
+                attrs={
+                    "class": "hf-input",
+                    "placeholder": "Ex : Boutique Aminata Mode",
+                }
+            ),
+            "bio": forms.Textarea(
+                attrs={
+                    "class": "hf-input",
+                    "rows": 3,
+                    "placeholder": "Décrivez votre boutique en quelques mots…",
+                }
+            ),
+            "delivery_zones": forms.TextInput(
+                attrs={
+                    "class": "hf-input",
+                    "placeholder": "Ex : Bamako, Kati, Koulikoro",
+                }
+            ),
         }
         labels = {
             "business_name": "Nom commercial",
@@ -67,16 +75,22 @@ class ChangePasswordForm(forms.Form):
 
     current_password = forms.CharField(
         label="Mot de passe actuel",
-        widget=forms.PasswordInput(attrs={"class": "hf-input", "autocomplete": "current-password"}),
+        widget=forms.PasswordInput(
+            attrs={"class": "hf-input", "autocomplete": "current-password"}
+        ),
     )
     new_password = forms.CharField(
         label="Nouveau mot de passe",
         min_length=8,
-        widget=forms.PasswordInput(attrs={"class": "hf-input", "autocomplete": "new-password"}),
+        widget=forms.PasswordInput(
+            attrs={"class": "hf-input", "autocomplete": "new-password"}
+        ),
     )
     confirm_password = forms.CharField(
         label="Confirmer le nouveau mot de passe",
-        widget=forms.PasswordInput(attrs={"class": "hf-input", "autocomplete": "new-password"}),
+        widget=forms.PasswordInput(
+            attrs={"class": "hf-input", "autocomplete": "new-password"}
+        ),
     )
 
     def __init__(self, *args, user=None, **kwargs):
@@ -94,7 +108,9 @@ class ChangePasswordForm(forms.Form):
         p1 = cleaned.get("new_password")
         p2 = cleaned.get("confirm_password")
         if p1 and p2 and p1 != p2:
-            self.add_error("confirm_password", "Les mots de passe ne correspondent pas.")
+            self.add_error(
+                "confirm_password", "Les mots de passe ne correspondent pas."
+            )
         return cleaned
 
     def save(self):

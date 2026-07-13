@@ -3,6 +3,7 @@ API v1 URLConf (scaffolding).
 
 Domain routes will be added per app when implemented.
 """
+
 from __future__ import annotations
 
 from django.urls import include, path
@@ -28,6 +29,8 @@ urlpatterns = [
     path("delivery/", include("delivery.urls")),
     path("payments/", include("payments.urls")),
     path("flash-sales/", flash_sale_list_api, name="api-flash-sales-list"),
-    path("flash-sales/<slug:slug>/", flash_sale_detail_api, name="api-flash-sales-detail"),
+    path(
+        "flash-sales/<slug:slug>/", flash_sale_detail_api, name="api-flash-sales-detail"
+    ),
     path("", include(router.urls)),
 ]

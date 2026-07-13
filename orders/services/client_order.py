@@ -121,7 +121,10 @@ def build_create_order_payload_from_public(*, data: dict[str, Any]) -> dict[str,
         raise ValidationError({"name": "Must be a non-empty string."})
     if not isinstance(data["phone"], str) or not data["phone"].strip():
         raise ValidationError({"phone": "Must be a non-empty string."})
-    if not isinstance(data["client_request_id"], str) or not data["client_request_id"].strip():
+    if (
+        not isinstance(data["client_request_id"], str)
+        or not data["client_request_id"].strip()
+    ):
         raise ValidationError({"client_request_id": "Must be a non-empty string."})
 
     try:
@@ -183,8 +186,15 @@ def resolve_client_order_page(request: HttpRequest) -> dict[str, Any]:
             "can_submit": False,
         }
 
-    flash_sale = FlashSale.objects.filter(pk=flash_sale_id).select_related("owner__user").first()
-    product = Product.objects.filter(pk=product_id).select_related("flash_sale").prefetch_related("media").first()
+    flash_sale = (
+        FlashSale.objects.filter(pk=flash_sale_id).select_related("owner__user").first()
+    )
+    product = (
+        Product.objects.filter(pk=product_id)
+        .select_related("flash_sale")
+        .prefetch_related("media")
+        .first()
+    )
     if flash_sale is None or product is None:
         return {
             "page_error": "Vente flash ou produit introuvable.",
@@ -217,7 +227,9 @@ def resolve_client_order_page(request: HttpRequest) -> dict[str, Any]:
                 flat.extend(v)
             else:
                 flat.append(str(v))
-        page_error = flat[0] if flat else "La vente n’accepte pas les commandes pour le moment."
+        page_error = (
+            flat[0] if flat else "La vente n’accepte pas les commandes pour le moment."
+        )
 
     return {
         "page_error": page_error,
@@ -256,7 +268,9 @@ def _resolve_share_ref(request: HttpRequest) -> str:
     return link.token
 
 
-def submit_public_order_api(request: HttpRequest, data: dict[str, Any]) -> tuple[Order, bool]:
+def submit_public_order_api(
+    request: HttpRequest, data: dict[str, Any]
+) -> tuple[Order, bool]:
     """
     Validate, rate-limit, then delegate to ``create_order`` (single persistence path).
     Returns (order, created_new).

@@ -53,7 +53,6 @@ class MeView(APIView):
         )
 
 
-
 # ── Vues HTML vendeur ────────────────────────────────────────────────────────
 
 
@@ -95,11 +94,15 @@ def seller_profile_edit(request):
         ).count(),
     }
 
-    return render(request, "accounts/profile.html", {
-        "form": form,
-        "profile": profile,
-        "stats": stats,
-    })
+    return render(
+        request,
+        "accounts/profile.html",
+        {
+            "form": form,
+            "profile": profile,
+            "stats": stats,
+        },
+    )
 
 
 @login_required
@@ -107,7 +110,8 @@ def seller_settings(request):
     """GET/POST /seller/parametres/ — sécurité, abonnement, danger zone."""
     from accounts.forms import ChangePasswordForm
     from subscriptions.services.limits import (
-        get_or_create_subscription, FREE_MONTHLY_SALES_LIMIT,
+        get_or_create_subscription,
+        FREE_MONTHLY_SALES_LIMIT,
     )
     from django.utils import timezone
     from flash_sales.models import FlashSale
@@ -136,17 +140,27 @@ def seller_settings(request):
                 update_session_auth_hash(request, request.user)
                 messages.success(request, "Mot de passe modifié avec succès.")
                 return redirect("seller_settings")
-            return render(request, "accounts/settings.html", {
-                "pwd_form": form, "sub": sub, "profile": profile,
-                "sales_this_month": sales_this_month,
-                "free_limit": FREE_MONTHLY_SALES_LIMIT,
-            })
+            return render(
+                request,
+                "accounts/settings.html",
+                {
+                    "pwd_form": form,
+                    "sub": sub,
+                    "profile": profile,
+                    "sales_this_month": sales_this_month,
+                    "free_limit": FREE_MONTHLY_SALES_LIMIT,
+                },
+            )
 
     pwd_form = ChangePasswordForm(user=request.user)
-    return render(request, "accounts/settings.html", {
-        "pwd_form": pwd_form,
-        "sub": sub,
-        "profile": profile,
-        "sales_this_month": sales_this_month,
-        "free_limit": FREE_MONTHLY_SALES_LIMIT,
-    })
+    return render(
+        request,
+        "accounts/settings.html",
+        {
+            "pwd_form": pwd_form,
+            "sub": sub,
+            "profile": profile,
+            "sales_this_month": sales_this_month,
+            "free_limit": FREE_MONTHLY_SALES_LIMIT,
+        },
+    )

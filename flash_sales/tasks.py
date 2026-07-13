@@ -1,4 +1,5 @@
 """Taches Celery pour la gestion automatique des ventes flash."""
+
 from __future__ import annotations
 
 import logging
@@ -25,7 +26,9 @@ def auto_open_scheduled_sales() -> None:
         try:
             sale.open_sale()
             count += 1
-            logger.info("FlashSale %s [%s] SCHEDULED -> LIVE (auto)", sale.pk, sale.title)
+            logger.info(
+                "FlashSale %s [%s] SCHEDULED -> LIVE (auto)", sale.pk, sale.title
+            )
         except Exception as exc:
             logger.error("Erreur ouverture auto FlashSale %s : %s", sale.pk, exc)
 

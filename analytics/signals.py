@@ -4,7 +4,10 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from accounts.models import SellerProfile
-from analytics.services.cache import invalidate_flash_sale_public_cache, invalidate_seller_public_cache
+from analytics.services.cache import (
+    invalidate_flash_sale_public_cache,
+    invalidate_seller_public_cache,
+)
 from flash_sales.models import FlashSale
 from products.models import Product
 
@@ -35,7 +38,11 @@ def invalidate_on_flash_sale_update(sender, instance: FlashSale, **kwargs) -> No
 def invalidate_on_product_update(sender, instance: Product, **kwargs) -> None:
     if not instance.flash_sale_id:
         return
-    sale = FlashSale.objects.select_related("owner").filter(pk=instance.flash_sale_id).first()
+    sale = (
+        FlashSale.objects.select_related("owner")
+        .filter(pk=instance.flash_sale_id)
+        .first()
+    )
     if sale is None or not sale.public_slug:
         return
     owner = sale.owner

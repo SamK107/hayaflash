@@ -20,7 +20,9 @@ class WebhookProcessingError(Exception):
         self.code = code
 
 
-def verify_webhook_signature(secret: str, raw_body: bytes, signature_header: str | None) -> None:
+def verify_webhook_signature(
+    secret: str, raw_body: bytes, signature_header: str | None
+) -> None:
     if not secret:
         raise WebhookProcessingError(
             "Webhook secret not configured.",

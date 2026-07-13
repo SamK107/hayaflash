@@ -20,8 +20,14 @@ class ProductVariantInline(admin.TabularInline):
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_display = (
-        "name", "flash_sale", "price", "stock_available", "stock_initial",
-        "unit", "is_active", "created_at",
+        "name",
+        "flash_sale",
+        "price",
+        "stock_available",
+        "stock_initial",
+        "unit",
+        "is_active",
+        "created_at",
     )
     list_filter = ("is_active", "flash_sale__status")
     search_fields = ("name", "flash_sale__title")
@@ -29,26 +35,49 @@ class ProductAdmin(admin.ModelAdmin):
     inlines = [ProductMediaInline, ProductVariantInline]
 
     fieldsets = (
-        ("Informations", {
-            "fields": ("flash_sale", "name", "description", "price", "unit"),
-        }),
-        ("Stock", {
-            "fields": ("stock_initial", "stock_available", "display_order", "is_active"),
-        }),
-        ("Caracteristiques", {
-            "fields": ("characteristics",),
-            "classes": ("collapse",),
-        }),
-        ("Dates", {
-            "fields": ("created_at", "updated_at"),
-            "classes": ("collapse",),
-        }),
+        (
+            "Informations",
+            {
+                "fields": ("flash_sale", "name", "description", "price", "unit"),
+            },
+        ),
+        (
+            "Stock",
+            {
+                "fields": (
+                    "stock_initial",
+                    "stock_available",
+                    "display_order",
+                    "is_active",
+                ),
+            },
+        ),
+        (
+            "Caracteristiques",
+            {
+                "fields": ("characteristics",),
+                "classes": ("collapse",),
+            },
+        ),
+        (
+            "Dates",
+            {
+                "fields": ("created_at", "updated_at"),
+                "classes": ("collapse",),
+            },
+        ),
     )
 
 
 @admin.register(StockMovement)
 class StockMovementAdmin(admin.ModelAdmin):
-    list_display = ("product", "quantity_change", "movement_type", "order", "created_at")
+    list_display = (
+        "product",
+        "quantity_change",
+        "movement_type",
+        "order",
+        "created_at",
+    )
     list_filter = ("movement_type",)
     search_fields = ("product__name",)
     readonly_fields = ("created_at",)

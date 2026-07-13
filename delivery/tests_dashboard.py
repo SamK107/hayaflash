@@ -122,7 +122,9 @@ class SellerDeliveriesDashboardTests(DeliveryTestFixture):
         delivery = Delivery.objects.get(order=order)
         self.client.force_login(self.seller_user)
         resp = self.client.post(
-            reverse("orders:seller_delivery_action", kwargs={"delivery_id": delivery.pk}),
+            reverse(
+                "orders:seller_delivery_action", kwargs={"delivery_id": delivery.pk}
+            ),
             {"action": "confirm"},
         )
         self.assertEqual(resp.status_code, 200)
@@ -140,7 +142,9 @@ class SellerDeliveriesDashboardTests(DeliveryTestFixture):
             payload={},
         )
         resp = self.client.post(
-            reverse("orders:seller_delivery_action", kwargs={"delivery_id": delivery.pk}),
+            reverse(
+                "orders:seller_delivery_action", kwargs={"delivery_id": delivery.pk}
+            ),
             {"action": "start_delivery"},
         )
         self.assertEqual(resp.status_code, 400)
@@ -162,7 +166,9 @@ class SellerDeliveriesDashboardTests(DeliveryTestFixture):
             payload={"assigned_to": "Driver"},
         )
         resp = self.client.post(
-            reverse("orders:seller_delivery_action", kwargs={"delivery_id": delivery.pk}),
+            reverse(
+                "orders:seller_delivery_action", kwargs={"delivery_id": delivery.pk}
+            ),
             {"action": "mark_delivered", "cod_collected": "true"},
         )
         self.assertEqual(resp.status_code, 200)

@@ -14,7 +14,10 @@ from analytics.services.share_links import (
 )
 from analytics.services.abuse import normalize_tracking_source
 from analytics.services.share_tracking import record_whatsapp_share
-from analytics.services.view_tracking import record_page_view, resolve_share_link_by_token
+from analytics.services.view_tracking import (
+    record_page_view,
+    resolve_share_link_by_token,
+)
 
 __all__ = [
     "build_order_share_urls",

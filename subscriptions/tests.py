@@ -1,4 +1,5 @@
 """Tests subscription limits."""
+
 from __future__ import annotations
 
 from datetime import timedelta
@@ -10,7 +11,10 @@ from django.utils import timezone
 from accounts.models import SellerProfile
 from flash_sales.models import FlashSale, FlashSaleStatus
 from subscriptions.models import Plan, Subscription
-from subscriptions.services.limits import can_create_flash_sale, FREE_MONTHLY_SALES_LIMIT
+from subscriptions.services.limits import (
+    can_create_flash_sale,
+    FREE_MONTHLY_SALES_LIMIT,
+)
 
 User = get_user_model()
 
@@ -39,7 +43,9 @@ def _make_sale(seller, *, months_ago=0):
 class FreePlanLimitsTest(TestCase):
     def setUp(self):
         self.seller = _make_seller("+22300000010")
-        Subscription.objects.get_or_create(seller=self.seller, defaults={"plan": Plan.FREE})
+        Subscription.objects.get_or_create(
+            seller=self.seller, defaults={"plan": Plan.FREE}
+        )
 
     def test_free_plan_allows_up_to_limit(self):
         for i in range(FREE_MONTHLY_SALES_LIMIT):
@@ -64,7 +70,9 @@ class FreePlanLimitsTest(TestCase):
 class ProPlanLimitsTest(TestCase):
     def setUp(self):
         self.seller = _make_seller("+22300000020")
-        Subscription.objects.get_or_create(seller=self.seller, defaults={"plan": Plan.PRO})
+        Subscription.objects.get_or_create(
+            seller=self.seller, defaults={"plan": Plan.PRO}
+        )
 
     def test_pro_plan_unlimited(self):
         for _ in range(FREE_MONTHLY_SALES_LIMIT + 5):

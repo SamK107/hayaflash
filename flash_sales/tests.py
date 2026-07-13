@@ -88,7 +88,8 @@ class FlashSaleTests(TestCase):
         product = Product.objects.create(
             flash_sale=sale,
             name="SKU-1",
-            stock_available=5, stock_initial=5,
+            stock_available=5,
+            stock_initial=5,
             price="10.00",
         )
         order = create_order(

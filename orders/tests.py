@@ -59,7 +59,8 @@ class LiveFlashSaleProductFixture(TestCase):
         self.product = Product.objects.create(
             flash_sale=self.sale,
             name="Widget",
-            stock_available=10, stock_initial=10,
+            stock_available=10,
+            stock_initial=10,
             price=Decimal("19.99"),
         )
 
@@ -82,7 +83,9 @@ class CreateOrderServiceTests(LiveFlashSaleProductFixture):
         o1 = create_order(p)
         o2 = create_order(p)
         self.assertEqual(o1.pk, o2.pk)
-        self.assertEqual(Order.objects.filter(client_request_id="req-unique-1").count(), 1)
+        self.assertEqual(
+            Order.objects.filter(client_request_id="req-unique-1").count(), 1
+        )
         self.assertEqual(self.product.pk, o1.items.get().product_id)
         self.product.refresh_from_db()
         self.assertEqual(self.product.stock_available, 8)
@@ -106,7 +109,7 @@ class CreateOrderServiceTests(LiveFlashSaleProductFixture):
 
     def test_create_order_rejects_zero_stock(self) -> None:
         self.product.stock_available = 0
-        self.product.save(update_fields=['stock_available'])
+        self.product.save(update_fields=["stock_available"])
         self.product.save()
         with self.assertRaises(ValidationError):
             create_order(self._payload(client_request_id="req-zero"))
@@ -140,7 +143,10 @@ class CreateOrderServiceTests(LiveFlashSaleProductFixture):
                 client_request_id="blocked",
             )
 
-@skipIf(connection.vendor == "sqlite", "SQLite does not support concurrency tests reliably")
+
+@skipIf(
+    connection.vendor == "sqlite", "SQLite does not support concurrency tests reliably"
+)
 class CreateOrderConcurrencyTests(TransactionTestCase):
     """
     IMPORTANT:
@@ -168,7 +174,8 @@ class CreateOrderConcurrencyTests(TransactionTestCase):
         self.product = Product.objects.create(
             flash_sale=self.sale,
             name="Hot",
-            stock_available=1, stock_initial=1,
+            stock_available=1,
+            stock_initial=1,
             price=Decimal("1.00"),
         )
 
@@ -237,9 +244,7 @@ class PublicOrderAPITests(LiveFlashSaleProductFixture):
         )
         self.assertEqual(resp.status_code, 201, resp.content)
         self.assertEqual(resp.data.get("status"), "pending")
-        self.assertTrue(
-            Order.service_objects.filter(client_request_id=rid).exists()
-        )
+        self.assertTrue(Order.service_objects.filter(client_request_id=rid).exists())
 
     def test_api_duplicate_client_request_id_returns_same_order(self) -> None:
         rid = str(uuid4())
@@ -266,7 +271,9 @@ class PublicOrderAPITests(LiveFlashSaleProductFixture):
         self.assertEqual(order.items.count(), 1)
 
 
-@skipIf(connection.vendor == "sqlite", "SQLite does not support concurrency tests reliably")
+@skipIf(
+    connection.vendor == "sqlite", "SQLite does not support concurrency tests reliably"
+)
 class PublicOrderAPIConcurrencyTests(TransactionTestCase):
     """Last-unit-safety via HTTP API (same invariants as ``create_order``)."""
 
@@ -290,7 +297,8 @@ class PublicOrderAPIConcurrencyTests(TransactionTestCase):
         self.product = Product.objects.create(
             flash_sale=self.sale,
             name="Solo",
-            stock_available=1, stock_initial=1,
+            stock_available=1,
+            stock_initial=1,
             price=Decimal("5.00"),
         )
 

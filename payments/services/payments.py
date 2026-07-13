@@ -99,7 +99,9 @@ def initiate_payment_for_order(
 
         computed = order_payable_total(order)
         if computed <= 0:
-            raise ValidationError({"order_id": "Order total must be greater than zero."})
+            raise ValidationError(
+                {"order_id": "Order total must be greater than zero."}
+            )
 
         order_phone = _normalize_phone(order.customer_phone or "")
         if not order_phone or order_phone != phone_n:

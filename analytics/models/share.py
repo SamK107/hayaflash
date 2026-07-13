@@ -24,7 +24,9 @@ class ShareLink(models.Model):
     """
 
     token = models.CharField(max_length=24, unique=True, db_index=True, editable=False)
-    link_type = models.CharField(max_length=16, choices=ShareLinkType.choices, db_index=True)
+    link_type = models.CharField(
+        max_length=16, choices=ShareLinkType.choices, db_index=True
+    )
     seller = models.ForeignKey(
         "accounts.SellerProfile",
         on_delete=models.CASCADE,
@@ -104,8 +106,12 @@ class ShareEvent(models.Model):
     class Meta:
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["share_link", "event_type"], name="an_se_link_type_idx"),
-            models.Index(fields=["share_link", "created_at"], name="an_se_link_created_idx"),
+            models.Index(
+                fields=["share_link", "event_type"], name="an_se_link_type_idx"
+            ),
+            models.Index(
+                fields=["share_link", "created_at"], name="an_se_link_created_idx"
+            ),
             models.Index(fields=["source", "created_at"], name="an_se_src_created_idx"),
         ]
 

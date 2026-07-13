@@ -11,6 +11,7 @@ from accounts.services.users import get_user_by_phone
 
 # ── helpers ────────────────────────────────────────────────────────────────
 
+
 def _normalize(raw: str) -> str:
     """Normalize phone: strip spaces, ensure leading +."""
     phone = raw.strip().replace(" ", "").replace("-", "")
@@ -23,7 +24,9 @@ def _normalize(raw: str) -> str:
     return phone
 
 
-def _phone_errors(phone: str, password: str, password2: str, business_name: str) -> list[str]:
+def _phone_errors(
+    phone: str, password: str, password2: str, business_name: str
+) -> list[str]:
     errs = []
     if not phone:
         errs.append("Le numero de telephone est obligatoire.")
@@ -37,6 +40,7 @@ def _phone_errors(phone: str, password: str, password2: str, business_name: str)
 
 
 # ── views ──────────────────────────────────────────────────────────────────
+
 
 def home(request):
     # La page marketing est accessible à tous (vendeur connecté ou simple visiteur).
@@ -77,9 +81,9 @@ def register_view(request):
     form_data = {}
 
     if request.method == "POST":
-        raw_phone    = request.POST.get("phone", "").strip()
-        password     = request.POST.get("password", "")
-        password2    = request.POST.get("password2", "")
+        raw_phone = request.POST.get("phone", "").strip()
+        password = request.POST.get("password", "")
+        password2 = request.POST.get("password2", "")
         business_name = request.POST.get("business_name", "").strip()
 
         form_data = {
@@ -93,10 +97,13 @@ def register_view(request):
         if not errors:
             # verifier unicite du numero
             if get_user_by_phone(phone):
-                errors.append("Ce numero est deja utilise. Connectez-vous ou utilisez un autre numero.")
+                errors.append(
+                    "Ce numero est deja utilise. Connectez-vous ou utilisez un autre numero."
+                )
 
         if not errors:
             from django.contrib.auth import get_user_model
+
             User = get_user_model()
             try:
                 user = User.objects.create_user(
@@ -109,15 +116,21 @@ def register_view(request):
                     business_name=business_name,
                 )
                 login(request, user, backend="accounts.backends.PhoneAuthBackend")
-                messages.success(request, f"Bienvenue ! Votre boutique '{business_name}' est prete.")
+                messages.success(
+                    request, f"Bienvenue ! Votre boutique '{business_name}' est prete."
+                )
                 return redirect("seller_home")
             except Exception as exc:
                 errors.append(f"Erreur lors de la creation du compte : {exc}")
 
-    return render(request, "accounts/register.html", {
-        "errors": errors,
-        "form_data": form_data,
-    })
+    return render(
+        request,
+        "accounts/register.html",
+        {
+            "errors": errors,
+            "form_data": form_data,
+        },
+    )
 
 
 def logout_view(request):
@@ -140,13 +153,21 @@ def seller_home_view(request):
 
     recent_sales = FlashSale.objects.filter(
         owner=seller,
-        status__in=[FlashSaleStatus.COMPLETED, FlashSaleStatus.CLOSED, FlashSaleStatus.EXECUTING],
+        status__in=[
+            FlashSaleStatus.COMPLETED,
+            FlashSaleStatus.CLOSED,
+            FlashSaleStatus.EXECUTING,
+        ],
     ).order_by("-start_time")[:3]
 
     total_orders = Order.objects.filter(flash_sale__owner=seller).count()
 
-    return render(request, "seller/home.html", {
-        "active_sales": active_sales,
-        "recent_sales": recent_sales,
-        "total_orders": total_orders,
-    })
+    return render(
+        request,
+        "seller/home.html",
+        {
+            "active_sales": active_sales,
+            "recent_sales": recent_sales,
+            "total_orders": total_orders,
+        },
+    )

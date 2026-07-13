@@ -5,27 +5,59 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ('accounts', '0004_add_seller_profile_bio_avatar_zones'),
+        ("accounts", "0004_add_seller_profile_bio_avatar_zones"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Subscription',
+            name="Subscription",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('plan', models.CharField(choices=[('free', 'Gratuit'), ('pro', 'Pro')], db_index=True, default='free', max_length=20, verbose_name='Plan')),
-                ('expires_at', models.DateTimeField(blank=True, help_text='Null = Free perpetuel ou Pro actif sans expiration', null=True, verbose_name='Expire le')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('seller', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='subscription', to='accounts.sellerprofile', verbose_name='Vendeur')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "plan",
+                    models.CharField(
+                        choices=[("free", "Gratuit"), ("pro", "Pro")],
+                        db_index=True,
+                        default="free",
+                        max_length=20,
+                        verbose_name="Plan",
+                    ),
+                ),
+                (
+                    "expires_at",
+                    models.DateTimeField(
+                        blank=True,
+                        help_text="Null = Free perpetuel ou Pro actif sans expiration",
+                        null=True,
+                        verbose_name="Expire le",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "seller",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="subscription",
+                        to="accounts.sellerprofile",
+                        verbose_name="Vendeur",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Abonnement',
-                'verbose_name_plural': 'Abonnements',
+                "verbose_name": "Abonnement",
+                "verbose_name_plural": "Abonnements",
             },
         ),
     ]

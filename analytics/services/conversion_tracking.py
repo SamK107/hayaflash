@@ -3,7 +3,10 @@ from __future__ import annotations
 from django.http import HttpRequest
 
 from analytics.models import ShareEvent, ShareEventType
-from analytics.services.abuse import allow_conversion_tracking, normalize_tracking_source
+from analytics.services.abuse import (
+    allow_conversion_tracking,
+    normalize_tracking_source,
+)
 from analytics.services.events import persist_share_event
 from analytics.services.view_tracking import resolve_share_link_by_token
 

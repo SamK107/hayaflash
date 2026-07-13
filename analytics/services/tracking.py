@@ -3,7 +3,10 @@
 from analytics.services.abuse import normalize_tracking_source
 from analytics.services.conversion_tracking import record_conversion_for_order
 from analytics.services.share_tracking import record_click, record_whatsapp_share
-from analytics.services.view_tracking import record_page_view, resolve_share_link_by_token
+from analytics.services.view_tracking import (
+    record_page_view,
+    resolve_share_link_by_token,
+)
 
 
 def record_share_event(request, *, share_link, event_type, source="direct", order=None):

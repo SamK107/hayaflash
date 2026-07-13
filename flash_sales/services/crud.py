@@ -1,4 +1,5 @@
 """Services CRUD pour les ventes flash (vendeur authentifie)."""
+
 from __future__ import annotations
 
 from datetime import timedelta
@@ -55,9 +56,19 @@ def update_flash_sale(*, sale: FlashSale, seller, **kwargs) -> FlashSale:
     if sale.owner != seller:
         raise PermissionDenied("Cette vente ne vous appartient pas.")
     if sale.status not in (FlashSaleStatus.SCHEDULED,):
-        raise ValidationError("Une vente en cours ou terminee ne peut plus etre modifiee.")
+        raise ValidationError(
+            "Une vente en cours ou terminee ne peut plus etre modifiee."
+        )
 
-    allowed = {"title", "description", "start_time", "end_time", "delivery_zone", "cover_image", "max_orders"}
+    allowed = {
+        "title",
+        "description",
+        "start_time",
+        "end_time",
+        "delivery_zone",
+        "cover_image",
+        "max_orders",
+    }
     for key, value in kwargs.items():
         if key in allowed:
             setattr(sale, key, value)
@@ -78,7 +89,7 @@ def clone_flash_sale(*, sale: FlashSale, seller) -> FlashSale:
 
     now = timezone.now()
     new_start = now + timedelta(days=1)
-    new_end   = now + timedelta(days=1, hours=2)
+    new_end = now + timedelta(days=1, hours=2)
 
     new_sale = FlashSale(
         owner=seller,
@@ -99,6 +110,7 @@ def clone_flash_sale(*, sale: FlashSale, seller) -> FlashSale:
 
     # Cloner les produits
     from products.models import Product, ProductMedia
+
     for p in sale.products.filter(is_active=True).order_by("display_order"):
         new_p = Product(
             flash_sale=new_sale,
@@ -133,6 +145,7 @@ def can_seller_create_sale(seller) -> tuple[bool, str]:
     """Verifie les limites du plan abonnement du vendeur."""
     try:
         from subscriptions.services.limits import can_create_flash_sale
+
         return can_create_flash_sale(seller)
     except Exception:
         return True, ""  # Fail open si subscriptions non disponible

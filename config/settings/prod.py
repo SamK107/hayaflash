@@ -1,4 +1,5 @@
 """Production: PostgreSQL, strict hosts, no DEBUG, JSON API only."""
+
 from __future__ import annotations
 
 import os
@@ -25,7 +26,9 @@ if SENTRY_DSN:
             LoggingIntegration(level=logging.INFO, event_level=logging.ERROR),
         ],
         traces_sample_rate=float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
-        profiles_sample_rate=float(os.environ.get("SENTRY_PROFILES_SAMPLE_RATE", "0.05")),
+        profiles_sample_rate=float(
+            os.environ.get("SENTRY_PROFILES_SAMPLE_RATE", "0.05")
+        ),
         environment="prod",
         send_default_pii=False,
     )
@@ -54,9 +57,11 @@ if not ALLOWED_HOSTS:
 CORS_ALLOW_ALL_ORIGINS = False
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-SECURE_SSL_REDIRECT = os.environ.get(
-    "SECURE_SSL_REDIRECT", "true"
-).lower() in ("1", "true", "yes")
+SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "true").lower() in (
+    "1",
+    "true",
+    "yes",
+)
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_HTTPONLY = True
@@ -82,5 +87,5 @@ REST_FRAMEWORK = {
     **BASE_REST_FRAMEWORK,
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
-    ]
+    ],
 }

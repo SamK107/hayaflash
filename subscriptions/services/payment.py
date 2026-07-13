@@ -2,6 +2,7 @@
 Orchestration des paiements d'abonnement HayaFlash.
 Gere : initiation, activation, annulation.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -13,8 +14,11 @@ from django.urls import reverse
 from django.utils import timezone
 
 from subscriptions.models import (
-    Plan, PaymentProvider, PaymentStatus,
-    Subscription, SubscriptionPayment,
+    Plan,
+    PaymentProvider,
+    PaymentStatus,
+    Subscription,
+    SubscriptionPayment,
     PLAN_PRICES,
 )
 
@@ -26,6 +30,7 @@ SUBSCRIPTION_DURATION_DAYS = 31  # ~1 mois
 def _absolute_url(request, path: str) -> str:
     """Construit une URL publique utilisable par Orange Money (pas de localhost)."""
     from django.conf import settings
+
     base = getattr(settings, "ORANGE_MONEY_BASE_URL", "").strip().rstrip("/")
     if base:
         return base + path
@@ -55,13 +60,19 @@ def _om_urls(request, payment: "SubscriptionPayment") -> tuple[str, str, str]:
         )
 
     # Fallback : URLs Django locales (dev avec ngrok ou prod sans config explicite)
-    return_url = _absolute_url(request, reverse("subscriptions:payment_return",  args=[payment.pk]))
-    cancel_url = _absolute_url(request, reverse("subscriptions:payment_cancel",  args=[payment.pk]))
-    notif_url  = _absolute_url(request, reverse("subscriptions:payment_callback"))
+    return_url = _absolute_url(
+        request, reverse("subscriptions:payment_return", args=[payment.pk])
+    )
+    cancel_url = _absolute_url(
+        request, reverse("subscriptions:payment_cancel", args=[payment.pk])
+    )
+    notif_url = _absolute_url(request, reverse("subscriptions:payment_callback"))
     return return_url, cancel_url, notif_url
 
 
-def create_orange_payment(*, seller, plan: str, phone: str, request) -> SubscriptionPayment:
+def create_orange_payment(
+    *, seller, plan: str, phone: str, request
+) -> SubscriptionPayment:
     """
     Cree un SubscriptionPayment et lance l'initiation Orange Money.
     Retourne le payment (avec payment_url rempli).
@@ -71,7 +82,7 @@ def create_orange_payment(*, seller, plan: str, phone: str, request) -> Subscrip
     if plan not in (Plan.MEDIUM, Plan.PRO):
         raise ValueError(f"Plan invalide : {plan}")
 
-    amount   = PLAN_PRICES[plan]
+    amount = PLAN_PRICES[plan]
     order_id = f"HF-{plan.upper()}-{uuid.uuid4().hex[:12].upper()}"
 
     payment = SubscriptionPayment.objects.create(
@@ -95,8 +106,8 @@ def create_orange_payment(*, seller, plan: str, phone: str, request) -> Subscrip
             notif_url=notif_url,
             reference=f"HayaFlash {plan.capitalize()} {seller.business_name or str(seller.pk)}",
         )
-        payment.payment_url  = result["payment_url"]
-        payment.pay_token    = result["pay_token"]
+        payment.payment_url = result["payment_url"]
+        payment.pay_token = result["pay_token"]
         payment.raw_response = result["raw"]
         payment.save()
     except OrangeMoneyError as exc:
@@ -117,7 +128,7 @@ def activate_subscription_from_payment(payment: SubscriptionPayment) -> Subscrip
     if payment.status == PaymentStatus.SUCCESS:
         return payment.seller.subscription
 
-    payment.status  = PaymentStatus.SUCCESS
+    payment.status = PaymentStatus.SUCCESS
     payment.paid_at = timezone.now()
     payment.save()
 
@@ -130,13 +141,16 @@ def activate_subscription_from_payment(payment: SubscriptionPayment) -> Subscrip
     else:
         new_expires = now + timedelta(days=SUBSCRIPTION_DURATION_DAYS)
 
-    sub.plan       = payment.plan
+    sub.plan = payment.plan
     sub.expires_at = new_expires
     sub.save()
 
     logger.info(
         "Subscription activated — seller=%s plan=%s expires=%s payment=%s",
-        payment.seller_id, payment.plan, new_expires, payment.pk,
+        payment.seller_id,
+        payment.plan,
+        new_expires,
+        payment.pk,
     )
     return sub
 

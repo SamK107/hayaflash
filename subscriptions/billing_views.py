@@ -3,6 +3,7 @@ Views publiques stables — /billing/return/, /billing/cancel/, /billing/webhook
 Ces URLs sont enregistrees chez Orange Money et ne changent jamais.
 Elles deleguent a la logique existante dans views.py / services/.
 """
+
 from __future__ import annotations
 
 import json
@@ -33,7 +34,9 @@ def billing_return_view(request):
         return redirect("subscriptions:subscription")
 
     try:
-        payment = SubscriptionPayment.objects.select_related("seller").get(order_id=order_id)
+        payment = SubscriptionPayment.objects.select_related("seller").get(
+            order_id=order_id
+        )
     except SubscriptionPayment.DoesNotExist:
         logger.warning("billing_return: order_id inconnu: %s", order_id)
         return redirect("subscriptions:subscription")
@@ -41,7 +44,7 @@ def billing_return_view(request):
     if payment.status == PaymentStatus.SUCCESS:
         messages.success(
             request,
-            f"Paiement confirme ! Votre plan {payment.get_plan_display()} est actif."
+            f"Paiement confirme ! Votre plan {payment.get_plan_display()} est actif.",
         )
         return redirect("subscriptions:subscription")
 
@@ -82,9 +85,11 @@ def billing_callback_view(request):
             data = json.loads(raw_body)
         except json.JSONDecodeError:
             from urllib.parse import parse_qs
+
             data = {k: v[0] for k, v in parse_qs(raw_body.decode()).items()}
 
         from .services.orange_money import verify_callback
+
         result = verify_callback(data)
 
         order_id = result.get("order_id") or ""
@@ -99,10 +104,11 @@ def billing_callback_view(request):
             return HttpResponse("OK")
 
         payment.raw_callback = data
-        payment.txn_id       = result.get("txn_id", "")
+        payment.txn_id = result.get("txn_id", "")
 
         if result["success"]:
             from .services.payment import activate_subscription_from_payment
+
             activate_subscription_from_payment(payment)
             logger.info("Subscription activated — order_id=%s", order_id)
         else:

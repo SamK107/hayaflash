@@ -14,5 +14,9 @@ urlpatterns = [
     path("<int:pk>/clone/", views.flash_sale_clone_view, name="clone"),
     # Réservations d'intérêt
     path("interests/", views.sale_interests_view, name="interests"),
-    path("<int:pk>/interests/reset/", views.sale_interests_reset_view, name="interests_reset"),
+    path(
+        "<int:pk>/interests/reset/",
+        views.sale_interests_reset_view,
+        name="interests_reset",
+    ),
 ]

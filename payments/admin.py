@@ -48,7 +48,14 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
 
 @admin.register(LedgerEntry)
 class LedgerEntryAdmin(admin.ModelAdmin):
-    list_display = ("id", "transaction", "entry_type", "amount", "account", "created_at")
+    list_display = (
+        "id",
+        "transaction",
+        "entry_type",
+        "amount",
+        "account",
+        "created_at",
+    )
     list_filter = ("entry_type", "account")
     readonly_fields = ("transaction", "entry_type", "amount", "account", "created_at")
 

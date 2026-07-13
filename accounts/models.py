@@ -26,9 +26,7 @@ class UserManager(BaseUserManager):
         phone = self.normalize_phone(phone)
 
         user = self.model(
-            phone=phone,
-            display_name=extra_fields.pop("display_name"),
-            **extra_fields
+            phone=phone, display_name=extra_fields.pop("display_name"), **extra_fields
         )
 
         user.set_password(password)
@@ -98,7 +96,9 @@ class SellerProfile(models.Model):
         db_index=True,
         help_text="Public URL slug for seller storefront (/s/<slug>/).",
     )
-    business_name = models.CharField(max_length=160, blank=True, verbose_name="Nom commercial")
+    business_name = models.CharField(
+        max_length=160, blank=True, verbose_name="Nom commercial"
+    )
     bio = models.TextField(blank=True, verbose_name="Biographie")
     avatar = models.ImageField(
         upload_to="sellers/avatars/",
@@ -125,9 +125,11 @@ class SellerProfile(models.Model):
     def save(self, *args, **kwargs):
         if not self.seller_code:
             from accounts.services.seller_codes import generate_unique_seller_code
+
             self.seller_code = generate_unique_seller_code(type(self))
         if not self.public_slug:
             from accounts.services.slugs import generate_unique_seller_public_slug
+
             self.public_slug = generate_unique_seller_public_slug(self)
 
         super().save(*args, **kwargs)

@@ -4,6 +4,7 @@ Shared Django settings for HayaFlash.
 Environment-specific values live in dev.py, staging.py, and prod.py.
 Select the module with DJANGO_SETTINGS_MODULE (see .env.example).
 """
+
 from __future__ import annotations
 
 import os
@@ -323,7 +324,9 @@ AUTH_USER_MODEL = "accounts.User"
 
 # Public base URL f
 # ---------------------------------------------------------------------------
-EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+EMAIL_BACKEND = os.environ.get(
+    "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
+)
 if os.environ.get("DEFAULT_FROM_EMAIL"):
     DEFAULT_FROM_EMAIL = os.environ["DEFAULT_FROM_EMAIL"]
 
@@ -386,25 +389,27 @@ REST_FRAMEWORK = {
 }
 
 # ── Notifications SMS ─────────────────────────────────────────────────────────
-ORANGE_SMS_API_KEY  = (os.environ.get("ORANGE_SMS_API_KEY") or "").strip()
-ORANGE_SMS_BASE_URL = (os.environ.get("ORANGE_SMS_BASE_URL") or "https://api.orange.com/smsmessaging/v1").strip()
+ORANGE_SMS_API_KEY = (os.environ.get("ORANGE_SMS_API_KEY") or "").strip()
+ORANGE_SMS_BASE_URL = (
+    os.environ.get("ORANGE_SMS_BASE_URL") or "https://api.orange.com/smsmessaging/v1"
+).strip()
 
 # ── Orange Money Paiement (abonnements) ───────────────────────────────────────
-ORANGE_MONEY_CLIENT_ID     = (os.environ.get("ORANGE_ML_CLIENT_ID") or "").strip()
+ORANGE_MONEY_CLIENT_ID = (os.environ.get("ORANGE_ML_CLIENT_ID") or "").strip()
 ORANGE_MONEY_CLIENT_SECRET = (os.environ.get("ORANGE_ML_CLIENT_SECRET") or "").strip()
-ORANGE_MONEY_MERCHANT_KEY  = (os.environ.get("ORANGE_ML_MERCHANT_KEY") or "").strip()
+ORANGE_MONEY_MERCHANT_KEY = (os.environ.get("ORANGE_ML_MERCHANT_KEY") or "").strip()
 # URLs de callback Orange Money — stables entre dev (ngrok) et prod (VPS).
 # En dev : ORANGE_ML_BASE_URL=https://xxxx.ngrok-free.app
 # En prod : les 3 URLs specifiques ci-dessous prennent le dessus.
-ORANGE_MONEY_BASE_URL      = (os.environ.get("ORANGE_ML_BASE_URL") or "").strip().rstrip("/")
+ORANGE_MONEY_BASE_URL = (os.environ.get("ORANGE_ML_BASE_URL") or "").strip().rstrip("/")
 # URLs fixes de retour/annulation/webhook (doivent etre HTTPS publiques)
 # Si definies, elles remplacent les URLs calculees dynamiquement.
-ORANGE_MONEY_RETURN_URL   = (os.environ.get("ORANGE_ML_RETURN_URL") or "").strip()
-ORANGE_MONEY_CANCEL_URL   = (os.environ.get("ORANGE_ML_CANCEL_URL") or "").strip()
-ORANGE_MONEY_NOTIFY_URL   = (os.environ.get("ORANGE_ML_NOTIFY_URL") or "").strip()
-ORANGE_MONEY_RETURN_URL    = (os.environ.get("ORANGE_ML_RETURN_URL") or "").strip()
-ORANGE_MONEY_CANCEL_URL    = (os.environ.get("ORANGE_ML_CANCEL_URL") or "").strip()
-ORANGE_MONEY_NOTIFY_URL    = (os.environ.get("ORANGE_ML_NOTIFY_URL") or "").strip()
+ORANGE_MONEY_RETURN_URL = (os.environ.get("ORANGE_ML_RETURN_URL") or "").strip()
+ORANGE_MONEY_CANCEL_URL = (os.environ.get("ORANGE_ML_CANCEL_URL") or "").strip()
+ORANGE_MONEY_NOTIFY_URL = (os.environ.get("ORANGE_ML_NOTIFY_URL") or "").strip()
+ORANGE_MONEY_RETURN_URL = (os.environ.get("ORANGE_ML_RETURN_URL") or "").strip()
+ORANGE_MONEY_CANCEL_URL = (os.environ.get("ORANGE_ML_CANCEL_URL") or "").strip()
+ORANGE_MONEY_NOTIFY_URL = (os.environ.get("ORANGE_ML_NOTIFY_URL") or "").strip()
 
 # ── Sentry DSN (production uniquement) ───────────────────────────────────────
 SENTRY_DSN = (os.environ.get("SENTRY_DSN") or "").strip()

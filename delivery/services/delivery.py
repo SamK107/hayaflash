@@ -30,7 +30,9 @@ def compute_order_total(order: Order) -> Decimal:
     return agg["total"] or Decimal("0.00")
 
 
-def create_delivery_for_order(*, order: Order, delivery_data: dict[str, Any]) -> Delivery:
+def create_delivery_for_order(
+    *, order: Order, delivery_data: dict[str, Any]
+) -> Delivery:
     """
     Create Delivery for an order inside the same atomic transaction as create_order().
     Idempotent when delivery already exists for the order.
@@ -87,7 +89,9 @@ def _delivery_result_row(delivery: Delivery) -> dict[str, Any]:
         "customer_phone": order.customer_phone or "",
         "address_text": delivery.address_text,
         "latitude": str(delivery.latitude) if delivery.latitude is not None else None,
-        "longitude": str(delivery.longitude) if delivery.longitude is not None else None,
+        "longitude": str(delivery.longitude)
+        if delivery.longitude is not None
+        else None,
         "maps_url": delivery.get_maps_url(),
         "waze_url": delivery.get_waze_url(),
         "delivery_notes": delivery.delivery_notes,
@@ -190,7 +194,9 @@ def advance_delivery(
 
         if action == "confirm":
             if order.status != OrderStatus.PENDING:
-                raise ValidationError("Order cannot be confirmed from its current status.")
+                raise ValidationError(
+                    "Order cannot be confirmed from its current status."
+                )
             order.status = OrderStatus.CONFIRMED
             order.save(update_fields=["status", "updated_at"])
 

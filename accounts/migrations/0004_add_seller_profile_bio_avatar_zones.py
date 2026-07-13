@@ -4,30 +4,41 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('accounts', '0003_populate_seller_public_slugs'),
+        ("accounts", "0003_populate_seller_public_slugs"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='sellerprofile',
-            name='avatar',
-            field=models.ImageField(blank=True, null=True, upload_to='sellers/avatars/', verbose_name='Photo de profil'),
+            model_name="sellerprofile",
+            name="avatar",
+            field=models.ImageField(
+                blank=True,
+                null=True,
+                upload_to="sellers/avatars/",
+                verbose_name="Photo de profil",
+            ),
         ),
         migrations.AddField(
-            model_name='sellerprofile',
-            name='bio',
-            field=models.TextField(blank=True, verbose_name='Biographie'),
+            model_name="sellerprofile",
+            name="bio",
+            field=models.TextField(blank=True, verbose_name="Biographie"),
         ),
         migrations.AddField(
-            model_name='sellerprofile',
-            name='delivery_zones',
-            field=models.CharField(blank=True, help_text='Ex: Bamako, Kati, Koulikoro', max_length=500, verbose_name='Zones de livraison'),
+            model_name="sellerprofile",
+            name="delivery_zones",
+            field=models.CharField(
+                blank=True,
+                help_text="Ex: Bamako, Kati, Koulikoro",
+                max_length=500,
+                verbose_name="Zones de livraison",
+            ),
         ),
         migrations.AlterField(
-            model_name='sellerprofile',
-            name='business_name',
-            field=models.CharField(blank=True, max_length=160, verbose_name='Nom commercial'),
+            model_name="sellerprofile",
+            name="business_name",
+            field=models.CharField(
+                blank=True, max_length=160, verbose_name="Nom commercial"
+            ),
         ),
     ]

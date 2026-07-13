@@ -12,6 +12,7 @@ Set ``DJANGO_SETTINGS_MODULE`` to one of:
 ``config.settings.prod`` unless ``DJANGO_SETTINGS_MODULE`` is already set
 (e.g. from the process environment or ``.env`` loaded in ``manage.py``).
 """
+
 import os
 
 ENVIRONMENT = os.environ.get("ENVIRONMENT", "dev")
@@ -23,6 +24,5 @@ SETTINGS_MAP = {
 }
 
 os.environ.setdefault(
-    "DJANGO_SETTINGS_MODULE",
-    SETTINGS_MAP.get(ENVIRONMENT, "config.settings.dev")
+    "DJANGO_SETTINGS_MODULE", SETTINGS_MAP.get(ENVIRONMENT, "config.settings.dev")
 )

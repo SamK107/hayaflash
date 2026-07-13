@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from django.db.models import Count, Sum
 
-from analytics.services.cache import get_cached_stats, seller_stats_key, set_cached_stats
+from analytics.services.cache import (
+    get_cached_stats,
+    seller_stats_key,
+    set_cached_stats,
+)
 from orders.models import OrderItem
 
 

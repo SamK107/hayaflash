@@ -13,6 +13,7 @@ from delivery.services.delivery import advance_delivery
 from flash_sales.models import FlashSale
 from orders.models import Order, OrderItem, OrderStatus
 
+
 def _auto_sync_stale_deliveries(qs) -> None:
     """
     Corrige silencieusement les livraisons dont le statut est en retard sur la commande.
@@ -20,11 +21,13 @@ def _auto_sync_stale_deliveries(qs) -> None:
     automatique soit en place — la Delivery reste PENDING alors que l'Order est DELIVERED.
     """
     from django.utils import timezone
+
     now = timezone.now()
 
     stale_delivered = list(
-        qs.filter(order__status=OrderStatus.DELIVERED)
-        .exclude(status=Delivery.Status.DELIVERED)
+        qs.filter(order__status=OrderStatus.DELIVERED).exclude(
+            status=Delivery.Status.DELIVERED
+        )
     )
     for d in stale_delivered:
         d.status = Delivery.Status.DELIVERED
@@ -33,8 +36,13 @@ def _auto_sync_stale_deliveries(qs) -> None:
         d.save(update_fields=["status", "delivered_at", "cod_collected", "updated_at"])
 
     stale_transit = list(
-        qs.filter(order__status=OrderStatus.OUT_FOR_DELIVERY)
-        .exclude(status__in=[Delivery.Status.IN_TRANSIT, Delivery.Status.DELIVERED, Delivery.Status.FAILED])
+        qs.filter(order__status=OrderStatus.OUT_FOR_DELIVERY).exclude(
+            status__in=[
+                Delivery.Status.IN_TRANSIT,
+                Delivery.Status.DELIVERED,
+                Delivery.Status.FAILED,
+            ]
+        )
     )
     for d in stale_transit:
         d.status = Delivery.Status.IN_TRANSIT

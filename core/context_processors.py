@@ -1,4 +1,5 @@
 """Context processors globaux pour HayaFlash."""
+
 from __future__ import annotations
 
 
@@ -15,5 +16,6 @@ def seller_interests_count(request):
         return {"interests_count": 0}
 
     from flash_sales.models import SaleInterest
+
     count = SaleInterest.objects.filter(flash_sale__owner=seller).count()
     return {"interests_count": count}
