@@ -23,6 +23,7 @@ from products.models import Product
 
 ORDER_SUBMIT_RATE_WINDOW_SECONDS = 60
 ORDER_SUBMIT_RATE_MAX_PER_WINDOW = 30
+MAX_AUDIO_BASE64_LENGTH = 2_000_000  # ~1.5 MB decoded, generous for a short voice note
 
 
 def _client_ip(request: HttpRequest) -> str:
@@ -66,15 +67,29 @@ def _as_positive_int(value: Any, field: str, *, min_value: int = 1) -> int:
     return n
 
 
+def _clean_audio_base64(value: Any) -> str | None:
+    """Best-effort extraction: an invalid/oversized voice note is dropped, not rejected."""
+    if not isinstance(value, str):
+        return None
+    value = value.strip()
+    if value.startswith("data:"):
+        _, _, value = value.partition(",")
+    if not value or len(value) > MAX_AUDIO_BASE64_LENGTH:
+        return None
+    return value
+
+
 def _extract_delivery_from_public(data: dict[str, Any]) -> dict[str, Any]:
     """Map public body delivery fields (nested or legacy top-level address_text)."""
     raw = data.get("delivery")
     if isinstance(raw, dict):
-        return validate_delivery_input(raw)
+        cleaned = validate_delivery_input(raw)
+        cleaned["audio_base64"] = _clean_audio_base64(raw.get("audio_base64"))
+        return cleaned
 
     legacy_address = data.get("address_text")
     if isinstance(legacy_address, str) and legacy_address.strip():
-        return validate_delivery_input(
+        cleaned = validate_delivery_input(
             {
                 "address_text": legacy_address,
                 "latitude": data.get("latitude"),
@@ -84,6 +99,8 @@ def _extract_delivery_from_public(data: dict[str, Any]) -> dict[str, Any]:
                 "delivery_notes": data.get("delivery_notes") or "",
             }
         )
+        cleaned["audio_base64"] = _clean_audio_base64(data.get("audio_base64"))
+        return cleaned
 
     raise ValidationError({"delivery": "This field is required."})
 
