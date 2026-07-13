@@ -176,7 +176,8 @@ def seller_home_view(request):
 
 @staff_member_required
 def platform_admin_dashboard(request):
-    """KPIs globaux de la plateforme — staff only."""
+    """Tableau de bord de pilotage HayaFlash (staff only, compte unique proprietaire)."""
+    import json
     from datetime import timedelta
 
     from django.db.models import Count, Sum
@@ -185,6 +186,12 @@ def platform_admin_dashboard(request):
     from flash_sales.models import FlashSale, FlashSaleStatus
     from orders.models import Order
     from subscriptions.models import PaymentStatus, Subscription, SubscriptionPayment
+    from subscriptions.services.platform_reporting import (
+        get_orange_remittance_summary,
+        get_subscribed_sellers,
+        get_subscription_revenue_timeline_monthly,
+        get_subscription_revenue_ytd,
+    )
 
     now = timezone.now()
     month_start = now - timedelta(days=30)
@@ -213,6 +220,12 @@ def platform_admin_dashboard(request):
             ).aggregate(total=Sum("amount"))["total"]
             or 0
         ),
+        "revenue_ytd": get_subscription_revenue_ytd(),
+        "revenue_timeline_json": json.dumps(
+            get_subscription_revenue_timeline_monthly()
+        ),
+        "orange": get_orange_remittance_summary(),
+        "subscribed_sellers": get_subscribed_sellers(),
         "recent_payments": (
             SubscriptionPayment.objects.select_related("seller__user").order_by(
                 "-created_at"
