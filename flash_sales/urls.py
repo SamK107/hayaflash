@@ -6,6 +6,7 @@ app_name = "flash_sales"
 urlpatterns = [
     path("", views.flash_sale_list_view, name="list"),
     path("create/", views.flash_sale_create_view, name="create"),
+    path("analytics/", views.seller_analytics_view, name="analytics"),
     path("<int:pk>/", views.flash_sale_detail_view, name="detail"),
     path("<int:pk>/edit/", views.flash_sale_edit_view, name="edit"),
     path("<int:pk>/open/", views.flash_sale_open_view, name="open"),

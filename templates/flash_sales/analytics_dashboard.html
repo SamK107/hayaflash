@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Statistiques — HayaFlash{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+
+    <div class="flex items-center gap-3 mb-6">
+        <h1 class="text-2xl font-black text-gray-900">Statistiques</h1>
+        <span class="px-2.5 py-1 rounded-full text-xs font-bold uppercase
+            {% if sub.is_pro %}bg-yellow-100 text-yellow-700
+            {% else %}bg-gray-100 text-gray-600{% endif %}">
+            {{ sub.plan_label }}
+        </span>
+    </div>
+
+    <!-- KPIs -->
+    <div class="grid grid-cols-2 gap-3 mb-6">
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <p class="text-xs text-gray-400 mb-1">Commandes livrées</p>
+            <p class="text-2xl font-bold text-gray-900">{{ kpis.total_orders }}</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <p class="text-xs text-gray-400 mb-1">CA encaissé</p>
+            <p class="text-xl font-bold text-green-600">
+                {{ kpis.total_revenue|floatformat:0 }} FCFA
+            </p>
+        </div>
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <p class="text-xs text-gray-400 mb-1">Articles livrés</p>
+            <p class="text-2xl font-bold text-gray-900">{{ kpis.total_quantity }}</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <p class="text-xs text-gray-400 mb-1">CA en attente</p>
+            <p class="text-xl font-bold text-amber-600">
+                {{ kpis.pending_revenue|floatformat:0 }} FCFA
+            </p>
+        </div>
+    </div>
+
+    <!-- Graphique 30 jours -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
+        <h2 class="text-sm font-bold text-gray-700 mb-4">CA — 30 derniers jours</h2>
+        <canvas id="chart30d" height="180"></canvas>
+    </div>
+
+    <!-- Top produits -->
+    {% if top_products %}
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
+        <h2 class="text-sm font-bold text-gray-700 mb-3">Top produits</h2>
+        <div class="space-y-2">
+            {% for p in top_products %}
+            <div class="flex items-center justify-between text-sm">
+                <span class="text-gray-700 truncate flex-1">
+                    {{ p.product_name_snapshot }}
+                </span>
+                <span class="text-gray-400 ml-3">{{ p.total_sold }} vendus</span>
+                <span class="font-semibold text-gray-900 ml-3">
+                    {{ p.total_revenue|floatformat:0 }} F
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if is_pro %}
+    <!-- Graphique annuel (PRO) -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-sm font-bold text-gray-700">CA mensuel — 12 mois</h2>
+            <span class="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-700
+                         rounded-full font-bold">PRO</span>
+        </div>
+        <canvas id="chartYear" height="180"></canvas>
+    </div>
+    {% else %}
+    <!-- Upgrade PRO -->
+    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-5 text-center">
+        <p class="font-semibold text-gray-800 mb-1">
+            Graphiques annuels disponibles en PRO
+        </p>
+        <p class="text-sm text-gray-500 mb-4">
+            Historique complet, CA par vente flash, évolution mensuelle.
+        </p>
+        <a href="{% url 'subscriptions:subscription' %}"
+           class="inline-block px-5 py-2.5 bg-primary text-white font-bold
+                  rounded-xl text-sm hover:bg-red-700 transition-colors">
+            Passer au PRO — 5 000 FCFA/mois
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+const data30d = {{ timeline_json|safe }};
+{% if is_pro %}
+const dataYear = {{ timeline_year_json|safe }};
+{% endif %}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const ctx30 = document.getElementById('chart30d');
+    if (ctx30 && data30d.length) {
+        new Chart(ctx30, {
+            type: 'line',
+            data: {
+                labels: data30d.map(d => d.day),
+                datasets: [{
+                    label: 'CA (FCFA)',
+                    data: data30d.map(d => d.revenue),
+                    borderColor: '#E63946',
+                    backgroundColor: 'rgba(230,57,70,0.08)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 3,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
+
+    {% if is_pro %}
+    const ctxYear = document.getElementById('chartYear');
+    if (ctxYear && dataYear.length) {
+        new Chart(ctxYear, {
+            type: 'bar',
+            data: {
+                labels: dataYear.map(d => d.month),
+                datasets: [{
+                    label: 'CA mensuel (FCFA)',
+                    data: dataYear.map(d => d.revenue),
+                    backgroundColor: '#FFB800',
+                    borderRadius: 6,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
+    {% endif %}
+});
+</script>
+{% endblock %}

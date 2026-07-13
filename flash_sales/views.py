@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
@@ -15,7 +17,7 @@ from .services.crud import (
     save_sale_audio,
     update_flash_sale,
 )
-from subscriptions.services.limits import get_sale_quota
+from subscriptions.services.limits import get_or_create_subscription, get_sale_quota
 
 
 def _get_seller(request):
@@ -289,3 +291,43 @@ def sale_interests_reset_view(request, pk: int):
     deleted_count, _ = SaleInterest.objects.filter(flash_sale=sale).delete()
     messages.success(request, f"{deleted_count} reservation(s) supprimee(s).")
     return redirect("flash_sales:interests")
+
+
+# Reporting / Analytics (MEDIUM / PRO)
+
+
+@login_required
+def seller_analytics_view(request):
+    """Dashboard analytics — MEDIUM (30j) et PRO (annuel + par vente)."""
+    from analytics.services.reporting import (
+        get_revenue_timeline,
+        get_revenue_timeline_monthly,
+        get_top_products,
+    )
+    from orders.services.dashboard import get_dashboard_kpis
+
+    seller = _get_seller(request)
+    sub = get_or_create_subscription(seller)
+
+    if not sub.has_stats:
+        return render(request, "flash_sales/analytics_upgrade.html", {"sub": sub})
+
+    # get_dashboard_kpis() prend un User (request.user), pas un SellerProfile.
+    kpis = get_dashboard_kpis(request.user)
+
+    timeline_30d = get_revenue_timeline(seller.pk, days=30)
+
+    context = {
+        "kpis": kpis,
+        "sub": sub,
+        "is_pro": sub.is_pro,
+        "timeline_json": json.dumps(timeline_30d),
+        "top_products": get_top_products(seller.pk),
+    }
+
+    if sub.is_pro:
+        context["timeline_year_json"] = json.dumps(
+            get_revenue_timeline_monthly(seller.pk)
+        )
+
+    return render(request, "flash_sales/analytics_dashboard.html", context)
