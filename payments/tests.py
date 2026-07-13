@@ -8,7 +8,7 @@ from decimal import Decimal
 from uuid import uuid4
 
 from django.db import close_old_connections, connection
-from django.test import TestCase, TransactionTestCase, override_settings
+from django.test import TransactionTestCase, override_settings
 from django.test.client import Client
 from rest_framework.test import APIClient
 from unittest import skipIf
@@ -234,7 +234,7 @@ class WebhookConcurrencyTests(TransactionTestCase):
         self.api = APIClient()
         self.raw_client = Client(enforce_csrf_checks=True)
 
-        buyer = User.objects.create_user(phone="+15558000001", password="x")
+        _buyer = User.objects.create_user(phone="+15558000001", password="x")
         seller_user = User.objects.create_user(phone="+15558000002", password="x")
         seller = SellerProfile.objects.create(user=seller_user)
         now = timezone.now()

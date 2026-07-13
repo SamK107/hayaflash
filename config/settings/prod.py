@@ -7,7 +7,7 @@ from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa: F403
 from .base import REST_FRAMEWORK as BASE_REST_FRAMEWORK
-from .base import SECRET_KEY, SENTRY_DSN  # noqa: F401
+from .base import SECRET_KEY, SENTRY_DSN, _csv  # noqa: F401
 
 # ── Sentry ────────────────────────────────────────────────────────────────────
 if SENTRY_DSN:
@@ -82,5 +82,5 @@ REST_FRAMEWORK = {
     **BASE_REST_FRAMEWORK,
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
-    ],
+    ]
 }

@@ -35,7 +35,9 @@ if not os.environ.get("EMAIL_BACKEND"):
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 STORAGES = {
-    **STORAGES,
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
     "staticfiles": {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },

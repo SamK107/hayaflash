@@ -1,13 +1,12 @@
 """Staging: PostgreSQL, no DEBUG, strict configuration from environment."""
 from __future__ import annotations
 
-import os
 
 from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa: F403
 from .base import REST_FRAMEWORK as BASE_REST_FRAMEWORK
-from .base import ENVIRONMENT, SECRET_KEY  # noqa: F401
+from .base import ENVIRONMENT, SECRET_KEY, _csv  # noqa: F401
 
 DEBUG = False
 
