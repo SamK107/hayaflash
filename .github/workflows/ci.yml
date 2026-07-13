@@ -47,7 +47,6 @@ jobs:
           pytest \
             --ds=config.settings.test \
             --cov=. \
-            --cov-omit="*/migrations/*,*/settings/*,manage.py,config/*" \
             --cov-report=term-missing \
             --cov-fail-under=60 \
             -v
