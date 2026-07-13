@@ -1,0 +1,989 @@
+{% extends "base.html" %}
+{% block title %}HayaFlash — Programmez. Vendez. Haya s'occupe du reste.{% endblock %}
+{% block meta_description %}Commandes en temps réel, livraisons suivies, encaissements confirmés. La plateforme qui transforme vos ventes flash en machine à commandes — pour vendeurs au Mali.{% endblock %}
+
+{% block extra_head %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
+
+<style>
+/* ─────────────────────────────────────────────────
+   Tokens HayaFlash (charte graphique)
+───────────────────────────────────────────────── */
+:root {
+  --hf-flash:  #FF4D2E;
+  --hf-violet: #5B2EFF;
+  --hf-lime:   #F9F871;
+  --hf-dark:   #1A1A2E;
+  --hf-light:  #FAFAFA;
+  /* --hf-grad removed — no gradients in brand UI */
+  --ease:      cubic-bezier(0.4,0,0.2,1);
+  --dur:       0.25s;
+}
+
+/* ── Poppins Black pour titres ── */
+.T { font-family:'Poppins','Inter',sans-serif; font-weight:900; letter-spacing:-.03em; }
+
+/* ── Texte accent — rouge flash ── */
+.GT { color:#FF4D2E; }
+
+/* ── Scroll reveal ──
+   IMPORTANT: n'applique opacity:0 que si JS est actif (.js-anim sur <body>).
+   Sans JS (ou avant que JS s'exécute), tout le contenu est visible. ── */
+.js-anim [da] {
+  opacity:0; transform:translateY(22px);
+  transition:opacity .55s var(--ease), transform .55s var(--ease);
+}
+.js-anim [da].on { opacity:1; transform:translateY(0); }
+/* Fallback : si JS a planté ou est bloqué, on montre tout après 1s via CSS */
+@keyframes hf-show { to { opacity:1; transform:none; } }
+.js-anim [da]:not(.on) { animation: hf-show 0s 1s forwards; }
+
+/* ── Dot LIVE pulsant ── */
+@keyframes pulse-lime {
+  0%,100% { box-shadow:0 0 0 0 rgba(249,248,113,.55); }
+  50%      { box-shadow:0 0 0 9px rgba(249,248,113,0); }
+}
+.dot { width:8px; height:8px; flex-shrink:0; border-radius:50%;
+       background:var(--hf-lime); animation:pulse-lime 1.8s ease infinite; }
+
+/* ── Wave ── */
+.wave { display:block; line-height:0; }
+.wave svg { display:block; width:100%; }
+
+/* ─────────────────────────────────────────────────
+   CARD — style bitiki (hover: lift + accent bar)
+───────────────────────────────────────────────── */
+.card {
+  background:#fff; border:1.5px solid #EEEEF0; border-radius:1.25rem;
+  padding:1.5rem; position:relative; overflow:hidden;
+  transition: border-color var(--dur) var(--ease),
+              box-shadow   var(--dur) var(--ease),
+              transform    var(--dur) var(--ease);
+}
+.card::after {
+  content:''; position:absolute; bottom:0; left:0; right:0; height:3px;
+  background:#FF4D2E; transform:scaleX(0); transform-origin:left;
+  transition:transform var(--dur) var(--ease);
+}
+.card:hover {
+  border-color:var(--hf-flash);
+  box-shadow:0 12px 36px rgba(255,77,46,.13);
+  transform:translateY(-4px);
+}
+.card:hover::after { transform:scaleX(1); }
+
+/* Card sombre (sections anthracite) */
+.card-dark {
+  background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07);
+  border-radius:1.25rem; padding:1.5rem; position:relative; overflow:hidden;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
+              transform var(--dur) var(--ease);
+}
+.card-dark::after {
+  content:''; position:absolute; bottom:0; left:0; right:0; height:2px;
+  background:#FF4D2E; transform:scaleX(0); transform-origin:left;
+  transition:transform var(--dur) var(--ease);
+}
+.card-dark:hover {
+  background:rgba(255,77,46,.07);
+  border-color:rgba(255,77,46,.3);
+  transform:translateY(-3px);
+}
+.card-dark:hover::after { transform:scaleX(1); }
+
+/* Card problème (rouge à gauche) */
+.card-pb {
+  background:#fff; border:1.5px solid #EEEEF0; border-radius:1rem; padding:1rem 1.25rem;
+  position:relative; overflow:hidden;
+  display:flex; align-items:flex-start; gap:.875rem;
+  transition: border-color var(--dur) var(--ease),
+              box-shadow   var(--dur) var(--ease),
+              transform    var(--dur) var(--ease);
+}
+.card-pb::before {
+  content:''; position:absolute; top:0; left:0; bottom:0; width:3px;
+  background:var(--hf-flash); transform:scaleY(0); transform-origin:top;
+  transition:transform var(--dur) var(--ease);
+}
+.card-pb:hover { border-color:var(--hf-flash); box-shadow:0 6px 20px rgba(255,77,46,.1); transform:translateY(-2px); }
+.card-pb:hover::before { transform:scaleY(1); }
+
+/* Card gain */
+.card-gain {
+  background:#fff; border:1.5px solid #EEEEF0; border-radius:1.25rem;
+  padding:1.25rem 1.5rem; position:relative; overflow:hidden;
+  display:flex; align-items:center; gap:1rem;
+  transition: border-color var(--dur) var(--ease),
+              box-shadow   var(--dur) var(--ease),
+              transform    var(--dur) var(--ease);
+}
+.card-gain::after {
+  content:''; position:absolute; left:0; top:0; bottom:0; width:3px;
+  background:#5B2EFF; transform:scaleY(0); transform-origin:top;
+  transition:transform var(--dur) var(--ease);
+}
+.card-gain:hover { border-color:var(--hf-flash); box-shadow:0 8px 24px rgba(255,77,46,.1); transform:translateX(4px); }
+.card-gain:hover::after { transform:scaleY(1); }
+
+/* ── Boutons ── */
+.btn { display:inline-flex; align-items:center; gap:.5rem; font-weight:700;
+       text-decoration:none; border-radius:.875rem;
+       transition:transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
+.btn:active { transform:scale(.97) !important; }
+.btn-flash { background:var(--hf-flash); color:#fff; padding:1rem 2rem; font-size:1rem;
+             box-shadow:0 6px 22px rgba(255,77,46,.4); }
+.btn-flash:hover { transform:translateY(-2px); box-shadow:0 10px 30px rgba(255,77,46,.5); }
+.btn-ghost { background:rgba(255,255,255,.06); color:rgba(255,255,255,.8);
+             border:1.5px solid rgba(255,255,255,.18); padding:1rem 2rem; font-size:1rem; }
+.btn-ghost:hover { background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.42); }
+.btn-white { background:#fff; color:var(--hf-flash);
+             font-family:'Poppins',sans-serif; font-weight:900; font-size:1rem;
+             padding:1rem 2.5rem; box-shadow:0 4px 20px rgba(0,0,0,.2); }
+.btn-white:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(0,0,0,.28); }
+
+/* ── Eyebrow label ── */
+.lbl { display:inline-block; font-size:.68rem; font-weight:800;
+       letter-spacing:.1em; text-transform:uppercase; border-radius:9999px; padding:3px 13px; margin-bottom:.8rem; }
+.lbl-r  { color:#FF4D2E; background:rgba(255,77,46,.09);  border:1px solid rgba(255,77,46,.22); }
+.lbl-v  { color:#5B2EFF; background:rgba(91,46,255,.09);  border:1px solid rgba(91,46,255,.22); }
+.lbl-l  { color:#1A1A2E; background:rgba(249,248,113,.28);border:1px solid rgba(249,248,113,.5); }
+.lbl-w  { color:rgba(255,255,255,.55); background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.13); }
+
+/* ── Step badge (malicar) ── */
+.step-w { position:relative; width:3.25rem; height:3.25rem; flex-shrink:0; }
+.step-i { width:3.25rem; height:3.25rem; border-radius:50%; font-size:1.35rem;
+          background:rgba(255,77,46,.08); border:1.5px solid rgba(255,77,46,.2);
+          display:flex; align-items:center; justify-content:center; }
+.step-b { position:absolute; top:-5px; right:-5px; width:1.35rem; height:1.35rem;
+          border-radius:50%; background:#FF4D2E; color:#fff; font-size:.63rem; font-weight:900;
+          border:2px solid #1A1A2E; display:flex; align-items:center; justify-content:center; }
+
+/* ── Icon boxes ── */
+.icon-r, .icon-v {
+  width:3rem; height:3rem; border-radius:.875rem; font-size:1.35rem;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; transition:transform var(--dur) var(--ease);
+}
+.icon-r { background:#FF4D2E; }
+.icon-v { background:#5B2EFF; }
+.card:hover .icon-r, .card:hover .icon-v { transform:scale(1.08) rotate(-4deg); }
+
+/* ── Countdown déco ── */
+.cd  { display:inline-flex; align-items:center; gap:.4rem; }
+.cdb { background:rgba(249,248,113,.1); border:1px solid rgba(249,248,113,.22);
+       border-radius:.5rem; padding:.3rem .75rem; text-align:center; min-width:3rem; }
+.cdn { font-family:'Poppins',monospace; font-weight:900; font-size:1.5rem; color:#F9F871; line-height:1; }
+.cdl { font-size:.54rem; color:rgba(255,255,255,.3); text-transform:uppercase; letter-spacing:.07em; margin-top:2px; }
+.cds { font-size:1.5rem; font-weight:900; color:rgba(249,248,113,.4); line-height:1; margin-bottom:.9rem; }
+
+/* ── FAQ accordion ── */
+.faq-item { background:#fff; border:1.5px solid #EEEEF0; border-radius:1rem; overflow:hidden;
+            transition:border-color var(--dur) var(--ease); }
+.faq-item:hover { border-color:rgba(255,77,46,.3); }
+.faq-q { width:100%; text-align:left; background:none; border:none; padding:1.25rem 1.5rem;
+          display:flex; align-items:center; justify-content:space-between; gap:1rem;
+          cursor:pointer; transition:background var(--dur) var(--ease); }
+.faq-q:hover { background:rgba(255,77,46,.03); }
+.faq-icon { width:1.5rem; height:1.5rem; border-radius:50%; flex-shrink:0;
+            background:rgba(255,77,46,.1); color:#FF4D2E;
+            display:flex; align-items:center; justify-content:center;
+            font-size:.8rem; font-weight:900; transition:transform var(--dur) var(--ease); }
+
+/* ── Stat hero ── */
+.sv { font-family:'Poppins',sans-serif; font-weight:900; font-size:2.1rem; color:#F9F871; line-height:1; letter-spacing:-.03em; }
+.sl { font-size:.7rem; color:rgba(255,255,255,.38); margin-top:3px; font-weight:500; }
+
+/* ── Navbar responsive ── */
+/* Mobile : seul "Se connecter" reste visible ; le CTA register est dans le hero */
+@media (max-width:520px) {
+  .nav-register { display:none !important; }
+  .nav-login { color:rgba(255,255,255,.75) !important; font-weight:700 !important;
+               background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.15);
+               border-radius:.625rem; padding:.45rem .875rem !important; }
+}
+
+/* ── Bandeau citation ── */
+.quote-band { background:var(--hf-dark); padding:2.5rem 1rem; text-align:center; }
+.quote-text { font-family:'Poppins',sans-serif; font-weight:800;
+              font-size:clamp(1.1rem,2.5vw,1.5rem); color:#fff;
+              line-height:1.4; letter-spacing:-.02em; max-width:40rem; margin:0 auto; }
+.quote-text em { color:#F9F871; font-style:normal; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="background:#FAFAFA; font-family:'Inter',system-ui,sans-serif;">
+
+<!-- ════════════════════════════════
+     NAVBAR
+════════════════════════════════ -->
+<nav style="background:#1A1A2E; position:sticky; top:0; z-index:50; border-bottom:1px solid rgba(255,255,255,.06);">
+  <div style="max-width:72rem; margin:0 auto; padding:0 1rem; height:3.75rem;
+              display:flex; align-items:center; justify-content:space-between;">
+    <a href="/" style="display:flex; align-items:center; gap:.4rem; text-decoration:none;">
+      <span class="T" style="font-size:1.3rem; color:#fff;">Haya<span style="color:#FF4D2E;">Flash</span></span>
+      <span style="background:#FF4D2E; color:#fff; font-size:.55rem; font-weight:800;
+                   padding:2px 7px; border-radius:5px; letter-spacing:.05em;">⚡</span>
+    </a>
+    <div style="display:flex; align-items:center; gap:.75rem;">
+      {% if user.is_authenticated %}
+      <span style="color:rgba(255,255,255,.3); font-size:.8rem;">{{ user.get_short_name|default:user.phone }}</span>
+      <a href="{% url 'seller_home' %}" class="btn btn-flash" style="padding:.55rem 1.25rem; font-size:.875rem;">
+        <i data-lucide="zap" style="width:1rem;height:1rem;"></i>Mon dashboard
+      </a>
+      {% else %}
+      <a href="{% url 'login' %}" class="nav-login" style="color:rgba(255,255,255,.4); font-size:.875rem; font-weight:500; text-decoration:none; padding:.5rem .875rem; white-space:nowrap;">
+        Se connecter
+      </a>
+      <a href="{% url 'register' %}" class="btn btn-flash nav-register" style="padding:.55rem 1.25rem; font-size:.875rem; white-space:nowrap;">
+        Démarrer gratuitement
+      </a>
+      {% endif %}
+    </div>
+  </div>
+</nav>
+
+
+<!-- ════════════════════════════════
+     HERO
+════════════════════════════════ -->
+<section style="background:#1A1A2E; position:relative; overflow:hidden; padding:3.5rem 1rem 0;">
+  <div style="position:absolute; top:-120px; left:-80px; width:500px; height:500px;
+              background:radial-gradient(circle,rgba(255,77,46,.18) 0%,transparent 65%); pointer-events:none;"></div>
+  <div style="position:absolute; top:-80px; right:-60px; width:400px; height:400px;
+              background:radial-gradient(circle,rgba(91,46,255,.16) 0%,transparent 65%); pointer-events:none;"></div>
+
+  <div style="max-width:54rem; margin:0 auto; text-align:center; position:relative; z-index:1;">
+
+    <!-- Badge -->
+    <div style="display:inline-flex; align-items:center; gap:.5rem; margin-bottom:1.5rem;
+                background:rgba(249,248,113,.09); border:1px solid rgba(249,248,113,.2);
+                border-radius:9999px; padding:5px 16px;">
+      <div class="dot"></div>
+      <span style="color:#F9F871; font-size:.68rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase;">Ventes Flash · Mali</span>
+    </div>
+
+    <h1 class="T" style="font-size:clamp(2.2rem,5.5vw,3.75rem); color:#fff; line-height:1.06; margin-bottom:1.1rem;">
+      Programmez. Vendez.<br>
+      <span class="GT">Haya s'occupe du reste.</span>
+    </h1>
+
+    <p style="color:rgba(255,255,255,.5); font-size:1.05rem; line-height:1.75; max-width:36rem; margin:0 auto 1rem;">
+      Commandes, stock, livraisons, paiements, statistiques —<br>
+      <strong style="color:rgba(255,255,255,.75);">tout centralisé, tout automatique, pendant que vous vendez.</strong>
+    </p>
+    <p style="color:rgba(255,255,255,.28); font-size:.85rem; margin-bottom:2rem; font-style:italic;">
+      "La vente flash dure une heure. Le chaos, lui, peut durer des jours. HayaFlash le supprime."
+    </p>
+
+    <!-- CTAs -->
+    <div style="display:flex; flex-wrap:wrap; gap:.875rem; justify-content:center; margin-bottom:2.75rem;">
+      <a href="{% url 'register' %}" class="btn btn-flash">
+        <i data-lucide="zap" style="width:1.1rem;height:1.1rem;"></i>
+        Lancer ma première vente flash →
+      </a>
+      <a href="{% url 'flash_sale_calendar' %}" class="btn btn-ghost">
+        <i data-lucide="calendar" style="width:1rem;height:1rem;"></i>
+        Voir les ventes en cours
+      </a>
+    </div>
+
+    <!-- Countdown déco -->
+    <div style="display:flex; flex-direction:column; align-items:center; gap:.5rem; margin-bottom:3rem;">
+      <p style="color:rgba(255,255,255,.2); font-size:.62rem; text-transform:uppercase; letter-spacing:.1em; font-weight:600;">
+        ⏱ Ouverture de votre prochaine vente dans
+      </p>
+      <div class="cd">
+        <div class="cdb"><div class="cdn" id="cd-h">01</div><div class="cdl">heure</div></div>
+        <div class="cds">:</div>
+        <div class="cdb"><div class="cdn" id="cd-m">47</div><div class="cdl">min</div></div>
+        <div class="cds">:</div>
+        <div class="cdb"><div class="cdn" id="cd-s">33</div><div class="cdl">sec</div></div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:.875rem; max-width:28rem; margin:0 auto; padding-bottom:3rem;">
+      <div style="text-align:center;" da><div class="sv">30 s</div><div class="sl">pour programmer une vente</div></div>
+      <div style="text-align:center;" da><div class="sv">0 F</div><div class="sl">pour démarrer</div></div>
+      <div style="text-align:center;" da><div class="sv">100%</div><div class="sl">sans app à installer</div></div>
+    </div>
+  </div>
+
+  <div class="wave">
+    <svg viewBox="0 0 1440 52" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" style="fill:#FAFAFA;">
+      <path d="M0,0 C360,52 1080,52 1440,0 L1440,52 L0,52 Z"/>
+    </svg>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════
+     LE PROBLÈME — questions qui piquent
+════════════════════════════════ -->
+<section style="background:#FAFAFA; padding:4.5rem 1rem;">
+  <div style="max-width:64rem; margin:0 auto;">
+
+    <div style="text-align:center; margin-bottom:2.5rem;">
+      <span class="lbl lbl-r">Reconnaissez-vous ça ?</span>
+      <h2 class="T" style="font-size:clamp(1.55rem,3.2vw,1.95rem); color:#1A1A2E;">
+        Votre dernier live, vous avez vendu combien ?
+      </h2>
+      <p style="color:#6B7280; font-size:.9rem; margin-top:.625rem; max-width:36rem; margin-left:auto; margin-right:auto; line-height:1.7;">
+        Si vous ne savez pas répondre en 5 secondes, HayaFlash est fait pour vous.
+      </p>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:.875rem; margin-bottom:2rem;">
+
+      <div class="card-pb" da>
+        <div style="font-size:1.4rem; flex-shrink:0; margin-top:2px;">📓</div>
+        <div>
+          <strong style="display:block; color:#1A1A2E; font-size:.9rem; margin-bottom:.2rem;">Vous notez encore sur un cahier ?</strong>
+          <span style="color:#6B7280; font-size:.83rem; line-height:1.6;">Illisible, perdu, pas de calcul automatique, pas d'historique. <em style="color:#FF4D2E; font-style:normal;">Le cahier ne compte pas vos ventes. Il les perd.</em></span>
+        </div>
+      </div>
+
+      <div class="card-pb" da>
+        <div style="font-size:1.4rem; flex-shrink:0; margin-top:2px;">📱</div>
+        <div>
+          <strong style="display:block; color:#1A1A2E; font-size:.9rem; margin-bottom:.2rem;">Vous jonglez avec un deuxième téléphone ?</strong>
+          <span style="color:#6B7280; font-size:.83rem; line-height:1.6;">Deux écrans en plein live — vous perdez le fil, vous perdez des clients. Ce n'est pas une solution, c'est du stress en double.</span>
+        </div>
+      </div>
+
+      <div class="card-pb" da>
+        <div style="font-size:1.4rem; flex-shrink:0; margin-top:2px;">💬</div>
+        <div>
+          <strong style="display:block; color:#1A1A2E; font-size:.9rem; margin-bottom:.2rem;">Une commande noyée dans les DM ?</strong>
+          <span style="color:#6B7280; font-size:.83rem; line-height:1.6;">Ça défile trop vite. On ne sait plus qui a commandé quoi, qui a payé, qui doit être livré. <em style="color:#FF4D2E; font-style:normal;">Chaque commande non notée est un billet qui s'envole.</em></span>
+        </div>
+      </div>
+
+      <div class="card-pb" da>
+        <div style="font-size:1.4rem; flex-shrink:0; margin-top:2px;">📦</div>
+        <div>
+          <strong style="display:block; color:#1A1A2E; font-size:.9rem; margin-bottom:.2rem;">Un produit promis à 3 personnes différentes ?</strong>
+          <span style="color:#6B7280; font-size:.83rem; line-height:1.6;">Pas de stock en direct = clients frustrés, promesses impossibles à tenir, réputation à reconstruire. Une erreur qui coûte cher.</span>
+        </div>
+      </div>
+
+      <div class="card-pb" da>
+        <div style="font-size:1.4rem; flex-shrink:0; margin-top:2px;">💸</div>
+        <div>
+          <strong style="display:block; color:#1A1A2E; font-size:.9rem; margin-bottom:.2rem;">Vous ne savez pas combien vous avez gagné ?</strong>
+          <span style="color:#6B7280; font-size:.83rem; line-height:1.6;">Pas de chiffres clairs = impossible de savoir si votre business progresse, ce qui marche, ce qu'il faut répéter.</span>
+        </div>
+      </div>
+
+      <div class="card-pb" da>
+        <div style="font-size:1.4rem; flex-shrink:0; margin-top:2px;">🚚</div>
+        <div>
+          <strong style="display:block; color:#1A1A2E; font-size:.9rem; margin-bottom:.2rem;">Des livraisons mal organisées ?</strong>
+          <span style="color:#6B7280; font-size:.83rem; line-height:1.6;">Du temps perdu, de l'essence gaspillée, des rendez-vous ratés. Et des clients qui ne reviennent pas. <em style="color:#FF4D2E; font-style:normal;">Chaque livraison ratée est un client perdu.</em></span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Punchline choc -->
+    <div style="background:rgba(255,77,46,.05);
+                border:1.5px solid rgba(255,77,46,.18); border-radius:1.25rem; padding:1.5rem 2rem; text-align:center;">
+      <p class="T" style="font-size:clamp(1rem,2.2vw,1.2rem); color:#1A1A2E; margin-bottom:.5rem;">
+        Vous n'avez pas un problème de vente. Vous avez un problème d'organisation qui vous coûte de l'argent.
+      </p>
+      <p style="color:#6B7280; font-size:.85rem;">
+        Chaque commande perdue = de l'argent perdu. Chaque minute de flou = de la confiance perdue.
+        <strong style="color:#FF4D2E;">HayaFlash supprime les deux.</strong>
+      </p>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════
+     BANDEAU CITATION
+════════════════════════════════ -->
+<div class="quote-band">
+  <p class="quote-text">
+    « Vendre en direct, c'est votre talent.<br>
+    <em>Tout organiser, c'est le nôtre.</em> »
+  </p>
+  <p style="color:rgba(255,255,255,.25); font-size:.75rem; margin-top:.875rem; letter-spacing:.06em; text-transform:uppercase; font-weight:600;">
+    — HayaFlash · Vendez fort. Gérez léger.
+  </p>
+</div>
+
+
+<!-- ════════════════════════════════
+     4 ÉTAPES — Programmez → Recevez → Livrez → Pilotez
+════════════════════════════════ -->
+<section style="background:#1A1A2E; padding:4.5rem 1rem 3.5rem; position:relative;">
+  <div style="max-width:48rem; margin:0 auto;">
+
+    <div style="text-align:center; margin-bottom:2.5rem;">
+      <span class="lbl lbl-l">Simple & Rapide</span>
+      <h2 class="T" style="font-size:clamp(1.55rem,3.2vw,1.95rem); color:#fff;">
+        En 4 étapes,<br>votre business tourne tout seul
+      </h2>
+      <p style="color:rgba(255,255,255,.38); font-size:.875rem; margin-top:.625rem;">
+        Programmez votre vente. Vendez. Haya s'occupe du reste.
+      </p>
+    </div>
+
+    <ol style="display:flex; flex-direction:column; gap:1rem; list-style:none; padding:0; margin:0 0 2.25rem;">
+
+      <li class="card-dark" da style="display:flex; align-items:flex-start; gap:1.25rem;">
+        <div class="step-w"><div class="step-i">⏱️</div><span class="step-b">1</span></div>
+        <div>
+          <h3 class="T" style="font-size:.975rem; color:#fff; margin-bottom:.3rem;">Programmez votre vente en 30 secondes</h3>
+          <p style="color:rgba(255,255,255,.42); font-size:.86rem; line-height:1.65; margin:0;">
+            Créez votre live, ajoutez vos produits avec photos et prix, fixe l'heure d'ouverture et de fermeture.
+            Partagez un seul lien WhatsApp. Vos clients voient le compte à rebours et commandent dès le démarrage —
+            sans télécharger d'application.
+          </p>
+          <p style="color:#F9F871; font-size:.78rem; font-weight:700; margin-top:.5rem;">→ Programmez en 30 secondes</p>
+        </div>
+      </li>
+
+      <li class="card-dark" da style="display:flex; align-items:flex-start; gap:1.25rem;">
+        <div class="step-w"><div class="step-i">📥</div><span class="step-b">2</span></div>
+        <div>
+          <h3 class="T" style="font-size:.975rem; color:#fff; margin-bottom:.3rem;">Recevez les commandes en direct</h3>
+          <p style="color:rgba(255,255,255,.42); font-size:.86rem; line-height:1.65; margin:0;">
+            Chaque commande arrive automatiquement dans votre dashboard — nom du client, produit, quantité, adresse.
+            Plus besoin de fouiller les DM. Vous confirmez ou annulez en un tap.
+            Votre stock se met à jour instantanément.
+          </p>
+          <p style="color:#F9F871; font-size:.78rem; font-weight:700; margin-top:.5rem;">→ Commandes en direct</p>
+        </div>
+      </li>
+
+      <li class="card-dark" da style="display:flex; align-items:flex-start; gap:1.25rem;">
+        <div class="step-w"><div class="step-i">🛵</div><span class="step-b">3</span></div>
+        <div>
+          <h3 class="T" style="font-size:.975rem; color:#fff; margin-bottom:.3rem;">Livrez — organisé, groupé, clair</h3>
+          <p style="color:rgba(255,255,255,.42); font-size:.86rem; line-height:1.65; margin:0;">
+            Vos livraisons sont groupées automatiquement. Qui, où, quand — tout est clair.
+            Vous ne perdez plus de temps à recroiser des adresses et des noms.
+            Vous livrez plus vite. Vous encaissez plus vite.
+          </p>
+          <p style="color:#F9F871; font-size:.78rem; font-weight:700; margin-top:.5rem;">→ Livraison sous contrôle</p>
+        </div>
+      </li>
+
+      <li class="card-dark" da style="display:flex; align-items:flex-start; gap:1.25rem;">
+        <div class="step-w"><div class="step-i">📊</div><span class="step-b">4</span></div>
+        <div>
+          <h3 class="T" style="font-size:.975rem; color:#fff; margin-bottom:.3rem;">Pilotez avec des chiffres réels</h3>
+          <p style="color:rgba(255,255,255,.42); font-size:.86rem; line-height:1.65; margin:0;">
+            Recettes, taux de livraison, best-sellers, clients fidèles — tout est visible.
+            Vous ne devinez plus. Vous décidez avec des données, pas des impressions.
+            <em style="color:rgba(255,255,255,.6); font-style:normal;">"Un live réussi ne se mesure pas aux likes. Il se mesure aux commandes livrées et payées."</em>
+          </p>
+          <p style="color:#F9F871; font-size:.78rem; font-weight:700; margin-top:.5rem;">→ Vos chiffres, sans effort</p>
+        </div>
+      </li>
+
+    </ol>
+
+    <div style="text-align:center;">
+      <a href="{% url 'register' %}" class="btn btn-flash">
+        <i data-lucide="zap" style="width:1rem;height:1rem;"></i>
+        Essayez HayaFlash sur votre prochain live
+      </a>
+    </div>
+
+  </div>
+
+  <div class="wave" style="position:relative; margin-top:3rem;">
+    <svg viewBox="0 0 1440 48" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" style="fill:#FAFAFA;">
+      <path d="M0,0 C360,48 1080,48 1440,0 L1440,48 L0,48 Z"/>
+    </svg>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════
+     FONCTIONNALITÉS (bénéfices uniquement)
+════════════════════════════════ -->
+<section style="background:#FAFAFA; padding:4.5rem 1rem;">
+  <div style="max-width:72rem; margin:0 auto;">
+
+    <div style="text-align:center; margin-bottom:2.5rem;">
+      <span class="lbl lbl-v">Fonctionnalités</span>
+      <h2 class="T" style="font-size:clamp(1.55rem,3.2vw,1.95rem); color:#1A1A2E;">
+        Tout ce qui vous fait perdre du temps,<br>HayaFlash l'automatise.
+      </h2>
+      <p style="color:#6B7280; font-size:.9rem; margin-top:.625rem;">
+        Conçu pour les vendeurs qui font des lives sur TikTok, Facebook et Instagram.
+      </p>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(290px,1fr)); gap:1.25rem;">
+
+      <div class="card" da>
+        <div class="icon-r" style="margin-bottom:1rem;">⏱️</div>
+        <h3 class="T" style="font-size:1.05rem; color:#1A1A2E; margin-bottom:.375rem;">Programmez en 30 secondes</h3>
+        <p style="color:#6B7280; font-size:.875rem; line-height:1.7;">
+          Votre live commence à 18h et se ferme à 19h30. Pile. Vous créez l'urgence qui fait vendre,
+          sans avoir à surveiller l'horloge vous-même. Ouverture et fermeture automatiques.
+        </p>
+        <div style="margin-top:.875rem; display:flex; align-items:center; gap:.375rem;">
+          <div class="dot" style="animation:none; background:#FF4D2E;"></div>
+          <span style="font-size:.78rem; color:#FF4D2E; font-weight:700;">Zéro surveillance manuelle</span>
+        </div>
+      </div>
+
+      <div class="card" da>
+        <div class="icon-r" style="margin-bottom:1rem;">📥</div>
+        <h3 class="T" style="font-size:1.05rem; color:#1A1A2E; margin-bottom:.375rem;">Commandes en direct</h3>
+        <p style="color:#6B7280; font-size:.875rem; line-height:1.7;">
+          Plus besoin de fouiller dans les commentaires ou les DM. Chaque commande arrive
+          au même endroit, en temps réel. Résultat : zéro commande oubliée = zéro argent perdu.
+        </p>
+        <div style="margin-top:.875rem; display:flex; align-items:center; gap:.375rem;">
+          <div class="dot" style="animation:none; background:#FF4D2E;"></div>
+          <span style="font-size:.78rem; color:#FF4D2E; font-weight:700;">Zéro commande oubliée</span>
+        </div>
+      </div>
+
+      <div class="card" da>
+        <div class="icon-r" style="margin-bottom:1rem;">🚚</div>
+        <h3 class="T" style="font-size:1.05rem; color:#1A1A2E; margin-bottom:.375rem;">Livraison sous contrôle</h3>
+        <p style="color:#6B7280; font-size:.875rem; line-height:1.7;">
+          Qui, où, quand — organisé automatiquement. Vous ne perdez plus de temps à recroiser
+          des adresses et des noms. Vous livrez plus vite. Vous êtes payé plus vite.
+        </p>
+        <div style="margin-top:.875rem; display:flex; align-items:center; gap:.375rem;">
+          <div class="dot" style="animation:none; background:#FF4D2E;"></div>
+          <span style="font-size:.78rem; color:#FF4D2E; font-weight:700;">Livraisons groupées & claires</span>
+        </div>
+      </div>
+
+      <div class="card" da>
+        <div class="icon-v" style="margin-bottom:1rem;">💰</div>
+        <h3 class="T" style="font-size:1.05rem; color:#1A1A2E; margin-bottom:.375rem;">Payé à la réception</h3>
+        <p style="color:#6B7280; font-size:.875rem; line-height:1.7;">
+          Fini les "je t'ai déjà payé" sans preuve. Chaque paiement à la livraison (COD) est tracé.
+          Vous savez toujours qui a payé, qui doit encore payer. Votre argent est protégé.
+        </p>
+        <div style="margin-top:.875rem; display:flex; align-items:center; gap:.375rem;">
+          <div class="dot" style="animation:none; background:#FF4D2E;"></div>
+          <span style="font-size:.78rem; color:#FF4D2E; font-weight:700;">Votre comptabilité, automatique</span>
+        </div>
+      </div>
+
+      <div class="card" da>
+        <div class="icon-v" style="margin-bottom:1rem;">📊</div>
+        <h3 class="T" style="font-size:1.05rem; color:#1A1A2E; margin-bottom:.375rem;">Pilotage en temps réel</h3>
+        <p style="color:#6B7280; font-size:.875rem; line-height:1.7;">
+          Vos produits chouchous, vos meilleurs horaires, vos clients fidèles : tout est visible.
+          Vous ne devinez plus. Vous pilotez votre business avec des chiffres réels, pas des impressions.
+        </p>
+        <div style="margin-top:.875rem; display:flex; align-items:center; gap:.375rem;">
+          <div class="dot" style="animation:none; background:#FF4D2E;"></div>
+          <span style="font-size:.78rem; color:#FF4D2E; font-weight:700;">Vos best-sellers, révélés</span>
+        </div>
+      </div>
+
+      <div class="card" da>
+        <div class="icon-v" style="margin-bottom:1rem;">🔔</div>
+        <h3 class="T" style="font-size:1.05rem; color:#1A1A2E; margin-bottom:.375rem;">Clients identifiés & fidélisés</h3>
+        <p style="color:#6B7280; font-size:.875rem; line-height:1.7;">
+          Vos clients s'inscrivent pour être alertés à la prochaine vente. Vous construisez
+          votre base d'acheteurs réguliers. Livraisons fiables = clients qui reviennent, toujours.
+        </p>
+        <div style="margin-top:.875rem; display:flex; align-items:center; gap:.375rem;">
+          <div class="dot" style="animation:none; background:#FF4D2E;"></div>
+          <span style="font-size:.78rem; color:#FF4D2E; font-weight:700;">Vos clients, enfin identifiés</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════
+     GAINS CONCRETS (5 gains)
+════════════════════════════════ -->
+<section style="background:#fff; padding:4rem 1rem; border-top:1px solid #F0F0F0;">
+  <div style="max-width:64rem; margin:0 auto;">
+
+    <div style="text-align:center; margin-bottom:2.5rem;">
+      <span class="lbl lbl-r">Les gains concrets</span>
+      <h2 class="T" style="font-size:clamp(1.55rem,3.2vw,1.95rem); color:#1A1A2E;">
+        Ce que vous gagnez réellement
+      </h2>
+      <p style="color:#6B7280; font-size:.875rem; margin-top:.5rem;">
+        "Une seule vente flash bien organisée peut rembourser des mois d'abonnement."
+      </p>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:.875rem;">
+
+      <div class="card-gain" da>
+        <div style="font-size:2rem; width:3rem; flex-shrink:0; text-align:center;">⏳</div>
+        <div>
+          <strong class="T" style="display:block; color:#1A1A2E; font-size:.95rem; margin-bottom:.25rem;">Du temps — beaucoup</strong>
+          <span style="color:#6B7280; font-size:.83rem; line-height:1.6;">Ce qui prenait 1h de tri après chaque live prend maintenant 2 minutes. Récupérez votre temps.</span>
+        </div>
+      </div>
+
+      <div class="card-gain" da>
+        <div style="font-size:2rem; width:3rem; flex-shrink:0; text-align:center;">💵</div>
+        <div>
+          <strong class="T" style="display:block; color:#1A1A2E; font-size:.95rem; margin-bottom:.25rem;">De l'argent retrouvé</strong>
+          <span style="color:#6B7280; font-size:.83rem; line-height:1.6;">Plus aucune commande, aucun paiement, aucun client ne se perd dans la nature. Chaque franc est compté.</span>
+        </div>
+      </div>
+
+      <div class="card-gain" da>
+        <div style="font-size:2rem; width:3rem; flex-shrink:0; text-align:center;">🧠</div>
+        <div>
+          <strong class="T" style="display:block; color:#1A1A2E; font-size:.95rem; margin-bottom:.25rem;">De la clarté immédiate</strong>
+          <span style="color:#6B7280; font-size:.83rem; line-height:1.6;">Votre chiffre, votre stock, vos meilleurs produits — en temps réel. Vous savez, enfin. Vous décidez mieux.</span>
+        </div>
+      </div>
+
+      <div class="card-gain" da>
+        <div style="font-size:2rem; width:3rem; flex-shrink:0; text-align:center;">🤝</div>
+        <div>
+          <strong class="T" style="display:block; color:#1A1A2E; font-size:.95rem; margin-bottom:.25rem;">De la confiance client</strong>
+          <span style="color:#6B7280; font-size:.83rem; line-height:1.6;">Livraisons fiables, suivi transparent. <em style="color:#1A1A2E; font-style:normal;">"Paraissez pro, devenez pro."</em> La confiance grandit, les ventes suivent.</span>
+        </div>
+      </div>
+
+      <div class="card-gain" da>
+        <div style="font-size:2rem; width:3rem; flex-shrink:0; text-align:center;">📈</div>
+        <div>
+          <strong class="T" style="display:block; color:#1A1A2E; font-size:.95rem; margin-bottom:.25rem;">De la croissance réelle</strong>
+          <span style="color:#6B7280; font-size:.83rem; line-height:1.6;">Des données pour décider quoi vendre, quand vendre, et à qui. Vous ne gérez plus en courant après l'information. L'information vient à vous.</span>
+        </div>
+      </div>
+
+      <!-- Encart prix vs perte -->
+      <div style="background:#1A1A2E;
+                  border-radius:1.25rem; padding:1.25rem 1.5rem; display:flex; align-items:center; gap:1rem;" da>
+        <div style="font-size:2rem; flex-shrink:0; text-align:center; width:3rem;">💡</div>
+        <div>
+          <strong class="T" style="display:block; color:#F9F871; font-size:.95rem; margin-bottom:.25rem;">Le vrai coût, ce n'est pas HayaFlash</strong>
+          <span style="color:rgba(255,255,255,.55); font-size:.83rem; line-height:1.6;">C'est de continuer sans. Une commande perdue coûte plus que des mois d'abonnement.</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════
+     BANDEAU CITATION 2
+════════════════════════════════ -->
+<div class="quote-band" style="background:#FF4D2E;">
+  <p class="quote-text" style="color:#fff;">
+    « 1 heure de vente.<br>
+    <em style="color:#F9F871; font-style:normal;">0 minute perdue.</em> »
+  </p>
+  <p style="color:rgba(255,255,255,.6); font-size:.75rem; margin-top:.875rem; letter-spacing:.06em; text-transform:uppercase; font-weight:600;">
+    Rejoignez les vendeurs qui ne notent plus rien sur papier
+  </p>
+</div>
+
+
+<!-- ════════════════════════════════
+     TÉMOIGNAGES
+════════════════════════════════ -->
+<section style="background:#FAFAFA; padding:4.5rem 1rem;">
+  <div style="max-width:72rem; margin:0 auto;">
+
+    <div style="text-align:center; margin-bottom:2.5rem;">
+      <span class="lbl lbl-r">Preuve sociale</span>
+      <h2 class="T" style="font-size:clamp(1.55rem,3.2vw,1.95rem); color:#1A1A2E;">
+        Ils ont arrêté le cahier.<br>Ils ne reviendront pas en arrière.
+      </h2>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1.25rem;">
+
+      <div class="card" da style="border-color:#F0E8FF;">
+        <div style="display:flex; gap:.375rem; margin-bottom:.875rem;">
+          <span style="color:#F9F871; font-size:.9rem;">★★★★★</span>
+        </div>
+        <p style="color:#374151; font-size:.9rem; line-height:1.75; margin-bottom:1.1rem; position:relative; z-index:1;">
+          "Avant j'écrivais les commandes sur un carnet et j'en oubliais toujours.
+          Maintenant tout s'enregistre pendant que je continue mon live.
+          <strong>Je ne perds plus jamais une commande.</strong>"
+        </p>
+        <div style="display:flex; align-items:center; gap:.75rem; padding-top:.875rem; border-top:1px solid #F5F5F5;">
+          <div style="width:2.5rem; height:2.5rem; border-radius:50%; background:#FF4D2E;
+                      display:flex; align-items:center; justify-content:center;
+                      color:#fff; font-weight:800; font-size:.875rem; flex-shrink:0;">F</div>
+          <div>
+            <p class="T" style="font-size:.875rem; color:#1A1A2E; margin:0;">Fatoumata T.</p>
+            <p style="font-size:.73rem; color:#9CA3AF; margin:0;">Vendeuse de pagnes · Bamako</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" da style="border-color:#F0E8FF;">
+        <div style="display:flex; gap:.375rem; margin-bottom:.875rem;">
+          <span style="color:#F9F871; font-size:.9rem;">★★★★★</span>
+        </div>
+        <p style="color:#374151; font-size:.9rem; line-height:1.75; margin-bottom:1.1rem; position:relative; z-index:1;">
+          "J'organise 2 à 3 lives par semaine. HayaFlash me fait gagner facilement 2 heures
+          par vente sur la gestion des commandes et des livraisons.
+          <strong>C'est du temps pur pour moi.</strong>"
+        </p>
+        <div style="display:flex; align-items:center; gap:.75rem; padding-top:.875rem; border-top:1px solid #F5F5F5;">
+          <div style="width:2.5rem; height:2.5rem; border-radius:50%; background:#5B2EFF;
+                      display:flex; align-items:center; justify-content:center;
+                      color:#fff; font-weight:800; font-size:.875rem; flex-shrink:0;">M</div>
+          <div>
+            <p class="T" style="font-size:.875rem; color:#1A1A2E; margin:0;">Modibo K.</p>
+            <p style="font-size:.73rem; color:#9CA3AF; margin:0;">Électronique · Médina, Bamako</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" da style="border-color:#F0E8FF;">
+        <div style="display:flex; gap:.375rem; margin-bottom:.875rem;">
+          <span style="color:#F9F871; font-size:.9rem;">★★★★★</span>
+        </div>
+        <p style="color:#374151; font-size:.9rem; line-height:1.75; margin-bottom:1.1rem; position:relative; z-index:1;">
+          "Mes clientes voient le compte à rebours, elles attendent l'ouverture et commandent
+          toutes en même temps. Mes produits partent
+          <strong>3× plus vite qu'avec mon ancien système.</strong>"
+        </p>
+        <div style="display:flex; align-items:center; gap:.75rem; padding-top:.875rem; border-top:1px solid #F5F5F5;">
+          <div style="width:2.5rem; height:2.5rem; border-radius:50%; background:#FF4D2E;
+                      display:flex; align-items:center; justify-content:center;
+                      color:#fff; font-weight:800; font-size:.875rem; flex-shrink:0;">A</div>
+          <div>
+            <p class="T" style="font-size:.875rem; color:#1A1A2E; margin:0;">Aminata D.</p>
+            <p style="font-size:.73rem; color:#9CA3AF; margin:0;">Cosmétiques · Badalabougou</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════
+     FAQ OBJECTIONS (Alpine.js accordion)
+════════════════════════════════ -->
+<section style="background:#fff; padding:4rem 1rem; border-top:1px solid #F0F0F0;" x-data>
+  <div style="max-width:48rem; margin:0 auto;">
+
+    <div style="text-align:center; margin-bottom:2.25rem;">
+      <span class="lbl lbl-v">Vos questions</span>
+      <h2 class="T" style="font-size:clamp(1.4rem,2.8vw,1.75rem); color:#1A1A2E;">
+        Vous hésitez encore ?
+      </h2>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:.75rem;">
+
+      <div class="faq-item" da x-data="{ open: false }">
+        <button class="faq-q" @click="open = !open">
+          <span class="T" style="font-size:.925rem; color:#1A1A2E; text-align:left; line-height:1.45;">
+            "J'ai déjà mes habitudes avec mon cahier…"
+          </span>
+          <div class="faq-icon" :style="open ? 'transform:rotate(45deg)' : ''">+</div>
+        </button>
+        <div x-show="open" x-transition style="padding:0 1.5rem 1.25rem; border-top:1px solid #F5F5F5; margin-top:0; padding-top:1rem;">
+          <p style="color:#6B7280; font-size:.875rem; line-height:1.7; margin:0;">
+            Vos habitudes vous coûtent du temps et parfois des commandes.
+            HayaFlash garde la simplicité — en mieux. Programmer une vente prend 30 secondes.
+            Le reste, Haya s'en charge en arrière-plan. <strong style="color:#1A1A2E;">Vous n'abandonnez pas vos habitudes. Vous les améliorez.</strong>
+          </p>
+        </div>
+      </div>
+
+      <div class="faq-item" da x-data="{ open: false }">
+        <button class="faq-q" @click="open = !open">
+          <span class="T" style="font-size:.925rem; color:#1A1A2E; text-align:left; line-height:1.45;">
+            "C'est compliqué à utiliser pendant un live ?"
+          </span>
+          <div class="faq-icon" :style="open ? 'transform:rotate(45deg)' : ''">+</div>
+        </button>
+        <div x-show="open" x-transition style="padding:0 1.5rem 1.25rem; border-top:1px solid #F5F5F5; margin-top:0; padding-top:1rem;">
+          <p style="color:#6B7280; font-size:.875rem; line-height:1.7; margin:0;">
+            Non. Vous programmez votre vente <strong style="color:#1A1A2E;">avant</strong> le live, en 30 secondes.
+            Pendant que vous vendez, Haya enregistre tout en arrière-plan.
+            Vous ne touchez à rien pendant votre live. Vous vendez. C'est tout.
+          </p>
+        </div>
+      </div>
+
+      <div class="faq-item" da x-data="{ open: false }">
+        <button class="faq-q" @click="open = !open">
+          <span class="T" style="font-size:.925rem; color:#1A1A2E; text-align:left; line-height:1.45;">
+            "Je vends déjà bien sans application…"
+          </span>
+          <div class="faq-icon" :style="open ? 'transform:rotate(45deg)' : ''">+</div>
+        </button>
+        <div x-show="open" x-transition style="padding:0 1.5rem 1.25rem; border-top:1px solid #F5F5F5; margin-top:0; padding-top:1rem;">
+          <p style="color:#6B7280; font-size:.875rem; line-height:1.7; margin:0;">
+            Vendre, oui. Mais savoir <em>combien</em>, <em>à qui</em>, <em>ce qui marche le mieux</em> —
+            c'est ça qui fait passer un vendeur au niveau supérieur.
+            <strong style="color:#1A1A2E;">La différence entre un vendeur amateur et un vendeur sérieux ? Ses outils.</strong>
+            HayaFlash n'est pas une app en plus. C'est l'assistant qui travaille pendant que vous vendez.
+          </p>
+        </div>
+      </div>
+
+      <div class="faq-item" da x-data="{ open: false }">
+        <button class="faq-q" @click="open = !open">
+          <span class="T" style="font-size:.925rem; color:#1A1A2E; text-align:left; line-height:1.45;">
+            "Mes clients doivent installer quelque chose ?"
+          </span>
+          <div class="faq-icon" :style="open ? 'transform:rotate(45deg)' : ''">+</div>
+        </button>
+        <div x-show="open" x-transition style="padding:0 1.5rem 1.25rem; border-top:1px solid #F5F5F5; margin-top:0; padding-top:1rem;">
+          <p style="color:#6B7280; font-size:.875rem; line-height:1.7; margin:0;">
+            Non. Vos clients reçoivent un lien WhatsApp. Ils cliquent.
+            Ils voient vos produits, le compte à rebours, et ils commandent — directement depuis leur navigateur,
+            sur n'importe quel téléphone. <strong style="color:#1A1A2E;">Zéro téléchargement, zéro friction.</strong>
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════
+     CTA FINAL
+════════════════════════════════ -->
+<section style="padding:3rem 1rem 5rem; background:#FAFAFA;">
+  <div style="max-width:40rem; margin:0 auto;" da>
+    <div style="background:#FF4D2E;
+                border-radius:1.5rem; padding:2.75rem 1.5rem; text-align:center;
+                box-shadow:0 20px 60px rgba(255,77,46,.35), 0 0 0 1px rgba(255,255,255,.1) inset;
+                position:relative; overflow:hidden;">
+      <div style="position:absolute; top:-50px; left:-50px; width:220px; height:220px;
+                  background:radial-gradient(circle,rgba(255,255,255,.12) 0%,transparent 65%); pointer-events:none;"></div>
+      <div style="position:absolute; bottom:-40px; right:-40px; width:200px; height:200px;
+                  background:radial-gradient(circle,rgba(249,248,113,.08) 0%,transparent 65%); pointer-events:none;"></div>
+
+      <div style="display:inline-flex; align-items:center; gap:.5rem; margin-bottom:1rem;
+                  background:rgba(249,248,113,.12); border:1px solid rgba(249,248,113,.28);
+                  border-radius:9999px; padding:4px 14px; position:relative; z-index:1;">
+        <div class="dot"></div>
+        <span style="color:#F9F871; font-size:.68rem; font-weight:800; letter-spacing:.1em;">PASSEZ AU SÉRIEUX</span>
+      </div>
+
+      <h2 class="T" style="font-size:clamp(1.5rem,4vw,2rem); color:#fff; margin-bottom:.875rem; line-height:1.15; position:relative; z-index:1;">
+        Rejoignez les vendeurs<br>qui ne notent plus rien sur papier.
+      </h2>
+      <p style="color:rgba(255,255,255,.6); font-size:.9rem; line-height:1.7; margin-bottom:2rem; position:relative; z-index:1;">
+        Programmez votre vente. Vendez. Haya s'occupe du reste.<br>
+        Créez votre compte en 30 secondes. Lancez votre premier live aujourd'hui.
+      </p>
+      <a href="{% url 'register' %}" class="btn btn-white" style="position:relative; z-index:1; border-radius:.875rem;">
+        <i data-lucide="zap" style="width:1.1rem;height:1.1rem;"></i>
+        Lancer ma première vente flash →
+      </a>
+      <p style="color:rgba(255,255,255,.3); font-size:.7rem; margin-top:1rem; position:relative; z-index:1;">
+        Zéro carte de crédit · Connexion par numéro de téléphone · Démarrage immédiat
+      </p>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════
+     FOOTER (anthracite)
+════════════════════════════════ -->
+<footer style="background:#1A1A2E; padding:1.75rem 1rem; border-top:1px solid rgba(255,255,255,.06);">
+  <div style="max-width:72rem; margin:0 auto; display:flex; flex-wrap:wrap;
+              align-items:center; justify-content:space-between; gap:1rem;">
+    <div>
+      <p class="T" style="font-size:1.1rem; color:#fff; margin:0;">
+        Haya<span style="color:#FF4D2E;">Flash</span>
+        <span style="background:#FF4D2E; font-size:.55rem; padding:2px 7px; border-radius:4px; font-weight:800; vertical-align:middle; margin-left:4px;">⚡</span>
+      </p>
+      <p style="color:rgba(255,255,255,.22); font-size:.72rem; margin-top:.2rem;">
+        Vendez fort. Gérez léger. · Mali
+      </p>
+    </div>
+    <nav style="display:flex; flex-wrap:wrap; gap:1.25rem; align-items:center;">
+      <a href="{% url 'flash_sale_calendar' %}" style="color:rgba(255,255,255,.3); font-size:.8rem; text-decoration:none;"
+         onmouseover="this.style.color='#F9F871'" onmouseout="this.style.color='rgba(255,255,255,.3)'">Ventes en cours</a>
+      <a href="{% url 'login' %}" style="color:rgba(255,255,255,.3); font-size:.8rem; text-decoration:none;"
+         onmouseover="this.style.color='#F9F871'" onmouseout="this.style.color='rgba(255,255,255,.3)'">Connexion</a>
+      <a href="{% url 'register' %}" style="color:#FF4D2E; font-size:.8rem; font-weight:700; text-decoration:none;">
+        S'inscrire gratuitement →
+      </a>
+    </nav>
+  </div>
+</footer>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// ── Scroll reveal — robuste ──
+(function () {
+  // 1. Active les animations seulement si JS tourne
+  document.body.classList.add('js-anim');
+
+  var els = Array.prototype.slice.call(document.querySelectorAll('[da]'));
+
+  // 2. Timeout de sécurité : révèle tout au bout de 800ms quoi qu'il arrive
+  var safetyTimer = setTimeout(function() {
+    els.forEach(function(el) { el.classList.add('on'); });
+  }, 800);
+
+  if (!('IntersectionObserver' in window)) {
+    // Pas d'IO : tout révèle immédiatement
+    clearTimeout(safetyTimer);
+    els.forEach(function(el) { el.classList.add('on'); });
+    return;
+  }
+
+  var revealed = 0;
+  var obs = new IntersectionObserver(function(entries) {
+    entries.forEach(function(e) {
+      if (e.isIntersecting) {
+        e.target.classList.add('on');
+        obs.unobserve(e.target);
+        revealed++;
+        if (revealed >= els.length) clearTimeout(safetyTimer);
+      }
+    });
+  }, { threshold: 0.05, rootMargin: '0px 0px -20px 0px' });
+
+  els.forEach(function(el, i) {
+    // Délai cascade doux par groupe de 3 (max 0.2s)
+    el.style.transitionDelay = (i % 3 * 0.07) + 's';
+    obs.observe(el);
+  });
+}());
+
+// ── Countdown démo (ticker live) ──
+(function() {
+  var h = document.getElementById('cd-h');
+  var m = document.getElementById('cd-m');
+  var s = document.getElementById('cd-s');
+  if (!h) return;
+  var total = 1*3600 + 47*60 + 33;
+  function pad(n){ return n < 10 ? '0'+n : ''+n; }
+  setInterval(function() {
+    if (total <= 0) { total = 3600; return; }
+    total--;
+    h.textContent = pad(Math.floor(total / 3600));
+    m.textContent = pad(Math.floor((total % 3600) / 60));
+    s.textContent = pad(total % 60);
+  }, 1000);
+}());
+</script>
+{% endblock %}

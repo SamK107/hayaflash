@@ -1,0 +1,93 @@
+version: "3.9"
+
+# docker-compose.yml — Développement local
+# Usage : docker compose up
+# PostgreSQL + Redis + Django + Celery worker + Celery Beat
+
+x-django-env: &django-env
+  DJANGO_SETTINGS_MODULE: config.settings.dev
+  SECRET_KEY: ${SECRET_KEY:-dev-insecure-key-change-in-prod}
+  DATABASE_URL: postgres://hayaflash:hayaflash@db:5432/hayaflash
+  REDIS_URL: redis://redis:6379/0
+  ALLOWED_HOSTS: "localhost,127.0.0.1"
+  ENVIRONMENT: dev
+
+x-django-base: &django-base
+  build:
+    context: .
+    target: runtime
+  volumes:
+    - .:/app
+    - media_data:/app/media
+  env_file: .env
+  environment:
+    <<: *django-env
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  # ── Base de données ──────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: hayaflash
+      POSTGRES_USER: hayaflash
+      POSTGRES_PASSWORD: hayaflash
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hayaflash"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # ── Cache / Broker ───────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # ── Django Web ───────────────────────────────────────────────────────────────
+  web:
+    <<: *django-base
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py runserver 0.0.0.0:8000"
+    ports:
+      - "8000:8000"
+
+  # ── Celery Worker ────────────────────────────────────────────────────────────
+  worker:
+    <<: *django-base
+    command: celery -A config worker -l info -Q default,flash_sales,notifications
+    healthcheck:
+      test: ["CMD", "celery", "-A", "config", "inspect", "ping", "-d", "celery@$$HOSTNAME"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── Celery Beat (planificateur) ──────────────────────────────────────────────
+  beat:
+    <<: *django-base
+    command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+
+volumes:
+  postgres_data:
+  redis_data:
+  media_data:

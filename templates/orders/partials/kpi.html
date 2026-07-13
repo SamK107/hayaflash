@@ -1,0 +1,26 @@
+<div class="grid grid-cols-2 gap-3 mb-3">
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+    <i data-lucide="shopping-bag" class="w-5 h-5 text-primary mx-auto mb-1"></i>
+    <p class="text-2xl font-bold text-gray-900">{{ kpis.total_orders|default:"0" }}</p>
+    <p class="text-xs text-gray-500 mt-0.5">Commandes</p>
+  </div>
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+    <i data-lucide="package" class="w-5 h-5 text-blue-500 mx-auto mb-1"></i>
+    <p class="text-2xl font-bold text-gray-900">{{ kpis.total_quantity|default:"0" }}</p>
+    <p class="text-xs text-gray-500 mt-0.5">Articles livrés</p>
+  </div>
+</div>
+<div class="grid grid-cols-2 gap-3">
+  <!-- CA réel encaissé -->
+  <div class="bg-green-50 rounded-2xl border border-green-100 shadow-sm p-4 text-center">
+    <i data-lucide="banknote" class="w-5 h-5 text-green-600 mx-auto mb-1"></i>
+    <p class="text-lg font-bold text-green-700">{{ kpis.total_revenue|floatformat:"0g"|default:"0" }}</p>
+    <p class="text-xs text-green-600 mt-0.5 font-semibold">FCFA encaissé</p>
+  </div>
+  <!-- CA potentiel en cours -->
+  <div class="bg-amber-50 rounded-2xl border border-amber-100 shadow-sm p-4 text-center">
+    <i data-lucide="clock" class="w-5 h-5 text-amber-500 mx-auto mb-1"></i>
+    <p class="text-lg font-bold text-amber-700">{{ kpis.pending_revenue|floatformat:"0g"|default:"0" }}</p>
+    <p class="text-xs text-amber-600 mt-0.5 font-semibold">FCFA en cours</p>
+  </div>
+</div>

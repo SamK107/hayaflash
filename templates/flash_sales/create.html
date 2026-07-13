@@ -1,0 +1,458 @@
+{% extends "base.html" %}
+{% block title %}{% if sale %}Modifier{% else %}Programmer{% endif %} une vente — HayaFlash{% endblock %}
+
+{% block extra_head %}
+<style>
+  .hf-input {
+    width: 100%; padding: 0.75rem 1rem;
+    border: 1.5px solid #E5E7EB; border-radius: 0.75rem;
+    font-size: 0.9375rem; transition: border-color 0.15s, box-shadow 0.15s;
+    background: white; color: #111827; appearance: none;
+  }
+  .hf-input:focus {
+    outline: none; border-color: #FF4D2E;
+    box-shadow: 0 0 0 3px rgba(255,77,46,0.12);
+  }
+  .hf-input::placeholder { color: #9CA3AF; }
+  select.hf-input {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236B7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 1rem center; padding-right: 2.5rem;
+  }
+  .hf-label { display: block; font-size: 0.875rem; font-weight: 600; color: #374151; margin-bottom: 0.375rem; }
+  .hf-error { font-size: 0.8125rem; color: #DC2626; margin-top: 0.375rem; }
+  .hf-hint  { font-size: 0.8125rem; color: #6B7280; margin-top: 0.375rem; }
+  .duration-card {
+    border: 1.5px solid #E5E7EB; border-radius: 0.875rem;
+    padding: 0.875rem 1rem; cursor: pointer;
+    transition: border-color 0.15s, background 0.15s; text-align: center;
+  }
+  .duration-card:hover { border-color: #FF4D2E; }
+  .duration-card.selected { border-color: #FF4D2E; background: #FFF5F3; }
+  .duration-card .dc-label { font-size: 0.9375rem; font-weight: 700; color: #111827; }
+  .duration-card .dc-sub   { font-size: 0.75rem; color: #6B7280; margin-top: 0.125rem; }
+  @keyframes rec-pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .rec-anim { animation: rec-pulse .9s ease-in-out infinite; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8"
+     x-data="{
+       durationPreset: '{{ form.duration_preset.value|default:'60' }}',
+       customMin: {{ form.custom_duration_minutes.value|default:60 }},
+       startTime: '{{ form.start_time.value|default:'' }}',
+       get endTimeDisplay() {
+         if (!this.startTime) return '--';
+         const d = new Date(this.startTime);
+         if (isNaN(d)) return '--';
+         const mins = this.durationPreset === 'custom' ? (this.customMin || 0) : parseInt(this.durationPreset);
+         if (!mins) return '--';
+         d.setMinutes(d.getMinutes() + mins);
+         return d.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'}) +
+                ' le ' + d.toLocaleDateString('fr-FR', {day:'2-digit', month:'long'});
+       },
+       get durationLabel() {
+         const m = this.durationPreset === 'custom' ? (this.customMin || 0) : parseInt(this.durationPreset);
+         if (!m) return '';
+         const h = Math.floor(m/60); const min = m % 60;
+         return (h ? h+'h' : '') + (min ? (min < 10 ? '0'+min : min)+'min' : '');
+       }
+     }">
+
+  <nav class="flex items-center gap-2 text-sm text-gray-400 mb-6">
+    <a href="{% url 'flash_sales:list' %}" class="hover:text-primary transition-colors">Mes ventes</a>
+    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+    <span class="text-gray-700 font-medium">
+      {% if sale %}Modifier « {{ sale.title }} »{% else %}Nouvelle vente flash{% endif %}
+    </span>
+  </nav>
+
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+
+    <div class="px-6 py-5 border-b border-gray-100" style="background:#FFF5F3;">
+      <h1 class="text-xl font-bold text-gray-900">
+        {% if sale %}Modifier la vente{% else %}Programmer une vente flash{% endif %}
+      </h1>
+      <p class="text-sm text-gray-400 mt-0.5">Tout se remplit ici — vos clients recevront un lien direct.</p>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="px-6 py-6 space-y-6" hx-boost="false">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+      <div class="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 flex items-start gap-2">
+        <i data-lucide="alert-circle" class="w-4 h-4 shrink-0 mt-0.5 text-red-500"></i>
+        <span>{{ form.non_field_errors.0 }}</span>
+      </div>
+      {% endif %}
+
+      <!-- Titre -->
+      <div x-data="{
+        ti: 0,
+        titles: [
+          'Nouvelle arrivage robes printemps',
+          'Promo -50% sacs et chaussures',
+          '5 robes Gucci à prix cassé',
+          'Flash Spécial bijoux de mariage',
+          'Déstockage chaussures femme — 1h',
+          'Lots de 3 pagnes wax à prix cassé'
+        ]
+      }" x-init="setInterval(() => ti = (ti + 1) % titles.length, 2400)">
+        <label class="hf-label" for="id_title">{{ form.title.label }}</label>
+        <input type="text" id="id_title" name="title" class="hf-input"
+               :placeholder="titles[ti]"
+               value="{{ form.title.value|default:'' }}" maxlength="255">
+        {% if form.title.errors %}<p class="hf-error">{{ form.title.errors.0 }}</p>{% endif %}
+      </div>
+
+      <!-- Description + micro -->
+      <div x-data="audioRec('description_audio')" x-init="init()">
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="hf-label mb-0">{{ form.description.label }}</label>
+          <div class="flex items-center gap-1.5">
+            <template x-if="!hasAudio && !recording">
+              <button type="button" @click="start()"
+                      class="flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/8 hover:bg-primary/15 px-3 py-1.5 rounded-full transition-colors border border-primary/20">
+                <i data-lucide="mic" class="w-3.5 h-3.5"></i>Description vocale
+              </button>
+            </template>
+            <template x-if="recording">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-red-500 rec-anim"></span>
+                <span class="text-xs font-semibold text-red-600" x-text="formatTime(elapsed)"></span>
+                <button type="button" @click="stop()"
+                        class="flex items-center gap-1 text-xs font-bold text-white bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-full">
+                  <i data-lucide="square" class="w-3 h-3"></i>Arrêter
+                </button>
+              </div>
+            </template>
+            <template x-if="hasAudio && !recording">
+              <div class="flex items-center gap-2">
+                <audio :src="audioUrl" controls class="h-7" style="max-width:140px"></audio>
+                <button type="button" @click="clear()" class="p-1.5 text-gray-400 hover:text-red-500 rounded-full">
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+        {{ form.description }}
+        <p class="text-xs text-gray-400 mt-1">Vous pouvez dicter en bambara, français, wolof…</p>
+        <input type="file" name="description_audio" class="hidden" x-ref="audioInput" accept="audio/*">
+      </div>
+
+      <!-- Teasers page d'attente -->
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2">
+        <div class="flex items-center gap-2 mb-1">
+          <i data-lucide="sparkles" class="w-4 h-4 text-amber-600"></i>
+          <label class="hf-label mb-0 text-amber-800">{{ form.teasers.label }}</label>
+        </div>
+        {{ form.teasers }}
+        <p class="hf-hint text-amber-700">
+          Affiché sur la page d'attente <strong>sans révéler les produits</strong>.
+          Un teaser par ligne. Ex: <em>8 sacs de luxe · 15 montres · Bazin à prix cassé</em>
+        </p>
+        {% if form.teasers.errors %}<p class="hf-error">{{ form.teasers.errors.0 }}</p>{% endif %}
+      </div>
+
+      <!-- Date de début -->
+      <div>
+        <label class="hf-label">{{ form.start_time.label }}</label>
+        <input type="datetime-local" name="start_time" class="hf-input"
+               x-model="startTime" value="{{ form.start_time.value|default:'' }}">
+        {% if form.start_time.errors %}<p class="hf-error">{{ form.start_time.errors.0 }}</p>{% endif %}
+      </div>
+
+      <!-- Durée -->
+      <div>
+        <label class="hf-label">Durée de la vente *</label>
+        <p class="hf-hint mb-3">Maximum autorisé : <strong>2 heures</strong>. L'urgence "flash" fonctionne mieux sur des ventes courtes.</p>
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <div class="duration-card" :class="durationPreset === '60' ? 'selected' : ''" @click="durationPreset = '60'">
+            <div class="dc-label">1 heure</div><div class="dc-sub">Urgence maximale</div>
+          </div>
+          <div class="duration-card" :class="durationPreset === '120' ? 'selected' : ''" @click="durationPreset = '120'">
+            <div class="dc-label">2 heures</div><div class="dc-sub">Maximum · Recommandé</div>
+          </div>
+        </div>
+        <input type="hidden" name="duration_preset" :value="durationPreset">
+        <div class="mt-2">
+          <button type="button" @click="durationPreset = 'custom'"
+                  class="text-sm font-medium transition-colors"
+                  :class="durationPreset === 'custom' ? 'text-primary' : 'text-gray-400 hover:text-gray-600'">
+            + Durée personnalisée (entre 15 min et 2h)
+          </button>
+        </div>
+        <div x-show="durationPreset === 'custom'" x-cloak class="mt-3">
+          <label class="hf-label">Durée en minutes <span class="text-gray-400 font-normal">(15 min minimum · 120 max)</span></label>
+          <input type="number" name="custom_duration_minutes" class="hf-input"
+                 x-model.number="customMin" placeholder="Ex: 90 pour 1h30 (max 120)" min="15" max="120">
+          <p class="hf-hint">Entre 15 et 120 minutes.</p>
+          {% if form.custom_duration_minutes.errors %}
+          <p class="hf-error">{{ form.custom_duration_minutes.errors.0 }}</p>
+          {% endif %}
+        </div>
+        {% if form.duration_preset.errors %}
+        <p class="hf-error mt-2">{{ form.duration_preset.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Fin calculée -->
+      <div class="bg-gray-50 rounded-xl px-4 py-3 flex items-center gap-3">
+        <i data-lucide="clock" class="w-5 h-5 text-gray-400 shrink-0"></i>
+        <div>
+          <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Heure de fin calculée</p>
+          <p class="text-base font-bold text-gray-900 mt-0.5">
+            <span x-text="startTime ? endTimeDisplay : 'Choisissez une date de début'"></span>
+            <span x-show="startTime && durationLabel" class="text-sm font-normal text-gray-500 ml-1"
+                  x-text="'(' + durationLabel + ')'"></span>
+          </p>
+        </div>
+      </div>
+
+      <!-- Zone de livraison + plafond -->
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label class="hf-label">{{ form.delivery_zone.label }}</label>
+          {{ form.delivery_zone }}
+        </div>
+        <div>
+          <label class="hf-label">{{ form.max_orders.label }}</label>
+          {{ form.max_orders }}
+          <p class="hf-hint">Laisser vide = illimité</p>
+        </div>
+      </div>
+
+      <!-- Image de couverture -->
+      <div x-data="{
+        preview: '{% if sale and sale.cover_image %}{{ sale.cover_image.url }}{% endif %}',
+        camOpen: false,
+        stream: null,
+        camError: null,
+        onGalleryChange(e) {
+          const f = e.target.files[0];
+          if (!f) return;
+          this.preview = URL.createObjectURL(f);
+          this.camError = null;
+          window.__hfCapturedFile = null;
+        },
+        async openCamera() {
+          this.camError = null;
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            this.$refs.galleryInput.click(); return;
+          }
+          try {
+            this.stream = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+              audio: false
+            });
+            this.camOpen = true;
+            await this.$nextTick();
+            this.$refs.video.srcObject = this.stream;
+          } catch (err) {
+            this.camError = 'Caméra inaccessible : ' + (err.message || err.name);
+            this.$refs.galleryInput.click();
+          }
+        },
+        stopCamera() {
+          if (this.stream) { this.stream.getTracks().forEach(t => t.stop()); this.stream = null; }
+          this.camOpen = false;
+        },
+        shoot() {
+          const video = this.$refs.video;
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth || 1280;
+          canvas.height = video.videoHeight || 720;
+          canvas.getContext('2d').drawImage(video, 0, 0);
+          canvas.toBlob(blob => {
+            const file = new File([blob], 'capture.jpg', { type: 'image/jpeg' });
+            try {
+              const dt = new DataTransfer();
+              dt.items.add(file);
+              this.$refs.galleryInput.files = dt.files;
+            } catch(e) {
+              window.__hfCapturedFile = file;
+            }
+            this.preview = URL.createObjectURL(blob);
+            this.stopCamera();
+          }, 'image/jpeg', 0.92);
+        }
+      }">
+
+        <label class="hf-label">Image de couverture <span class="text-gray-400 font-normal">(optionnelle)</span></label>
+
+        <!-- Prévisualisation -->
+        <div class="relative rounded-2xl overflow-hidden bg-gray-100 mb-3"
+             style="aspect-ratio:16/9" x-show="preview && !camOpen">
+          <img :src="preview" class="w-full h-full object-cover">
+          <button type="button" @click="preview = null; $refs.galleryInput.value = ''"
+                  class="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <!-- Placeholder vide -->
+        <div class="rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center py-8 gap-2 mb-3"
+             x-show="!preview && !camOpen">
+          <i data-lucide="image" class="w-8 h-8 text-gray-300"></i>
+          <p class="text-sm text-gray-400">Aucune image sélectionnée</p>
+        </div>
+
+        <!-- Boutons galerie / caméra -->
+        <div class="flex gap-2" x-show="!camOpen">
+          <button type="button" @click="$refs.galleryInput.click()"
+                  class="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-xl transition-colors">
+            <i data-lucide="image" class="w-4 h-4"></i>Galerie
+          </button>
+          <button type="button" @click="openCamera()"
+                  class="flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium rounded-xl transition-colors">
+            <i data-lucide="camera" class="w-4 h-4"></i>Caméra
+          </button>
+        </div>
+
+        <p class="text-xs text-red-500 mt-1" x-show="camError" x-text="camError" x-cloak></p>
+        <input type="file" name="cover_image" accept="image/*"
+               x-ref="galleryInput" class="hidden" @change="onGalleryChange($event)">
+
+        <!-- Viewfinder plein écran -->
+        <div x-show="camOpen" x-cloak
+             style="position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column;"
+             @keydown.escape.window="stopCamera()">
+          <div style="position:absolute;top:0;left:0;right:0;z-index:2;
+                      padding:env(safe-area-inset-top,0.75rem) 1.25rem 0.75rem;
+                      display:flex;align-items:center;justify-content:space-between;
+                      background:linear-gradient(rgba(0,0,0,0.55),transparent);">
+            <button type="button" @click="stopCamera()"
+                    style="color:#fff;font-size:0.875rem;font-weight:600;
+                           background:rgba(0,0,0,0.35);border-radius:9999px;
+                           padding:0.45rem 1.1rem;backdrop-filter:blur(6px);
+                           border:1px solid rgba(255,255,255,0.15);">Annuler</button>
+            <span style="color:rgba(255,255,255,0.55);font-size:0.75rem;letter-spacing:0.05em;">APPAREIL PHOTO</span>
+            <div style="width:80px;"></div>
+          </div>
+          <video x-ref="video" autoplay playsinline muted
+                 style="flex:1;width:100%;height:100%;object-fit:cover;display:block;"></video>
+          <div style="position:absolute;bottom:0;left:0;right:0;z-index:2;
+                      padding:1.75rem 2rem calc(env(safe-area-inset-bottom,0px) + 1.75rem);
+                      display:flex;align-items:center;justify-content:space-between;
+                      background:linear-gradient(transparent,rgba(0,0,0,0.65));">
+            <button type="button" title="Galerie"
+                    @click="stopCamera(); $nextTick(() => $refs.galleryInput.click())"
+                    style="width:50px;height:50px;border-radius:0.75rem;
+                           background:rgba(255,255,255,0.18);border:1.5px solid rgba(255,255,255,0.3);
+                           display:flex;align-items:center;justify-content:center;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+            </button>
+            <button type="button" @click="shoot()"
+                    style="width:76px;height:76px;border-radius:50%;
+                           background:#fff;border:5px solid rgba(255,255,255,0.4);
+                           box-shadow:0 0 0 2px rgba(255,255,255,0.25),0 4px 24px rgba(0,0,0,0.4);
+                           flex-shrink:0;transition:transform 0.08s ease;"
+                    @touchstart.prevent="$el.style.transform='scale(0.9)'"
+                    @touchend="$el.style.transform='scale(1)'; shoot()"
+                    @mousedown="$el.style.transform='scale(0.9)'"
+                    @mouseup="$el.style.transform='scale(1)'">
+            </button>
+            <div style="width:50px;"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Actions -->
+      <div class="flex gap-3 pt-2">
+        <button type="submit"
+                class="flex-1 bg-primary text-white py-3.5 rounded-xl font-bold text-base transition-colors hover:bg-red-700">
+          {% if sale %}Enregistrer les modifications{% else %}⚡ Programmer la vente{% endif %}
+        </button>
+        <a href="{% if sale %}{% url 'flash_sales:detail' sale.pk %}{% else %}{% url 'flash_sales:list' %}{% endif %}"
+           class="px-6 py-3.5 border border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-colors text-center">
+          Annuler
+        </a>
+      </div>
+
+    </form>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+window.__hfCapturedFile = null;
+document.addEventListener('DOMContentLoaded', function () {
+  var form = document.querySelector('form[enctype="multipart/form-data"]');
+  if (!form) return;
+  form.addEventListener('submit', function (e) {
+    var file = window.__hfCapturedFile;
+    if (!file) return;
+    e.preventDefault();
+    var fd = new FormData(form);
+    fd.set('cover_image', file, file.name);
+    fetch(form.action || window.location.pathname, { method: 'POST', body: fd })
+      .then(function (r) {
+        if (r.redirected) { window.location.href = r.url; return null; }
+        return r.text();
+      })
+      .then(function (html) {
+        if (!html) return;
+        document.open(); document.write(html); document.close();
+      });
+  });
+});
+
+/* ── Composant audioRec(fieldName) — enregistreur micro générique ── */
+function audioRec(fieldName) {
+  return {
+    recording: false, hasAudio: false, audioUrl: null,
+    mediaRecorder: null, chunks: [], elapsed: 0, _timer: null,
+    init() { lucide.createIcons(); },
+    formatTime(s) {
+      const m = Math.floor(s/60), sec = s%60;
+      return (m<10?'0':'')+m+':'+(sec<10?'0':'')+sec;
+    },
+    async start() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert("Votre appareil ne supporte pas l'enregistrement audio."); return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        this.chunks = []; this.elapsed = 0;
+        const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
+        this.mediaRecorder = new MediaRecorder(stream, { mimeType: mime });
+        this.mediaRecorder.ondataavailable = e => { if (e.data.size > 0) this.chunks.push(e.data); };
+        this.mediaRecorder.onstop = () => {
+          stream.getTracks().forEach(t => t.stop());
+          const blob = new Blob(this.chunks, { type: mime });
+          this.audioUrl = URL.createObjectURL(blob);
+          this.hasAudio = true;
+          const ext = mime.includes('webm') ? 'webm' : 'ogg';
+          const file = new File([blob], 'vocal-' + Date.now() + '.' + ext, { type: mime });
+          try {
+            const dt = new DataTransfer(); dt.items.add(file);
+            this.$refs.audioInput.files = dt.files;
+          } catch(e) { console.warn('DataTransfer audio non supporté'); }
+          lucide.createIcons();
+        };
+        this.mediaRecorder.start();
+        this.recording = true;
+        this._timer = setInterval(() => this.elapsed++, 1000);
+        lucide.createIcons();
+      } catch(err) { alert('Micro inaccessible : ' + (err.message || err.name)); }
+    },
+    stop() {
+      if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') this.mediaRecorder.stop();
+      clearInterval(this._timer); this.recording = false;
+    },
+    clear() {
+      this.hasAudio = false; this.audioUrl = null; this.chunks = [];
+      this.$refs.audioInput.value = ''; lucide.createIcons();
+    }
+  };
+}
+</script>
+{% endblock %}

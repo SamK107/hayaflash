@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Réservations — HayaFlash{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+
+  <!-- En-tête -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-black text-gray-900">Réservations</h1>
+      <p class="text-sm text-gray-400 mt-0.5">
+        Clients intéressés par vos prochaines ventes flash
+      </p>
+    </div>
+    {% if total_count > 0 %}
+    <span class="bg-primary/10 text-primary font-bold text-lg px-4 py-2 rounded-xl">
+      {{ total_count }} au total
+    </span>
+    {% endif %}
+  </div>
+
+  {% if not sales_with_interests %}
+  <!-- État vide -->
+  <div class="text-center py-16">
+    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+      <i data-lucide="bell-off" class="w-8 h-8 text-gray-300"></i>
+    </div>
+    <p class="font-semibold text-gray-500">Aucune réservation pour l'instant</p>
+    <p class="text-sm text-gray-400 mt-1">
+      Les clients peuvent s'inscrire depuis le lien de vente terminée.
+    </p>
+  </div>
+
+  {% else %}
+  <!-- Liste par vente -->
+  <div class="space-y-4">
+    {% for sale in sales_with_interests %}
+    {% with interests=sale.interests.all count=sale.interests.count %}
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <!-- Header vente -->
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-50">
+        <div class="flex-1 min-w-0">
+          <p class="font-bold text-gray-900 truncate">{{ sale.title }}</p>
+          <p class="text-xs text-gray-400 mt-0.5 flex items-center gap-2">
+            <span class="inline-flex items-center gap-1">
+              <i data-lucide="calendar" class="w-3 h-3"></i>
+              {{ sale.start_time|date:"d/m/Y" }}
+            </span>
+            <span class="inline-flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full
+                {% if sale.status == 'live' %}bg-green-400
+                {% elif sale.status == 'scheduled' %}bg-amber-400
+                {% else %}bg-gray-300{% endif %}"></span>
+              {{ sale.get_status_display }}
+            </span>
+          </p>
+        </div>
+        <div class="flex items-center gap-3 shrink-0">
+          <span class="bg-orange-50 text-orange-600 font-bold text-sm px-3 py-1 rounded-full">
+            {{ count }} réservation{{ count|pluralize }}
+          </span>
+          <!-- Bouton reset -->
+          <form method="post" action="{% url 'flash_sales:interests_reset' pk=sale.pk %}"
+                onsubmit="return confirm('Supprimer les {{ count }} réservation{{ count|pluralize }} de cette vente ?')">
+            {% csrf_token %}
+            <button type="submit"
+                    class="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Annuler les réservations">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Liste des contacts -->
+      <div class="divide-y divide-gray-50">
+        {% for interest in interests %}
+        <div class="flex items-center gap-3 px-5 py-3">
+          <div class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center shrink-0">
+            <span class="text-gray-500 font-semibold text-sm">
+              {% if interest.name %}{{ interest.name|slice:":1"|upper }}{% else %}?{% endif %}
+            </span>
+          </div>
+          <div class="flex-1 min-w-0">
+            {% if interest.name %}
+            <p class="text-sm font-semibold text-gray-800">{{ interest.name }}</p>
+            {% endif %}
+            <p class="text-sm {% if not interest.name %}font-semibold text-gray-800{% else %}text-gray-500{% endif %}">
+              {{ interest.phone }}
+            </p>
+          </div>
+          <div class="text-right shrink-0">
+            <p class="text-xs text-gray-400">{{ interest.created_at|date:"d/m H:i" }}</p>
+            <!-- Appel rapide via lien tel: -->
+            <a href="tel:{{ interest.phone }}"
+               class="inline-flex items-center gap-1 text-xs text-primary font-medium mt-0.5 hover:underline">
+              <i data-lucide="phone" class="w-3 h-3"></i>Appeler
+            </a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Lien vers la vente -->
+      <div class="px-5 py-3 bg-gray-50 flex items-center justify-between">
+        <a href="{% url 'flash_sales:detail' pk=sale.pk %}"
+           class="text-xs text-gray-400 hover:text-primary flex items-center gap-1 transition-colors">
+          <i data-lucide="arrow-right" class="w-3 h-3"></i>Voir la vente
+        </a>
+        {% if sale.public_slug %}
+        <a href="/f/{{ sale.public_slug }}/" target="_blank"
+           class="text-xs text-gray-400 hover:text-primary flex items-center gap-1 transition-colors">
+          <i data-lucide="external-link" class="w-3 h-3"></i>Lien public
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    {% endwith %}
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

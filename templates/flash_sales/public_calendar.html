@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Ventes Flash — HayaFlash{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50">
+  <div class="max-w-2xl mx-auto px-4 py-6 space-y-6">
+
+    <!-- Header -->
+    <div class="text-center">
+      <h1 class="text-2xl font-bold text-gray-900">Ventes Flash</h1>
+      <p class="text-gray-500 text-sm mt-1">Commandez en direct, livraison a Bamako</p>
+    </div>
+
+    <!-- Ventes LIVE -->
+    {% if live_sales %}
+    <section>
+      <div class="flex items-center gap-2 mb-3">
+        <span class="inline-flex items-center gap-1.5 bg-red-600 text-white text-xs font-bold px-2.5 py-1 rounded-full">
+          <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+          EN COURS
+        </span>
+        <span class="text-sm text-gray-500">{{ live_sales|length }} vente(s) active(s)</span>
+      </div>
+      <div class="space-y-3">
+        {% for sale in live_sales %}
+        <a href="{% url 'flash_sale_public_detail' slug=sale.public_slug %}" class="block bg-white rounded-2xl border-2 border-red-100 shadow-sm overflow-hidden hover:border-red-300 transition-colors">
+          {% if sale.cover_image %}
+          <img src="{{ sale.cover_image.url }}" alt="{{ sale.title }}" class="w-full h-40 object-cover">
+          {% endif %}
+          <div class="p-4">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <h2 class="font-bold text-gray-900">{{ sale.title }}</h2>
+                <p class="text-sm text-gray-500 mt-0.5">{{ sale.owner.business_name }}</p>
+              </div>
+              <span class="shrink-0 inline-flex items-center gap-1 bg-red-50 text-red-600 text-xs font-bold px-2 py-1 rounded-lg">
+                <i data-lucide="zap" class="w-3 h-3"></i>
+                LIVE
+              </span>
+            </div>
+            {% if sale.delivery_zone %}
+            <p class="text-xs text-gray-400 mt-2 flex items-center gap-1">
+              <i data-lucide="map-pin" class="w-3 h-3"></i>
+              {{ sale.delivery_zone }}
+            </p>
+            {% endif %}
+            <!-- Countdown fin -->
+            <div
+              x-data="countdown('{{ sale.end_time.isoformat }}')"
+              x-init="init()"
+              class="mt-3 flex items-center gap-2 text-sm"
+            >
+              <i data-lucide="timer" class="w-4 h-4 text-gray-400"></i>
+              <span class="text-gray-500">Se termine dans</span>
+              <span x-text="remaining" class="font-mono font-bold text-red-600">--:--:--</span>
+            </div>
+            <!-- Apercu produits -->
+            {% with prods=sale.products.all %}
+            {% if prods %}
+            <div class="mt-3 flex gap-2 overflow-x-auto">
+              {% for p in prods|slice:":4" %}
+              <div class="shrink-0 text-center">
+                {% with img=p.media.all|first %}
+                {% if img and img.file %}
+                <img src="{{ img.file.url }}" alt="{{ p.name }}" class="w-14 h-14 rounded-xl object-cover">
+                {% else %}
+                <div class="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center">
+                  <i data-lucide="package" class="w-6 h-6 text-gray-300"></i>
+                </div>
+                {% endif %}
+                {% endwith %}
+                <p class="text-xs text-gray-500 mt-1 w-14 truncate">{{ p.name }}</p>
+                <p class="text-xs font-bold text-primary">{{ p.price|floatformat:"0g" }} F</p>
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    <!-- Ventes programmees -->
+    {% if scheduled_sales %}
+    <section>
+      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Prochainement</h2>
+      <div class="space-y-3">
+        {% for sale in scheduled_sales %}
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <h3 class="font-bold text-gray-900">{{ sale.title }}</h3>
+              <p class="text-sm text-gray-500 mt-0.5">{{ sale.owner.business_name }}</p>
+            </div>
+            <div class="text-right shrink-0">
+              <p class="text-xs font-semibold text-amber-600">{{ sale.start_time|date:"d/m H:i" }}</p>
+            </div>
+          </div>
+          <!-- Countdown -->
+          <div
+            x-data="countdown('{{ sale.start_time.isoformat }}')"
+            x-init="init()"
+            class="mt-3 flex items-center gap-2 text-sm"
+          >
+            <i data-lucide="clock" class="w-4 h-4 text-gray-400"></i>
+            <span class="text-gray-500">Ouverture dans</span>
+            <span x-text="remaining" class="font-mono font-semibold text-gray-700">--:--:--</span>
+          </div>
+          {% if sale.delivery_zone %}
+          <p class="text-xs text-gray-400 mt-2 flex items-center gap-1">
+            <i data-lucide="map-pin" class="w-3 h-3"></i>
+            {{ sale.delivery_zone }}
+          </p>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    <!-- Aucune vente -->
+    {% if not live_sales and not scheduled_sales %}
+    <div class="text-center py-16">
+      <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i data-lucide="calendar" class="w-8 h-8 text-gray-400"></i>
+      </div>
+      <h2 class="text-lg font-bold text-gray-900 mb-1">Aucune vente en ce moment</h2>
+      <p class="text-gray-400 text-sm">Revenez bientot pour ne pas manquer les prochaines ventes flash !</p>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

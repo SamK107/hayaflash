@@ -1,0 +1,212 @@
+---
+alwaysApply: true
+priority: 100
+---
+
+# =========================================
+# HAYAFLASH - AI DEVELOPMENT CONTEXT CORE
+# =========================================
+
+This file defines the global execution rules for AI-assisted development.
+
+It MUST be treated as a runtime policy engine.
+
+---
+
+# 1. SOURCE OF TRUTH SYSTEM (HIGHEST PRIORITY)
+
+The system relies on 3 authoritative documents:
+
+- docs/PROJECT_SPEC.md        → PRODUCT INTENT (WHAT / WHY)
+- docs/ARCHITECTURE.md        → SYSTEM DESIGN (HOW)
+- docs/CODEBASE_STATUS.md     → IMPLEMENTATION REALITY (STATE)
+
+---
+
+## RULE: CONFLICT RESOLUTION (CRITICAL)
+
+If contradictions exist:
+
+1. CODEBASE_STATUS.md overrides all implementation assumptions
+2. ARCHITECTURE.md overrides design decisions
+3. PROJECT_SPEC.md defines intent but NEVER overrides reality
+
+👉 NEVER invent behavior that is not reflected in CODEBASE_STATUS.md or codebase.
+
+---
+
+# 2. RUNTIME PRIORITY MODEL (DETERMINISTIC)
+
+When multiple rules conflict, apply priority strictly:
+
+1. Security & Multi-Tenant Isolation (ABSOLUTE)
+2. Architecture Rules (Django/HTMX/Services)
+3. Production Safety Rules (critical flows)
+4. Project Business Rules
+5. Code Quality Guidelines
+6. Local context / developer assumptions
+
+---
+
+# 3. HARD ARCHITECTURE CONSTRAINTS (NON-NEGOTIABLE)
+
+## Backend
+- MUST use Django FBV only
+- CBV strictly forbidden (except explicit documented exception)
+- Django REST Framework is forbidden
+- GraphQL is forbidden
+
+## Frontend
+- HTMX ONLY (no SPA frameworks)
+- Tailwind CSS ONLY
+- No React / Vue / Angular
+- No jQuery
+
+## Architecture Pattern
+- Views MUST remain thin (HTTP orchestration only)
+- Business logic MUST live in /services/
+- Data access MUST remain in models/services layer
+- No business logic in templates
+
+---
+
+# 4. MULTI-TENANT ISOLATION (CRITICAL SECURITY RULE)
+
+## ABSOLUTE RULE:
+- Every database query MUST be tenant-scoped
+
+## FORBIDDEN:
+- Model.objects.all()
+- Any query without explicit tenant filter
+
+## REQUIRED:
+- tenant_id filtering in ALL service layers
+- tenant validation before mutation
+
+## ENFORCEMENT RULE:
+If tenant context is missing → OPERATION MUST FAIL
+
+---
+
+# 5. FORBIDDEN PATTERNS (HARD BLOCK)
+
+Never use unless explicitly approved in documentation:
+
+- Django CBV
+- DRF / GraphQL
+- React / Vue / SPA frameworks
+- jQuery
+- Raw SQL (unless justified + reviewed)
+- Cross-tenant queries
+- Fat views (> ~15 lines logic)
+- Business logic in templates
+- Inline JavaScript (except HTMX triggers)
+- Unstructured ad-hoc architecture patterns
+
+---
+
+# 6. IMPLEMENTATION WORKFLOW (MANDATORY)
+
+Before writing any code:
+
+## STEP 1 — CONTEXT ANALYSIS
+- Read existing code in the same domain
+- Identify existing services and patterns
+
+## STEP 2 — REUSE FIRST
+- Prefer existing services
+- Do NOT duplicate logic
+
+## STEP 3 — TENANT SAFETY CHECK
+Ask explicitly:
+> "Is this fully tenant-isolated?"
+
+## STEP 4 — SERVICE LAYER ENFORCEMENT
+- Business logic MUST go in services/
+- Views only orchestrate request/response
+
+## STEP 5 — HTMX INTEGRATION CHECK
+- Use partial templates correctly
+- No full-page reload hacks
+
+---
+
+# 7. CODE QUALITY STANDARDS (EXPECTED BEHAVIOR)
+
+- Keep views minimal (render + service call)
+- Prefer explicit code over abstraction
+- Use domain-specific naming (no generic functions)
+- Avoid premature optimization
+- Keep templates clean (zero business logic)
+- Ensure predictable HTMX responses
+- Favor readability over cleverness
+
+---
+
+# 8. PRODUCTION SAFETY RULES (CRITICAL FLOWS ONLY)
+
+For:
+- payments
+- orders
+- authentication
+- billing
+- deletion
+- financial updates
+
+## REQUIRED SAFETY MEASURES:
+
+- MUST use `transaction.atomic()`
+- MUST ensure idempotency (retry-safe operations)
+- MUST handle concurrency (select_for_update when needed)
+- MUST validate permissions BEFORE mutation
+- MUST log audit trail:
+  - actor
+  - tenant_id
+  - before/after state
+  - timestamp
+
+---
+
+# 9. DOCUMENTATION GOVERNANCE SYSTEM
+
+If system changes:
+
+## ARCHITECTURE.md MUST be updated when:
+- new service layer introduced
+- new integration added
+- data flow changes
+
+## PROJECT_SPEC.md MUST be updated when:
+- business rules change
+- new feature scope introduced
+- product behavior changes
+
+## CODEBASE_STATUS.md MUST be updated when:
+- feature is implemented
+- feature is removed
+- divergence between spec and reality is discovered
+
+---
+
+# 10. DECISION PRINCIPLE (ANTI-HALLUCINATION RULE)
+
+When uncertain:
+
+- DO NOT guess
+- DO NOT invent behavior
+- DO inspect existing code first
+- DO follow CODEBASE_STATUS.md reality
+
+If still uncertain:
+→ request clarification
+
+---
+
+# 11. FINAL EXECUTION RULE
+
+The system must always optimize for:
+
+- Correctness over speed
+- Safety over convenience
+- Consistency over creativity
+- Maintainability over complexity

@@ -1,0 +1,31 @@
+<div class="grid grid-cols-3 gap-3">
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 text-center">
+    <i data-lucide="package" class="w-5 h-5 text-primary mx-auto mb-1"></i>
+    <p class="text-xl font-bold text-gray-900">{{ summary.total_orders|default:"0" }}</p>
+    <p class="text-xs text-gray-500">Commandes</p>
+  </div>
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 text-center">
+    <i data-lucide="banknote" class="w-5 h-5 text-amber-500 mx-auto mb-1"></i>
+    <p class="text-lg font-bold text-gray-900">{{ summary.total_cod_pending|floatformat:"0g"|default:"0" }}</p>
+    <p class="text-xs text-gray-500">COD a collecter</p>
+  </div>
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 text-center">
+    <i data-lucide="check-circle" class="w-5 h-5 text-success mx-auto mb-1"></i>
+    <p class="text-lg font-bold text-gray-900">{{ summary.total_cod_collected|floatformat:"0g"|default:"0" }}</p>
+    <p class="text-xs text-gray-500">COD collecte</p>
+  </div>
+</div>
+<div class="grid grid-cols-3 gap-3 mt-3">
+  <div class="bg-amber-50 rounded-xl p-3 text-center">
+    <p class="text-lg font-bold text-amber-700">{{ summary.pending|default:"0" }}</p>
+    <p class="text-xs text-amber-600">En attente</p>
+  </div>
+  <div class="bg-blue-50 rounded-xl p-3 text-center">
+    <p class="text-lg font-bold text-blue-700">{{ summary.in_transit|default:"0" }}</p>
+    <p class="text-xs text-blue-600">En cours</p>
+  </div>
+  <div class="bg-green-50 rounded-xl p-3 text-center">
+    <p class="text-lg font-bold text-green-700">{{ summary.delivered|default:"0" }}</p>
+    <p class="text-xs text-green-600">Livrees</p>
+  </div>
+</div>

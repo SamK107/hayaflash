@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}Mes ventes flash — HayaFlash{% endblock %}
+{% block navbar %}{% include "partials/_nav_seller.html" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Mes ventes flash</h1>
+    {% if quota.can_create %}
+      <a href="{% url 'flash_sales:create' %}"
+         class="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-red-700 transition-colors shadow-sm">
+        <i data-lucide="plus" class="w-5 h-5"></i>Nouvelle vente
+      </a>
+    {% else %}
+      <button onclick="document.getElementById('upgrade-modal').classList.remove('hidden')"
+              class="flex items-center gap-2 bg-gray-200 text-gray-500 px-5 py-2.5 rounded-xl font-semibold hover:bg-gray-300 transition-colors">
+        <i data-lucide="lock" class="w-4 h-4"></i>Nouvelle vente
+      </button>
+    {% endif %}
+  </div>
+
+  {% if not quota.can_create %}
+  <div class="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5">
+    <div class="flex items-start gap-4">
+      <div class="w-11 h-11 bg-amber-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+        <i data-lucide="zap" class="w-5 h-5 text-amber-600"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="font-bold text-gray-900 text-base mb-0.5">Limite du plan {{ quota.plan|capfirst }} atteinte</p>
+        <p class="text-sm text-gray-600 mb-3">
+          Vous avez utilise <strong>{{ quota.monthly_count }}/{{ quota.monthly_limit }}</strong> ventes ce mois-ci.
+          Passez au plan <strong>Pro</strong> pour creer des ventes illimitees.
+        </p>
+        <div class="flex flex-wrap gap-3 items-center">
+          <button onclick="document.getElementById('upgrade-modal').classList.remove('hidden')"
+                  class="inline-flex items-center gap-2 bg-primary text-white font-bold px-4 py-2 rounded-xl text-sm hover:bg-red-700 active:scale-[.98] transition-all shadow-sm">
+            <i data-lucide="crown" class="w-4 h-4"></i>Voir les plans
+          </button>
+          <span class="text-xs text-gray-400">Quota remis a zero le 1er du mois prochain</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% elif not quota.is_pro and quota.monthly_limit %}
+  <div class="mb-5 flex items-center gap-3 text-sm text-gray-500 bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5">
+    <i data-lucide="bar-chart-2" class="w-4 h-4 text-gray-400 shrink-0"></i>
+    <span>Plan {{ quota.plan|capfirst }} &middot; <strong class="text-gray-700">{{ quota.monthly_count }}/{{ quota.monthly_limit }}</strong> ventes ce mois-ci</span>
+    {% if quota.monthly_count == quota.monthly_limit|add:"-1" %}
+    <span class="ml-auto text-amber-600 font-semibold text-xs flex items-center gap-1">
+      <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>Derniere disponible
+    </span>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div x-data="{ tab: 'scheduled' }">
+    <div class="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit">
+      {% for tab_id, label, count in tab_list %}
+      <button @click="tab = '{{ tab_id }}'"
+              :class="tab === '{{ tab_id }}' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'"
+              class="px-4 py-2 rounded-lg text-sm font-medium transition-all">
+        {{ label }}
+        {% if count %}<span class="ml-1.5 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">{{ count }}</span>{% endif %}
+      </button>
+      {% endfor %}
+    </div>
+    <div x-show="tab === 'scheduled'">
+      {% include "flash_sales/_sale_list_section.html" with sales=sales_scheduled empty_msg="Aucune vente programmee." %}
+    </div>
+    <div x-show="tab === 'live'" x-cloak>
+      {% include "flash_sales/_sale_list_section.html" with sales=sales_live empty_msg="Aucune vente en cours." live=True %}
+    </div>
+    <div x-show="tab === 'closed'" x-cloak>
+      {% include "flash_sales/_sale_list_section.html" with sales=sales_closed empty_msg="Aucune vente en traitement." %}
+    </div>
+    <div x-show="tab === 'done'" x-cloak>
+      {% include "flash_sales/_sale_list_section.html" with sales=sales_done empty_msg="Aucune vente terminee." %}
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL UPGRADE -->
+<div id="upgrade-modal"
+     class="hidden fixed inset-0 z-[9999] bg-black/50 flex items-end sm:items-center justify-center p-4"
+     onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 sm:p-8 max-h-[95vh] overflow-y-auto" onclick="event.stopPropagation()">
+
+    <div class="w-14 h-14 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+      <i data-lucide="zap" class="w-7 h-7 text-white"></i>
+    </div>
+    <h2 class="text-xl font-black text-gray-900 text-center mb-1">Choisissez votre plan</h2>
+    <p class="text-center text-gray-500 text-sm mb-5">Debloquez plus de ventes et de fonctionnalites.</p>
+
+    {% if not quota.is_pro and quota.monthly_limit %}
+    <div class="bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 mb-5 text-xs text-center text-gray-500">
+      Plan actuel : <strong class="text-gray-800">{{ quota.plan|capfirst }}</strong> &middot; {{ quota.monthly_count }}/{{ quota.monthly_limit }} ventes ce mois
+    </div>
+    {% endif %}
+
+    <!-- MEDIUM -->
+    <div class="border-2 border-gray-100 rounded-2xl p-4 mb-3 hover:border-blue-200 transition-colors">
+      <div class="flex items-start justify-between mb-3">
+        <div>
+          <p class="font-black text-gray-900 text-base">Medium</p>
+          <p class="text-2xl font-black text-gray-900 mt-0.5">2 000 <span class="text-sm font-semibold text-gray-400">FCFA/mois</span></p>
+        </div>
+        <div class="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
+          <i data-lucide="star" class="w-5 h-5 text-blue-600"></i>
+        </div>
+      </div>
+      <ul class="space-y-1.5 mb-4">
+        <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>3 ventes flash par mois</li>
+        <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>Statistiques (30 derniers jours)</li>
+        <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>Historique commandes complet</li>
+      </ul>
+      <a href="{% url 'subscriptions:checkout' 'medium' %}"
+         class="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-sm transition-all active:scale-[.98]">
+        Choisir Medium — 2 000 FCFA/mois
+      </a>
+    </div>
+
+    <!-- PRO -->
+    <div class="border-2 border-primary rounded-2xl p-4 mb-4 relative">
+      <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-black px-3 py-1 rounded-full">Recommande</span>
+      <div class="flex items-start justify-between mb-3 mt-1">
+        <div>
+          <p class="font-black text-gray-900 text-base">Pro</p>
+          <p class="text-2xl font-black text-gray-900 mt-0.5">5 000 <span class="text-sm font-semibold text-gray-400">FCFA/mois</span></p>
+        </div>
+        <div class="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
+          <i data-lucide="crown" class="w-5 h-5 text-amber-600"></i>
+        </div>
+      </div>
+      <ul class="space-y-1.5 mb-4">
+        <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>Ventes flash <strong>illimitees</strong></li>
+        <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>Statistiques et analyses avancees</li>
+        <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>Tableau de bord LIVE temps reel</li>
+        <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>Notifications SMS automatiques</li>
+        <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>Support prioritaire WhatsApp</li>
+      </ul>
+      <a href="{% url 'subscriptions:checkout' 'pro' %}"
+         class="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black py-3 rounded-xl text-sm transition-all active:scale-[.98] shadow-sm">
+        <i data-lucide="zap" class="w-4 h-4"></i>Choisir Pro — 5 000 FCFA/mois
+      </a>
+    </div>
+
+    <p class="text-xs text-center text-gray-400 mb-3">Paiement via Orange Money &middot; Sans engagement</p>
+    <button onclick="document.getElementById('upgrade-modal').classList.add('hidden')"
+            class="w-full text-sm text-gray-400 hover:text-gray-600 font-medium py-2 transition-colors">
+      Continuer avec le plan Gratuit
+    </button>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Paiement en attente — HayaFlash{% endblock %}
+{% block navbar %}{% include "partials/_nav_seller.html" %}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+<div class="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 text-center space-y-5">
+
+  <div class="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto">
+    <i data-lucide="clock" class="w-10 h-10 text-amber-500"></i>
+  </div>
+
+  <div>
+    <h1 class="text-2xl font-black text-gray-900 mb-2">Paiement en cours de traitement</h1>
+    <p class="text-gray-500 text-sm leading-relaxed">
+      Votre paiement de <strong>{{ payment.amount }} FCFA</strong> est en cours de confirmation par Orange Money.
+      Cela peut prendre quelques secondes.
+    </p>
+  </div>
+
+  <div class="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-left space-y-2">
+    <div class="flex items-center justify-between text-sm">
+      <span class="text-gray-500">Plan</span>
+      <span class="font-bold text-gray-900">{{ payment.get_plan_display }}</span>
+    </div>
+    <div class="flex items-center justify-between text-sm">
+      <span class="text-gray-500">Montant</span>
+      <span class="font-bold text-gray-900">{{ payment.amount }} FCFA</span>
+    </div>
+    <div class="flex items-center justify-between text-sm">
+      <span class="text-gray-500">Reference</span>
+      <span class="font-mono text-xs text-gray-600">{{ payment.order_id }}</span>
+    </div>
+  </div>
+
+  <p class="text-xs text-gray-400">
+    Votre abonnement sera active automatiquement une fois le paiement confirme.
+    Rafraichissez cette page dans quelques instants.
+  </p>
+
+  <div class="space-y-2">
+    <a href="{% url 'subscriptions:subscription' %}"
+       class="flex items-center justify-center gap-2 w-full bg-primary text-white font-bold py-3.5 rounded-xl hover:bg-red-700 transition-colors">
+      <i data-lucide="refresh-cw" class="w-4 h-4"></i>Verifier le statut
+    </a>
+    <p class="text-xs text-gray-400">
+      Probleme ? Contactez-nous sur WhatsApp avec la reference <strong>{{ payment.order_id }}</strong>
+    </p>
+  </div>
+
+</div>
+</div>
+<script>
+// Auto-refresh toutes les 10s si paiement en attente
+setTimeout(() => location.reload(), 10000);
+</script>
+{% endblock %}

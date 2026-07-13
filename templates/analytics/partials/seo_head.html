@@ -1,0 +1,15 @@
+{% if seo %}
+  <link rel="canonical" href="{{ seo.canonical_url }}" />
+  <meta name="description" content="{{ seo.description }}" />
+  <meta property="og:title" content="{{ seo.og.title }}" />
+  <meta property="og:description" content="{{ seo.og.description }}" />
+  <meta property="og:url" content="{{ seo.og.url }}" />
+  <meta property="og:image" content="{{ seo.og.image }}" />
+  <meta property="og:type" content="{{ seo.og.type }}" />
+  <meta property="og:site_name" content="{{ seo.og.site_name }}" />
+  <meta name="twitter:card" content="{{ seo.twitter.card }}" />
+  <meta name="twitter:title" content="{{ seo.twitter.title }}" />
+  <meta name="twitter:description" content="{{ seo.twitter.description }}" />
+  <meta name="twitter:image" content="{{ seo.twitter.image }}" />
+  <script type="application/ld+json">{{ seo.json_ld|safe }}</script>
+{% endif %}

@@ -1,0 +1,362 @@
+{% extends "base.html" %}
+{% block title %}{% if product %}Modifier{% else %}Ajouter{% endif %} un produit — {{ sale.title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  .hf-input {
+    width: 100%; padding: 0.75rem 1rem;
+    border: 1px solid #e5e7eb; border-radius: 0.75rem;
+    font-size: 0.875rem; transition: border-color 0.15s, box-shadow 0.15s;
+    background: white; color: #111827;
+  }
+  .hf-input:focus { outline: none; border-color: #FF4D2E; box-shadow: 0 0 0 3px rgba(255,77,46,0.12); }
+  .hf-label { display:block; font-size:.875rem; font-weight:600; color:#374151; margin-bottom:.375rem; }
+  .hf-hint  { font-size:.8125rem; color:#6B7280; margin-top:.25rem; }
+  @keyframes rec-pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .rec-anim { animation: rec-pulse .9s ease-in-out infinite; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto px-4 py-8">
+
+  <nav class="flex items-center gap-2 text-sm text-gray-400 mb-6">
+    <a href="{% url 'flash_sales:list' %}" class="hover:text-primary transition-colors">Mes ventes</a>
+    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+    <a href="{% url 'flash_sales:detail' sale.pk %}" class="hover:text-primary transition-colors truncate max-w-xs">{{ sale.title }}</a>
+    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+    <span class="text-gray-700 font-medium">{% if product %}Modifier{% else %}Ajouter un produit{% endif %}</span>
+  </nav>
+
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div class="px-6 py-5 border-b border-gray-50" style="background:linear-gradient(to right,#FFF5F3,#FFFBEB)">
+      <h1 class="text-xl font-bold text-gray-900">{% if product %}Modifier « {{ product.name }} »{% else %}Nouveau produit{% endif %}</h1>
+      <p class="text-sm text-gray-400 mt-1">Pour la vente : {{ sale.title }}</p>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="px-6 py-6 space-y-5"
+          x-data="{
+            preview: '{% if product and product.media.all.0 %}{{ product.media.all.0.file.url }}{% endif %}',
+            camOpen: false,
+            stream: null,
+            camError: null,
+            onGalleryChange(e) {
+              const f = e.target.files[0];
+              if (!f) return;
+              this.preview = URL.createObjectURL(f);
+              this.camError = null;
+              window.__hfProductFile = null;
+            },
+            async openCamera() {
+              this.camError = null;
+              if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                this.$refs.imgInput.click(); return;
+              }
+              try {
+                this.stream = await navigator.mediaDevices.getUserMedia({
+                  video: { facingMode: { ideal: 'environment' }, width:{ideal:1920}, height:{ideal:1080} },
+                  audio: false
+                });
+                this.camOpen = true;
+                await this.$nextTick();
+                this.$refs.video.srcObject = this.stream;
+              } catch(err) {
+                this.camError = 'Caméra inaccessible : ' + (err.message || err.name);
+                this.$refs.imgInput.click();
+              }
+            },
+            stopCamera() {
+              if (this.stream) { this.stream.getTracks().forEach(t => t.stop()); this.stream = null; }
+              this.camOpen = false;
+            },
+            shoot() {
+              const v = this.$refs.video;
+              const c = document.createElement('canvas');
+              c.width = v.videoWidth || 1280; c.height = v.videoHeight || 720;
+              c.getContext('2d').drawImage(v, 0, 0);
+              c.toBlob(blob => {
+                const file = new File([blob], 'photo.jpg', {type:'image/jpeg'});
+                try {
+                  const dt = new DataTransfer(); dt.items.add(file);
+                  this.$refs.imgInput.files = dt.files;
+                } catch(e) { window.__hfProductFile = file; }
+                this.preview = URL.createObjectURL(blob);
+                this.stopCamera();
+              }, 'image/jpeg', 0.92);
+            }
+          }">
+      {% csrf_token %}
+
+      <!-- Photo principale -->
+      <div>
+        <label class="hf-label">Photo principale</label>
+        <div class="relative">
+          <!-- Prévisualisation -->
+          <div class="rounded-2xl overflow-hidden bg-gray-100 mb-2 relative"
+               style="aspect-ratio:4/3" x-show="preview && !camOpen">
+            <img :src="preview" class="w-full h-full object-cover">
+            <button type="button" @click="preview = null; $refs.imgInput.value = ''"
+                    class="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <!-- Placeholder -->
+          <div class="rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center py-8 mb-2"
+               x-show="!preview && !camOpen">
+            <i data-lucide="image" class="w-8 h-8 text-gray-300 mb-1"></i>
+            <p class="text-sm text-gray-400">Aucune photo</p>
+          </div>
+          <!-- Boutons -->
+          <div class="flex gap-2" x-show="!camOpen">
+            <button type="button" @click="$refs.imgInput.click()"
+                    class="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-xl transition-colors">
+              <i data-lucide="image" class="w-4 h-4"></i>Galerie
+            </button>
+            <button type="button" @click="openCamera()"
+                    class="flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium rounded-xl transition-colors">
+              <i data-lucide="camera" class="w-4 h-4"></i>Caméra
+            </button>
+          </div>
+          <p class="text-xs text-red-500 mt-1" x-show="camError" x-text="camError" x-cloak></p>
+          <input type="file" accept="image/*" name="image" class="hidden" x-ref="imgInput"
+                 @change="onGalleryChange($event)">
+        </div>
+
+        <!-- Viewfinder plein écran -->
+        <div x-show="camOpen" x-cloak
+             style="position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column;"
+             @keydown.escape.window="stopCamera()">
+          <div style="position:absolute;top:0;left:0;right:0;z-index:2;
+                      padding:env(safe-area-inset-top,.75rem) 1.25rem .75rem;
+                      display:flex;align-items:center;justify-content:space-between;
+                      background:linear-gradient(rgba(0,0,0,.55),transparent);">
+            <button type="button" @click="stopCamera()"
+                    style="color:#fff;font-weight:600;background:rgba(0,0,0,.35);border-radius:9999px;
+                           padding:.45rem 1.1rem;border:1px solid rgba(255,255,255,.15);">Annuler</button>
+            <span style="color:rgba(255,255,255,.5);font-size:.75rem;letter-spacing:.05em;">PHOTO PRODUIT</span>
+            <div style="width:80px;"></div>
+          </div>
+          <video x-ref="video" autoplay playsinline muted
+                 style="flex:1;width:100%;height:100%;object-fit:cover;display:block;"></video>
+          <div style="position:absolute;bottom:0;left:0;right:0;z-index:2;
+                      padding:1.75rem 2rem calc(env(safe-area-inset-bottom,0px)+1.75rem);
+                      display:flex;align-items:center;justify-content:space-between;
+                      background:linear-gradient(transparent,rgba(0,0,0,.65));">
+            <button type="button" @click="stopCamera();$nextTick(()=>$refs.imgInput.click())"
+                    style="width:50px;height:50px;border-radius:.75rem;
+                           background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.3);
+                           display:flex;align-items:center;justify-content:center;">
+              <i data-lucide="image" class="w-5 h-5 text-white"></i>
+            </button>
+            <button type="button" @click="shoot()"
+                    style="width:76px;height:76px;border-radius:50%;background:#fff;
+                           border:5px solid rgba(255,255,255,.4);flex-shrink:0;
+                           box-shadow:0 0 0 2px rgba(255,255,255,.25),0 4px 24px rgba(0,0,0,.4);
+                           transition:transform .08s ease;"
+                    @touchstart.prevent="$el.style.transform='scale(.9)'"
+                    @touchend="$el.style.transform='scale(1)';shoot()"
+                    @mousedown="$el.style.transform='scale(.9)'"
+                    @mouseup="$el.style.transform='scale(1)'">
+            </button>
+            <div style="width:50px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Nom -->
+      <div>
+        <label class="hf-label">{{ form.name.label }}</label>
+        {{ form.name }}
+        {% if form.name.errors %}<p class="text-red-500 text-xs mt-1">{{ form.name.errors.0 }}</p>{% endif %}
+      </div>
+
+      <!-- Description + micro -->
+      <div x-data="audioRec('description_audio')" x-init="init()">
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="hf-label mb-0">{{ form.description.label }}</label>
+          <div class="flex items-center gap-1.5">
+            <!-- État : pas encore enregistré -->
+            <template x-if="!hasAudio && !recording">
+              <button type="button" @click="start()"
+                      class="flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/8 hover:bg-primary/15 px-3 py-1.5 rounded-full transition-colors border border-primary/20">
+                <i data-lucide="mic" class="w-3.5 h-3.5"></i>Description vocale
+              </button>
+            </template>
+            <!-- État : enregistrement en cours -->
+            <template x-if="recording">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-red-500 rec-anim"></span>
+                <span class="text-xs font-semibold text-red-600" x-text="formatTime(elapsed)"></span>
+                <button type="button" @click="stop()"
+                        class="flex items-center gap-1 text-xs font-bold text-white bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-full transition-colors">
+                  <i data-lucide="square" class="w-3 h-3"></i>Arrêter
+                </button>
+              </div>
+            </template>
+            <!-- État : audio prêt -->
+            <template x-if="hasAudio && !recording">
+              <div class="flex items-center gap-2">
+                <audio :src="audioUrl" controls class="h-7" style="max-width:140px"></audio>
+                <button type="button" @click="clear()"
+                        class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors" title="Supprimer">
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+        {{ form.description }}
+        <p class="hf-hint">Vous pouvez dicter la description en bambara, français, wolof…</p>
+        <!-- Champ caché pour le fichier audio -->
+        <input type="file" name="description_audio" class="hidden" x-ref="audioInput" accept="audio/*">
+        {% if product and product.description_audio %}
+        <div class="mt-2 flex items-center gap-2 text-xs text-gray-500">
+          <i data-lucide="volume-2" class="w-3.5 h-3.5 text-primary"></i>
+          <span>Audio existant :</span>
+          <audio src="{{ product.description_audio.url }}" controls class="h-7"></audio>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Prix + Stock -->
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="hf-label">{{ form.price.label }}</label>
+          <div class="relative">
+            {{ form.price }}
+            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">FCFA</span>
+          </div>
+          {% if form.price.errors %}<p class="text-red-500 text-xs mt-1">{{ form.price.errors.0 }}</p>{% endif %}
+        </div>
+        <div>
+          <label class="hf-label">{{ form.stock_initial.label }}</label>
+          {{ form.stock_initial }}
+          {% if form.stock_initial.errors %}<p class="text-red-500 text-xs mt-1">{{ form.stock_initial.errors.0 }}</p>{% endif %}
+        </div>
+      </div>
+
+      <!-- Unité + Ordre -->
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="hf-label">{{ form.unit.label }}</label>
+          {{ form.unit }}
+        </div>
+        <div>
+          <label class="hf-label">{{ form.display_order.label }}</label>
+          {{ form.display_order }}
+        </div>
+      </div>
+
+      {% if form.non_field_errors %}
+      <div class="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+        {{ form.non_field_errors.0 }}
+      </div>
+      {% endif %}
+
+      <!-- Actions -->
+      <div class="flex gap-3 pt-2">
+        <button type="submit"
+                class="flex-1 bg-primary text-white py-3 rounded-xl font-semibold hover:bg-red-700 transition-colors">
+          {% if product %}Enregistrer{% else %}Ajouter le produit{% endif %}
+        </button>
+        <a href="{% url 'flash_sales:detail' sale.pk %}"
+           class="px-6 py-3 border border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-colors text-center">
+          Annuler
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+window.__hfProductFile = null;
+
+/* Intercepte le submit si DataTransfer non supporté (iOS < 15) */
+document.addEventListener('DOMContentLoaded', function() {
+  var form = document.querySelector('form[enctype="multipart/form-data"]');
+  if (!form) return;
+  form.addEventListener('submit', function(e) {
+    var file = window.__hfProductFile;
+    if (!file) return;
+    e.preventDefault();
+    var fd = new FormData(form);
+    fd.set('image', file, file.name);
+    fetch(form.action || window.location.pathname, {method:'POST', body:fd})
+      .then(function(r){ if(r.redirected){window.location.href=r.url;return null;} return r.text(); })
+      .then(function(html){ if(!html)return; document.open();document.write(html);document.close(); });
+  });
+});
+
+/* Composant Alpine audioRec(fieldName) — enregistreur micro générique */
+function audioRec(fieldName) {
+  return {
+    recording: false,
+    hasAudio: false,
+    audioUrl: null,
+    mediaRecorder: null,
+    chunks: [],
+    elapsed: 0,
+    _timer: null,
+    fieldName: fieldName,
+    init() { lucide.createIcons(); },
+    formatTime(s) {
+      const m = Math.floor(s/60);
+      const sec = s % 60;
+      return (m<10?'0':'')+m+':'+(sec<10?'0':'')+sec;
+    },
+    async start() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert('Votre appareil ne supporte pas l\'enregistrement audio.'); return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        this.chunks = [];
+        this.elapsed = 0;
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
+        this.mediaRecorder = new MediaRecorder(stream, { mimeType });
+        this.mediaRecorder.ondataavailable = e => { if (e.data.size > 0) this.chunks.push(e.data); };
+        this.mediaRecorder.onstop = () => {
+          stream.getTracks().forEach(t => t.stop());
+          const blob = new Blob(this.chunks, { type: mimeType });
+          this.audioUrl = URL.createObjectURL(blob);
+          this.hasAudio = true;
+          /* Injecter dans le <input type="file"> caché */
+          const ext = mimeType.includes('webm') ? 'webm' : 'ogg';
+          const file = new File([blob], 'vocal-' + Date.now() + '.' + ext, { type: mimeType });
+          try {
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            this.$refs.audioInput.files = dt.files;
+          } catch(e) {
+            console.warn('DataTransfer audio not supported');
+          }
+          lucide.createIcons();
+        };
+        this.mediaRecorder.start();
+        this.recording = true;
+        this._timer = setInterval(() => this.elapsed++, 1000);
+        lucide.createIcons();
+      } catch(err) {
+        alert('Micro inaccessible : ' + (err.message || err.name));
+      }
+    },
+    stop() {
+      if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+        this.mediaRecorder.stop();
+      }
+      clearInterval(this._timer);
+      this.recording = false;
+    },
+    clear() {
+      this.hasAudio = false;
+      this.audioUrl = null;
+      this.chunks = [];
+      this.$refs.audioInput.value = '';
+      lucide.createIcons();
+    }
+  };
+}
+</script>
+{% endblock %}
