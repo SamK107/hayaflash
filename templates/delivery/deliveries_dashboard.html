@@ -9,9 +9,9 @@
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-xl font-bold text-gray-900">Livraisons</h1>
-        {% if current_flash_sale %}
-        <p class="text-sm text-gray-500 mt-0.5">{{ current_flash_sale.title }}</p>
-        {% endif %}
+        <p class="text-xs text-gray-400 mt-0.5">
+          {% if current_flash_sale %}{{ current_flash_sale.title }} · {% endif %}Logistique post-vente · Préparez, livrez, encaissez
+        </p>
       </div>
       <a href="{% url 'orders:seller_dashboard' %}" class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700">
         <i data-lucide="arrow-left" class="w-4 h-4"></i>
@@ -30,9 +30,12 @@
     {% if flash_sale_choices %}
     <div class="mt-3">
       <select
-        onchange="window.location.href='?flash_sale_id=' + this.value + '&status={{ status_filter }}'"
+        onchange="if(this.value) window.location.href='?flash_sale_id=' + this.value + '&status={{ status_filter }}'"
         class="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
       >
+        {% if not current_flash_sale_id %}
+        <option value="" disabled selected>-- Sélectionnez une vente --</option>
+        {% endif %}
         {% for choice in flash_sale_choices %}
         <option value="{{ choice.pk }}" {% if choice.pk == current_flash_sale_id %}selected{% endif %}>
           {{ choice.title }}

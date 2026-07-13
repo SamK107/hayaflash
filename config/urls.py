@@ -11,6 +11,8 @@ urlpatterns = [
     path("seller/flash-sales/", include("products.urls")),
     path("seller/", include("core.seller_urls")),
     path("seller/", include("subscriptions.urls")),
+    path("seller/", include("accounts.seller_urls")),
+    path("billing/", include("subscriptions.billing_urls")),
     path("", include("analytics.urls")),
     path("", include("core.urls")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

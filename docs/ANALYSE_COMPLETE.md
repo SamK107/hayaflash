@@ -208,7 +208,7 @@ Settings multi-env (base/dev/staging/prod), Redis optionnel, WhiteNoise, CORS, H
 9. Notifications (SMS confirmation commande)
 10. Infrastructure (Dockerfile, docker-compose, CI/CD)
 
-### P2 — Utile pour la croissance
+### P2 — Utile pour la croissance$$
 11. Subscriptions (enforcement middleware)
 12. SellerProfile champs (bio, avatar)
 13. StockMovement ledger

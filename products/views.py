@@ -25,11 +25,14 @@ def product_create_view(request, sale_pk: int):
         data = form.cleaned_data
         image = data.pop("image", None)
         stock = data.pop("stock_initial")
+        audio = request.FILES.get("description_audio") or None
         try:
-            product = create_product(flash_sale=sale, stock=stock, **data)
+            product = create_product(
+                flash_sale=sale, stock=stock, description_audio=audio, **data
+            )
             if image:
                 add_product_image(product=product, image_file=image, order=0)
-            messages.success(request, f"Produit ajoute.")
+            messages.success(request, "Produit ajouté.")
             return redirect("flash_sales:detail", pk=sale.pk)
         except Exception as e:
             messages.error(request, str(e))
@@ -48,11 +51,14 @@ def product_edit_view(request, sale_pk: int, pk: int):
         data = form.cleaned_data
         image = data.pop("image", None)
         data.pop("stock_initial", None)
+        audio = request.FILES.get("description_audio") or None
         try:
+            if audio:
+                data["description_audio"] = audio
             update_product(product=product, **data)
             if image:
                 add_product_image(product=product, image_file=image)
-            messages.success(request, "Produit mis a jour.")
+            messages.success(request, "Produit mis à jour.")
             return redirect("flash_sales:detail", pk=sale.pk)
         except Exception as e:
             messages.error(request, str(e))

@@ -4,9 +4,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#E63946" />
+  <meta name="theme-color" content="#FF4D2E" />
   <title>{% block title %}HayaFlash{% endblock %}</title>
   <meta name="description" content="{% block meta_description %}HayaFlash — Ventes flash a Bamako{% endblock %}">
+  <!-- PWA -->
+  <link rel="manifest" href="/static/manifest.json" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="HayaFlash" />
+  <link rel="apple-touch-icon" href="/static/img/icon-192.png" />
 
   <!-- Tailwind CSS CDN -->
   <script>
@@ -51,6 +58,19 @@
   <style>
     [x-cloak] { display: none !important; }
     body { font-family: 'Inter', system-ui, sans-serif; background: #F5F5F5; }
+
+    /* ── Couleurs primary garanties (Tailwind CDN ne genere pas toujours les custom colors) ── */
+    :root { --color-primary: #FF4D2E; }
+    .bg-primary              { background-color: #FF4D2E !important; }
+    .text-primary            { color: #FF4D2E !important; }
+    .border-primary          { border-color: #FF4D2E !important; }
+    .ring-primary            { --tw-ring-color: #FF4D2E; }
+    .hover\:bg-primary:hover { background-color: #FF4D2E !important; }
+    .hover\:text-primary:hover { color: #FF4D2E !important; }
+    .focus\:ring-primary:focus { box-shadow: 0 0 0 3px rgba(255,77,46,0.25) !important; }
+    .hover\:bg-red-700:hover { background-color: #b91c1c !important; }
+    .active\:bg-red-800:active { background-color: #991b1b !important; }
+
     @keyframes slide-in {
       from { transform: translateY(1rem); opacity: 0; }
       to   { transform: translateY(0);    opacity: 1; }
@@ -137,12 +157,90 @@
     document.addEventListener('DOMContentLoaded', function () {
       lucide.createIcons();
     });
-    // Re-init apres chaque swap HTMX
     document.body.addEventListener('htmx:afterSwap', function () {
       lucide.createIcons();
     });
   </script>
 
   {% block extra_js %}{% endblock %}
+
+  <!-- ── ZOOM LIGHTBOX universel (hfZoom / hfZoomClose) ── -->
+  <script>
+  (function () {
+    var ov = null;
+    function buildOverlay() {
+      if (ov) return;
+      ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.92);'
+        + 'display:none;align-items:center;justify-content:center;cursor:zoom-out';
+      var img = document.createElement('img');
+      img.id = 'hf-zoom-ov-img';
+      img.style.cssText = 'width:90vw;height:90vh;object-fit:contain;'
+        + 'border-radius:8px;user-select:none;cursor:default';
+      img.addEventListener('click', function(e){ e.stopPropagation(); });
+      img.addEventListener('dblclick', function(e){ e.stopPropagation(); window.hfZoomClose(); });
+      var btn = document.createElement('button');
+      btn.textContent = '✕';
+      btn.style.cssText = 'position:absolute;top:12px;right:12px;width:38px;height:38px;'
+        + 'background:rgba(255,255,255,.2);border:none;border-radius:50%;color:#fff;'
+        + 'font-size:20px;cursor:pointer;line-height:1';
+      btn.addEventListener('click', function(){ window.hfZoomClose(); });
+      ov.appendChild(img);
+      ov.appendChild(btn);
+      ov.addEventListener('click', function(){ window.hfZoomClose(); });
+      document.body.appendChild(ov);
+    }
+    window.hfZoom = function(imgEl) {
+      buildOverlay();
+      document.getElementById('hf-zoom-ov-img').src = imgEl.src;
+      document.getElementById('hf-zoom-ov-img').alt = imgEl.alt || '';
+      ov.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    };
+    window.hfZoomClose = function() {
+      if (ov) ov.style.display = 'none';
+      document.body.style.overflow = '';
+    };
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape') window.hfZoomClose(); });
+    document.addEventListener('DOMContentLoaded', function(){
+      document.querySelectorAll('img[data-zoom]').forEach(function(img){
+        img.style.cursor = 'zoom-in';
+        img.addEventListener('dblclick', function(){ window.hfZoom(img); });
+      });
+    });
+  })();
+  </script>
+
+  <!-- ── PWA install prompt global ── -->
+  <script>
+  (function () {
+    var _p = null;
+    window.addEventListener('beforeinstallprompt', function(e){
+      e.preventDefault(); _p = e;
+      document.querySelectorAll('.hf-pwa-install').forEach(function(el){ el.style.display='flex'; });
+    });
+    window.hfPwaInstall = async function() {
+      if (!_p) return;
+      _p.prompt();
+      var r = await _p.userChoice;
+      _p = null;
+      if (r.outcome === 'accepted')
+        document.querySelectorAll('.hf-pwa-install').forEach(function(el){ el.style.display='none'; });
+    };
+    window.addEventListener('appinstalled', function(){
+      document.querySelectorAll('.hf-pwa-install').forEach(function(el){ el.style.display='none'; });
+    });
+  })();
+  </script>
+
+  <!-- PWA : service worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/static/sw.js')
+          .catch(function (err) { console.warn('SW registration failed:', err); });
+      });
+    }
+  </script>
 </body>
 </html>

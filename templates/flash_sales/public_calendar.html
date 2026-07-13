@@ -70,7 +70,7 @@
                 {% endif %}
                 {% endwith %}
                 <p class="text-xs text-gray-500 mt-1 w-14 truncate">{{ p.name }}</p>
-                <p class="text-xs font-bold text-primary">{{ p.price|floatformat:0 }} F</p>
+                <p class="text-xs font-bold text-primary">{{ p.price|floatformat:"0g" }} F</p>
               </div>
               {% endfor %}
             </div>

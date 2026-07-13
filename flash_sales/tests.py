@@ -109,3 +109,103 @@ class FlashSaleTests(TestCase):
         product = Product.objects.create(flash_sale=None, name="Orphan")
         with self.assertRaises(ValidationError):
             assert_flash_sale_accepts_orders(product.flash_sale)
+
+
+class CeleryTasksTest(TestCase):
+    """Tests des taches Celery auto_open / auto_close (CELERY_TASK_ALWAYS_EAGER=True)."""
+
+    def setUp(self) -> None:
+        self.seller_user = User.objects.create_user(
+            phone="+22300000030", password="x", display_name="SellerC"
+        )
+        self.seller = SellerProfile.objects.create(user=self.seller_user)
+
+    def test_auto_open_scheduled_sales(self) -> None:
+        from flash_sales.tasks import auto_open_scheduled_sales
+
+        now = timezone.now()
+        sale = FlashSale.objects.create(
+            owner=self.seller,
+            title="Auto open",
+            start_time=now - timedelta(minutes=5),
+            end_time=now + timedelta(hours=1),
+            status=FlashSaleStatus.SCHEDULED,
+        )
+        auto_open_scheduled_sales()
+        sale.refresh_from_db()
+        self.assertEqual(sale.status, FlashSaleStatus.LIVE)
+
+    def test_auto_close_live_sales(self) -> None:
+        from flash_sales.tasks import auto_close_live_sales
+
+        now = timezone.now()
+        sale = FlashSale.objects.create(
+            owner=self.seller,
+            title="Auto close",
+            start_time=now - timedelta(hours=2),
+            end_time=now - timedelta(minutes=5),
+            status=FlashSaleStatus.LIVE,
+        )
+        auto_close_live_sales()
+        sale.refresh_from_db()
+        self.assertEqual(sale.status, FlashSaleStatus.CLOSED)
+
+    def test_auto_open_does_not_open_future_sales(self) -> None:
+        from flash_sales.tasks import auto_open_scheduled_sales
+
+        now = timezone.now()
+        sale = FlashSale.objects.create(
+            owner=self.seller,
+            title="Futur",
+            start_time=now + timedelta(hours=1),
+            end_time=now + timedelta(hours=2),
+            status=FlashSaleStatus.SCHEDULED,
+        )
+        auto_open_scheduled_sales()
+        sale.refresh_from_db()
+        self.assertEqual(sale.status, FlashSaleStatus.SCHEDULED)
+
+
+class AuditLogTest(TestCase):
+    """Tests du modele AuditLog."""
+
+    def setUp(self) -> None:
+        self.seller_user = User.objects.create_user(
+            phone="+22300000040", password="x", display_name="SellerA"
+        )
+        self.seller = SellerProfile.objects.create(user=self.seller_user)
+
+    def test_audit_creates_entry(self) -> None:
+        from core.models import AuditLog, audit
+
+        entry = audit(
+            "test.action",
+            entity_type="FlashSale",
+            entity_id=99,
+            custom_field="value",
+        )
+        self.assertIsNotNone(entry.pk)
+        self.assertEqual(entry.action, "test.action")
+        self.assertEqual(entry.entity_type, "FlashSale")
+        self.assertEqual(entry.entity_id, 99)
+        self.assertEqual(entry.metadata.get("custom_field"), "value")
+        self.assertIsNone(entry.actor)
+
+    def test_audit_with_actor(self) -> None:
+        from core.models import AuditLog, audit
+
+        entry = audit(
+            "flashsale.opened",
+            entity_type="FlashSale",
+            entity_id=1,
+            actor=self.seller_user,
+        )
+        self.assertEqual(entry.actor, self.seller_user)
+
+    def test_audit_log_admin_readonly(self) -> None:
+        from core.admin import AuditLogAdmin
+        from django.contrib.admin.sites import AdminSite
+
+        admin = AuditLogAdmin(model=None, admin_site=AdminSite())
+        self.assertFalse(admin.has_add_permission(None))
+        self.assertFalse(admin.has_change_permission(None))

@@ -40,33 +40,62 @@ def invalidate_seller_kpi_cache(user) -> None:
 
 
 def get_dashboard_kpis(user) -> dict[str, Any]:
-    """Aggregates for the authenticated seller (all orders on their flash sales)."""
-    order_qs = Order.service_objects.filter(flash_sale__owner__user=user)
-    total_orders = order_qs.count()
+    """
+    Agrégats pour le vendeur connecté.
+    - total_orders  : toutes commandes non annulées
+    - total_quantity: articles de toutes commandes non annulées
+    - total_revenue : CA réel = uniquement les commandes "Livré et payé"
+    - pending_revenue: CA potentiel = commandes en cours (confirmées + en livraison)
+    """
+    non_cancelled = Order.service_objects.filter(
+        flash_sale__owner__user=user,
+    ).exclude(status=OrderStatus.CANCELLED)
+
+    total_orders = non_cancelled.count()
 
     revenue_expr = ExpressionWrapper(
         F("price_snapshot") * F("quantity"),
         output_field=DecimalField(max_digits=14, decimal_places=2),
     )
-    line_agg = (
-        OrderItem.objects.filter(order__flash_sale__owner__user=user)
+
+    # CA réel : seulement "Livré et payé"
+    delivered_agg = (
+        OrderItem.objects.filter(
+            order__flash_sale__owner__user=user,
+            order__status=OrderStatus.DELIVERED,
+        )
         .aggregate(
             total_quantity=Coalesce(
                 Sum("quantity"), Value(0, output_field=IntegerField())
             ),
             total_revenue=Coalesce(
                 Sum(revenue_expr),
-                Value(
-                    Decimal("0.00"),
-                    output_field=DecimalField(max_digits=14, decimal_places=2),
-                ),
+                Value(Decimal("0.00"),
+                      output_field=DecimalField(max_digits=14, decimal_places=2)),
             ),
         )
     )
+
+    # CA potentiel : commandes confirmées ou en livraison (pas encore encaissées)
+    pending_revenue_agg = (
+        OrderItem.objects.filter(
+            order__flash_sale__owner__user=user,
+            order__status__in=[OrderStatus.CONFIRMED, OrderStatus.OUT_FOR_DELIVERY],
+        )
+        .aggregate(
+            pending_revenue=Coalesce(
+                Sum(revenue_expr),
+                Value(Decimal("0.00"),
+                      output_field=DecimalField(max_digits=14, decimal_places=2)),
+            )
+        )
+    )
+
     return {
-        "total_orders": total_orders,
-        "total_quantity": int(line_agg["total_quantity"] or 0),
-        "total_revenue": line_agg["total_revenue"] or Decimal("0.00"),
+        "total_orders":    total_orders,
+        "total_quantity":  int(delivered_agg["total_quantity"] or 0),
+        "total_revenue":   delivered_agg["total_revenue"] or Decimal("0.00"),
+        "pending_revenue": pending_revenue_agg["pending_revenue"] or Decimal("0.00"),
     }
 
 
@@ -121,13 +150,48 @@ def get_order_row_context(user, order_id: int) -> dict[str, Any] | None:
     return _row_dict_for_order(order)
 
 
+def _sync_delivery_for_order(*, order: Order, new_status: str, user) -> None:
+    """
+    Garde Delivery.status en cohérence quand l'order avance depuis le dashboard Commandes.
+    Évite le désynchronisation Delivery=PENDING / Order=DELIVERED.
+    """
+    try:
+        from delivery.models import Delivery
+        from django.utils import timezone
+        now = timezone.now()
+
+        delivery = Delivery.objects.filter(order_id=order.pk).first()
+        if delivery is None:
+            return
+
+        if new_status == OrderStatus.OUT_FOR_DELIVERY and delivery.status in (
+            Delivery.Status.PENDING, Delivery.Status.ASSIGNED
+        ):
+            delivery.status = Delivery.Status.IN_TRANSIT
+            delivery.scheduled_at = now
+            delivery.save(update_fields=["status", "scheduled_at", "updated_at"])
+
+        elif new_status == OrderStatus.DELIVERED and delivery.status != Delivery.Status.DELIVERED:
+            delivery.status = Delivery.Status.DELIVERED
+            delivery.delivered_at = now
+            delivery.cod_collected = True
+            delivery.cod_collected_at = now
+            delivery.cod_confirmed_by = user
+            delivery.save(update_fields=[
+                "status", "delivered_at", "cod_collected",
+                "cod_collected_at", "cod_confirmed_by", "updated_at",
+            ])
+    except Exception:
+        pass  # Ne jamais bloquer l'avancement d'une commande pour une sync delivery
+
+
 def advance_order_status(*, user, order_id: int) -> Order:
     """
     Move order one step: pending → confirmed → out_for_delivery → delivered.
 
     V1 live dashboard keeps this simplified 1-click flow during the sale.
     Post-live COD workflow uses ``delivery.services.advance_delivery`` via
-    the deliveries HTMX dashboard (PROMPT 10.1).
+    la page Livraisons (logistique post-vente).
     """
     order = (
         Order.service_objects.select_related("flash_sale__owner__user")
@@ -145,5 +209,6 @@ def advance_order_status(*, user, order_id: int) -> Order:
 
     order.status = nxt
     order.save(update_fields=["status", "updated_at"])
+    _sync_delivery_for_order(order=order, new_status=nxt, user=user)
     invalidate_seller_kpi_cache(user)
     return order

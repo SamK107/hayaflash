@@ -7,11 +7,11 @@ from django.db import models
 
 
 class OrderStatus(models.TextChoices):
-    PENDING = "pending", "Pending"
-    CONFIRMED = "confirmed", "Confirmed"
-    OUT_FOR_DELIVERY = "out_for_delivery", "Out for delivery"
-    DELIVERED = "delivered", "Delivered"
-    CANCELLED = "cancelled", "Cancelled"
+    PENDING          = "pending",          "En attente"
+    CONFIRMED        = "confirmed",        "Confirmé"
+    OUT_FOR_DELIVERY = "out_for_delivery", "En livraison"
+    DELIVERED        = "delivered",        "Livré et payé"
+    CANCELLED        = "cancelled",        "Annulé"
 
 
 class GuardedOrderManager(models.Manager):

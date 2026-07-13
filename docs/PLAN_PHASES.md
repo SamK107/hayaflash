@@ -1,6 +1,6 @@
 # HayaFlash — Plan d'Implémentation V1
-> Généré le 2026-07-04 par Cowork.  
-> Se réfère à : `ANALYSE_COMPLETE.md` (état réel), `PROJECT_SPEC.md` (intention produit), `DJANGO_REFERENCE.md` (standards techniques).  
+> Généré le 2026-07-04 par Cowork. Mis à jour le 2026-07-13 (audit code source).
+> Se réfère à : `CODEBASE_STATUS.md` (état réel), `PROJECT_SPEC.md` (intention produit).
 > Chaque phase a son workflow exécutable dans `docs/workflows/`.
 
 ---
@@ -25,15 +25,17 @@ BG        #F5F5F5
 
 ## Vue d'ensemble des 6 Phases
 
-| Phase | Nom | Durée est. | Priorité |
-|---|---|---|---|
-| P0 | Foundation & Qualité | ~1 semaine | Critique |
-| P1 | Modèles Complets + Migrations | ~1 semaine | Critique |
-| P2 | Interface Vendeur (CRUD) | ~2 semaines | Critique |
-| P3 | LIVE Workflow Complet | ~2 semaines | Critique |
-| P4 | Design Moderne (Tailwind) | ~2 semaines | Important |
-| P5 | Notifications + Subscriptions | ~1 semaine | Important |
-| P6 | CI/CD + Production Hardening | ~1 semaine | Important |
+| Phase | Nom | État (juillet 2026) |
+|---|---|---|
+| P0 | Foundation & Qualité | ✅ Terminé |
+| P1 | Modèles Complets + Migrations | ✅ Terminé |
+| P2 | Interface Vendeur (CRUD) | ✅ Terminé |
+| P3 | LIVE Workflow Complet | ✅ Terminé |
+| P4 | Design Moderne (Tailwind) | ✅ Terminé |
+| P5 | Notifications + Subscriptions | ✅ Terminé |
+| P6 | CI/CD + Production Hardening | ✅ Terminé |
+
+> Toutes les phases sont complètes. Les prochaines priorités sont dans `docs/CODEBASE_STATUS.md` (section "Ce qui n'existe PAS").
 
 ---
 

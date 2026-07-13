@@ -28,7 +28,7 @@ if not SECRET_KEY:
         stacklevel=1,
     )
 
-ALLOWED_HOSTS = _csv("ALLOWED_HOSTS", "localhost,127.0.0.1")
+ALLOWED_HOSTS = _csv("ALLOWED_HOSTS", "localhost,127.0.0.1,10.248.111.89")
 
 CORS_ALLOW_ALL_ORIGINS = True
 if not os.environ.get("EMAIL_BACKEND"):
@@ -41,13 +41,13 @@ STORAGES = {
     },
 }
 
-# Debug Toolbar (dev uniquement)
-INSTALLED_APPS = INSTALLED_APPS + ["debug_toolbar"]  # noqa: F405
-MIDDLEWARE = [  # noqa: F405
-    "debug_toolbar.middleware.DebugToolbarMiddleware",
-    *MIDDLEWARE,  # noqa: F405
-]
-INTERNAL_IPS = ["127.0.0.1", "::1"]
+# Debug Toolbar (desactive — decommenter pour reactiver)
+# INSTALLED_APPS = INSTALLED_APPS + ["debug_toolbar"]  # noqa: F405
+# MIDDLEWARE = [  # noqa: F405
+#     "debug_toolbar.middleware.DebugToolbarMiddleware",
+#     *MIDDLEWARE,  # noqa: F405
+# ]
+# INTERNAL_IPS = ["127.0.0.1", "::1"]
 
 # Celery synchrone en dev si pas de Redis
 CELERY_TASK_ALWAYS_EAGER = False  # Mettre True pour débugger sans worker

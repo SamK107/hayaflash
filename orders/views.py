@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import time
 from collections.abc import Callable
 
@@ -7,7 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.http import HttpResponse, HttpResponseForbidden
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_GET, require_POST
 
@@ -112,6 +113,52 @@ def seller_dashboard_orders_partial(request):
 
 
 @login_required
+@require_GET
+def export_orders_csv(request, pk: int):
+    """GET /seller/flash-sales/<pk>/export.csv — téléchargement CSV commandes."""
+    if not _require_seller(request.user):
+        return HttpResponseForbidden("Seller profile required.")
+
+    from flash_sales.models import FlashSale
+    from orders.models import Order
+
+    seller = request.user.seller_profile
+    flash_sale = get_object_or_404(FlashSale, pk=pk, owner=seller)
+    orders = (
+        Order.service_objects
+        .filter(flash_sale=flash_sale)
+        .prefetch_related("items")
+        .order_by("created_at")
+    )
+
+    response = HttpResponse(content_type="text/csv; charset=utf-8-sig")
+    response["Content-Disposition"] = (
+        f'attachment; filename="commandes-{flash_sale.public_slug}.csv"'
+    )
+
+    writer = csv.writer(response)
+    writer.writerow([
+        "#", "Client", "Téléphone", "Produits", "Total FCFA", "Statut", "Heure"
+    ])
+    for order in orders:
+        produits = " | ".join(
+            f"{item.product_name_snapshot} x{item.quantity}"
+            for item in order.items.all()
+        )
+        writer.writerow([
+            order.pk,
+            order.customer_name or "",
+            order.customer_phone or "",
+            produits,
+            int(order.total_amount),
+            order.get_status_display(),
+            order.created_at.strftime("%H:%M"),
+        ])
+
+    return response
+
+
+@login_required
 @require_POST
 def seller_order_advance_status(request, order_id: int):
     if not _require_seller(request.user):
@@ -133,3 +180,87 @@ def seller_order_advance_status(request, order_id: int):
         request=request,
     )
     return HttpResponse(html, content_type="text/html; charset=utf-8")
+
+
+@login_required
+@require_POST
+def bulk_confirm_orders(request):
+    """POST /seller/orders/bulk-confirm/ — confirme plusieurs commandes en attente."""
+    if not _require_seller(request.user):
+        return HttpResponseForbidden("Seller profile required.")
+
+    order_ids = request.POST.getlist("order_ids")
+    if not order_ids:
+        return HttpResponse("Aucune commande sélectionnée.", status=400)
+
+    from orders.models import Order, OrderStatus
+    seller = request.user.seller_profile
+    updated = (
+        Order.service_objects
+        .filter(
+            pk__in=order_ids,
+            flash_sale__owner=seller,
+            status=OrderStatus.PENDING,
+        )
+        .update(status=OrderStatus.CONFIRMED)
+    )
+
+    try:
+        from core.models import audit
+        audit(
+            "orders.bulk_confirmed",
+            entity_type="Order",
+            entity_id=0,
+            request=request,
+            count=updated,
+            order_ids=[int(i) for i in order_ids],
+        )
+    except Exception:
+        pass
+
+    return HttpResponse(
+        f"{updated} commande(s) confirmée(s).",
+        content_type="text/plain; charset=utf-8",
+    )
+
+
+@login_required
+@require_POST
+def bulk_mark_delivered(request):
+    """POST /seller/orders/bulk-delivered/ — marque plusieurs commandes livrées."""
+    if not _require_seller(request.user):
+        return HttpResponseForbidden("Seller profile required.")
+
+    order_ids = request.POST.getlist("order_ids")
+    if not order_ids:
+        return HttpResponse("Aucune commande sélectionnée.", status=400)
+
+    from orders.models import Order, OrderStatus
+    seller = request.user.seller_profile
+    updated = (
+        Order.service_objects
+        .filter(
+            pk__in=order_ids,
+            flash_sale__owner=seller,
+            status=OrderStatus.CONFIRMED,
+        )
+        .update(status=OrderStatus.DELIVERED)
+    )
+
+    try:
+        from core.models import audit
+        audit(
+            "orders.bulk_delivered",
+            entity_type="Order",
+            entity_id=0,
+            request=request,
+            count=updated,
+            order_ids=[int(i) for i in order_ids],
+        )
+    except Exception:
+        pass
+
+    return HttpResponse(
+        f"{updated} commande(s) marquée(s) livrée(s).",
+        content_type="text/plain; charset=utf-8",
+    )

@@ -1,0 +1,59 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy-staging:
+    name: Deploy → Staging
+    runs-on: ubuntu-latest
+    environment: staging
+    needs: []
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            set -e
+            cd /srv/hayaflash
+            git pull origin main
+            docker compose -f docker-compose.production.yml pull
+            docker compose -f docker-compose.production.yml up -d --no-deps web worker beat
+            docker compose -f docker-compose.production.yml exec -T web python manage.py migrate --noinput
+            docker compose -f docker-compose.production.yml exec -T web python manage.py collectstatic --noinput
+            bash infra/scripts/smoke_test.sh http://localhost:8000
+
+  deploy-prod:
+    name: Deploy → Production
+    runs-on: ubuntu-latest
+    environment: production
+    needs: [deploy-staging]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            set -e
+            cd /srv/hayaflash
+            git pull origin main
+            docker compose -f docker-compose.production.yml up -d --no-deps web worker beat
+            docker compose -f docker-compose.production.yml exec -T web python manage.py migrate --noinput
+            docker compose -f docker-compose.production.yml exec -T web python manage.py collectstatic --noinput
+            bash infra/scripts/smoke_test.sh https://${{ secrets.PROD_DOMAIN }}

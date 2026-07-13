@@ -1,6 +1,8 @@
 """Services CRUD pour les ventes flash (vendeur authentifie)."""
 from __future__ import annotations
 
+from datetime import timedelta
+
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.utils import timezone
 
@@ -41,6 +43,13 @@ def create_flash_sale(
     return sale
 
 
+def save_sale_audio(*, sale: FlashSale, audio_file) -> FlashSale:
+    """Attache un fichier audio de description a une vente."""
+    sale.description_audio = audio_file
+    sale.save(update_fields=["description_audio"])
+    return sale
+
+
 def update_flash_sale(*, sale: FlashSale, seller, **kwargs) -> FlashSale:
     """Met a jour une vente (seulement si scheduled)."""
     if sale.owner != seller:
@@ -56,6 +65,68 @@ def update_flash_sale(*, sale: FlashSale, seller, **kwargs) -> FlashSale:
     sale.full_clean()
     sale.save()
     return sale
+
+
+def clone_flash_sale(*, sale: FlashSale, seller) -> FlashSale:
+    """Clone une vente et ses produits (sans commandes ni stock consomme).
+
+    La nouvelle vente est SCHEDULED avec des dates provisoires (J+1).
+    Le vendeur doit editer les dates avant d'ouvrir.
+    """
+    if sale.owner != seller:
+        raise PermissionDenied("Cette vente ne vous appartient pas.")
+
+    now = timezone.now()
+    new_start = now + timedelta(days=1)
+    new_end   = now + timedelta(days=1, hours=2)
+
+    new_sale = FlashSale(
+        owner=seller,
+        title=f"Copie de {sale.title}",
+        description=sale.description,
+        delivery_zone=sale.delivery_zone,
+        max_orders=sale.max_orders,
+        start_time=new_start,
+        end_time=new_end,
+        status=FlashSaleStatus.SCHEDULED,
+    )
+    # Reutilise la meme image de couverture (pas de copie physique du fichier)
+    if sale.cover_image:
+        new_sale.cover_image = sale.cover_image.name
+    if sale.description_audio:
+        new_sale.description_audio = sale.description_audio.name
+    new_sale.save()
+
+    # Cloner les produits
+    from products.models import Product, ProductMedia
+    for p in sale.products.filter(is_active=True).order_by("display_order"):
+        new_p = Product(
+            flash_sale=new_sale,
+            name=p.name,
+            description=p.description,
+            price=p.price,
+            unit=p.unit,
+            display_order=p.display_order,
+            characteristics=p.characteristics,
+            stock_initial=p.stock_initial,
+            stock_available=p.stock_initial,  # reset au stock initial
+            is_active=True,
+        )
+        if p.description_audio:
+            new_p.description_audio = p.description_audio.name
+        new_p.save()
+        # Cloner les medias (meme fichier, pas de copie physique)
+        for m in p.media.all():
+            ProductMedia.objects.create(
+                product=new_p,
+                media_type=m.media_type,
+                file=m.file.name if m.file else None,
+                video_url=m.video_url,
+                alt_text=m.alt_text,
+                order=m.order,
+            )
+
+    return new_sale
 
 
 def can_seller_create_sale(seller) -> tuple[bool, str]:

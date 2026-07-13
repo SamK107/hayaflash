@@ -35,6 +35,13 @@ class Product(models.Model):
         blank=True,
         verbose_name="Caracteristiques",
     )
+    description_audio = models.FileField(
+        upload_to="audio/products/",
+        null=True,
+        blank=True,
+        verbose_name="Description vocale",
+        help_text="Enregistrement audio de la description (WebM/OGG)",
+    )
     display_order = models.IntegerField(default=0, verbose_name="Ordre d'affichage")
     is_active = models.BooleanField(default=True, verbose_name="Actif")
     created_at = models.DateTimeField(auto_now_add=True)

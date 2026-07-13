@@ -109,7 +109,7 @@ def resolve_flash_sale_public_page(request: HttpRequest, slug: str) -> dict[str,
     flash_sale = (
         FlashSale.objects.filter(public_slug=cleaned)
         .select_related("owner__user")
-        .prefetch_related("products")
+        .prefetch_related("products", "products__media")
         .first()
     )
     if flash_sale is None:
@@ -151,6 +151,8 @@ def resolve_flash_sale_public_page(request: HttpRequest, slug: str) -> dict[str,
         )
 
     is_live = flash_sale.is_live()
+    teasers_list = [t.strip() for t in (flash_sale.teasers or "").splitlines() if t.strip()]
+    open_ts_ms = int(flash_sale.start_time.timestamp() * 1000)
     etag = compute_page_etag(
         slug=cleaned,
         version=version,
@@ -164,6 +166,9 @@ def resolve_flash_sale_public_page(request: HttpRequest, slug: str) -> dict[str,
         "seller_slug": flash_sale.owner.public_slug,
         "seller_id": flash_sale.owner_id,
         "is_live": is_live,
+        "open_ts_ms": open_ts_ms,
+        "teasers_list": teasers_list,
+        "product_count": len(products),
         "products": products,
         "product_links": product_links,
         "flash_sale_url": flash_url,
@@ -188,7 +193,7 @@ def build_referral_loop_context(
     flash_sale = (
         FlashSale.objects.filter(pk=flash_sale_id)
         .select_related("owner__user")
-        .prefetch_related("products")
+        .prefetch_related("products", "products__media")
         .first()
     )
     if flash_sale is None:

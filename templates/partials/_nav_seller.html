@@ -6,7 +6,7 @@
     <div class="flex items-center justify-between h-16">
 
       {# Logo #}
-      <a href="{% url 'home' %}" class="flex items-center gap-2 font-extrabold text-lg">
+      <a href="{% url 'seller_home' %}" class="flex items-center gap-2 font-extrabold text-lg">
         <span class="text-primary">⚡</span>
         <span class="text-gray-900">Haya<span class="text-primary">Flash</span></span>
       </a>
@@ -29,17 +29,27 @@
         </a>
         <a href="{% url 'orders:seller_dashboard' %}"
            class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium
-                  {% if 'orders' in request.resolver_match.app_name %}bg-primary/10 text-primary{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}
+                  {% if 'orders' in request.resolver_match.app_name and 'deliver' not in request.resolver_match.url_name %}bg-primary/10 text-primary{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}
                   transition-colors">
           <i data-lucide="shopping-bag" class="w-4 h-4"></i>
           Commandes
         </a>
         <a href="{% url 'orders:seller_deliveries_dashboard' %}"
            class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium
-                  {% if 'delivery' in request.resolver_match.app_name %}bg-primary/10 text-primary{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}
+                  {% if 'deliver' in request.resolver_match.url_name %}bg-primary/10 text-primary{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}
                   transition-colors">
           <i data-lucide="truck" class="w-4 h-4"></i>
           Livraisons
+        </a>
+        <a href="{% url 'flash_sales:interests' %}"
+           class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium
+                  {% if request.resolver_match.url_name == 'interests' %}bg-primary/10 text-primary{% else %}text-gray-600 hover:bg-gray-50 hover:text-gray-900{% endif %}
+                  transition-colors relative">
+          <i data-lucide="bell" class="w-4 h-4"></i>
+          Réservations
+          {% if interests_count > 0 %}
+          <span class="ml-1 bg-primary text-white text-xs font-bold px-1.5 py-0.5 rounded-full leading-none">{{ interests_count }}</span>
+          {% endif %}
         </a>
       </div>
 
@@ -70,17 +80,20 @@
               <p class="text-sm font-semibold text-gray-900">{{ request.user.get_full_name|default:"Mon compte" }}</p>
               <p class="text-xs text-gray-400">{{ request.user.phone }}</p>
             </div>
-            <a href="#" class="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+            <a href="{% url 'seller_profile' %}" class="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
               <i data-lucide="user" class="w-4 h-4"></i>Profil
             </a>
-            <a href="#" class="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+            <a href="{% url 'seller_settings' %}" class="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
               <i data-lucide="settings" class="w-4 h-4"></i>Paramètres
             </a>
             <hr class="my-1 border-gray-50" />
-            <a href="{% url 'accounts:logout' %}"
-               class="flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors rounded-b-2xl">
-              <i data-lucide="log-out" class="w-4 h-4"></i>Déconnexion
-            </a>
+            <form method="post" action="{% url 'logout' %}">
+              {% csrf_token %}
+              <button type="submit"
+                      class="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors rounded-b-2xl">
+                <i data-lucide="log-out" class="w-4 h-4"></i>Déconnexion
+              </button>
+            </form>
           </div>
         </div>
 
@@ -113,6 +126,48 @@
          class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
         <i data-lucide="truck" class="w-5 h-5 text-primary"></i>Livraisons
       </a>
+      <a href="{% url 'flash_sales:interests' %}"
+         class="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+        <span class="flex items-center gap-3">
+          <i data-lucide="bell" class="w-5 h-5 text-primary"></i>Réservations
+        </span>
+        {% if interests_count > 0 %}
+        <span class="bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full">{{ interests_count }}</span>
+        {% endif %}
+      </a>
+
+      {# Mon compte (mobile) #}
+      <div x-data="{ accountOpen: false }">
+        <button @click="accountOpen = !accountOpen"
+                class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+          <span class="flex items-center gap-3">
+            <div class="w-5 h-5 bg-primary/10 rounded-full flex items-center justify-center">
+              <span class="text-primary font-bold text-xs">{{ request.user.get_short_name|default:request.user.phone|slice:":1"|upper }}</span>
+            </div>
+            Mon compte
+          </span>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform" :class="{ 'rotate-180': accountOpen }"></i>
+        </button>
+        <div x-show="accountOpen" x-transition class="pl-8 mt-1 space-y-1">
+          <a href="{% url 'seller_profile' %}"
+             class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+            <i data-lucide="user" class="w-4 h-4"></i>Profil
+          </a>
+          <a href="{% url 'seller_settings' %}"
+             class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+            <i data-lucide="settings" class="w-4 h-4"></i>Paramètres
+          </a>
+          <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit"
+                    class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-red-600 hover:bg-red-50 transition-colors">
+              <i data-lucide="log-out" class="w-4 h-4"></i>Déconnexion
+            </button>
+          </form>
+        </div>
+      </div>
+
     </div>
   </div>
+
 </nav>

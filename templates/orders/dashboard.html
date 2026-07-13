@@ -68,7 +68,10 @@
     <!-- Commandes (HTMX polling 3s) -->
     <div>
       <div class="flex items-center justify-between mb-3">
-        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Commandes</h2>
+        <div>
+          <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Commandes</h2>
+          <p class="text-xs text-gray-400 mt-0.5">Confirmez ici · Livraisons détaillées dans <a href="{% url 'orders:seller_deliveries_dashboard' %}" class="underline hover:text-primary">Livraisons</a></p>
+        </div>
         <span class="text-xs text-gray-400">Actualisation auto</span>
       </div>
       <div

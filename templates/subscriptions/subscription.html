@@ -1,115 +1,166 @@
 {% extends "base.html" %}
 {% block title %}Mon abonnement — HayaFlash{% endblock %}
+{% block navbar %}{% include "partials/_nav_seller.html" %}{% endblock %}
 
 {% block content %}
 <div class="min-h-screen bg-gray-50">
-  <div class="max-w-lg mx-auto px-4 py-6 space-y-5">
+<div class="max-w-2xl mx-auto px-4 py-8 space-y-6">
 
-    <div class="flex items-center gap-3 mb-2">
-      <a href="{% url 'seller_home' %}" class="text-gray-400 hover:text-gray-600">
-        <i data-lucide="arrow-left" class="w-5 h-5"></i>
-      </a>
-      <h1 class="text-xl font-bold text-gray-900">Mon abonnement</h1>
-    </div>
+  <!-- Header -->
+  <div class="flex items-center gap-3">
+    <a href="{% url 'seller_home' %}" class="text-gray-400 hover:text-gray-600 transition-colors">
+      <i data-lucide="arrow-left" class="w-5 h-5"></i>
+    </a>
+    <h1 class="text-xl font-bold text-gray-900">Mon abonnement</h1>
+  </div>
 
-    <!-- Plan actuel -->
-    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm text-gray-500">Plan actuel</p>
-          <p class="text-2xl font-bold text-gray-900 mt-0.5">
-            {% if sub.is_pro %}Pro{% else %}Gratuit{% endif %}
-          </p>
-        </div>
-        <div class="w-14 h-14 rounded-2xl flex items-center justify-center
-          {% if sub.is_pro %}bg-amber-100{% else %}bg-gray-100{% endif %}">
-          <i data-lucide="{% if sub.is_pro %}crown{% else %}user{% endif %}"
-             class="w-7 h-7 {% if sub.is_pro %}text-amber-600{% else %}text-gray-400{% endif %}"></i>
-        </div>
+  <!-- Plan actuel -->
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-xs text-gray-400 uppercase tracking-wider font-semibold mb-1">Plan actuel</p>
+        <p class="text-2xl font-black text-gray-900">{{ sub.plan_label }}</p>
+        {% if sub.expires_at and sub.is_paid %}
+        <p class="text-xs text-gray-400 mt-1">Expire le {{ sub.expires_at|date:"d/m/Y" }}</p>
+        {% elif sub.is_paid and not sub.expires_at %}
+        <p class="text-xs text-green-600 font-semibold mt-1">Actif</p>
+        {% endif %}
       </div>
-      {% if sub.is_pro and sub.expires_at %}
-      <p class="text-xs text-gray-400 mt-3">
-        Expire le {{ sub.expires_at|date:"d/m/Y" }}
-      </p>
-      {% endif %}
+      <div class="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0
+        {% if sub.is_pro %}bg-amber-100{% elif sub.is_medium %}bg-blue-100{% else %}bg-gray-100{% endif %}">
+        <i data-lucide="{% if sub.is_pro %}crown{% elif sub.is_medium %}star{% else %}user{% endif %}"
+           class="w-7 h-7 {% if sub.is_pro %}text-amber-600{% elif sub.is_medium %}text-blue-600{% else %}text-gray-400{% endif %}"></i>
+      </div>
     </div>
 
-    <!-- Utilisation (plan Free) -->
+    <!-- Quota ventes -->
     {% if not sub.is_pro %}
-    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-      <div class="flex items-center justify-between mb-3">
+    <div class="mt-4 pt-4 border-t border-gray-50">
+      <div class="flex items-center justify-between mb-2">
         <p class="text-sm font-semibold text-gray-700">Ventes ce mois-ci</p>
         <p class="text-sm font-bold {% if sales_this_month >= free_limit %}text-red-600{% else %}text-gray-900{% endif %}">
           {{ sales_this_month }} / {{ free_limit }}
         </p>
       </div>
-      <!-- Barre de progression -->
-      <div class="bg-gray-100 rounded-full h-2.5 overflow-hidden">
-        <div
-          class="h-full rounded-full transition-all {% if sales_this_month >= free_limit %}bg-red-500{% elif sales_this_month >= free_limit|add:"-1" %}bg-amber-400{% else %}bg-success{% endif %}"
-          style="width: {% widthratio sales_this_month free_limit 100 %}%"
-        ></div>
+      <div class="bg-gray-100 rounded-full h-2 overflow-hidden">
+        <div class="h-full rounded-full transition-all
+          {% if sales_this_month >= free_limit %}bg-red-500
+          {% elif sales_this_month >= free_limit|add:"-1" %}bg-amber-400
+          {% else %}bg-green-500{% endif %}"
+          style="width:{% widthratio sales_this_month free_limit 100 %}%"></div>
       </div>
       {% if sales_this_month >= free_limit %}
-      <div class="mt-3 bg-red-50 border border-red-100 rounded-xl p-3 flex items-start gap-2">
-        <i data-lucide="alert-circle" class="w-4 h-4 text-red-500 shrink-0 mt-0.5"></i>
-        <p class="text-red-700 text-xs">Limite atteinte. Passez au plan Pro pour creer des ventes illimitees.</p>
-      </div>
+      <p class="text-xs text-red-600 mt-2">Limite atteinte. Passez au Pro pour des ventes illimitees.</p>
       {% endif %}
     </div>
-
-    <!-- Avantages Pro -->
-    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-      <h2 class="font-bold text-gray-900 mb-4">Plan Pro — 5 000 FCFA / mois</h2>
-      <ul class="space-y-3">
-        {% comment %}loop removed{% endcomment %}{% if False %}
-        <li class="flex items-center gap-3 text-sm text-gray-700">
-          <i data-lucide="check-circle" class="w-4 h-4 text-success shrink-0"></i>
-          {{ feature }}
-        </li>
-        {% endif %}
-      </ul>
-      <div class="mt-3 space-y-2">
-        <div class="flex items-center gap-3 text-sm text-gray-700">
-          <i data-lucide="check-circle" class="w-4 h-4 text-success shrink-0"></i>
-          Ventes illimitees par mois
-        </div>
-        <div class="flex items-center gap-3 text-sm text-gray-700">
-          <i data-lucide="check-circle" class="w-4 h-4 text-success shrink-0"></i>
-          Dashboard LIVE avance avec stats
-        </div>
-        <div class="flex items-center gap-3 text-sm text-gray-700">
-          <i data-lucide="check-circle" class="w-4 h-4 text-success shrink-0"></i>
-          Notifications SMS automatiques
-        </div>
-        <div class="flex items-center gap-3 text-sm text-gray-700">
-          <i data-lucide="check-circle" class="w-4 h-4 text-success shrink-0"></i>
-          Support prioritaire WhatsApp
-        </div>
-      </div>
-    </div>
-
-    <!-- CTA Upgrade -->
-    <a
-      href="https://wa.me/22370000000?text=Je%20souhaite%20passer%20au%20plan%20Pro%20HayaFlash"
-      target="_blank"
-      rel="noopener"
-      class="flex items-center justify-center gap-2 bg-amber-500 text-white font-bold py-4 rounded-xl hover:bg-amber-600 transition-colors w-full"
-    >
-      <i data-lucide="crown" class="w-5 h-5"></i>
-      Passer au plan Pro — 5 000 FCFA/mois
-    </a>
-    <p class="text-center text-xs text-gray-400">Paiement via Orange Money · Sans engagement</p>
-
     {% else %}
-    <!-- Deja Pro -->
-    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
-      <i data-lucide="crown" class="w-8 h-8 text-amber-500 mx-auto mb-2"></i>
-      <p class="font-bold text-amber-800">Vous etes sur le plan Pro</p>
-      <p class="text-amber-600 text-sm mt-1">Ventes illimitees, toutes les fonctionnalites activees.</p>
+    <div class="mt-4 pt-4 border-t border-gray-50">
+      <p class="text-sm text-green-600 font-semibold flex items-center gap-2">
+        <i data-lucide="infinity" class="w-4 h-4"></i>Ventes flash illimitees
+      </p>
     </div>
     {% endif %}
-
   </div>
+
+  <!-- Plans disponibles -->
+  {% if not sub.is_pro %}
+  <div>
+    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 px-1">Passer a un plan superieur</p>
+    <div class="grid gap-4 sm:grid-cols-2">
+      {% for card in plans %}
+      {% if not card.is_current %}
+      <div class="bg-white rounded-2xl border-2 shadow-sm p-5 flex flex-col gap-4
+        {% if card.highlight %}border-primary{% else %}border-gray-100{% endif %}">
+        {% if card.highlight %}
+        <div class="flex items-center justify-between">
+          <span class="text-lg font-black text-gray-900">{{ card.label }}</span>
+          <span class="text-xs font-bold bg-primary text-white px-2.5 py-1 rounded-full">Recommande</span>
+        </div>
+        {% else %}
+        <p class="text-lg font-black text-gray-900">{{ card.label }}</p>
+        {% endif %}
+        <div>
+          <span class="text-3xl font-black text-gray-900">{{ card.price|floatformat:"0g" }}</span>
+          <span class="text-sm font-semibold text-gray-400 ml-1">FCFA / mois</span>
+        </div>
+        <ul class="space-y-2 flex-1">
+          {% for feat in card.features %}
+          <li class="flex items-start gap-2 text-sm text-gray-700">
+            <i data-lucide="check" class="w-4 h-4 text-green-500 shrink-0 mt-0.5"></i>{{ feat }}
+          </li>
+          {% endfor %}
+        </ul>
+        <a href="{% url 'subscriptions:checkout' card.plan %}"
+           class="flex items-center justify-center gap-2 font-bold py-3 rounded-xl text-sm transition-all active:scale-[.98]
+             {% if card.highlight %}bg-primary text-white hover:bg-red-700 shadow-sm
+             {% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+          <i data-lucide="{% if card.highlight %}zap{% else %}arrow-up{% endif %}" class="w-4 h-4"></i>
+          Choisir {{ card.label }}
+        </a>
+      </div>
+      {% else %}
+      <!-- Plan actuel -->
+      <div class="bg-green-50 border-2 border-green-200 rounded-2xl p-5 flex flex-col gap-4">
+        <div class="flex items-center justify-between">
+          <p class="text-lg font-black text-gray-900">{{ card.label }}</p>
+          <span class="text-xs font-bold bg-green-600 text-white px-2.5 py-1 rounded-full">Actif</span>
+        </div>
+        <div>
+          <span class="text-3xl font-black text-gray-900">{{ card.price|floatformat:"0g" }}</span>
+          <span class="text-sm font-semibold text-gray-400 ml-1">FCFA / mois</span>
+        </div>
+        <p class="text-sm text-green-700 font-medium">C'est votre plan actuel.</p>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <!-- Deja Pro -->
+  <div class="bg-amber-50 border border-amber-200 rounded-2xl p-5 text-center">
+    <i data-lucide="crown" class="w-10 h-10 text-amber-500 mx-auto mb-3"></i>
+    <p class="font-black text-amber-900 text-lg">Vous etes sur le plan Pro</p>
+    <p class="text-sm text-amber-700 mt-1">Ventes illimitees, toutes les fonctionnalites activees.</p>
+    {% if sub.expires_at %}
+    <p class="text-xs text-amber-600 mt-3">
+      Expire le {{ sub.expires_at|date:"d/m/Y" }} —
+      <a href="{% url 'subscriptions:checkout' 'pro' %}" class="font-bold underline">Renouveler</a>
+    </p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Historique paiements -->
+  {% if recent_payments %}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Historique des paiements</p>
+    <div class="space-y-3">
+      {% for pay in recent_payments %}
+      <div class="flex items-center justify-between text-sm">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0
+            {% if pay.status == 'success' %}bg-green-100{% elif pay.status == 'pending' %}bg-amber-100{% else %}bg-red-100{% endif %}">
+            <i data-lucide="{% if pay.status == 'success' %}check{% elif pay.status == 'pending' %}clock{% else %}x{% endif %}"
+               class="w-4 h-4 {% if pay.status == 'success' %}text-green-600{% elif pay.status == 'pending' %}text-amber-600{% else %}text-red-600{% endif %}"></i>
+          </div>
+          <div>
+            <p class="font-semibold text-gray-900">{{ pay.get_plan_display }} · {{ pay.amount }} FCFA</p>
+            <p class="text-xs text-gray-400">{{ pay.created_at|date:"d/m/Y H:i" }} · {{ pay.get_provider_display }}</p>
+          </div>
+        </div>
+        <span class="text-xs font-bold rounded-full px-2 py-0.5
+          {% if pay.status == 'success' %}text-green-700 bg-green-50
+          {% elif pay.status == 'pending' %}text-amber-700 bg-amber-50
+          {% else %}text-red-600 bg-red-50{% endif %}">
+          {{ pay.get_status_display }}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <p class="text-center text-xs text-gray-400 pb-4">Paiement securise via Orange Money &middot; Sans engagement mensuel</p>
+</div>
 </div>
 {% endblock %}

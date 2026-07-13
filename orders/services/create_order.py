@@ -226,6 +226,19 @@ def create_order(data: dict[str, Any]) -> Order:
         except Order.DoesNotExist:
             raise
     _invalidate_seller_kpi_for_order(order)
+    # AuditLog (best-effort, hors transaction)
+    try:
+        from core.models import audit
+        audit(
+            "order.created",
+            entity_type="Order",
+            entity_id=order.pk,
+            flash_sale_id=order.flash_sale_id,
+            total=float(order.total_amount),
+            customer_phone=order.customer_phone or "",
+        )
+    except Exception:
+        pass
     # Notification async (hors transaction, best-effort)
     try:
         from notifications.tasks import send_order_confirmation

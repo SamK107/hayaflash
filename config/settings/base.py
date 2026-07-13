@@ -211,6 +211,7 @@ INSTALLED_APPS = [
     "products",
     "subscriptions",
     "analytics",
+    "sslserver",
     "notifications",
     "delivery",
 ]
@@ -246,6 +247,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "core.context_processors.seller_interests_count",
             ],
         },
     },
@@ -258,6 +260,10 @@ AUTHENTICATION_BACKENDS = [
     "accounts.backends.PhoneAuthBackend",
     "django.contrib.auth.backends.ModelBackend",
 ]
+
+LOGIN_URL = "/login/"
+LOGIN_REDIRECT_URL = "/seller/"
+LOGOUT_REDIRECT_URL = "/"
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -317,25 +323,7 @@ AUTH_USER_MODEL = "accounts.User"
 
 # Public base URL f
 # ---------------------------------------------------------------------------
-# Celery
-# ---------------------------------------------------------------------------
-CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
-CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
-CELERY_ACCEPT_CONTENT = ["json"]
-CELERY_TASK_SERIALIZER = "json"
-CELERY_RESULT_SERIALIZER = "json"
-CELERY_TIMEZONE = TIME_ZONE
-CELERY_BEAT_SCHEDULE = {
-    "auto-open-sales": {
-        "task": "flash_sales.auto_open_scheduled_sales",
-        "schedule": 60.0,
-    },
-    "auto-close-sales": {
-        "task": "flash_sales.auto_close_live_sales",
-        "schedule": 60.0,
-    },
-}
-KEND = os.environ["EMAIL_BACKEND"]
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
 if os.environ.get("DEFAULT_FROM_EMAIL"):
     DEFAULT_FROM_EMAIL = os.environ["DEFAULT_FROM_EMAIL"]
 
@@ -352,25 +340,71 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 # ── Celery ────────────────────────────────────────────────────────────────────
 CELERY_BROKER_URL = REDIS_URL or "redis://localhost:6379/0"
 CELERY_RESULT_BACKEND = REDIS_URL or "redis://localhost:6379/0"
-CELERY_TASK_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]
-CELERY_TIMEZONE = "Africa/Bamako"
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERY_BEAT_SCHEDULE = {
     "auto-open-scheduled-sales": {
-        "task": "flash_sales.tasks.auto_open_scheduled_sales",
+        "task": "flash_sales.auto_open_scheduled_sales",
         "schedule": 60.0,
     },
     "auto-close-live-sales": {
-        "task": "flash_sales.tasks.auto_close_live_sales",
+        "task": "flash_sales.auto_close_live_sales",
         "schedule": 60.0,
     },
 }
 
-# ── Notifications ─────────────────────────────────────────────────────────────
+# ── Django REST Framework ─────────────────────────────────────────────────────
+# ── Django REST Framework ─────────────────────────────────────────────────────
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "30/minute",
+        "user": "100/minute",
+    },
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+        "rest_framework.renderers.BrowsableAPIRenderer",
+    ],
+    "DEFAULT_PARSER_CLASSES": [
+        "rest_framework.parsers.JSONParser",
+        "rest_framework.parsers.MultiPartParser",
+        "rest_framework.parsers.FormParser",
+    ],
+}
+
+# ── Notifications SMS ─────────────────────────────────────────────────────────
 ORANGE_SMS_API_KEY  = (os.environ.get("ORANGE_SMS_API_KEY") or "").strip()
-ORANGE_SMS_BASE_URL = (os.environ.get("ORANGE_SMS_BASE_URL") or "").strip()
+ORANGE_SMS_BASE_URL = (os.environ.get("ORANGE_SMS_BASE_URL") or "https://api.orange.com/smsmessaging/v1").strip()
+
+# ── Orange Money Paiement (abonnements) ───────────────────────────────────────
+ORANGE_MONEY_CLIENT_ID     = (os.environ.get("ORANGE_ML_CLIENT_ID") or "").strip()
+ORANGE_MONEY_CLIENT_SECRET = (os.environ.get("ORANGE_ML_CLIENT_SECRET") or "").strip()
+ORANGE_MONEY_MERCHANT_KEY  = (os.environ.get("ORANGE_ML_MERCHANT_KEY") or "").strip()
+# URLs de callback Orange Money — stables entre dev (ngrok) et prod (VPS).
+# En dev : ORANGE_ML_BASE_URL=https://xxxx.ngrok-free.app
+# En prod : les 3 URLs specifiques ci-dessous prennent le dessus.
+ORANGE_MONEY_BASE_URL      = (os.environ.get("ORANGE_ML_BASE_URL") or "").strip().rstrip("/")
+# URLs fixes de retour/annulation/webhook (doivent etre HTTPS publiques)
+# Si definies, elles remplacent les URLs calculees dynamiquement.
+ORANGE_MONEY_RETURN_URL   = (os.environ.get("ORANGE_ML_RETURN_URL") or "").strip()
+ORANGE_MONEY_CANCEL_URL   = (os.environ.get("ORANGE_ML_CANCEL_URL") or "").strip()
+ORANGE_MONEY_NOTIFY_URL   = (os.environ.get("ORANGE_ML_NOTIFY_URL") or "").strip()
+ORANGE_MONEY_RETURN_URL    = (os.environ.get("ORANGE_ML_RETURN_URL") or "").strip()
+ORANGE_MONEY_CANCEL_URL    = (os.environ.get("ORANGE_ML_CANCEL_URL") or "").strip()
+ORANGE_MONEY_NOTIFY_URL    = (os.environ.get("ORANGE_ML_NOTIFY_URL") or "").strip()
 
 # ── Sentry DSN (production uniquement) ───────────────────────────────────────
 SENTRY_DSN = (os.environ.get("SENTRY_DSN") or "").strip()

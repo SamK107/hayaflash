@@ -1,334 +1,132 @@
-# 📊 HayaFlash — État du Codebase (v1.0)
+# HayaFlash — État du Codebase
 
-> Généré le 2025-05-20. Basé sur analyse du code source réel.
+> Mis à jour le 2026-07-13. Basé sur audit direct du code source (pas sur les docs).
 > **Ce fichier est la source de vérité sur ce qui EXISTE et ce qui RESTE À FAIRE.**
-> Mettre à jour après chaque sprint.
+> Mettre à jour après chaque chantier significatif.
 
 ---
 
-## 🗂️ Structure actuelle du projet
+## Structure actuelle
 
 ```
 hayaflash/
-├── accounts/          ✅ Implémenté
-├── analytics/         ✅ Implémenté
-├── core/              ✅ Implémenté
-├── flash_sales/       ✅ Partiel (gaps ci-dessous)
-├── notifications/     ⏳ Scaffold vide
-├── orders/            ✅ Partiel (gaps ci-dessous)
-├── delivery/          ✅ Implémenté (module + dashboard HTMX)
-├── payments/          ✅ Mock complet
-├── products/          ✅ Partiel (gaps ci-dessous)
-├── subscriptions/     ⏳ Scaffold vide
-├── config/            ✅ Complet
-├── static/orders/js/  ✅ Offline queue IndexedDB
-└── templates/         ✅ Partiel
+├── accounts/       ✅ Complet
+├── analytics/      ✅ Complet
+├── config/         ✅ Complet
+├── core/           ✅ Complet
+├── delivery/       ✅ Complet
+├── flash_sales/    ✅ Complet
+├── notifications/  ✅ Complet
+├── orders/         ✅ Complet
+├── payments/       ✅ Mock complet (COD V1, activer en V1.1)
+├── products/       ✅ Complet
+├── subscriptions/  ✅ Complet
+├── templates/      ✅ Complet
+├── Dockerfile      ✅ Présent
+├── docker-compose.yml              ✅ Dev
+├── docker-compose.production.yml   ✅ Prod
+└── .github/workflows/ci.yml + deploy.yml  ✅ Présent
 ```
 
 ---
 
-## ✅ CE QUI EXISTE — Détail par module
+## État détaillé par module
 
 ### `accounts/`
-| Fichier | Contenu réel | État |
-|---|---|---|
-| `models.py` | `User` (phone E.164, USERNAME_FIELD), `SellerProfile` (seller_code auto, public_slug) | ✅ |
-| `backends.py` | `PhoneAuthBackend` | ✅ |
-| `serializers.py` | Register/login serializers | ✅ |
-| `views.py` | Register, login, logout, me | ✅ |
-| `urls.py` | Routes auth | ✅ |
-| `services/auth.py` | Logique d'authentification | ✅ |
-| `services/otp.py` | OTP generation/validation | ✅ |
-| `services/seller_codes.py` | `generate_unique_seller_code()` | ✅ |
-| `services/slugs.py` | `generate_unique_seller_public_slug()` | ✅ |
-| `services/sms.py` | SMS scaffold | ✅ |
-| `services/users.py` | Services user | ✅ |
-| `migrations/` | 3 migrations (initial + public_slug + populate) | ✅ |
-
-**Champs présents sur `SellerProfile` :**
-- `user`, `seller_code`, `public_slug`, `business_name`, `is_active`, `created_at`, `updated_at`
-
-**Champs ABSENTS (requis par PROJECT_SPEC v2) :**
-- ❌ `bio`
-- ❌ `avatar` (ImageField)
-- ❌ `delivery_zones` (zones gérées)
-
----
+- `User` : phone E.164, `USERNAME_FIELD = "phone"`, `PhoneAuthBackend`
+- `SellerProfile` : `seller_code` (auto), `public_slug`, `business_name`, `bio`, `avatar` (ImageField), `delivery_zones`, `is_active`
+- Services : auth, OTP, seller_codes, slugs, SMS, users
+- 4 migrations en place (dont populate slugs + bio/avatar/zones)
 
 ### `flash_sales/`
-| Fichier | Contenu réel | État |
-|---|---|---|
-| `models.py` | `FlashSale` (title, public_slug, start_time, end_time, status, owner) | ✅ |
-| `models.py` | `FlashSaleStatus` : `draft / live / closed` | ✅ |
-| `models.py` | `is_live()`, `open_sale()`, `close_sale()` | ✅ |
-| `services/ordering.py` | `assert_flash_sale_accepts_orders()` | ✅ |
-| `services/slugs.py` | Génération slug unique | ✅ |
-| `migrations/` | 3 migrations | ✅ |
-
-**Champs ABSENTS (requis par PROJECT_SPEC v2) :**
-- ❌ `description` (TextField)
-- ❌ `cover_image` (ImageField)
-- ❌ `delivery_zone` (zone géographique)
-- ❌ `max_orders` (plafond optionnel)
-- ❌ Statuts étendus : `scheduled / executing / completed / cancelled`
-  - ⚠️ Actuellement : `draft / live / closed` seulement
-- ❌ Ouverture/fermeture automatique (pas de Celery/cron)
-
----
+- `FlashSaleStatus` (6 valeurs) : `scheduled / live / closed / executing / completed / cancelled`
+- `FlashSale` : title, description, cover_image, public_slug, start_time, end_time, status, owner, delivery_zone, max_orders, description_audio (FileField WebM), teasers
+- Méthodes : `open_sale()`, `close_sale()`, `complete_sale()`, `cancel_sale()`, `accepts_orders`
+- `SaleInterest` : flash_sale (FK), phone, name (optionnel), created_at — créé depuis `/f/<slug>/` (bouton "M'alerter")
+- Celery tasks : `auto_open_scheduled_sales` + `auto_close_live_sales` (beat schedule 60s)
+- CRUD vendeur complet : list, create, edit, detail, open, close, clone
+- Vue `sale_interests_view` + template `interests.html` — visible côté vendeur
 
 ### `products/`
-| Fichier | Contenu réel | État |
-|---|---|---|
-| `models.py` | `Product` (flash_sale FK nullable, name, price, stock) | ✅ |
-| `migrations/` | 1 migration | ✅ |
-
-**Champs ABSENTS (requis par PROJECT_SPEC v2) :**
-- ❌ `description` (TextField)
-- ❌ `unit` (kg, pièce, lot...)
-- ❌ `characteristics` (JSONB)
-- ❌ `ProductMedia` (modèle entier absent — photos/vidéos)
-
----
+- `Product` : flash_sale (FK nullable), name, description, price, stock_initial, stock_available, unit, characteristics (JSONField), description_audio (FileField), display_order, is_active
+- `ProductMedia` : product (FK), media_type (image/video), file (ImageField), video_url, alt_text, order
+- `ProductVariant` : product (FK), type, value, stock, price_delta
+- `StockMovement` : product, order (FK nullable), quantity_change, movement_type (reservation/release/correction/initial), notes
 
 ### `orders/`
-| Fichier | Contenu réel | État |
-|---|---|---|
-| `models.py` | `Order`, `OrderItem`, `GuardedOrderManager`, `total_amount` | ✅ |
-| `models.py` | `OrderStatus` : `pending / confirmed / out_for_delivery / delivered / cancelled` | ✅ |
-| `services/create_order.py` | `create_order()` idempotent + `Delivery` atomique + `total_amount` | ✅ ⭐ |
-| `services/dashboard.py` | KPI cache, advance_order_status, order rows | ✅ |
-| `services/client_order.py` | Rate limit, mapping public + bloc `delivery` | ✅ |
-| `api.py` | API REST commande publique + réponse `delivery` / `total_amount` | ✅ |
-| `views.py` | Dashboard HTMX, advance status, client order page | ✅ |
-| `urls.py` | Routes | ✅ |
-| `templates/orders/` | `dashboard.html`, `client_order.html` (GPS + adresse), partials | ✅ |
-| `static/orders/js/client_order_queue.js` | Offline queue + GPS + payload `delivery` | ✅ ⭐ |
-| `migrations/` | 4 migrations (total_amount, out_for_delivery, data migrate) | ✅ |
-
-**Intégration livraison :**
-- ✅ `create_order()` crée `Delivery` dans la même transaction
-- ✅ `total_amount` calculé et persisté à la création
-- ✅ Dashboard livraisons vendeur HTMX (`/orders/seller/deliveries/`)
-
----
+- `Order` : flash_sale (FK), customer_name, customer_phone, status, client_request_id (unique — idempotence), total_amount, created_at
+- `OrderStatus` : pending / confirmed / out_for_delivery / delivered / cancelled
+- `GuardedOrderManager` bloque `Order.objects.create()` — utiliser `create_order()` uniquement
+- `create_order()` : atomique, idempotent, décrémente stock avec guard `stock_available__gte`, crée `Delivery` et `StockMovement` dans la même transaction
+- Dashboard LIVE HTMX : KPI (total_orders, total_quantity, total_revenue, pending_revenue) + liste commandes polling 3s
+- Cache KPI TTL 4 secondes
 
 ### `delivery/`
-| Fichier | Contenu réel | État |
-|---|---|---|
-| `models.py` | `Delivery` (adresse, GPS, COD, statuts, maps/waze URLs) | ✅ |
-| `services/validation.py` | Validation adresse + coordonnées GPS | ✅ |
-| `services/delivery.py` | `create_delivery_for_order()`, `advance_delivery()`, `list_seller_deliveries()` | ✅ |
-| `api.py` | `GET /api/v1/delivery/`, `PATCH .../advance/` (auth vendeur) | ✅ |
-| `admin.py` | Delivery admin | ✅ |
-| `views.py` | Dashboard HTMX livraisons post-live + partials | ✅ |
-| `services/seller_dashboard.py` | Contexte page, summary, rows, actions HTMX | ✅ |
-| `tests_dashboard.py` | Tests dashboard vendeur | ✅ |
+- `Delivery` : order (OneToOne), address_text, latitude, longitude, geo_accuracy, geo_method, delivery_notes, status, assigned_to, cod_amount, cod_collected
+- `Delivery.GeoMethod` : gps / manual / timeout / denied
+- Dashboard livraisons HTMX vendeur (`/orders/seller/deliveries/`)
+- Méthodes : `get_maps_url()`, `get_waze_url()`
 
----
+### `subscriptions/`
+- `Plan` (TextChoices) : `free / medium / pro`
+- Prix : FREE=0 FCFA, MEDIUM=2 000 FCFA, PRO=5 000 FCFA
+- Limites ventes/mois : FREE=3, MEDIUM=3, PRO=None (illimité)
+- `Subscription` : seller (OneToOne), plan, expires_at
+- `SubscriptionPayment` : UUID PK, seller, plan, provider, amount, phone, status, order_id, pay_token, txn_id, payment_url, raw_response, raw_callback, paid_at
+- Providers : orange / moov / wave
+- Service Orange Money dans `subscriptions/services/orange_money.py`
+- Vues billing : checkout, payment_pending, subscription dashboard
+
+### `notifications/`
+- `Notification` : recipient_phone, channel (whatsapp/sms/email), message, status (pending/sent/failed), error_message, sent_at
+- Services : `dispatcher.py`, `sms.py`, `whatsapp.py`
+- Celery tasks : `send_order_confirmation` (déclenchée à création commande), `send_sale_reminder` (rappel 1h avant vente)
 
 ### `analytics/`
-| Fichier | Contenu réel | État |
-|---|---|---|
-| `models/share.py` | `ShareLink`, `ShareEvent`, `ShareLinkType`, `ShareEventType` | ✅ |
-| `services/share_links.py` | Création/résolution liens | ✅ |
-| `services/view_tracking.py` | Tracking vues | ✅ |
-| `services/share_tracking.py` | Tracking partages WhatsApp | ✅ |
-| `services/conversion_tracking.py` | Attribution share_ref → commande | ✅ |
-| `services/cache.py` | Cache invalidation (Redis/LocMem) | ✅ |
-| `services/public_pages.py` | Contexte pages publiques SEO | ✅ |
-| `services/seo.py` | OpenGraph, JSON-LD | ✅ |
-| `services/abuse.py` | Anti-spam, déduplication | ✅ |
-| `services/events.py` | Enregistrement événements | ✅ |
-| `aggregators/seller_stats.py` | Stats agrégées vendeur | ✅ |
-| `signals.py` | Post-save signals pour invalidation cache | ✅ |
-| `views.py` | Pages publiques vendeur `/s/<slug>/`, flash sale `/f/<slug>/`, WhatsApp redirect | ✅ |
-| `templates/analytics/` | `seller_public.html`, `flash_sale_public.html`, partials SEO | ✅ |
-| `migrations/` | 2 migrations | ✅ |
-
----
+- `ShareLink` : token (unique 10 chars), link_type (seller/flash_sale/product), seller, flash_sale, product, target_key, click_count, share_count, conversion_count
+- `ShareEvent` : share_link, event_type (page_view/click/whatsapp_share/conversion), source, order (FK nullable)
+- Services : share_links, share_tracking, view_tracking, conversion_tracking, public_pages, seo (OG + JSON-LD), abuse (anti-spam)
+- `get_seller_public_stats()` : total_orders + products_sold (agrégé, mis en cache)
+- Pages publiques : `/s/<slug>/` (vendeur), `/f/<slug>/` (vente flash), redirect WhatsApp tracké
 
 ### `payments/`
-| Fichier | Contenu réel | État |
-|---|---|---|
-| `models.py` | `PaymentTransaction` (UUID PK), `LedgerEntry` | ✅ |
-| `services/payments.py` | Initiation paiement | ✅ |
-| `services/mock_provider.py` | Mock Mobile Money (dev) | ✅ |
-| `services/webhooks.py` | Validation HMAC webhook | ✅ |
-| `services/ledger.py` | Enregistrement ledger | ✅ |
-| `api.py` | `/payments/initiate/`, `/payments/webhook/` | ✅ |
-| `migrations/` | 1 migration | ✅ |
-
-**Note :** Les payments sont scaffoldés avec mock. En V1 COD (paiement à la livraison), ce module est en veille — ne pas supprimer, il servira en V1.1.
-
----
-
-### `core/`
-| Fichier | Contenu réel | État |
-|---|---|---|
-| `services/slugs.py` | Génération slugs centralisée | ✅ |
-| `views.py` | Home page | ✅ |
-| `urls.py` | Home URL | ✅ |
-
----
+- `PaymentTransaction` (UUID PK) + `LedgerEntry`
+- Mock provider en place
+- En veille pour V1 (COD actif) — ne pas supprimer, sera activé en V1.1
 
 ### `config/`
-| Fichier | Contenu réel | État |
-|---|---|---|
-| `settings/base.py` | Settings complets (Redis, DB multi-env, WhiteNoise, DRF, CORS, HTMX) | ✅ |
-| `settings/dev.py` | Dev settings | ✅ |
-| `settings/staging.py` | Staging settings | ✅ |
-| `settings/prod.py` | Prod settings | ✅ |
-| `urls.py` | URL routing principal | ✅ |
-| `api_urls.py` | Routes API v1 | ✅ |
-| `wsgi.py` / `asgi.py` | Entry points | ✅ |
+- Settings multi-env : base, dev, staging, prod, test
+- `celery.py` : beat schedule auto open/close ventes (60s)
+- Docker : Dockerfile + docker-compose.yml (dev) + docker-compose.production.yml
+- CI/CD : `.github/workflows/ci.yml` + `deploy.yml`
 
 ---
 
-### `notifications/` — ⏳ Scaffold vide
-```
-notifications/
-├── models.py      → classe vide
-├── views.py       → vide
-├── services/      → __init__.py vide
-└── tests.py       → vide
-```
-**Aucune logique implémentée.**
+## Ce qui n'existe PAS (lacunes identifiées — juillet 2026)
+
+### 1. Admin plateforme custom
+Seul `django.contrib.admin` standard est exposé (`/admin/`). Il n'existe pas de vue custom dédiée à la gestion plateforme (abonnements, paiements, vendeurs).
+
+- `SubscriptionPayment` n'est pas enregistré dans l'admin Django.
+- Pas de dashboard plateforme avec métriques globales (MRR, vendeurs actifs, etc.).
+
+### 2. Stats par vente flash (UI)
+`get_dashboard_kpis()` retourne des KPIs globaux (toutes ventes confondues). Il n'y a pas de vue analytique par vente flash individuelle côté vendeur.
+
+Les features MEDIUM ("Statistiques de ventes 30 derniers jours") et PRO ("Statistiques avancées") sont déclarées dans `PLAN_FEATURES` mais aucune vue ne les différencie — le dashboard est identique pour tous les plans.
+
+### 3. Partage — QR code et Web Share API
+Seul WhatsApp (`wa.me` + `api.whatsapp.com`) est implémenté. Pas de QR code, pas de `navigator.share`.
+
+### 4. Notification à l'ouverture pour SaleInterest
+`SaleInterest` stocke phone + name. La tâche `send_sale_reminder` existe mais n'est pas connectée automatiquement aux `SaleInterest` — elle doit être appelée explicitement avec un `phone`. Il n'y a pas de beat schedule qui envoie automatiquement un rappel aux inscrits 1h avant l'ouverture.
+
+### 5. Vocal client (commande)
+Le bouton micro sur la page de commande utilise `SpeechRecognition` navigateur (transcription client-side uniquement). Le résultat est injecté dans le champ adresse et stocké en texte dans `Delivery.address_text`. Aucun audio client n'est stocké en base.
 
 ---
 
-### `subscriptions/` — ⏳ Scaffold vide
-```
-subscriptions/
-├── models.py      → classe vide
-├── views.py       → vide
-├── services/      → __init__.py vide
-└── tests.py       → vide
-```
-**Aucune logique implémentée.**
-
----
-
-## ❌ CE QUI MANQUE ENTIÈREMENT
-
-### 1. ~~Dashboard livraisons vendeur (HTMX)~~ ✅
-
----
-
-### 2. Calendrier public des ventes programmées
-
-**N'existe pas.** Page `/ventes/` ou `/` listant les ventes `scheduled` et `live`.
-
-À créer :
-- View : `flash_sales/views.py` → `public_flash_sales_list()`
-- Template : `templates/flash_sales/public_list.html`
-- URL : `/ventes/` ou `/`
-- Context : ventes actives + prochaines + countdown
-
----
-
-### 4. API REST flash sales publiques
-
-**L'endpoint `GET /api/v1/flash-sales/` n'existe pas.**
-
-À créer dans `flash_sales/` :
-- Serializer : `FlashSalePublicSerializer`
-- View : `FlashSaleListAPIView` + `FlashSaleDetailAPIView`
-- URL : `/api/v1/flash-sales/` et `/api/v1/flash-sales/<slug>/`
-
----
-
-### 5. Statuts FlashSale étendus
-
-Actuellement : `draft / live / closed`
-Requis par spec : `scheduled / live / closed / executing / completed / cancelled`
-
-Migration nécessaire : ajouter les nouveaux choix + renommer `draft → scheduled`.
-
----
-
-### 6. Champs manquants sur les modèles existants
-
-**`FlashSale`** — migrations à créer :
-```python
-description     = models.TextField(blank=True)
-cover_image     = models.ImageField(null=True, blank=True)
-delivery_zone   = models.CharField(max_length=200, blank=True)
-max_orders      = models.IntegerField(null=True, blank=True)
-```
-
-**`Product`** — migrations à créer :
-```python
-description     = models.TextField(blank=True)
-unit            = models.CharField(max_length=50, default='pièce')
-characteristics = models.JSONField(default=dict, blank=True)
-```
-
-**`ProductMedia`** — nouveau modèle :
-```python
-class ProductMedia(models.Model):
-    product    = models.ForeignKey(Product, related_name='media', ...)
-    media_type = models.CharField(choices=['image', 'video'])
-    file       = models.FileField(...)
-    order      = models.IntegerField(default=0)
-```
-
-**`SellerProfile`** — migrations à créer :
-```python
-bio             = models.TextField(blank=True)
-avatar          = models.ImageField(null=True, blank=True)
-delivery_zones  = models.CharField(max_length=500, blank=True)
-```
-
----
-
-### 7. Infrastructure CI/CD
-
-**Rien n'existe dans le repo.**
-
-À créer :
-```
-.github/workflows/deploy.yml   ← CI tests + build + deploy staging + approval + prod
-Dockerfile                     ← Image Docker Python 3.11
-docker-compose.yml             ← Dev local (DB + Redis)
-infra/scripts/smoke_test.sh    ← Smoke tests post-deploy
-```
-
----
-
-### 8. Celery (tâches asynchrones)
-
-**Non installé.** `celery` absent de `requirements.txt`.
-
-Requis pour :
-- Auto-ouverture des ventes `scheduled → live` à `start_time`
-- Auto-fermeture `live → closed` à `end_time`
-- SMS rappel clients
-
-À ajouter :
-```
-requirements.txt  → celery, redis
-config/celery.py  → app Celery
-```
-
----
-
-### 9. ~~`total_amount` sur `Order`~~ ✅
-
-Calculé et persisté dans `create_order()`.
-
----
-
-## ⚠️ INCONSISTANCES À CORRIGER
-
-| Problème | Localisation | Action |
-|---|---|---|
-| Payload JS envoie `name`/`phone`/`quantity` (mappé serveur) vs spec `customer_name`/`items[]` | `client_order.py` | Acceptable V1 — mapping serveur en place |
-| Pas de rate limiting DRF throttle sur orders | `orders/api.py` | ✅ Rate limit service layer (30/IP/min) — polish headers optionnel |
-| Dashboard livraisons HTMX absent | `delivery/views.py` | ✅ Implémenté PROMPT 10.1 |
-
----
-
-## 📦 Dépendances installées (`requirements.txt`)
+## Dépendances installées (`requirements.txt`)
 
 ```
 Django==5.2.13
@@ -343,80 +141,33 @@ whitenoise==6.12.0
 pillow==12.2.0
 dj-database-url==2.3.0
 requests==2.33.1
+celery (présent dans config/celery.py — vérifier requirements.txt)
 ```
 
-**Manquant :**
-- ❌ `celery` (tâches async)
-- ❌ `redis` (client Python direct — django-redis le fournit indirectement mais celery en a besoin)
+---
+
+## Tests existants
+
+| App | État |
+|-----|------|
+| orders | ✅ Présent (delivery intégré) |
+| delivery | ✅ Présent (dashboard tests) |
+| analytics | Présent |
+| payments | Présent |
+| accounts | Présent |
+| flash_sales | Présent |
+| products | Présent |
+| core | Présent |
+| subscriptions | À compléter |
+| notifications | À compléter |
+| E2E | ❌ Absent |
 
 ---
 
-## 🧪 Tests existants
+## Prochaines priorités suggérées
 
-| App | Fichier | État |
-|---|---|---|
-| `orders` | `orders/tests.py` | ✅ Présent (delivery intégré) |
-| `delivery` | `delivery/tests.py` | ✅ Présent |
-| `analytics` | `analytics/tests.py` | Présent |
-| `payments` | `payments/tests.py` | Présent |
-| `accounts` | `accounts/tests.py` | Présent |
-| `flash_sales` | `flash_sales/tests.py` | Présent |
-| `products` | `products/tests.py` | Présent |
-| `core` | `core/tests.py` | Présent |
-| E2E | — | ❌ Absent |
-| GPS offline | — | ❌ Absent |
-| Concurrence PostgreSQL | — | À vérifier dans orders/tests.py |
-
----
-
-## 🗺️ Roadmap V1 — Par priorité
-
-### P0 — Bloquant (V1 non viable sans ça)
-
-1. ~~**Créer app `delivery/`**~~ ✅
-2. ~~**Intégrer `Delivery` dans `create_order()`**~~ ✅
-3. ~~**GPS côté client**~~ ✅
-4. ~~**Aligner payload JS**~~ ✅ (mapping serveur + bloc `delivery`)
-5. ~~**Renommer `OrderStatus.SHIPPED`**~~ ✅ → `out_for_delivery`
-
-### P1 — Important
-
-6. **Statuts FlashSale étendus** (`scheduled`, `executing`, `completed`, `cancelled`)
-7. **Champs manquants** `FlashSale.description/delivery_zone`, `Product.unit/description`
-8. ~~**Dashboard livraisons vendeur**~~ ✅
-9. **API flash sales publiques** `GET /api/v1/flash-sales/`
-10. **Rate limiting orders** — ✅ fonctionnel (service layer) ; polish tests/headers optionnel
-
-### P2 — Utile
-
-11. **`ProductMedia`** modèle (photos/vidéos produits)
-12. **Calendrier public** des ventes programmées
-13. **Celery** pour auto-open/close des ventes
-14. **`SellerProfile`** champs bio/avatar
-15. **Dockerfile + CI/CD**
-
-### P3 — Nice-to-have
-
-16. **Notifications SMS** (rappels, confirmation commande)
-17. **Subscriptions** (enforcement middleware)
-18. **OpenAPI** (génération depuis DRF)
-
----
-
-# NEXT RECOMMENDED PHASE
-
-Current recommended focus:
-
-- Statuts FlashSale étendus + champs produit/vente
-- API flash sales publiques `GET /api/v1/flash-sales/`
-- Calendrier public des ventes programmées
-
-Production hardening should wait until:
-- delivery dashboard vendeur stable
-- critical workflows finalized
-- test coverage improved
-
----
-
-
-## 🔚 Fin du document
+1. **Connecter SaleInterest → send_sale_reminder** : beat schedule qui déclenche les rappels aux inscrits 1h avant `start_time`
+2. **SubscriptionPayment dans l'admin** : enregistrer + filtres par status/provider
+3. **Analytics par vente flash** : vue dédiée avec CA, commandes, stock par `flash_sale_id`
+4. **Différencier MEDIUM vs PRO** dans l'UI analytics (actuellement identique)
+5. **Admin plateforme custom** : page staff-only avec métriques globales

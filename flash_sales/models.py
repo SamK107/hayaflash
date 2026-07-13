@@ -57,6 +57,19 @@ class FlashSale(models.Model):
         verbose_name="Plafond de commandes",
         help_text="Laisser vide pour illimite",
     )
+    description_audio = models.FileField(
+        upload_to="audio/sales/",
+        null=True,
+        blank=True,
+        verbose_name="Description vocale",
+        help_text="Enregistrement audio de la description (WebM/OGG)",
+    )
+    teasers = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Teasers page d'attente",
+        help_text="Un teaser par ligne. Ex: 8 sacs de luxe · 15 montres · 5 parfums",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -70,8 +83,9 @@ class FlashSale(models.Model):
 
     def clean(self):
         super().clean()
-        if self.end_time <= self.start_time:
-            raise ValidationError({"end_time": "La fin doit etre apres le debut."})
+        if self.end_time is not None and self.start_time is not None:
+            if self.end_time <= self.start_time:
+                raise ValidationError("La fin doit être après le début.")
 
     def save(self, *args, **kwargs):
         if not self.public_slug:
@@ -123,3 +137,30 @@ class FlashSale(models.Model):
             raise ValueError("Impossible d'annuler une vente en cours. Fermez-la d'abord.")
         self.status = FlashSaleStatus.CANCELLED
         self.save(update_fields=["status", "updated_at"])
+
+
+class SaleInterest(models.Model):
+    """
+    Réservation d'intérêt d'un client pour la prochaine vente flash d'un vendeur.
+    Créée depuis la page publique /f/<slug>/ quand la vente est terminée.
+    """
+    flash_sale = models.ForeignKey(
+        FlashSale,
+        on_delete=models.CASCADE,
+        related_name="interests",
+        verbose_name="Vente flash",
+    )
+    phone = models.CharField(max_length=32, verbose_name="Téléphone")
+    name = models.CharField(max_length=150, blank=True, verbose_name="Nom")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Réservation d'intérêt"
+        verbose_name_plural = "Réservations d'intérêt"
+        indexes = [
+            models.Index(fields=["flash_sale", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.phone} → {self.flash_sale}"

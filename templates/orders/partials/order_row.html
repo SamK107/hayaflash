@@ -7,14 +7,17 @@
       <p class="text-sm text-gray-500">{{ order.customer_phone }}</p>
     </div>
     <div class="text-right shrink-0">
-      <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold
+      <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold
         {% if order.status == 'pending' %}bg-amber-100 text-amber-800
         {% elif order.status == 'confirmed' %}bg-blue-100 text-blue-800
         {% elif order.status == 'out_for_delivery' %}bg-purple-100 text-purple-800
         {% elif order.status == 'delivered' %}bg-green-100 text-green-800
         {% elif order.status == 'cancelled' %}bg-red-100 text-red-800
         {% else %}bg-gray-100 text-gray-700{% endif %}
-      ">{{ order.get_status_display }}</span>
+      ">
+        {% if order.status == 'delivered' %}<i data-lucide="check-circle-2" class="w-3 h-3"></i>{% endif %}
+        {{ order.get_status_display }}
+      </span>
       <p class="text-xs text-gray-400 mt-1">{{ order.created_at|date:"H:i" }}</p>
     </div>
   </div>
@@ -24,13 +27,13 @@
     {% for item in order.items.all %}
     <div class="flex justify-between text-sm">
       <span class="text-gray-700">{{ item.product_name_snapshot }} <span class="text-gray-400">x{{ item.quantity }}</span></span>
-      <span class="font-medium text-gray-900">{{ item.price_snapshot|floatformat:0 }} F</span>
+      <span class="font-medium text-gray-900">{{ item.price_snapshot|floatformat:"0g" }} F</span>
     </div>
     {% endfor %}
     {% if order.total_amount %}
     <div class="flex justify-between text-sm font-bold pt-1 border-t border-gray-200 mt-1">
       <span>Total</span>
-      <span class="text-primary">{{ order.total_amount|floatformat:0 }} FCFA</span>
+      <span class="text-primary">{{ order.total_amount|floatformat:"0g" }} FCFA</span>
     </div>
     {% endif %}
   </div>

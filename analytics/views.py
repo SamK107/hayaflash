@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-from django.http import Http404, HttpResponse
-from django.shortcuts import render
-from django.views.decorators.http import require_GET
+import json
+
+from django.http import Http404, HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, render
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET, require_POST
 
 from analytics.services.abuse import normalize_tracking_source
 from analytics.services.public_pages import (
@@ -84,3 +87,34 @@ def track_whatsapp_share(request):
         record_whatsapp_share(request, share_link=link, source=source)
 
     return HttpResponse(status=302, headers={"Location": target})
+
+
+@require_POST
+def flash_sale_interest(request, slug: str):
+    """
+    POST /f/<slug>/interest/
+    Body JSON: { phone, name? }
+    Enregistre une réservation d'intérêt pour la prochaine vente du vendeur.
+    """
+    from flash_sales.models import FlashSale, SaleInterest
+
+    flash_sale = get_object_or_404(FlashSale, public_slug=slug)
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "JSON invalide."}, status=400)
+
+    phone = (data.get("phone") or "").strip()
+    name = (data.get("name") or "").strip()
+
+    if not phone:
+        return JsonResponse({"error": "Le téléphone est obligatoire."}, status=400)
+
+    interest = SaleInterest.objects.create(
+        flash_sale=flash_sale,
+        phone=phone,
+        name=name,
+    )
+
+    return JsonResponse({"id": interest.pk, "status": "ok"}, status=201)

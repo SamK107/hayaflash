@@ -127,6 +127,20 @@ ORANGE_SMS_API_KEY = ""
 ORANGE_SMS_BASE_URL = ""
 SENTRY_DSN = ""
 
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    # Throttle désactivé en tests
+    "DEFAULT_THROTTLE_CLASSES": [],
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+    ],
+}
+
 CORS_ALLOWED_ORIGINS = []
 X_FRAME_OPTIONS = "DENY"
 DATABASE_ROUTERS = ["config.db_router.DefaultRouter"]

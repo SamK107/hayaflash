@@ -25,6 +25,21 @@ urlpatterns = [
         name="seller_order_advance_status",
     ),
     path(
+        "seller/flash-sales/<int:pk>/export.csv",
+        views.export_orders_csv,
+        name="export_orders_csv",
+    ),
+    path(
+        "seller/orders/bulk-confirm/",
+        views.bulk_confirm_orders,
+        name="bulk_confirm_orders",
+    ),
+    path(
+        "seller/orders/bulk-delivered/",
+        views.bulk_mark_delivered,
+        name="bulk_mark_delivered",
+    ),
+    path(
         "seller/deliveries/",
         delivery_views.seller_deliveries_dashboard,
         name="seller_deliveries_dashboard",

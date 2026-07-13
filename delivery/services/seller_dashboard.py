@@ -13,6 +13,35 @@ from delivery.services.delivery import advance_delivery
 from flash_sales.models import FlashSale
 from orders.models import Order, OrderItem, OrderStatus
 
+def _auto_sync_stale_deliveries(qs) -> None:
+    """
+    Corrige silencieusement les livraisons dont le statut est en retard sur la commande.
+    Cas typique : vendeur a cliqué 'Livré et payé' dans Commandes avant que la sync
+    automatique soit en place — la Delivery reste PENDING alors que l'Order est DELIVERED.
+    """
+    from django.utils import timezone
+    now = timezone.now()
+
+    stale_delivered = list(
+        qs.filter(order__status=OrderStatus.DELIVERED)
+        .exclude(status=Delivery.Status.DELIVERED)
+    )
+    for d in stale_delivered:
+        d.status = Delivery.Status.DELIVERED
+        d.delivered_at = d.delivered_at or now
+        d.cod_collected = True
+        d.save(update_fields=["status", "delivered_at", "cod_collected", "updated_at"])
+
+    stale_transit = list(
+        qs.filter(order__status=OrderStatus.OUT_FOR_DELIVERY)
+        .exclude(status__in=[Delivery.Status.IN_TRANSIT, Delivery.Status.DELIVERED, Delivery.Status.FAILED])
+    )
+    for d in stale_transit:
+        d.status = Delivery.Status.IN_TRANSIT
+        d.scheduled_at = d.scheduled_at or now
+        d.save(update_fields=["status", "scheduled_at", "updated_at"])
+
+
 _STATUS_SORT = {
     Delivery.Status.PENDING: 0,
     Delivery.Status.ASSIGNED: 1,
@@ -85,6 +114,7 @@ def get_delivery_summary(*, user, flash_sale_id: int) -> dict[str, Any]:
         raise PermissionDenied("Flash sale not found or not accessible.")
 
     qs = _tenant_deliveries(user=user, flash_sale_id=flash_sale_id)
+    _auto_sync_stale_deliveries(qs)
     pending = qs.filter(
         status__in=[Delivery.Status.PENDING, Delivery.Status.ASSIGNED]
     ).count()
@@ -181,10 +211,9 @@ def list_delivery_rows(
     if _get_owned_flash_sale(user=user, flash_sale_id=flash_sale_id) is None:
         raise PermissionDenied("Flash sale not found or not accessible.")
 
-    qs = _apply_status_filter(
-        _tenant_deliveries(user=user, flash_sale_id=flash_sale_id),
-        status_filter,
-    )
+    base_qs = _tenant_deliveries(user=user, flash_sale_id=flash_sale_id)
+    _auto_sync_stale_deliveries(base_qs)
+    qs = _apply_status_filter(base_qs, status_filter)
     deliveries = list(qs)
     deliveries.sort(
         key=lambda d: (

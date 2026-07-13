@@ -15,6 +15,7 @@ def create_product(
     unit: str = "piece",
     characteristics: dict = None,
     display_order: int = 0,
+    description_audio=None,
 ) -> Product:
     if stock < 0:
         raise ValidationError("Le stock ne peut pas etre negatif.")
@@ -32,6 +33,10 @@ def create_product(
         characteristics=characteristics or {},
         display_order=display_order,
     )
+    if description_audio:
+        product.description_audio = description_audio
+        product.save(update_fields=["description_audio"])
+
     StockMovement.objects.create(
         product=product,
         quantity_change=stock,
@@ -42,7 +47,7 @@ def create_product(
 
 
 def update_product(*, product: Product, **kwargs) -> Product:
-    allowed = {"name", "description", "price", "unit", "characteristics", "display_order", "is_active"}
+    allowed = {"name", "description", "price", "unit", "characteristics", "display_order", "is_active", "description_audio"}
     for key, value in kwargs.items():
         if key in allowed:
             setattr(product, key, value)
