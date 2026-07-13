@@ -263,6 +263,23 @@ def sale_interests_view(request):
 
 
 @login_required
+def flash_sale_interests_detail_view(request, pk: int):
+    """Reservations d'interet pour une vente specifique."""
+    seller = _get_seller(request)
+    flash_sale = get_object_or_404(FlashSale, pk=pk, owner=seller)
+    interests = flash_sale.interests.order_by("-created_at")
+    return render(
+        request,
+        "flash_sales/interests_detail.html",
+        {
+            "flash_sale": flash_sale,
+            "interests": interests,
+            "total": interests.count(),
+        },
+    )
+
+
+@login_required
 def sale_interests_reset_view(request, pk: int):
     """Supprime toutes les reservations d'une vente (POST uniquement)."""
     if request.method != "POST":

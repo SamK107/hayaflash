@@ -15,6 +15,11 @@ urlpatterns = [
     # Réservations d'intérêt
     path("interests/", views.sale_interests_view, name="interests"),
     path(
+        "<int:pk>/interests/",
+        views.flash_sale_interests_detail_view,
+        name="interests_detail",
+    ),
+    path(
         "<int:pk>/interests/reset/",
         views.sale_interests_reset_view,
         name="interests_reset",

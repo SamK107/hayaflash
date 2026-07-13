@@ -31,6 +31,16 @@
               {% if sale.description %}
               <p class="text-gray-500 text-sm mt-1">{{ sale.description }}</p>
               {% endif %}
+              {% with interest_count=sale.interests.count %}
+              {% if interest_count > 0 %}
+              <a href="{% url 'flash_sales:interests_detail' pk=sale.pk %}"
+                 class="inline-flex items-center gap-1.5 text-xs font-medium text-orange-600
+                        bg-orange-50 px-3 py-1.5 rounded-full hover:bg-orange-100 transition-colors mt-2">
+                <i data-lucide="bell" class="w-3 h-3"></i>
+                {{ interest_count }} réservation{{ interest_count|pluralize }}
+              </a>
+              {% endif %}
+              {% endwith %}
             </div>
             <!-- Badge statut -->
             {% if sale.status == "live" %}

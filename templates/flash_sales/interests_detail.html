@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Réservations — {{ flash_sale.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+
+    <div class="flex items-center gap-3 mb-6">
+        <a href="{% url 'flash_sales:detail' pk=flash_sale.pk %}"
+           class="text-gray-400 hover:text-gray-600 transition-colors">
+            <i data-lucide="arrow-left" class="w-5 h-5"></i>
+        </a>
+        <div>
+            <h1 class="text-xl font-black text-gray-900">Réservations</h1>
+            <p class="text-sm text-gray-400">{{ flash_sale.title }}</p>
+        </div>
+        {% if total > 0 %}
+        <span class="ml-auto bg-primary/10 text-primary font-bold text-sm
+                     px-3 py-1.5 rounded-full">
+            {{ total }}
+        </span>
+        {% endif %}
+    </div>
+
+    {% if not interests %}
+    <div class="text-center py-16 text-gray-400">
+        <i data-lucide="bell-off" class="w-10 h-10 mx-auto mb-3 opacity-40"></i>
+        <p class="font-medium">Aucune réservation</p>
+    </div>
+    {% else %}
+    <div class="space-y-2">
+        {% for interest in interests %}
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm
+                    flex items-center gap-3 px-4 py-3">
+            <div class="w-9 h-9 bg-gray-100 rounded-full flex items-center
+                        justify-center shrink-0 font-bold text-gray-500 text-sm">
+                {{ interest.name|default:"?"|slice:":1"|upper }}
+            </div>
+            <div class="flex-1 min-w-0">
+                {% if interest.name %}
+                <p class="text-sm font-semibold text-gray-800 truncate">
+                    {{ interest.name }}
+                </p>
+                {% endif %}
+                <p class="text-sm text-gray-500">{{ interest.phone }}</p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+                <span class="text-xs text-gray-400">
+                    {{ interest.created_at|date:"d/m H:i" }}
+                </span>
+                <a href="tel:{{ interest.phone }}"
+                   class="p-1.5 bg-primary/10 text-primary rounded-lg
+                          hover:bg-primary/20 transition-colors"
+                   title="Appeler">
+                    <i data-lucide="phone" class="w-4 h-4"></i>
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
