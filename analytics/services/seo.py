@@ -6,7 +6,7 @@ from typing import Any
 
 from django.http import HttpRequest
 
-from analytics.services.share_links import absolute_url, get_public_base_url
+from analytics.services.share_links import absolute_url
 
 
 def build_seller_seo(request: HttpRequest, context: dict[str, Any]) -> dict[str, Any]:

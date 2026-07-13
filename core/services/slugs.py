@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from typing import Any
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 

@@ -5,7 +5,6 @@ from decimal import Decimal
 from uuid import uuid4
 
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient

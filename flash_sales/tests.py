@@ -176,7 +176,7 @@ class AuditLogTest(TestCase):
         self.seller = SellerProfile.objects.create(user=self.seller_user)
 
     def test_audit_creates_entry(self) -> None:
-        from core.models import AuditLog, audit
+        from core.models import audit
 
         entry = audit(
             "test.action",
@@ -192,7 +192,7 @@ class AuditLogTest(TestCase):
         self.assertIsNone(entry.actor)
 
     def test_audit_with_actor(self) -> None:
-        from core.models import AuditLog, audit
+        from core.models import audit
 
         entry = audit(
             "flashsale.opened",

@@ -1,7 +1,6 @@
 """Settings pour CI et tests automatisés."""
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 # Base minimale sans charger .env

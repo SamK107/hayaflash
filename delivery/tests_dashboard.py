@@ -1,21 +1,18 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from decimal import Decimal
 
 from django.contrib.auth import get_user_model
-from django.test import Client, TestCase
+from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
 
-from accounts.models import SellerProfile
 from delivery.models import Delivery
 from delivery.services.delivery import advance_delivery
 from delivery.tests import DeliveryTestFixture, _valid_delivery
 from flash_sales.models import FlashSale, FlashSaleStatus
 from orders.models import Order, OrderStatus
 from orders.services.create_order import create_order
-from products.models import Product
 
 User = get_user_model()
 

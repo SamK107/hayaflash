@@ -38,7 +38,6 @@ def _om_urls(request, payment: "SubscriptionPayment") -> tuple[str, str, str]:
     Priorite : URLs specifiques .env > BASE_URL + path Django > request.build_absolute_uri.
     """
     from django.conf import settings
-    from django.urls import reverse
 
     return_cfg = getattr(settings, "ORANGE_MONEY_RETURN_URL", "").strip()
     cancel_cfg = getattr(settings, "ORANGE_MONEY_CANCEL_URL", "").strip()

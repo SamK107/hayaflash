@@ -15,7 +15,7 @@ from django.views.decorators.http import require_POST
 from flash_sales.models import FlashSale
 from .models import (
     Plan, PaymentProvider, PaymentStatus,
-    Subscription, SubscriptionPayment,
+    SubscriptionPayment,
     PLAN_PRICES, PLAN_FEATURES,
 )
 from .services.limits import get_or_create_subscription, FREE_MONTHLY_SALES_LIMIT

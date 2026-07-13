@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from analytics.models import ShareEvent, ShareEventType, ShareLink, ShareLinkType
+from analytics.models import ShareEvent, ShareLink
 
 
 @admin.register(ShareLink)
