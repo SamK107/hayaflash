@@ -1,0 +1,45 @@
+<!-- Bouton + Modal QR Code pour le dashboard vendeur -->
+<!-- Usage : {% include "flash_sales/partials/_qr_modal.html" with sale=sale %} -->
+<div x-data="{
+    open: false,
+    qr: '',
+    loading: false,
+    fetchQR() {
+        this.loading = true;
+        fetch('{% url "flash_sale_qrcode" slug=sale.public_slug %}')
+            .then(r => r.json())
+            .then(data => { this.qr = data.qr; this.open = true; this.loading = false; })
+            .catch(() => { this.loading = false; alert('Erreur génération QR Code'); });
+    }
+}">
+    <button @click="fetchQR()"
+            :disabled="loading"
+            class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700
+                   rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors">
+        <i data-lucide="qr-code" class="w-4 h-4"></i>
+        <span x-text="loading ? 'Génération...' : 'QR Code'"></span>
+    </button>
+
+    <!-- Modal -->
+    <div x-show="open"
+         x-cloak
+         x-transition
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+        <div class="bg-white rounded-2xl p-6 max-w-xs w-full shadow-xl"
+             @click.outside="open = false">
+            <h3 class="text-base font-bold text-gray-900 text-center mb-4">
+                Scannez pour commander
+            </h3>
+            <img :src="`data:image/png;base64,${qr}`"
+                 alt="QR Code vente flash"
+                 class="mx-auto w-56 h-56 rounded-lg">
+            <p class="text-xs text-gray-400 text-center mt-3">
+                Idéal pour vos lives TikTok / Facebook
+            </p>
+            <button @click="open = false"
+                    class="mt-4 w-full py-3 bg-primary text-white font-bold rounded-xl text-sm">
+                Fermer
+            </button>
+        </div>
+    </div>
+</div>

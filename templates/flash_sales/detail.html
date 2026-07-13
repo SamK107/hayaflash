@@ -219,6 +219,9 @@
             <i data-lucide="check" class="w-4 h-4 text-green-600" x-show="copied" x-cloak></i>
           </button>
         </div>
+        <div class="mt-3">
+          {% include "flash_sales/partials/_qr_modal.html" with sale=sale %}
+        </div>
       </div>
       {% endif %}
 

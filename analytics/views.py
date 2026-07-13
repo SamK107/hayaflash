@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_GET, require_POST
@@ -122,3 +123,18 @@ def flash_sale_interest(request, slug: str):
     )
 
     return JsonResponse({"id": interest.pk, "status": "ok"}, status=201)
+
+
+@login_required
+def flash_sale_qr_view(request, slug: str):
+    """Génère le QR Code d'une vente flash (JSON, auth vendeur requis)."""
+    from analytics.services.qrcode import generate_flash_sale_qr_b64
+    from flash_sales.models import FlashSale
+
+    flash_sale = get_object_or_404(
+        FlashSale,
+        public_slug=slug,
+        owner=request.user.seller_profile,
+    )
+    qr_b64 = generate_flash_sale_qr_b64(flash_sale, request)
+    return JsonResponse({"qr": qr_b64, "slug": slug})
