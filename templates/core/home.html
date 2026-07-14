@@ -695,6 +695,72 @@
 
 
 <!-- ════════════════════════════════
+     SECTION — PAS DE BOUTIQUE ?
+════════════════════════════════ -->
+<section style="background:#1A1A2E; padding:4rem 1rem; position:relative; overflow:hidden;">
+
+  <!-- Glow déco -->
+  <div style="position:absolute; bottom:-60px; right:-60px; width:350px; height:350px;
+              background:radial-gradient(circle,rgba(91,46,255,.15) 0%,transparent 65%); pointer-events:none;"></div>
+
+  <div style="max-width:64rem; margin:0 auto; display:grid; gap:2.5rem;
+              grid-template-columns:1fr; align-items:center;">
+
+    <!-- Texte -->
+    <div da style="max-width:38rem; margin:0 auto; text-align:center;">
+      <span class="lbl lbl-v" style="margin-bottom:1.25rem;">Pour tous les vendeurs</span>
+      <h2 class="T" style="font-size:clamp(1.6rem,4vw,2.4rem); color:#fff; line-height:1.15; margin-bottom:1.25rem;">
+        Pas de boutique ?<br>
+        <span style="color:#5B2EFF;">Pas de problème.</span>
+      </h2>
+      <p style="color:rgba(255,255,255,.55); font-size:1rem; line-height:1.8; margin-bottom:2rem;">
+        Vous avez des articles à vendre — chaussures, vêtements, accessoires, plats cuisinés —
+        mais pas de vitrine, pas de local, et vous préférez garder votre discrétion ?
+        <strong style="color:rgba(255,255,255,.85);">HayaFlash est fait pour vous.</strong>
+      </p>
+
+      <!-- 3 étapes express -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(9rem,1fr)); gap:1rem; margin-bottom:2rem;">
+
+        <div class="card-dark" da style="text-align:center; padding:1.25rem 1rem;">
+          <div style="font-size:1.75rem; margin-bottom:.5rem;">📲</div>
+          <p class="T" style="color:#fff; font-size:.85rem; margin:0;">Créez votre compte<br><span style="color:rgba(255,255,255,.4); font-weight:400; font-size:.78rem;">en 2 minutes</span></p>
+        </div>
+
+        <div class="card-dark" da style="text-align:center; padding:1.25rem 1rem;">
+          <div style="font-size:1.75rem; margin-bottom:.5rem;">⚡</div>
+          <p class="T" style="color:#fff; font-size:.85rem; margin:0;">Lancez une vente flash<br><span style="color:rgba(255,255,255,.4); font-weight:400; font-size:.78rem;">Haya prend les commandes</span></p>
+        </div>
+
+        <div class="card-dark" da style="text-align:center; padding:1.25rem 1rem;">
+          <div style="font-size:1.75rem; margin-bottom:.5rem;">🏍️</div>
+          <p class="T" style="color:#fff; font-size:.85rem; margin:0;">Votre livreur livre<br><span style="color:rgba(255,255,255,.4); font-weight:400; font-size:.78rem;">vous n'avez qu'à encaisser</span></p>
+        </div>
+
+      </div>
+
+      <!-- Punchline -->
+      <div style="background:rgba(91,46,255,.12); border:1px solid rgba(91,46,255,.28);
+                  border-radius:1rem; padding:1rem 1.5rem; margin-bottom:2rem;">
+        <p style="color:#fff; font-size:.95rem; line-height:1.65; margin:0;">
+          Vos clients commandent sur une page dédiée.
+          Votre moto-taximan assure la livraison.
+          <strong style="color:#F9F871;">Vous, vous encaissez.</strong>
+          C'est tout.
+        </p>
+      </div>
+
+      <a href="{% url 'register' %}" class="btn btn-flash" style="padding:1rem 2.25rem; font-size:1rem;">
+        <i data-lucide="zap" style="width:1.1rem;height:1.1rem;"></i>
+        Créer mon compte gratuitement →
+      </a>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════
      TÉMOIGNAGES
 ════════════════════════════════ -->
 <section style="background:#FAFAFA; padding:4.5rem 1rem;">
