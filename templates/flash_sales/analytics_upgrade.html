@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Statistiques avancées — HayaFlash{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto px-4 py-16 text-center">
+    <i data-lucide="bar-chart-2" class="w-12 h-12 text-gray-300 mx-auto mb-4"></i>
+    <h1 class="text-xl font-bold text-gray-900 mb-2">Statistiques avancées</h1>
+    <p class="text-gray-500 mb-6 text-sm">
+        Accédez au reporting complet avec les plans MEDIUM ou PRO.
+    </p>
+    <a href="{% url 'subscriptions:subscription' %}"
+       class="inline-block px-6 py-3 bg-primary text-white font-bold
+              rounded-xl hover:bg-red-700 transition-colors">
+        Voir les offres
+    </a>
+</div>
+{% endblock %}

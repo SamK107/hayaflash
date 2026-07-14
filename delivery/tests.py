@@ -92,6 +92,25 @@ class CreateOrderDeliveryIntegrationTests(DeliveryTestFixture):
         resp = self.api.post("/api/v1/orders/", body, format="json")
         self.assertEqual(resp.status_code, 400)
 
+    def test_create_order_accepts_voice_note_without_written_address(self) -> None:
+        """Illiterate customers can rely on the voice note alone."""
+        body = self._order_body(
+            delivery={
+                "address_text": "",
+                "geo_method": "manual",
+                "audio_base64": "QUJDRA==",
+            },
+        )
+        resp = self.api.post("/api/v1/orders/", body, format="json")
+        self.assertEqual(resp.status_code, 201, resp.content)
+
+    def test_create_order_rejects_missing_address_and_voice_note(self) -> None:
+        body = self._order_body(
+            delivery={"address_text": "", "geo_method": "manual"},
+        )
+        resp = self.api.post("/api/v1/orders/", body, format="json")
+        self.assertEqual(resp.status_code, 400)
+
     def test_create_order_validates_coordinates(self) -> None:
         body = self._order_body(
             delivery={

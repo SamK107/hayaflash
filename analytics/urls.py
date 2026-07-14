@@ -8,5 +8,6 @@ urlpatterns = [
     path(
         "f/<slug:slug>/interest/", views.flash_sale_interest, name="flash_sale_interest"
     ),
+    path("f/<slug:slug>/qrcode/", views.flash_sale_qr_view, name="flash_sale_qrcode"),
     path("track/wa/", views.track_whatsapp_share, name="track_whatsapp_share"),
 ]

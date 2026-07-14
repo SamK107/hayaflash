@@ -47,6 +47,13 @@ class Delivery(models.Model):
         default=GeoMethod.MANUAL,
     )
     delivery_notes = models.TextField(blank=True)
+    audio_note = models.FileField(
+        upload_to="delivery/audio/%Y/%m/%d/",
+        null=True,
+        blank=True,
+        verbose_name="Note vocale client",
+        help_text="Enregistrement audio de la localisation du client (WebM/OGG)",
+    )
 
     status = models.CharField(
         max_length=30,

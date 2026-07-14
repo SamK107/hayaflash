@@ -3,6 +3,7 @@ from __future__ import annotations
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import redirect, render
 
 from accounts.models import SellerProfile
@@ -171,3 +172,64 @@ def seller_home_view(request):
             "total_orders": total_orders,
         },
     )
+
+
+@staff_member_required
+def platform_admin_dashboard(request):
+    """Tableau de bord de pilotage HayaFlash (staff only, compte unique proprietaire)."""
+    import json
+    from datetime import timedelta
+
+    from django.db.models import Count, Sum
+    from django.utils import timezone
+
+    from flash_sales.models import FlashSale, FlashSaleStatus
+    from orders.models import Order
+    from subscriptions.models import PaymentStatus, Subscription, SubscriptionPayment
+    from subscriptions.services.platform_reporting import (
+        get_orange_remittance_summary,
+        get_subscribed_sellers,
+        get_subscription_revenue_timeline_monthly,
+        get_subscription_revenue_ytd,
+    )
+
+    now = timezone.now()
+    month_start = now - timedelta(days=30)
+
+    context = {
+        "total_sellers": SellerProfile.objects.filter(is_active=True).count(),
+        "subs_by_plan": (
+            Subscription.objects.values("plan")
+            .annotate(count=Count("id"))
+            .order_by("plan")
+        ),
+        "live_sales": FlashSale.objects.filter(status=FlashSaleStatus.LIVE).count(),
+        "total_orders_month": Order.service_objects.filter(
+            created_at__gte=month_start
+        ).count(),
+        "mrr": (
+            SubscriptionPayment.objects.filter(
+                status=PaymentStatus.SUCCESS,
+                paid_at__gte=month_start,
+            ).aggregate(total=Sum("amount"))["total"]
+            or 0
+        ),
+        "total_revenue": (
+            SubscriptionPayment.objects.filter(
+                status=PaymentStatus.SUCCESS,
+            ).aggregate(total=Sum("amount"))["total"]
+            or 0
+        ),
+        "revenue_ytd": get_subscription_revenue_ytd(),
+        "revenue_timeline_json": json.dumps(
+            get_subscription_revenue_timeline_monthly()
+        ),
+        "orange": get_orange_remittance_summary(),
+        "subscribed_sellers": get_subscribed_sellers(),
+        "recent_payments": (
+            SubscriptionPayment.objects.select_related("seller__user").order_by(
+                "-created_at"
+            )[:20]
+        ),
+    }
+    return render(request, "core/platform_admin.html", context)

@@ -6,6 +6,7 @@ app_name = "flash_sales"
 urlpatterns = [
     path("", views.flash_sale_list_view, name="list"),
     path("create/", views.flash_sale_create_view, name="create"),
+    path("analytics/", views.seller_analytics_view, name="analytics"),
     path("<int:pk>/", views.flash_sale_detail_view, name="detail"),
     path("<int:pk>/edit/", views.flash_sale_edit_view, name="edit"),
     path("<int:pk>/open/", views.flash_sale_open_view, name="open"),
@@ -14,6 +15,11 @@ urlpatterns = [
     path("<int:pk>/clone/", views.flash_sale_clone_view, name="clone"),
     # Réservations d'intérêt
     path("interests/", views.sale_interests_view, name="interests"),
+    path(
+        "<int:pk>/interests/",
+        views.flash_sale_interests_detail_view,
+        name="interests_detail",
+    ),
     path(
         "<int:pk>/interests/reset/",
         views.sale_interests_reset_view,

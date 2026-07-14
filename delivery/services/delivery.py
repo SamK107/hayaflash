@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import base64
+import binascii
 import logging
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import DecimalField, F, Q, Sum, Value
 from django.db.models.functions import Coalesce
@@ -30,6 +33,25 @@ def compute_order_total(order: Order) -> Decimal:
     return agg["total"] or Decimal("0.00")
 
 
+def _attach_audio_note(delivery: Delivery, audio_base64: str, order_id: int) -> None:
+    """
+    Best-effort: decode and attach the client's voice note. A malformed or
+    corrupt recording must never block order/delivery creation.
+    """
+    try:
+        raw = base64.b64decode(audio_base64, validate=True)
+    except (binascii.Error, ValueError):
+        logger.warning("delivery_audio_note_decode_failed order_id=%s", order_id)
+        return
+    if not raw:
+        return
+    delivery.audio_note.save(
+        f"order_{order_id}_localisation.webm",
+        ContentFile(raw),
+        save=True,
+    )
+
+
 def create_delivery_for_order(
     *, order: Order, delivery_data: dict[str, Any]
 ) -> Delivery:
@@ -41,10 +63,11 @@ def create_delivery_for_order(
     if existing is not None:
         return existing
 
+    audio_base64 = delivery_data.get("audio_base64")
     cleaned = validate_delivery_input(delivery_data)
     cod_amount = compute_order_total(order)
 
-    return Delivery.objects.create(
+    delivery = Delivery.objects.create(
         order=order,
         address_text=cleaned["address_text"],
         latitude=cleaned["latitude"],
@@ -55,6 +78,11 @@ def create_delivery_for_order(
         status=Delivery.Status.PENDING,
         cod_amount=cod_amount,
     )
+
+    if audio_base64:
+        _attach_audio_note(delivery, audio_base64, order.pk)
+
+    return delivery
 
 
 def delivery_public_snapshot(delivery: Delivery) -> dict[str, Any]:

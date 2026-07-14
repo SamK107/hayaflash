@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load hf_filters %}
 {% block title %}{{ flash_sale.title }} — HayaFlash{% endblock %}
 {% block meta_description %}{{ flash_sale.description|default:flash_sale.title|truncatewords:20 }}{% endblock %}
 {% block extra_head %}
@@ -340,11 +341,11 @@
           </div>
           <div class="flex items-end justify-between mt-3 gap-2">
             <div>
-              <span class="text-2xl font-black text-primary">{{ p.price|floatformat:"0g" }}</span>
+              <span class="text-2xl font-black text-primary">{{ p.price|thousands }}</span>
               <span class="text-sm font-semibold text-gray-500 ml-1">FCFA</span>
             </div>
             {% if p.stock_available is not None %}
-            <div class="text-right">
+            <div class="text-right" id="stock-badge-{{ p.pk }}">
               {% if p.stock_available == 0 %}<span class="text-sm font-bold text-gray-400">Epuise</span>
               {% elif p.stock_available <= 5 %}<span class="text-sm font-bold text-red-500">Plus que {{ p.stock_available }} !</span>
               {% else %}<span class="text-sm text-gray-400">{{ p.stock_available }} restant(s)</span>{% endif %}
@@ -353,17 +354,17 @@
           </div>
           {% if p.stock_initial and p.stock_initial > 0 and p.stock_available is not None %}
           <div class="mt-2 bg-gray-100 rounded-full h-1.5 overflow-hidden">
-            <div class="stock-bar-fill h-full rounded-full {% if p.stock_available == 0 %}bg-gray-300{% elif p.stock_available <= 5 %}bg-red-400{% else %}bg-green-400{% endif %}"
+            <div id="stock-bar-fill-{{ p.pk }}" class="stock-bar-fill h-full rounded-full {% if p.stock_available == 0 %}bg-gray-300{% elif p.stock_available <= 5 %}bg-red-400{% else %}bg-green-400{% endif %}"
                  style="width:{% widthratio p.stock_available p.stock_initial 100 %}%"></div>
           </div>
           {% endif %}
-          <div class="mt-4">
+          <div class="mt-4" id="order-cta-{{ p.pk }}">
             {% if is_live and p.stock_available > 0 %}
-            <button @click="openOrder({{ p.pk }},'{{ p.name|escapejs }}',{{ p.price|floatformat:0 }},{{ p.stock_available|default:99 }},'{{ row.order_url }}')"
+            <button @click="openOrder({{ p.pk }},'{{ p.name|escapejs }}',{{ p.price|floatformat:0 }},{{ p.stock_available|default:99 }},'{{ row.order_url }}',{{ p.stock_initial|default:0 }})"
                     class="flex items-center justify-center gap-2 w-full bg-primary text-white
                            py-3.5 rounded-xl font-bold text-sm hover:bg-red-700 active:scale-[.98] transition-all shadow-sm">
               <i data-lucide="shopping-bag" class="w-4 h-4"></i>
-              Commander · {{ p.price|floatformat:"0g" }} FCFA
+              Commander · {{ p.price|thousands }} FCFA
             </button>
             {% elif is_live %}<div class="w-full bg-gray-100 text-gray-400 py-3.5 rounded-xl font-bold text-sm text-center">Epuise</div>
             {% else %}
@@ -457,21 +458,77 @@
         </div>
         <div>
           <label class="block text-sm font-semibold text-gray-700 mb-1.5">
-            Adresse de livraison <span class="text-red-500">*</span>
+            Adresse de livraison
+            <span class="text-gray-400 font-normal text-xs">(ou message vocal ci-dessous)</span>
           </label>
-          <div class="relative">
-            <textarea x-model="address" rows="2"
-                      placeholder="Quartier, rue, point de repere…"
-                      class="w-full px-4 py-3 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none pr-12"></textarea>
-            <button type="button" @click="startVoiceAddress()"
-                    :class="voiceActive ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-gray-100 text-gray-500'"
-                    class="absolute right-2 top-2 p-2 rounded-lg transition-colors" title="Dicter votre adresse">
-              <i data-lucide="mic" class="w-4 h-4"></i>
+          <textarea x-model="address" rows="2"
+                    placeholder="Quartier, rue, point de repere…"
+                    class="w-full px-4 py-3 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"></textarea>
+          <p x-show="!audioUrl" class="text-xs text-gray-400 mt-1">
+            Obligatoire, sauf si vous enregistrez un message vocal ci-dessous.
+          </p>
+          <p x-show="audioUrl" x-cloak class="text-xs text-green-600 mt-1 flex items-center gap-1">
+            <i data-lucide="check-circle" class="w-3 h-3"></i>Message vocal enregistre — l'adresse ecrite est optionnelle.
+          </p>
+
+          <button type="button" @click="requestGeoPosition()" :disabled="geoStatus === 'loading'"
+                  x-show="geoStatus !== 'success'"
+                  class="mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5
+                         bg-blue-50 text-blue-600 rounded-xl text-sm font-medium hover:bg-blue-100
+                         transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+            <i data-lucide="map-pin" class="w-4 h-4" x-show="geoStatus !== 'loading'"></i>
+            <span x-show="geoStatus !== 'loading'">Envoyer ma position</span>
+            <span x-show="geoStatus === 'loading'">Localisation en cours…</span>
+          </button>
+          <div x-show="geoStatus === 'success'" x-cloak
+               class="mt-2 flex items-center gap-2 px-4 py-2.5 bg-green-50 text-green-700 rounded-xl text-sm font-medium">
+            <i data-lucide="check-circle" class="w-4 h-4 shrink-0"></i>
+            <span>Position envoyee <span class="font-normal text-green-600" x-text="geoAccuracy ? '(precision ~' + geoAccuracy + ' m)' : ''"></span></span>
+          </div>
+          <p x-show="geoStatus === 'denied'" x-cloak class="text-xs text-amber-600 mt-1">
+            Localisation refusee — votre adresse ecrite suffit pour la livraison.
+          </p>
+          <p x-show="geoStatus === 'timeout' || geoStatus === 'error'" x-cloak class="text-xs text-amber-600 mt-1">
+            Localisation indisponible — votre adresse ecrite suffit pour la livraison.
+          </p>
+          <p x-show="geoStatus === 'unavailable'" x-cloak class="text-xs text-gray-400 mt-1">
+            Geolocalisation non supportee par ce navigateur.
+          </p>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1.5">
+            Adresse vocale et autres info
+            <span class="text-gray-400 font-normal text-xs">(si vous ne pouvez pas ecrire, ce message suffit)</span>
+          </label>
+          <p x-show="address.trim().length >= 10 && !audioUrl" x-cloak class="text-xs text-green-600 mb-2 flex items-center gap-1">
+            <i data-lucide="check-circle" class="w-3 h-3"></i>Adresse deja indiquee — ce message est optionnel.
+          </p>
+          <button type="button"
+                  x-show="!isRecording && !audioUrl"
+                  @click="startRecording()"
+                  class="w-full inline-flex items-center justify-center gap-2 px-4 py-3
+                         bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors">
+            <i data-lucide="mic" class="w-4 h-4"></i>
+            Enregistrer un message pour le vendeur
+          </button>
+          <div x-show="isRecording" x-cloak
+               class="flex items-center gap-3 p-3 bg-red-50 rounded-xl">
+            <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
+            <span class="text-sm text-red-600 flex-1">Enregistrement en cours…</span>
+            <button type="button" @click="stopRecording()"
+                    class="text-xs font-bold text-red-600 border border-red-300
+                           rounded-lg px-3 py-1">
+              Arrêter
             </button>
           </div>
-          <p class="text-xs text-gray-400 mt-1 flex items-center gap-1">
-            <i data-lucide="mic" class="w-3 h-3"></i>Appuyez sur le micro pour dicter votre adresse
-          </p>
+          <div x-show="audioUrl" x-cloak class="p-3 bg-green-50 rounded-xl">
+            <p class="text-xs text-gray-500 mb-2">🎤 Votre message vocal :</p>
+            <audio controls :src="audioUrl" class="w-full h-8"></audio>
+            <button type="button" @click="clearAudio()"
+                    class="mt-2 text-xs text-red-500 hover:underline">
+              Supprimer
+            </button>
+          </div>
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-600 mb-1.5">Note au vendeur <span class="text-gray-400">(optionnel)</span></label>
@@ -713,36 +770,118 @@ function _hfNotifConfirmed() {
   btn.disabled = true;
 }
 
+/* ── Met a jour le stock affiche pour un produit, sans recharger la page ── */
+function updateProductStockAfterOrder(productId, newStock, stockInitial) {
+  newStock = Math.max(0, newStock);
+
+  const badge = document.getElementById('stock-badge-' + productId);
+  if (badge) {
+    if (newStock <= 0) {
+      badge.innerHTML = '<span class="text-sm font-bold text-gray-400">Epuise</span>';
+    } else if (newStock <= 5) {
+      badge.innerHTML = '<span class="text-sm font-bold text-red-500">Plus que ' + newStock + ' !</span>';
+    } else {
+      badge.innerHTML = '<span class="text-sm text-gray-400">' + newStock + ' restant(s)</span>';
+    }
+  }
+
+  const fill = document.getElementById('stock-bar-fill-' + productId);
+  if (fill && stockInitial > 0) {
+    const pct = Math.max(0, Math.round((newStock / stockInitial) * 100));
+    fill.style.width = pct + '%';
+    fill.classList.remove('bg-gray-300', 'bg-red-400', 'bg-green-400');
+    fill.classList.add(newStock <= 0 ? 'bg-gray-300' : (newStock <= 5 ? 'bg-red-400' : 'bg-green-400'));
+  }
+
+  if (newStock <= 0) {
+    const cta = document.getElementById('order-cta-' + productId);
+    if (cta) {
+      cta.innerHTML = '<div class="w-full bg-gray-100 text-gray-400 py-3.5 rounded-xl font-bold text-sm text-center">Epuise</div>';
+    }
+  }
+}
+
 /* ── ALPINE : drawer commande (page live) ── */
 function orderDrawer(saleId) {
   return {
     drawerOpen: false, orderSuccess: false, orderError: '', submitting: false,
     productId: null, productName: '', productPriceNum: 0, productPrice: '0',
-    maxQty: 99, orderUrl: '', qty: 1,
+    maxQty: 99, stockInitial: 0, orderUrl: '', qty: 1,
     customerName: '', customerPhone: '', address: '', note: '',
-    voiceActive: false, submittedPhone: '',
-    openOrder(pid, name, price, stock, orderUrl) {
+    submittedPhone: '',
+    geoStatus: 'idle', geoMethod: 'manual', latitude: null, longitude: null, geoAccuracy: null,
+    isRecording: false, audioUrl: null, audioBase64: null,
+    mediaRecorder: null, audioChunks: [],
+    openOrder(pid, name, price, stock, orderUrl, stockInitial) {
       this.productId = pid; this.productName = name;
       this.productPriceNum = price;
       this.productPrice = Number(price).toLocaleString('fr-FR');
-      this.maxQty = stock; this.orderUrl = orderUrl;
+      this.maxQty = stock; this.stockInitial = stockInitial || stock; this.orderUrl = orderUrl;
       this.qty = 1; this.orderError = ''; this.orderSuccess = false;
       this.drawerOpen = true; lucide.createIcons();
     },
-    startVoiceAddress() {
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SR) { alert("Votre navigateur ne supporte pas la reconnaissance vocale."); return; }
-      const rec = new SR();
-      rec.lang = 'fr-FR'; rec.interimResults = false; rec.maxAlternatives = 1;
-      this.voiceActive = true; rec.start();
-      rec.onresult = (e) => { this.address = (this.address ? this.address + ' ' : '') + e.results[0][0].transcript; this.voiceActive = false; };
-      rec.onerror = () => { this.voiceActive = false; };
-      rec.onend   = () => { this.voiceActive = false; };
+    requestGeoPosition() {
+      if (!navigator.geolocation) {
+        this.geoStatus = 'unavailable';
+        return;
+      }
+      this.geoStatus = 'loading';
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          this.latitude = pos.coords.latitude;
+          this.longitude = pos.coords.longitude;
+          this.geoAccuracy = Math.round(pos.coords.accuracy);
+          this.geoMethod = 'gps';
+          this.geoStatus = 'success';
+        },
+        (err) => {
+          this.latitude = null; this.longitude = null; this.geoAccuracy = null;
+          if (err.code === err.TIMEOUT) { this.geoMethod = 'timeout'; this.geoStatus = 'timeout'; }
+          else if (err.code === err.PERMISSION_DENIED) { this.geoMethod = 'denied'; this.geoStatus = 'denied'; }
+          else { this.geoMethod = 'manual'; this.geoStatus = 'error'; }
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    },
+    startRecording() {
+      if (!navigator.mediaDevices) {
+        alert("Enregistrement audio non disponible sur ce navigateur.");
+        return;
+      }
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          this.audioChunks = [];
+          this.mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+          this.mediaRecorder.ondataavailable = e => this.audioChunks.push(e.data);
+          this.mediaRecorder.onstop = () => {
+            const blob = new Blob(this.audioChunks, { type: 'audio/webm' });
+            this.audioUrl = URL.createObjectURL(blob);
+            const reader = new FileReader();
+            reader.onloadend = () => { this.audioBase64 = reader.result.split(',')[1]; };
+            reader.readAsDataURL(blob);
+            stream.getTracks().forEach(t => t.stop());
+          };
+          this.mediaRecorder.start();
+          this.isRecording = true;
+        })
+        .catch(() => alert("Microphone inaccessible."));
+    },
+    stopRecording() {
+      this.mediaRecorder?.stop();
+      this.isRecording = false;
+    },
+    clearAudio() {
+      this.audioUrl = null;
+      this.audioBase64 = null;
+      this.audioChunks = [];
     },
     async submitOrder() {
       this.orderError = '';
       if (!this.customerPhone.trim()) { this.orderError = 'Le numero de telephone est obligatoire.'; return; }
-      if (!this.address.trim()) { this.orderError = "L'adresse de livraison est obligatoire."; return; }
+      if (!this.address.trim() && !this.audioBase64) {
+        this.orderError = "Indiquez votre adresse (par ecrit ou en message vocal).";
+        return;
+      }
       this.submitting = true;
       const reqId = 'hf-' + Date.now() + '-' + Math.random().toString(36).slice(2);
       const csrfToken = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
@@ -757,11 +896,23 @@ function orderDrawer(saleId) {
             phone: this.customerPhone.trim(),
             quantity: this.qty,
             client_request_id: reqId,
-            delivery: { address_text: this.address.trim(), delivery_notes: this.note.trim(), geo_method: 'manual' }
+            delivery: {
+              address_text: this.address.trim(),
+              delivery_notes: this.note.trim(),
+              geo_method: this.geoMethod,
+              latitude: this.latitude,
+              longitude: this.longitude,
+              geo_accuracy: this.geoAccuracy,
+              audio_base64: this.audioBase64
+            }
           })
         });
         const data = await res.json();
-        if (res.ok) { this.submittedPhone = this.customerPhone.trim(); this.orderSuccess = true; }
+        if (res.ok) {
+          this.submittedPhone = this.customerPhone.trim();
+          this.orderSuccess = true;
+          updateProductStockAfterOrder(this.productId, this.maxQty - this.qty, this.stockInitial);
+        }
         else { this.orderError = Object.values(data).flat()[0] || 'Une erreur est survenue.'; }
       } catch(e) {
         this.orderError = 'Connexion impossible. Verifiez votre reseau.';

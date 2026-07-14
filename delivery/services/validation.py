@@ -43,19 +43,33 @@ def validate_delivery_input(data: dict[str, Any]) -> dict[str, Any]:
     """
     Normalize and validate delivery payload for order creation.
     Returns cleaned dict ready for Delivery model fields.
+
+    Written address and voice note are interchangeable: many customers can't
+    write, so at least one of the two must be present, but neither is
+    individually mandatory once the other is. A short/empty address_text is
+    only rejected when there is no voice note to fall back on.
     """
     if not isinstance(data, dict):
         raise ValidationError({"delivery": "Must be a JSON object."})
 
     raw_address = data.get("address_text")
-    if not isinstance(raw_address, str):
-        raise ValidationError({"address_text": "This field is required."})
-    address_text = raw_address.strip()
-    if len(address_text) < MIN_ADDRESS_LENGTH:
+    address_text = raw_address.strip() if isinstance(raw_address, str) else ""
+    has_audio = bool(data.get("audio_base64"))
+
+    if not address_text and not has_audio:
+        raise ValidationError(
+            {
+                "delivery": (
+                    "Provide a written address or record a voice note."
+                )
+            }
+        )
+    if address_text and not has_audio and len(address_text) < MIN_ADDRESS_LENGTH:
         raise ValidationError(
             {
                 "address_text": (
-                    f"Address must be at least {MIN_ADDRESS_LENGTH} characters."
+                    f"Address must be at least {MIN_ADDRESS_LENGTH} characters "
+                    "(or record a voice note instead)."
                 )
             }
         )
