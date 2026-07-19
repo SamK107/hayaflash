@@ -34,8 +34,9 @@ BG        #F5F5F5
 | P4 | Design Moderne (Tailwind) | ✅ Terminé |
 | P5 | Notifications + Subscriptions | ✅ Terminé |
 | P6 | CI/CD + Production Hardening | ✅ Terminé |
+| P7 | Pro Features & Admin Plateforme | 🚧 En cours |
 
-> Toutes les phases sont complètes. Les prochaines priorités sont dans `docs/CODEBASE_STATUS.md` (section "Ce qui n'existe PAS").
+> P0→P6 complètes. P7 en cours — voir `docs/PHASE7_WORKFLOW.md` et `docs/CODEBASE_STATUS.md`.
 
 ---
 

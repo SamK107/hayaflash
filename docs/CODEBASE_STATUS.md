@@ -102,7 +102,22 @@ hayaflash/
 
 ---
 
-## Ce qui n'existe PAS (lacunes identifiées — juillet 2026)
+## Phase 7 — En cours (juillet 2026)
+
+Workflow détaillé : `docs/PHASE7_WORKFLOW.md`
+
+| Fonctionnalité | Statut |
+|---|---|
+| QR Code partage vente (`analytics/services/qrcode.py`) | 🚧 À faire |
+| `Delivery.audio_note` (migration + form + dashboard) | 🚧 À faire |
+| Vue intérêts par vente `<pk>/interests/` | 🚧 À faire |
+| `analytics/services/reporting.py` + vue analytics MEDIUM/PRO | 🚧 À faire |
+| Admin plateforme `/platform-admin/` (staff only) | 🚧 À faire |
+| `SubscriptionPayment` dans l'admin Django | 🚧 À faire |
+
+---
+
+## Ce qui n'existe PAS (lacunes résiduelles)
 
 ### 1. Admin plateforme custom
 Seul `django.contrib.admin` standard est exposé (`/admin/`). Il n'existe pas de vue custom dédiée à la gestion plateforme (abonnements, paiements, vendeurs).

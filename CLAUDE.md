@@ -68,7 +68,11 @@ docker-compose up
 
 | URL | Description |
 |-----|-------------|
-| `/admin/` | Django admin (seule interface admin existante) |
+| `/admin/` | Django admin standard |
+| `/platform-admin/` | Dashboard admin plateforme custom (staff only) |
+| `/seller/flash-sales/analytics/` | Reporting MEDIUM/PRO (Chart.js) |
+| `/seller/flash-sales/<pk>/interests/` | Réservations par vente individuelle |
+| `/f/<slug>/qrcode/` | Génération QR Code (JSON, auth vendeur) |
 | `/seller/` | Dashboard vendeur (authentifié) |
 | `/seller/flash-sales/` | CRUD ventes flash |
 | `/orders/dashboard/` | Dashboard LIVE commandes |
@@ -94,13 +98,16 @@ docker-compose up
 
 ## Points clés à connaître
 
-1. **Vocal client** = `SpeechRecognition` navigateur côté client uniquement → transcription texte dans `Delivery.address_text`. Aucun audio stocké en base côté client.
+1. **Vocal client** = `SpeechRecognition` navigateur (transcription texte → `Delivery.address_text`) + `Delivery.audio_note` (FileField WebM, ajouté en P7). Deux modes coexistent.
 2. **Audio vendeur** = `FlashSale.description_audio` et `Product.description_audio` (FileField WebM/OGG), enregistré par le vendeur, lu par les clients.
-3. **Partage** = WhatsApp uniquement (`wa.me` + `api.whatsapp.com`). Pas de QR code, pas de Web Share API.
-4. **Admin plateforme** = uniquement `django.contrib.admin`. Pas de vue custom plateforme.
-5. **`SubscriptionPayment`** n'est pas enregistré dans l'admin Django.
-6. **Plans MEDIUM et FREE** ont la même limite de 3 ventes/mois (`PLAN_MONTHLY_SALES_LIMIT`). Seul PRO est illimité.
-7. **Stats avancées MEDIUM/PRO** déclarées dans `PLAN_FEATURES` mais l'UI dashboard est identique pour tous les plans actuellement.
+3. **GPS livraison** = déjà implémenté : `Delivery.latitude/longitude/geo_accuracy/geo_method`. Liens Google Maps + Waze via `get_maps_url()` / `get_waze_url()`.
+4. **Partage** = WhatsApp (`wa.me` + `api.whatsapp.com`) + QR Code (P7, `analytics/services/qrcode.py`) + Web Share API sur pages publiques.
+5. **Admin plateforme** = `django.contrib.admin` + vue custom `/platform-admin/` (staff only, ajoutée en P7 dans `core/views.py`).
+6. **`SubscriptionPayment`** enregistré dans l'admin Django depuis P7.
+7. **Plans MEDIUM et FREE** ont la même limite de 3 ventes/mois (`PLAN_MONTHLY_SALES_LIMIT`). Seul PRO est illimité.
+8. **Analytics** = P7 ajoute `/seller/flash-sales/analytics/` — MEDIUM : 30 jours, PRO : annuel + par vente. Service dans `analytics/services/reporting.py`.
+9. **`request.user.seller_profile`** (avec underscore) — `related_name="seller_profile"` sur `SellerProfile`.
+10. **`PaymentStatus`** choices : `pending / success / failed / cancelled / expired` (PAS `completed`).
 
 ---
 
@@ -113,7 +120,8 @@ docker-compose up
 | `docs/PROJECT_SPEC.md` | Intention produit V1 |
 | `docs/ARCHITECTURE.md` | Décisions d'architecture |
 | `docs/API_CONTRACT.md` | Contrat API REST |
-| `docs/workflows/WORKFLOW_Px_*.md` | Workflows exécutables par phase |
+| `docs/workflows/WORKFLOW_Px_*.md` | Workflows exécutables P0→P6 |
+| `docs/PHASE7_WORKFLOW.md` | Workflow Phase 7 (Pro Features & Admin) |
 
 ---
 
@@ -128,5 +136,6 @@ docker-compose up
 | P4 | Design Moderne Tailwind | ✅ Terminé |
 | P5 | Notifications + Subscriptions | ✅ Terminé |
 | P6 | CI/CD + Production Hardening | ✅ Terminé |
+| P7 | Pro Features & Admin Plateforme | 🚧 En cours |
 
 → Détail et prochaines priorités : `docs/CODEBASE_STATUS.md`

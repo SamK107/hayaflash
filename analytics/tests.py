@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import base64
+import json
 from datetime import timedelta
 from decimal import Decimal
+from unittest.mock import patch
 from urllib.parse import unquote
 from uuid import uuid4
 
+import qrcode as qrcode_lib
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import Client, TestCase
@@ -20,12 +24,15 @@ from analytics.services.cache import (
     get_page_version,
     seller_stats_key,
 )
+from analytics.services.qrcode import generate_flash_sale_qr_b64
 from analytics.services.share_links import (
     build_order_share_urls,
     build_whatsapp_message,
     build_whatsapp_share_url,
     build_whatsapp_urls,
+    flash_sale_public_path,
     get_or_create_product_share_link,
+    get_public_base_url,
     validate_whatsapp_redirect_target,
 )
 from analytics.services.view_tracking import resolve_share_link_by_token
@@ -37,6 +44,8 @@ from orders.services.create_order import create_order
 from products.models import Product
 
 User = get_user_model()
+
+PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
 
 class ViralGrowthFixture(TestCase):
@@ -311,3 +320,91 @@ class CacheInvalidationTests(ViralGrowthFixture):
         etag = first["ETag"].strip('"')
         second = self.client.get(url, HTTP_IF_NONE_MATCH=etag)
         self.assertEqual(second.status_code, 304)
+
+
+def _capture_qr_payload():
+    """Patch qrcode.QRCode.add_data to record the encoded string while still
+    delegating to the real implementation, so the generated PNG stays valid."""
+    captured: dict[str, str] = {}
+    original_add_data = qrcode_lib.QRCode.add_data
+
+    def fake_add_data(self, data, *args, **kwargs):
+        captured["data"] = data
+        return original_add_data(self, data, *args, **kwargs)
+
+    return captured, patch.object(qrcode_lib.QRCode, "add_data", fake_add_data)
+
+
+class QrCodeServiceTests(ViralGrowthFixture):
+    def test_generates_valid_base64_png(self) -> None:
+        qr_b64 = generate_flash_sale_qr_b64(self.sale)
+        raw = base64.b64decode(qr_b64)
+        self.assertTrue(raw.startswith(PNG_MAGIC))
+
+    def test_encodes_flash_sale_public_url(self) -> None:
+        captured, patcher = _capture_qr_payload()
+        with patcher:
+            generate_flash_sale_qr_b64(self.sale)
+
+        expected_path = flash_sale_public_path(self.sale.public_slug)
+        expected_url = f"{get_public_base_url(None)}{expected_path}"
+        self.assertEqual(captured["data"], expected_url)
+        self.assertIn(self.sale.public_slug, captured["data"])
+
+    def test_uses_absolute_url_from_request_when_no_configured_base(self) -> None:
+        request = self.client.get("/").wsgi_request
+        captured, patcher = _capture_qr_payload()
+        with patcher:
+            generate_flash_sale_qr_b64(self.sale, request)
+
+        self.assertTrue(captured["data"].startswith("http"))
+        self.assertIn(f"/f/{self.sale.public_slug}/", captured["data"])
+
+
+class QrCodeViewTests(ViralGrowthFixture):
+    def setUp(self) -> None:
+        super().setUp()
+        self.url = reverse("flash_sale_qrcode", kwargs={"slug": self.sale.public_slug})
+
+    def test_anonymous_is_redirected_to_login(self) -> None:
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("/login", resp["Location"])
+
+    def test_owner_gets_qr_json_payload(self) -> None:
+        self.client.force_login(self.seller_user)
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, 200)
+
+        data = json.loads(resp.content)
+        self.assertEqual(data["slug"], self.sale.public_slug)
+        raw = base64.b64decode(data["qr"])
+        self.assertTrue(raw.startswith(PNG_MAGIC))
+
+    def test_encodes_correct_flash_sale_and_seller_data(self) -> None:
+        self.client.force_login(self.seller_user)
+        captured, patcher = _capture_qr_payload()
+        with patcher:
+            resp = self.client.get(self.url)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn(self.sale.public_slug, captured["data"])
+
+    def test_other_seller_cannot_access_foreign_flash_sale_qr(self) -> None:
+        other_user = User.objects.create_user(
+            phone="+15550003333",
+            password="x",
+            display_name="Other Shop",
+        )
+        SellerProfile.objects.create(user=other_user, business_name="Other Boutique")
+
+        self.client.force_login(other_user)
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, 404)
+
+    def test_unknown_slug_returns_404(self) -> None:
+        self.client.force_login(self.seller_user)
+        resp = self.client.get(
+            reverse("flash_sale_qrcode", kwargs={"slug": "does-not-exist"})
+        )
+        self.assertEqual(resp.status_code, 404)

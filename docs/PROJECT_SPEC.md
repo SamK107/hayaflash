@@ -367,4 +367,12 @@ Quand une vente est `LIVE` :
 
 ---
 
+## ❓ Incertitudes (validation requise)
+
+**F3 "Sales Drawer"** (2026-07-18)
+- Status : Label externe, zéro spec interne, zéro code
+- Action : Confirmer avec product owner si c'est V1 ou backlog
+- Blocker : Gouvernance + estimation
+- Assigné à : [toi?] — cible réponse 2026-07-19
+
 ## 🔚 Fin du document
