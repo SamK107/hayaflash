@@ -40,16 +40,30 @@ def get_sale_quota(seller) -> dict:
         }
 
     # Compter les ventes du mois
-    from flash_sales.models import FlashSale
+    from flash_sales.models import FlashSale, FlashSaleStatus
 
     now = timezone.now()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    count = FlashSale.objects.filter(
-        owner=seller,
-        created_at__gte=month_start,
-    ).count()
+    # Une vente CANCELLED libere son slot de quota : le vendeur ne doit pas
+    # etre penalise pour une vente qu'il a explicitement annulee avant qu'elle
+    # ne se tienne (coherent avec la regle "3 ventes/jour" de FlashSaleForm,
+    # qui exclut deja CANCELLED de son propre comptage).
+    count = (
+        FlashSale.objects.filter(
+            owner=seller,
+            created_at__gte=month_start,
+        )
+        .exclude(status=FlashSaleStatus.CANCELLED)
+        .count()
+    )
 
-    limit = PLAN_MONTHLY_SALES_LIMIT.get(sub.plan, FREE_MONTHLY_SALES_LIMIT)
+    # Plan effectif pour le quota : si abonnement expire, vendeur retombe a
+    # plan FREE (3 ventes/mois) meme s'il avait PRO auparavant. Sans ceci,
+    # PLAN_MONTHLY_SALES_LIMIT["pro"] = None restait applique indefiniment
+    # (is_pro devient bien False a l'expiration, mais sub.plan reste "pro"
+    # tant que personne ne retrograde explicitement l'enregistrement).
+    effective_plan = Plan.FREE if sub.is_expired else sub.plan
+    limit = PLAN_MONTHLY_SALES_LIMIT.get(effective_plan, FREE_MONTHLY_SALES_LIMIT)
 
     if limit is not None and count >= limit:
         return {
