@@ -358,6 +358,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "flash_sales.auto_close_live_sales",
         "schedule": 60.0,
     },
+    "send-pending-sale-reminders": {
+        "task": "flash_sales.send_pending_sale_reminders",
+        "schedule": 300.0,
+    },
 }
 
 # ── Django REST Framework ─────────────────────────────────────────────────────
