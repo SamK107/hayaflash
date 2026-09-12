@@ -7,7 +7,8 @@ Domain routes will be added per app when implemented.
 from __future__ import annotations
 
 from django.urls import include, path
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.routers import DefaultRouter
 
@@ -18,7 +19,13 @@ router = DefaultRouter()
 
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def health(_request):
+    # Un healthcheck doit rester accessible anonymement : Docker HEALTHCHECK,
+    # Nginx (proxy interne) et infra/scripts/deploy.sh/smoke_test.sh l'appellent
+    # sans authentification. Sans cet override, DEFAULT_PERMISSION_CLASSES =
+    # IsAuthenticated (config/settings/base.py) le fait 403 systematiquement —
+    # aucun de ces appelants n'a de session/token.
     return Response({"status": "ok", "service": "HayaFlash"})
 
 

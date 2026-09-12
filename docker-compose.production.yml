@@ -2,6 +2,16 @@
 # Usage : docker compose -f docker-compose.production.yml up -d
 # Ne jamais utiliser en développement (pas de volume bind-mount src)
 
+# Nom de projet explicite (requiert Docker Compose >= 2.20, la syntaxe
+# `name:` top-level de la Compose Specification). Sans ça, docker compose
+# derive le nom du projet du nom du dossier courant — fragile si un autre
+# projet sur le meme VPS est lance depuis un dossier au nom similaire.
+# Garantit que le reseau par defaut (hayaflash_default), les volumes et
+# `docker compose down/up` restent scopes a ce projet uniquement, meme
+# sans passer `-p hayaflash` explicitement a chaque invocation (deploy.sh
+# le passe quand meme, en ceinture-bretelles).
+name: hayaflash
+
 x-django-env: &django-env
   DJANGO_SETTINGS_MODULE: config.settings.prod
   ENVIRONMENT: prod
@@ -25,6 +35,12 @@ x-django-base: &django-base
     options:
       max-size: "20m"
       max-file: "5"
+  # Limites memoire/CPU (compose "classique", pas Swarm — `deploy.resources`
+  # est ignore hors Swarm). A ajuster aux specs reelles du VPS et a ce qui
+  # tourne a cote (ex: services.symain) pour eviter qu'un pic hayaflash
+  # n'affame l'hote.
+  mem_limit: 512m
+  cpus: 1.0
 
 services:
   # ── Base de données ──────────────────────────────────────────────────────────
@@ -48,6 +64,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    mem_limit: 512m
+    cpus: 1.0
 
   # ── Cache / Broker ───────────────────────────────────────────────────────────
   redis:
@@ -61,6 +79,8 @@ services:
       timeout: 5s
       retries: 5
     restart: always
+    mem_limit: 320m
+    cpus: 0.5
 
   # ── Django Web (Gunicorn) ─────────────────────────────────────────────────────
   web:
@@ -99,6 +119,8 @@ services:
     depends_on:
       - web
     restart: always
+    mem_limit: 128m
+    cpus: 0.5
 
   # ── Celery Worker ─────────────────────────────────────────────────────────────
   worker:
