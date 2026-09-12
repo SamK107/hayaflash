@@ -8,42 +8,106 @@ concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  DJANGO_SETTINGS_MODULE: config.settings.test
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/hayaflash
+
 jobs:
-  deploy-staging:
-    name: Deploy → Staging
+  # ── Gate : suite complete + migrations a jour ────────────────────────────────
+  # Dupliquee depuis ci.yml (qui tourne sur toutes les branches/PR) : ici, elle
+  # tourne dans le MEME workflow que build/deploy pour garantir la dependance
+  # via `needs:` — impossible entre deux fichiers de workflow distincts sur
+  # GitHub Actions (pas de `needs:` inter-workflow sans passer par
+  # `workflow_run`, plus fragile et plus dur a debugger pour rien ici).
+  test:
+    name: Tests Django
     runs-on: ubuntu-latest
-    environment: staging
-    needs: []
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy via SSH
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - run: python manage.py check --settings=config.settings.test
+
+      - run: python manage.py makemigrations --check --dry-run --settings=config.settings.test
+
+      - run: |
+          pip install pytest-django pytest-cov
+          pytest --ds=config.settings.test --cov=. --cov-report=term-missing --cov-fail-under=60
+
+  # ── Build + push l'image taguee au SHA exact ─────────────────────────────────
+  build:
+    name: Build & push image
+    needs: [test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:staging-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── Deploy staging : tag exact du build, jamais "latest" ambigu ─────────────
+  deploy-staging:
+    name: Deploy → Staging
+    needs: [build]
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - name: Deploy pinned SHA via SSH
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.STAGING_HOST }}
           username: ${{ secrets.STAGING_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
+          envs: IMAGE_TAG
           script: |
             set -e
             cd /srv/hayaflash
             git pull origin main
-            docker compose -f docker-compose.production.yml pull
-            docker compose -f docker-compose.production.yml up -d --no-deps web worker beat
-            docker compose -f docker-compose.production.yml exec -T web python manage.py migrate --noinput
-            docker compose -f docker-compose.production.yml exec -T web python manage.py collectstatic --noinput
-            bash infra/scripts/smoke_test.sh http://localhost:8000
+            DOCKER_IMAGE="${{ env.IMAGE_NAME }}" HAYAFLASH_TAG="${{ github.sha }}" \
+              bash infra/scripts/deploy.sh http://localhost:8000
 
+  # ── Deploy prod : seulement si staging + son healthcheck sont passes ────────
   deploy-prod:
     name: Deploy → Production
+    needs: [deploy-staging]
     runs-on: ubuntu-latest
     environment: production
-    needs: [deploy-staging]
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Deploy via SSH
+      - name: Deploy pinned SHA via SSH
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.PROD_HOST }}
@@ -53,7 +117,5 @@ jobs:
             set -e
             cd /srv/hayaflash
             git pull origin main
-            docker compose -f docker-compose.production.yml up -d --no-deps web worker beat
-            docker compose -f docker-compose.production.yml exec -T web python manage.py migrate --noinput
-            docker compose -f docker-compose.production.yml exec -T web python manage.py collectstatic --noinput
-            bash infra/scripts/smoke_test.sh https://${{ secrets.PROD_DOMAIN }}
+            DOCKER_IMAGE="${{ env.IMAGE_NAME }}" HAYAFLASH_TAG="${{ github.sha }}" \
+              bash infra/scripts/deploy.sh https://${{ secrets.PROD_DOMAIN }}

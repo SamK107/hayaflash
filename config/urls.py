@@ -3,8 +3,15 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
+from config.api_urls import health
+
 urlpatterns = [
     path("admin/", admin.site.urls),
+    # Alias racine : Dockerfile HEALTHCHECK, docker-compose.production.yml et
+    # infra/nginx/prod.conf ciblent tous /health/ (pas /api/v1/health/).
+    # Sans cet alias, le healthcheck 404 silencieusement (jamais "unhealthy",
+    # juste faux — un `docker inspect` ne le detecte pas sans y regarder).
+    path("health/", health, name="health"),
     path("api/v1/", include("config.api_urls")),
     path("orders/", include("orders.urls")),
     path("seller/flash-sales/", include("flash_sales.urls")),
