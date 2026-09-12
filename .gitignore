@@ -12,6 +12,7 @@ db.sqlite3
 db_dev.sqlite3
 local.sqlite3
 media/
+media_test/
 staticfiles/
 
 # Environment variables
