@@ -367,4 +367,23 @@ Quand une vente est `LIVE` :
 
 ---
 
+## ❓ Incertitudes (validation requise)
+
+**F3 "Sales Drawer"** (2026-07-18, mise à jour 2026-09-09)
+- Status initial (07-18) : Label externe, zéro spec interne, zéro code
+- **Correction après audit direct du code (09-09)** : un composant "drawer" existe déjà dans
+  `templates/analytics/flash_sale_public.html` — un panneau Alpine.js (`orderDrawer`) qui
+  remonte du bas de l'écran (bottom-sheet) pour passer commande directement depuis la page
+  de vente (quantité, nom, téléphone), plus un second drawer pour le flux "M'alerter"
+  (`interest-drawer-w` / `interest-drawer-end`). Ce fichier date d'avant le 18-07 (même lot
+  que `CLAUDE.md`), donc il existait déjà quand la note "zéro code" a été écrite.
+- Deux lectures possibles : (a) F3 est déjà livré — c'est ce drawer de commande, et la note
+  du 18-07 n'avait pas vérifié le code ; (b) "Sales Drawer" désigne côté externe autre chose
+  qui porte le même nom par coïncidence.
+- Action : toujours à confirmer avec le product owner — mais maintenant en montrant le code
+  existant (`templates/analytics/flash_sale_public.html`, fonction `orderDrawer`) pour
+  vérifier si c'est bien ce qui était visé, plutôt que de partir de zéro.
+- Blocker : Gouvernance (clarification du terme, pas de développement bloquant a priori)
+- Assigné à : [toi?]
+
 ## 🔚 Fin du document
