@@ -159,6 +159,12 @@ class SaleInterest(models.Model):
     phone = models.CharField(max_length=32, verbose_name="Téléphone")
     name = models.CharField(max_length=150, blank=True, verbose_name="Nom")
     created_at = models.DateTimeField(auto_now_add=True)
+    reminded_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Rappel envoyé le",
+        help_text="Rempli automatiquement quand le rappel SMS a été envoyé.",
+    )
 
     class Meta:
         ordering = ["-created_at"]
