@@ -77,6 +77,21 @@
       Partager sur WhatsApp
     </a>
 
+    {# Web Share API natif (mobile) — complement au bouton WhatsApp ci-dessus, #}
+    {# ne le remplace pas (le lien WhatsApp reste trackable via ShareEvent). #}
+    <button type="button" x-data x-show="'share' in navigator" x-cloak
+            @click="navigator.share({
+              title: '{{ seller_name|escapejs }}',
+              text: '⚡ {{ seller_name|escapejs }} sur HayaFlash !',
+              url: window.location.href
+            }).catch(() => {})"
+            class="mt-2 flex items-center justify-center gap-2 w-full bg-gray-100 hover:bg-gray-200
+                   text-gray-700 font-bold py-4 rounded-xl transition-colors"
+    >
+      <i data-lucide="share-2" class="w-5 h-5"></i>
+      Partager
+    </button>
+
     <p class="text-center text-xs text-gray-400 py-2">Commande via <strong>HayaFlash</strong> &middot; Mali</p>
   </div>
 </div>

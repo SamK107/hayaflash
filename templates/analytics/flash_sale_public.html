@@ -169,6 +169,18 @@
                 text-white font-bold py-3 rounded-xl text-sm transition-colors">
         <i data-lucide="message-circle" class="w-4 h-4"></i>Partager cette vente
       </a>
+      {# Web Share API natif (mobile) — complement au bouton WhatsApp ci-dessus, #}
+      {# ne le remplace pas (le lien WhatsApp reste trackable via ShareEvent). #}
+      <button type="button" x-data x-show="'share' in navigator" x-cloak
+              @click="navigator.share({
+                title: '{{ flash_sale.title|escapejs }}',
+                text: '⚡ {{ flash_sale.title|escapejs }} — bientot sur HayaFlash !',
+                url: window.location.href
+              }).catch(() => {})"
+              class="flex items-center justify-center gap-2 w-full bg-gray-100 hover:bg-gray-200
+                     text-gray-700 font-bold py-3 rounded-xl text-sm transition-colors">
+        <i data-lucide="share-2" class="w-4 h-4"></i>Partager
+      </button>
     </div>
 
     <p class="text-center text-xs text-gray-300 pt-2">Propulsé par <strong>HayaFlash</strong> · Mali</p>
@@ -387,6 +399,18 @@
                 text-white font-bold py-3 rounded-xl text-sm transition-colors">
         <i data-lucide="message-circle" class="w-4 h-4"></i>Partager sur WhatsApp
       </a>
+      {# Web Share API natif (mobile) — complement au bouton WhatsApp ci-dessus, #}
+      {# ne le remplace pas (le lien WhatsApp reste trackable via ShareEvent). #}
+      <button type="button" x-data x-show="'share' in navigator" x-cloak
+              @click="navigator.share({
+                title: '{{ flash_sale.title|escapejs }}',
+                text: '🔥 Vente flash sur HayaFlash !',
+                url: window.location.href
+              }).catch(() => {})"
+              class="mt-2 flex items-center justify-center gap-2 w-full bg-gray-100 hover:bg-gray-200
+                     text-gray-700 font-bold py-3 rounded-xl text-sm transition-colors">
+        <i data-lucide="share-2" class="w-4 h-4"></i>Partager
+      </button>
     </div>
     <p class="text-center text-xs text-gray-300 mt-4 mb-2">Propulse par <strong>HayaFlash</strong> · Mali</p>
   </div>
