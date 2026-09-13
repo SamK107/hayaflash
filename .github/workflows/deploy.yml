@@ -10,7 +10,6 @@ concurrency:
 
 env:
   DJANGO_SETTINGS_MODULE: config.settings.test
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/hayaflash
 
 jobs:
   # ── Gate : suite complete + migrations a jour ────────────────────────────────
@@ -55,9 +54,21 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      image: ${{ steps.image.outputs.name }}
 
     steps:
       - uses: actions/checkout@v4
+
+      # GHCR exige un nom de repository entierement en minuscules. Le login
+      # GitHub (github.repository_owner / github.actor) peut contenir des
+      # majuscules (ex: "SamK107") — pas de fonction lowercase() cote
+      # expressions GitHub Actions, d'ou ce calcul shell explicite. Echec reel
+      # constate sans ca : "invalid tag ... repository name must be lowercase".
+      - name: Compute lowercase image name
+        id: image
+        run: |
+          echo "name=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -72,8 +83,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}
-            ${{ env.IMAGE_NAME }}:staging-latest
+            ${{ steps.image.outputs.name }}:${{ github.sha }}
+            ${{ steps.image.outputs.name }}:staging-latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -96,13 +107,13 @@ jobs:
             set -e
             cd /srv/hayaflash
             git pull origin main
-            DOCKER_IMAGE="${{ env.IMAGE_NAME }}" HAYAFLASH_TAG="${{ github.sha }}" \
+            DOCKER_IMAGE="${{ needs.build.outputs.image }}" HAYAFLASH_TAG="${{ github.sha }}" \
               bash infra/scripts/deploy.sh http://localhost:8000
 
   # ── Deploy prod : seulement si staging + son healthcheck sont passes ────────
   deploy-prod:
     name: Deploy → Production
-    needs: [deploy-staging]
+    needs: [build, deploy-staging]
     runs-on: ubuntu-latest
     environment: production
 
@@ -117,5 +128,5 @@ jobs:
             set -e
             cd /srv/hayaflash
             git pull origin main
-            DOCKER_IMAGE="${{ env.IMAGE_NAME }}" HAYAFLASH_TAG="${{ github.sha }}" \
+            DOCKER_IMAGE="${{ needs.build.outputs.image }}" HAYAFLASH_TAG="${{ github.sha }}" \
               bash infra/scripts/deploy.sh https://${{ secrets.PROD_DOMAIN }}
