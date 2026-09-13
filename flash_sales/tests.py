@@ -167,6 +167,86 @@ class CeleryTasksTest(TestCase):
         self.assertEqual(sale.status, FlashSaleStatus.SCHEDULED)
 
 
+class SendPendingSaleRemindersTest(TestCase):
+    """Tests de send_pending_sale_reminders (CELERY_TASK_ALWAYS_EAGER=True en test)."""
+
+    def setUp(self) -> None:
+        self.seller_user = User.objects.create_user(
+            phone="+22300000050", password="x", display_name="SellerReminder"
+        )
+        self.seller = SellerProfile.objects.create(user=self.seller_user)
+
+    def _sale(self, *, start_in, status=FlashSaleStatus.SCHEDULED):
+        now = timezone.now()
+        return FlashSale.objects.create(
+            owner=self.seller,
+            title="Vente rappel",
+            start_time=now + start_in,
+            end_time=now + start_in + timedelta(hours=1),
+            status=status,
+        )
+
+    def _interest(self, sale, *, phone="+22399990001", reminded_at=None):
+        from flash_sales.models import SaleInterest
+
+        return SaleInterest.objects.create(
+            flash_sale=sale, phone=phone, reminded_at=reminded_at
+        )
+
+    def test_reminds_interest_within_the_hour(self) -> None:
+        from flash_sales.tasks import send_pending_sale_reminders
+        from notifications.models import Notification
+
+        sale = self._sale(start_in=timedelta(minutes=30))
+        interest = self._interest(sale)
+
+        send_pending_sale_reminders()
+
+        interest.refresh_from_db()
+        self.assertIsNotNone(interest.reminded_at)
+        self.assertTrue(
+            Notification.objects.filter(recipient_phone=interest.phone).exists()
+        )
+
+    def test_does_not_remind_sale_more_than_an_hour_away(self) -> None:
+        from flash_sales.tasks import send_pending_sale_reminders
+
+        sale = self._sale(start_in=timedelta(hours=3))
+        interest = self._interest(sale)
+
+        send_pending_sale_reminders()
+
+        interest.refresh_from_db()
+        self.assertIsNone(interest.reminded_at)
+
+    def test_does_not_remind_twice(self) -> None:
+        from flash_sales.tasks import send_pending_sale_reminders
+        from notifications.models import Notification
+
+        sale = self._sale(start_in=timedelta(minutes=30))
+        already = timezone.now() - timedelta(minutes=5)
+        interest = self._interest(sale, reminded_at=already)
+
+        send_pending_sale_reminders()
+
+        interest.refresh_from_db()
+        self.assertEqual(interest.reminded_at, already)
+        self.assertFalse(
+            Notification.objects.filter(recipient_phone=interest.phone).exists()
+        )
+
+    def test_ignores_interest_on_non_scheduled_sale(self) -> None:
+        from flash_sales.tasks import send_pending_sale_reminders
+
+        sale = self._sale(start_in=timedelta(minutes=30), status=FlashSaleStatus.LIVE)
+        interest = self._interest(sale)
+
+        send_pending_sale_reminders()
+
+        interest.refresh_from_db()
+        self.assertIsNone(interest.reminded_at)
+
+
 class AuditLogTest(TestCase):
     """Tests du modele AuditLog."""
 
