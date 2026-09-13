@@ -109,7 +109,7 @@ docker-compose up
 
 1. **Vocal client** = deux mécanismes coexistent : `SpeechRecognition` navigateur → transcription texte dans `Delivery.address_text`, **et** un enregistrement audio réel (`audio_base64` envoyé par le client, décodé et stocké dans `Delivery.audio_note` via `_attach_audio_note()`, best-effort — un échec de décodage ne bloque jamais la commande).
 2. **Audio vendeur** = `FlashSale.description_audio` et `Product.description_audio` (FileField WebM/OGG), enregistré par le vendeur, lu par les clients.
-3. **Partage** = WhatsApp (`wa.me` + `api.whatsapp.com`) **+ QR code** (`analytics/services/qrcode.py`, vue `flash_sale_qr_view`, `/f/<slug>/qrcode/`). Web Share API (`navigator.share()`) **absente** — gap connu, backlog.
+3. **Partage** = WhatsApp (`wa.me` + `api.whatsapp.com`) + QR code (`analytics/services/qrcode.py`, vue `flash_sale_qr_view`, `/f/<slug>/qrcode/`) + Web Share API (`navigator.share()`, bouton complémentaire visible si `'share' in navigator`, sur `flash_sale_public.html` et `seller_public.html`). Le bouton WhatsApp reste le seul trackable via `ShareEvent`.
 4. **Admin plateforme** = `django.contrib.admin` **+ vue custom** `/platform-admin/` (`core/views.py:platform_admin_dashboard`, `@staff_member_required`) : vendeurs actifs, ventes live, MRR, revenu YTD, résumé remittance Orange, derniers paiements.
 5. **`SubscriptionPayment`** **est enregistré** dans l'admin Django (`SubscriptionPaymentAdmin` — filtres status/plan/provider). `SubscriptionAdmin` expose aussi des actions de simulation de plan (Gratuit perpétuel / Medium 90j / Pro 90j) sans paiement réel — pratique pour la démo/support.
 6. **Plans MEDIUM et FREE** ont la même limite de 3 ventes/mois (`PLAN_MONTHLY_SALES_LIMIT`). Seul PRO est illimité.
