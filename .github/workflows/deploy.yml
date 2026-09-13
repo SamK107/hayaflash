@@ -89,8 +89,13 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ── Deploy staging : tag exact du build, jamais "latest" ambigu ─────────────
+  # PAUSE VOLONTAIRE (13/09) : le VPS n'est pas encore pret (docker login ghcr.io,
+  # secrets STAGING_*, /srv/hayaflash/.env). `if: false` desactive juste ce job
+  # sans toucher au reste du pipeline (test + build continuent de valider chaque
+  # push). Repasser a `if: true` (ou supprimer la ligne) quand le VPS est pret.
   deploy-staging:
     name: Deploy → Staging
+    if: false
     needs: [build]
     runs-on: ubuntu-latest
     environment: staging
@@ -111,8 +116,12 @@ jobs:
               bash infra/scripts/deploy.sh http://localhost:8000
 
   # ── Deploy prod : seulement si staging + son healthcheck sont passes ────────
+  # PAUSE VOLONTAIRE (13/09) : meme raison que deploy-staging. Cascaderait de
+  # toute facon en "skipped" puisque deploy-staging est skip, mais explicite
+  # ici pour que la pause soit visible sans avoir a deviner la cascade.
   deploy-prod:
     name: Deploy → Production
+    if: false
     needs: [build, deploy-staging]
     runs-on: ubuntu-latest
     environment: production
