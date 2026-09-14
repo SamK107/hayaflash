@@ -1,7 +1,7 @@
 {% if delivery_rows %}
 <div class="space-y-3">
   {% for row in delivery_rows %}
-    {% include "delivery/partials/delivery_row.html" with row=row only %}
+    {% include "delivery/partials/delivery_row.html" with row=row %}
   {% endfor %}
 </div>
 {% else %}

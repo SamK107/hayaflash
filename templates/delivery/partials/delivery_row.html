@@ -88,10 +88,18 @@
     {% endif %}
 
     {% if row.can_start_delivery %}
-    <form class="flex-1" method="POST" action="{% url 'orders:seller_delivery_action' delivery.id %}">
+    <form class="flex-1 flex gap-2" method="POST" action="{% url 'orders:seller_delivery_action' delivery.id %}">
       {% csrf_token %}
       <input type="hidden" name="action" value="start_delivery">
-      <button type="submit" class="w-full bg-blue-600 text-white font-bold py-2.5 rounded-xl text-sm hover:bg-blue-700 transition-colors">
+      <input
+        type="text"
+        name="assigned_to"
+        value="{{ row.assigned_to|default:'' }}"
+        placeholder="Nom du livreur"
+        required
+        class="min-w-0 flex-1 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+      >
+      <button type="submit" class="shrink-0 bg-blue-600 text-white font-bold py-2.5 px-4 rounded-xl text-sm hover:bg-blue-700 transition-colors">
         En livraison
       </button>
     </form>

@@ -193,3 +193,82 @@ class DeliveryAdvanceAPITests(DeliveryTestFixture):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["count"], 1)
         self.assertIn("summary", resp.data)
+
+
+class SellerDeliveryActionFormCsrfTests(DeliveryTestFixture):
+    """
+    Garde-fou : le formulaire HTML classique "En livraison" (pas HTMX)
+    echouait systematiquement avec 403 "CSRF token missing". Cause reelle :
+    delivery_list.html incluait delivery_row.html avec `only`, ce qui prive
+    le sous-template du context processor csrf -> {% csrf_token %} rend une
+    chaine vide, SANS AUCUN <input>. Les boutons HTMX voisins fonctionnaient
+    quand meme car base.html pousse un header X-CSRFToken global (lu depuis
+    le cookie en JS, independant du HTML rendu) — seul ce formulaire nu en
+    dependait vraiment. Django.test.Client desactive la verification CSRF
+    par defaut : `enforce_csrf_checks=True` est necessaire pour detecter ca.
+    """
+
+    def setUp(self) -> None:
+        super().setUp()
+        # _rate_limited_partial_html met en cache par uid ; SQLite reutilise
+        # les memes PK apres rollback entre tests, donc sans ce clear() un
+        # cache-hit d'un test precedent peut faire echouer celui-ci (get_token()
+        # jamais appele -> pas de Set-Cookie csrftoken pour CE client de test).
+        from django.core.cache import cache
+
+        cache.clear()
+
+        resp = self.api.post("/api/v1/orders/", self._order_body(), format="json")
+        self.assertEqual(resp.status_code, 201)
+        self.order = Order.service_objects.get(pk=resp.data["id"])
+        self.delivery = Delivery.objects.get(order_id=self.order.pk)
+        # Amene la commande a l'etat ou can_start_delivery est True.
+        self.order.status = OrderStatus.CONFIRMED
+        self.order.save(update_fields=["status"])
+
+        self.client = self.client_class(enforce_csrf_checks=True)
+        self.client.force_login(self.seller_user)
+
+    def test_start_delivery_form_has_csrf_input_rendered(self) -> None:
+        resp = self.client.get(
+            f"/orders/seller/deliveries/partials/list/?flash_sale_id={self.sale.pk}"
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn(b"csrfmiddlewaretoken", resp.content)
+
+    def test_start_delivery_plain_form_post_succeeds(self) -> None:
+        list_resp = self.client.get(
+            f"/orders/seller/deliveries/partials/list/?flash_sale_id={self.sale.pk}"
+        )
+        import re
+
+        match = re.search(
+            rb'name="csrfmiddlewaretoken" value="([^"]+)"', list_resp.content
+        )
+        self.assertIsNotNone(match, "Le formulaire doit contenir un token CSRF")
+        token = match.group(1).decode()
+
+        resp = self.client.post(
+            f"/orders/seller/deliveries/{self.delivery.pk}/action/",
+            {
+                "action": "start_delivery",
+                "assigned_to": "Moussa D.",
+                "csrfmiddlewaretoken": token,
+            },
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.delivery.refresh_from_db()
+        self.assertEqual(self.delivery.status, Delivery.Status.IN_TRANSIT)
+        self.assertEqual(self.delivery.assigned_to, "Moussa D.")
+
+    def test_start_delivery_form_includes_courier_name_input(self) -> None:
+        """
+        Bug lie mais distinct, decouvert en corrigeant le CSRF : le formulaire
+        ne contenait aucun champ `assigned_to` alors que le service l'exige
+        (ValidationError "Courier name is required.") — le bouton "En
+        livraison" echouait donc de toute facon, meme une fois le CSRF admis.
+        """
+        resp = self.client.get(
+            f"/orders/seller/deliveries/partials/list/?flash_sale_id={self.sale.pk}"
+        )
+        self.assertIn(b'name="assigned_to"', resp.content)
