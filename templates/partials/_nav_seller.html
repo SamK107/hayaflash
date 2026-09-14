@@ -55,9 +55,9 @@
 
       {# Actions droite #}
       <div class="flex items-center gap-3">
-        {# Indicateur LIVE si une vente est en cours #}
+        {# Indicateur LIVE si une vente est en cours (active_sale : voir core.context_processors.active_live_sale) #}
         {% if active_sale %}
-        <a href="{% url 'flash_sales:live' active_sale.pk %}"
+        <a href="{% url 'flash_sales:detail' pk=active_sale.pk %}"
            class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-full text-xs font-semibold animate-pulse-slow">
           <span class="w-2 h-2 bg-white rounded-full"></span>
           LIVE
