@@ -22,8 +22,12 @@ django-htmx==1.27.0
 
 # Static files & Media
 whitenoise==6.12.0
+Brotli==1.1.0
 pillow==12.2.0
 qrcode==8.2
+
+# Sécurité — Content-Security-Policy
+django-csp==3.8
 
 # Env & Config
 python-dotenv==1.2.2

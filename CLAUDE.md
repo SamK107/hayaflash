@@ -21,11 +21,16 @@ Application Django de ventes flash mobiles (Mali). Les vendeurs créent des vent
 
 ```
 Backend  : Django 5.2 · DRF 3.16 · Celery · Redis
-Frontend : HTMX 2.0 · Alpine.js 3 · Tailwind CSS (CDN)
+Frontend : HTMX 2.0.0 · Alpine.js 3.14.9 · Tailwind CSS (build statique, vendorisé)
 DB dev   : SQLite
 DB prod  : PostgreSQL
 Infra    : Docker · Gunicorn · Nginx · GitHub Actions CI/CD
 ```
+
+> **14/09** : plus aucune dépendance front chargée depuis un CDN externe
+> (unpkg / jsdelivr / cdn.tailwindcss.com / fonts.googleapis.com) — tout est
+> vendorisé dans `static/vendor/` et `static/fonts/`, servi par WhiteNoise.
+> Voir point 12.
 
 ---
 
@@ -119,6 +124,9 @@ docker-compose up
    **Piège lié — `{% include ... only %}` et `{% csrf_token %}`** : le mot-clé `only` isole le sous-template inclus et lui retire `request` + tous les context processors, dont celui du CSRF. `{% csrf_token %}` ne lève alors aucune erreur — il rend juste une chaîne **vide** (aucun `<input>`), avec seulement un `UserWarning` en DEBUG ("context did not provide the value"). Bug réel trouvé dans `templates/delivery/partials/delivery_list.html` (14/09, PR #13) : le formulaire POST classique "En livraison" avait donc zéro champ `csrfmiddlewaretoken`, échouant en 403 "CSRF token missing" — alors que les boutons HTMX voisins fonctionnaient (header `X-CSRFToken` poussé globalement par `base.html`, lu depuis le cookie en JS, indépendant du HTML rendu). Ne jamais mettre `only` sur un `{% include %}` qui contient (ou peut contenir, via un sous-include) un `{% csrf_token %}`. `django.test.Client` **désactive la vérification CSRF par défaut** — utiliser `Client(enforce_csrf_checks=True)` pour détecter ce type de bug en test (voir `delivery/tests.py::SellerDeliveryActionFormCsrfTests`).
 10. **CI/CD** : `.github/workflows/deploy.yml` = `test → build → deploy-staging → deploy-prod` chaînés (même fichier, `needs:` — pas de dépendance inter-workflow fiable sur GitHub Actions). `deploy-staging`/`deploy-prod` ont `if: false` (**déploiement VPS mis en pause volontairement le 13/09** — retirer la ligne quand le VPS est prêt : `docker login ghcr.io`, secrets `STAGING_*`/`PROD_*`, `/srv/hayaflash/.env`). L'image est poussée sur GHCR taguée au SHA exact + tag mobile `staging-latest`. `infra/scripts/deploy.sh` gère le rollback automatique (tag précédent) si le smoke test échoue — ne défait pas les migrations DB (forward-only).
 11. **F3 "Sales Drawer"** : incertitude de gouvernance non résolue — un composant drawer (`orderDrawer`, `templates/analytics/flash_sale_public.html`) existe, mais rien ne confirme que c'est ce que désignait ce label externe. Voir `docs/PROJECT_SPEC.md` § Incertitudes.
+12. **Vendoring front (14/09)** : Tailwind/HTMX/Alpine/Lucide/polices Inter+Poppins ne sont plus chargés depuis un CDN — build/téléchargement figé dans `static/vendor/` et `static/fonts/`, référencés via `{% static %}` dans `base.html`/`home.html`. Pour reconstruire le CSS Tailwind après un changement de classes dans les templates : voir `docs/FRONTEND_VENDORING.md`. Une `Content-Security-Policy` est active en **Report-Only** (`CSP_REPORT_ONLY = True`, `config/settings/base.py`) — elle ne bloque rien tant que `'unsafe-inline'` reste nécessaire aux nombreux `onclick=`/`<script>` inline ; passage en mode bloquant = décision produit à part (voir docs/CODEBASE_STATUS.md).
+13. **Images produits/couvertures** : redimensionnées automatiquement à l'upload (max 1600px, `core/services/image_optimize.py`, appelé depuis `FlashSale.save()` et `ProductMedia.save()`) — best-effort, ne bloque jamais l'upload en cas d'échec Pillow (même philosophie que `_attach_audio_note()`).
+14. **`/ventes/<slug>/`** (`flash_sales.public_views.public_flash_sale_detail`) duplique **`/f/<slug>/`** (`analytics.views.flash_sale_public_page`, qui porte le SEO complet OG/JSON-LD). Un `<link rel="canonical">` a été ajouté sur `/ventes/<slug>/` pointant vers `/f/<slug>/` pour éviter le contenu dupliqué aux yeux des moteurs de recherche — mais avoir deux vues/templates pour la même ressource reste une dette à trancher (fusionner, ou assumer les deux avec un rôle clair pour chacune).
 
 ---
 
@@ -132,6 +140,8 @@ docker-compose up
 | `docs/ARCHITECTURE.md` | Décisions d'architecture |
 | `docs/API_CONTRACT.md` | Contrat API REST |
 | `docs/workflows/WORKFLOW_Px_*.md` | Workflows exécutables par phase |
+| `docs/AUDIT_PERFORMANCE_SEO.md` | Audit performance/SEO/CDN (13/09) + suivi des actions |
+| `docs/FRONTEND_VENDORING.md` | Comment reconstruire `static/vendor/tailwind/tailwind-hayaflash.css` après un changement de classes Tailwind dans les templates |
 
 ---
 
@@ -147,5 +157,6 @@ docker-compose up
 | P5 | Notifications + Subscriptions | ✅ Terminé |
 | P6 | CI/CD + Production Hardening | ✅ Terminé |
 | P7 | Pro Features & Admin Plateforme | ✅ Terminé (QR code, audio_note, interests par vente, analytics MEDIUM/PRO, admin plateforme, `SubscriptionPayment` admin) |
+| P8 | Performance & SEO Hardening | 🟡 En cours (14/09) — voir `docs/AUDIT_PERFORMANCE_SEO.md` et `docs/CODEBASE_STATUS.md` § Performance & SEO |
 
 → Détail et prochaines priorités : `docs/CODEBASE_STATUS.md`

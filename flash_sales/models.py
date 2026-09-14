@@ -94,6 +94,12 @@ class FlashSale(models.Model):
             )
 
             self.public_slug = generate_unique_flash_sale_public_slug(self)
+
+        from core.services.image_optimize import is_pending_upload, resize_uploaded_image
+
+        if is_pending_upload(self.cover_image):
+            resize_uploaded_image(self.cover_image)
+
         super().save(*args, **kwargs)
 
     def is_live(self):

@@ -15,61 +15,24 @@
   <meta name="apple-mobile-web-app-title" content="HayaFlash" />
   <link rel="apple-touch-icon" href="/static/img/icon-192.png" />
 
-  <!-- Tailwind CSS CDN -->
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            primary: '#E63946',
-            gold:    '#FFB800',
-            dark:    '#111111',
-            success: '#22C55E',
-            warning: '#F59E0B',
-            danger:  '#EF4444',
-            muted:   '#6B7280',
-            surface: '#FFFFFF',
-            bg:      '#F5F5F5',
-          },
-          borderRadius: { '2xl': '1rem', '3xl': '1.5rem' },
-          boxShadow: {
-            sm: '0 1px 3px rgba(0,0,0,0.08)',
-            md: '0 4px 12px rgba(0,0,0,0.12)',
-          },
-        }
-      }
-    }
-  </script>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Tailwind CSS — build statique (remplace le CDN JIT, non recommandé en prod) -->
+  <link rel="stylesheet" href="{% static 'vendor/tailwind/tailwind-hayaflash.css' %}">
 
-  <!-- Alpine.js -->
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <!-- Alpine.js 3.14.9 (vendorisé, remplace jsdelivr @3.x.x flottant) -->
+  <script defer src="{% static 'vendor/alpinejs/alpine-3.14.9.min.js' %}"></script>
 
-  <!-- HTMX 2.0 -->
-  <script src="https://unpkg.com/htmx.org@2.0.0/dist/htmx.min.js"></script>
+  <!-- HTMX 2.0.0 (vendorisé, remplace unpkg) -->
+  <script src="{% static 'vendor/htmx/htmx-2.0.0.min.js' %}"></script>
 
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <!-- Lucide Icons 0.462.0 (vendorisé, remplace unpkg @latest — non figé) -->
+  <script src="{% static 'vendor/lucide/lucide-0.462.0.min.js' %}"></script>
 
-  <!-- Google Fonts: Inter -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Police Inter — auto-hébergée (remplace fonts.googleapis.com) -->
+  <link rel="stylesheet" href="{% static 'fonts/inter/inter.css' %}">
 
   <style>
     [x-cloak] { display: none !important; }
     body { font-family: 'Inter', system-ui, sans-serif; background: #F5F5F5; }
-
-    /* ── Couleurs primary garanties (Tailwind CDN ne genere pas toujours les custom colors) ── */
-    :root { --color-primary: #FF4D2E; }
-    .bg-primary              { background-color: #FF4D2E !important; }
-    .text-primary            { color: #FF4D2E !important; }
-    .border-primary          { border-color: #FF4D2E !important; }
-    .ring-primary            { --tw-ring-color: #FF4D2E; }
-    .hover\:bg-primary:hover { background-color: #FF4D2E !important; }
-    .hover\:text-primary:hover { color: #FF4D2E !important; }
-    .focus\:ring-primary:focus { box-shadow: 0 0 0 3px rgba(255,77,46,0.25) !important; }
-    .hover\:bg-red-700:hover { background-color: #b91c1c !important; }
-    .active\:bg-red-800:active { background-color: #991b1b !important; }
 
     @keyframes slide-in {
       from { transform: translateY(1rem); opacity: 0; }

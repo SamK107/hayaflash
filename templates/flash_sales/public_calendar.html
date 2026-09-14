@@ -25,7 +25,7 @@
         {% for sale in live_sales %}
         <a href="{% url 'flash_sale_public_detail' slug=sale.public_slug %}" class="block bg-white rounded-2xl border-2 border-red-100 shadow-sm overflow-hidden hover:border-red-300 transition-colors">
           {% if sale.cover_image %}
-          <img src="{{ sale.cover_image.url }}" alt="{{ sale.title }}" class="w-full h-40 object-cover">
+          <img src="{{ sale.cover_image.url }}" alt="{{ sale.title }}" class="w-full h-40 object-cover" loading="lazy" decoding="async">
           {% endif %}
           <div class="p-4">
             <div class="flex items-start justify-between gap-2">
@@ -62,7 +62,7 @@
               <div class="shrink-0 text-center">
                 {% with img=p.media.all|first %}
                 {% if img and img.file %}
-                <img src="{{ img.file.url }}" alt="{{ p.name }}" class="w-14 h-14 rounded-xl object-cover">
+                <img src="{{ img.file.url }}" alt="{{ p.name }}" class="w-14 h-14 rounded-xl object-cover" loading="lazy" decoding="async">
                 {% else %}
                 <div class="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center">
                   <i data-lucide="package" class="w-6 h-6 text-gray-300"></i>

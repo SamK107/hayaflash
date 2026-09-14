@@ -5,7 +5,8 @@
      class="flex items-center gap-4 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:border-primary/30 hover:shadow-md transition-all group">
     {% if sale.cover_image %}
     <img src="{{ sale.cover_image.url }}" alt="{{ sale.title }}"
-         class="w-14 h-14 rounded-xl object-cover flex-shrink-0">
+         class="w-14 h-14 rounded-xl object-cover flex-shrink-0"
+         loading="lazy" decoding="async">
     {% else %}
     <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-gold/20 flex items-center justify-center flex-shrink-0">
       <i data-lucide="zap" class="w-7 h-7 text-primary"></i>

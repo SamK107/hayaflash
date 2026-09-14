@@ -48,7 +48,8 @@
         <div class="flex items-center gap-4">
           {% if sale.cover_image %}
           <img src="{{ sale.cover_image.url }}" alt="{{ sale.title }}"
-               class="w-12 h-12 rounded-xl object-cover flex-shrink-0">
+               class="w-12 h-12 rounded-xl object-cover flex-shrink-0"
+               loading="lazy" decoding="async">
           {% else %}
           <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
             <i data-lucide="zap" class="w-6 h-6 text-primary"></i>
