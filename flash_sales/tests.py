@@ -291,3 +291,76 @@ class AuditLogTest(TestCase):
         admin = AuditLogAdmin(model=AuditLog, admin_site=AdminSite())
         self.assertFalse(admin.has_add_permission(None))
         self.assertFalse(admin.has_change_permission(None))
+
+
+class PublicFlashSaleApiPermissionsTest(TestCase):
+    """
+    Garde-fou : trouve lors d'un audit complet des routes du projet — ces deux
+    vues heritaient de DEFAULT_PERMISSION_CLASSES=IsAuthenticated (aucun
+    override) et renvoyaient 403 a tout appelant anonyme, alors qu'elles sont
+    censees etre l'API publique du calendrier de ventes (cf. PROJECT_SPEC.md,
+    smoke_test.sh qui les appelle sans authentification).
+    """
+
+    def setUp(self) -> None:
+        self.seller_user = User.objects.create_user(
+            phone="+22300000070", password="x", display_name="SellerApi"
+        )
+        self.seller = SellerProfile.objects.create(user=self.seller_user)
+        now = timezone.now()
+        self.sale = FlashSale.objects.create(
+            owner=self.seller,
+            title="Vente API publique",
+            start_time=now,
+            end_time=now + timedelta(hours=1),
+            status=FlashSaleStatus.LIVE,
+        )
+
+    def test_list_api_accessible_anonymously(self) -> None:
+        from django.test import Client
+
+        resp = Client().get("/api/v1/flash-sales/")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_detail_api_accessible_anonymously(self) -> None:
+        from django.test import Client
+
+        resp = Client().get(f"/api/v1/flash-sales/{self.sale.public_slug}/")
+        self.assertEqual(resp.status_code, 200)
+
+
+class ActiveLiveSaleNavBadgeTest(TestCase):
+    """
+    Garde-fou : le badge "LIVE" de partials/_nav_seller.html referencait un
+    contexte `active_sale` jamais peuple nulle part (seul `active_sales`,
+    pluriel, existait dans seller_home_view) et un lien vers `flash_sales:live`
+    (URL inexistante). Le bloc `{% if active_sale %}` etant toujours faux, ca
+    ne crashait jamais — le badge n'est simplement jamais apparu. Corrige par
+    core.context_processors.active_live_sale + lien vers flash_sales:detail.
+    """
+
+    def setUp(self) -> None:
+        self.seller_user = User.objects.create_user(
+            phone="+22300000071", password="x", display_name="SellerBadge"
+        )
+        self.seller = SellerProfile.objects.create(user=self.seller_user)
+
+    def test_badge_appears_with_valid_link_when_sale_is_live(self) -> None:
+        now = timezone.now()
+        sale = FlashSale.objects.create(
+            owner=self.seller,
+            title="Vente en cours",
+            start_time=now - timedelta(minutes=5),
+            end_time=now + timedelta(hours=1),
+            status=FlashSaleStatus.LIVE,
+        )
+        self.client.force_login(self.seller_user)
+        resp = self.client.get("/seller/")
+        content = resp.content.decode()
+        self.assertIn("LIVE", content)
+        self.assertIn(f"/seller/flash-sales/{sale.pk}/", content)
+
+    def test_badge_absent_when_no_live_sale(self) -> None:
+        self.client.force_login(self.seller_user)
+        resp = self.client.get("/seller/")
+        self.assertIsNone(resp.context["active_sale"])

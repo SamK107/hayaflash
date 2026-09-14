@@ -62,6 +62,13 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                # Manquaient tous les deux ici (settings/test.py ne herite pas
+                # de base.py, cf. commentaire en tete de fichier) — decouvert
+                # en testant le fix du badge LIVE : interests_count et
+                # active_sale n'etaient donc jamais reellement exerces par
+                # la suite de tests malgre leur presence en prod/dev.
+                "core.context_processors.seller_interests_count",
+                "core.context_processors.active_live_sale",
             ],
         },
     },
