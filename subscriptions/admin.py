@@ -18,7 +18,7 @@ class SubscriptionPaymentAdmin(admin.ModelAdmin):
     readonly_fields = [
         "id",
         "order_id",
-        "pay_token",
+        "notif_token",
         "txn_id",
         "raw_response",
         "raw_callback",

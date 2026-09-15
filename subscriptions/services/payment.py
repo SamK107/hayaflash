@@ -1,10 +1,16 @@
 """
 Orchestration des paiements d'abonnement HayaFlash.
 Gere : initiation, activation, annulation.
+
+Règles critiques:
+  - notif_token est généré et stocké AVANT redirection (sécurité webhook)
+  - Webhooks font un lookup par notif_token UNIQUEMENT (pas par order_id)
+  - order_id limité à 24 caractères (contrainte Orange Money)
 """
 
 from __future__ import annotations
 
+import secrets
 import uuid
 import logging
 from datetime import timedelta
@@ -25,6 +31,29 @@ from subscriptions.models import (
 logger = logging.getLogger(__name__)
 
 SUBSCRIPTION_DURATION_DAYS = 31  # ~1 mois
+
+
+def _generate_order_id(plan: str, max_length: int = 24) -> str:
+    """
+    Génère un order_id respectant la limite de 24 caractères.
+    Format: HF-{plan[0]}-{random} (ex: HF-M-a1b2c3d4e5f6)
+    """
+    # Construire un identifiant court
+    plan_char = plan[0].upper()  # M ou P
+    # Utiliser un hash court du timestamp + UUID pour l'unicité
+    short_id = uuid.uuid4().hex[:8].upper()
+    base = f"HF-{plan_char}-{short_id}"
+    # Vérifier la longueur
+    if len(base) > max_length:
+        raise ValueError(
+            f"Generated order_id exceeds {max_length} chars: {len(base)} chars"
+        )
+    return base
+
+
+def _generate_notif_token() -> str:
+    """Génère un token aléatoire de 64 hex chars pour les webhooks."""
+    return secrets.token_hex(32)
 
 
 def _absolute_url(request, path: str) -> str:
@@ -74,8 +103,12 @@ def create_orange_payment(
     *, seller, plan: str, phone: str, request
 ) -> SubscriptionPayment:
     """
-    Cree un SubscriptionPayment et lance l'initiation Orange Money.
+    Crée un SubscriptionPayment et lance l'initiation Orange Money.
     Retourne le payment (avec payment_url rempli).
+
+    Règle critique: notif_token est généré et stocké AVANT la redirection
+    vers Orange Money pour assurer que les webhooks ultérieurs peuvent
+    faire un lookup sécurisé par notif_token.
     """
     from subscriptions.services.orange_money import initiate_payment, OrangeMoneyError
 
@@ -83,7 +116,11 @@ def create_orange_payment(
         raise ValueError(f"Plan invalide : {plan}")
 
     amount = PLAN_PRICES[plan]
-    order_id = f"HF-{plan.upper()}-{uuid.uuid4().hex[:12].upper()}"
+    # Générer un order_id ≤ 24 caractères (contrainte Orange Money)
+    order_id = _generate_order_id(plan, max_length=24)
+    # Générer un notif_token avant la création du paiement
+    # IMPORTANT: Stocker ce token AVANT redirection pour la sécurité du webhook
+    notif_token = _generate_notif_token()
 
     payment = SubscriptionPayment.objects.create(
         seller=seller,
@@ -92,6 +129,7 @@ def create_orange_payment(
         amount=amount,
         phone=phone,
         order_id=order_id,
+        notif_token=notif_token,  # Stocké avant redirection (sécurité)
         status=PaymentStatus.PENDING,
     )
 
@@ -101,19 +139,31 @@ def create_orange_payment(
         result = initiate_payment(
             amount=amount,
             order_id=order_id,
+            notif_token=notif_token,  # Envoyé à Orange Money
             return_url=return_url,
             cancel_url=cancel_url,
             notif_url=notif_url,
             reference=f"HayaFlash {plan.capitalize()} {seller.business_name or str(seller.pk)}",
         )
         payment.payment_url = result["payment_url"]
-        payment.pay_token = result["pay_token"]
         payment.raw_response = result["raw"]
         payment.save()
+
+        logger.info(
+            "Orange Money payment initiated — order_id=%s plan=%s seller=%s",
+            order_id,
+            plan,
+            seller.id,
+        )
     except OrangeMoneyError as exc:
         payment.status = PaymentStatus.FAILED
         payment.raw_response = {"error": str(exc)}
         payment.save()
+        logger.error(
+            "Orange Money initiation failed — order_id=%s error=%s",
+            order_id,
+            str(exc),
+        )
         raise
 
     return payment
