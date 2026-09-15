@@ -149,3 +149,153 @@ docker-compose up
 | P7 | Pro Features & Admin Plateforme | ✅ Terminé (QR code, audio_note, interests par vente, analytics MEDIUM/PRO, admin plateforme, `SubscriptionPayment` admin) |
 
 → Détail et prochaines priorités : `docs/CODEBASE_STATUS.md`
+
+---
+
+## Orange Money Payment Integration (Phase 8.1 — 14/09/2026)
+
+### Vue d'ensemble
+
+HayaFlash intègre Orange Money (WebPay) pour permettre aux vendeurs de passer de FREE (limité) à MEDIUM ou PRO (payant).
+
+**Flow utilisateur:**
+1. Vendeur clique "Passer au plan PRO" depuis `/seller/abonnement/`
+2. Affichage de confirmation (`subscriptions/checkout.html`)
+3. POST avec numéro téléphone → création `SubscriptionPayment` + génération `notif_token`
+4. OAuth2 token fetch + appel `/orange-money-webpay/ml/v1/webpayment`
+5. Redirection vers URL de paiement Orange
+6. Paiement complété → redirection vers `/billing/return/`
+7. Webhook asynchrone reçu sur `/billing/webhook/orange/` → activation subscription
+8. User voit page de confirmation via polling
+
+### Règles critiques (non-négociables)
+
+**1. Authentification webhook par notif_token**
+- Les webhooks font un lookup par `notif_token` UNIQUEMENT (jamais par `order_id`)
+- `notif_token` est généré et stocké **AVANT** la redirection vers Orange Money (sécurité)
+- Pas d'HMAC-SHA256 ou autre vérification cryptographique requise
+- Lookup SQL: `SubscriptionPayment.objects.get(notif_token=notif_token)`
+
+**2. Idempotence webhook**
+- Si `payment.status == 'success'`, le webhook ne re-traite **PAS** le paiement
+- Prévient les ré-activations si Orange Money renvoie le même webhook 2 fois
+- Logging dans `WebhookLog` même pour les skips (audit trail)
+
+**3. Stockage notif_token AVANT redirection**
+- `notif_token` doit être sauvegardé dans la DB **avant** d'appeler l'API Orange Money
+- Garantit que les webhooks ultérieurs peuvent faire un lookup sécurisé
+- Voir `subscriptions/services/payment.py:create_orange_payment()`
+
+**4. Longueur order_id ≤ 24 caractères**
+- Orange Money retourne HTTP 400 si `order_id` > 24 chars
+- Validation dans `subscriptions/services/orange_money.py:initiate_payment()`
+- Format: `HF-{plan[0]}-{8 random hex chars}` (ex: `HF-M-a1b2c3d4`)
+
+**5. @csrf_exempt UNIQUEMENT sur webhook**
+- `/billing/webhook/orange/` → `@csrf_exempt` (reçoit POST du serveur Orange)
+- `/billing/return/` → **PAS** `@csrf_exempt` (redirection navigateur, session utilisateur valide)
+- `/billing/cancel/` → **PAS** `@csrf_exempt` (redirection navigateur, session utilisateur valide)
+
+**6. SSL verification TOUJOURS activée**
+- `requests.post(..., verify=True)` dans `subscriptions/services/orange_money.py`
+- `requests` active SSL par défaut, mais documenter `verify=True` explicitement
+- Jamais `verify=False` ou `REQUESTS_CA_BUNDLE` à vide
+
+### Architecture
+
+**Models:**
+- `SubscriptionPayment`: order_id (≤24 chars), notif_token (unique, indexed), status, txn_id, etc.
+- `WebhookLog`: Audit trail de tous les webhooks reçus (notif_token, status, raw_payload, processed)
+
+**Services:**
+- `subscriptions/services/orange_money.py`:
+  - `_get_access_token()`: OAuth2 client_credentials
+  - `initiate_payment()`: POST `/orange-money-webpay/.../pay` avec notif_token
+  - `verify_callback()`: Parse webhook payload, retourne notif_token (sécurité)
+
+- `subscriptions/services/payment.py`:
+  - `_generate_order_id()`: Format court ≤24 chars
+  - `_generate_notif_token()`: Token 64 hex chars
+  - `create_orange_payment()`: Crée payment, génère notif_token, appelle Orange Money
+  - `activate_subscription_from_payment()`: Idempotent, active subscription après paiement
+
+**Views:**
+- `subscriptions/billing_views.py:billing_callback_view()`: Webhook (`@csrf_exempt`)
+  - Lookup par notif_token
+  - Idempotence check (status == 'success')
+  - Log dans WebhookLog
+  - Activation subscription atomique
+
+- `subscriptions/views.py:payment_callback_view()`: Webhook alternatif (historique)
+  - Même logique que `billing_callback_view`
+  - URL historique `/seller/abonnement/callback/` (préférer `/billing/webhook/orange/`)
+
+**URLs stables enregistrées chez Orange Money:**
+```
+POST   /billing/webhook/orange/      → notification async paiement
+GET    /billing/return/?order_id=... → redirection post-paiement (succès)
+GET    /billing/cancel/?order_id=... → redirection post-paiement (annulation)
+```
+
+### Variables d'environnement requises
+
+```bash
+# OAuth2 client credentials
+ORANGE_ML_CLIENT_ID=<ID>
+ORANGE_ML_CLIENT_SECRET=<SECRET>
+
+# Merchant
+ORANGE_ML_MERCHANT_KEY=<KEY>
+
+# Base URL pour Orange Money (HTTPS publique, pas localhost)
+ORANGE_ML_BASE_URL=https://example.com
+
+# URLs fixes (optionnel, sinon générées automatiquement)
+ORANGE_ML_RETURN_URL=https://example.com/billing/return/
+ORANGE_ML_CANCEL_URL=https://example.com/billing/cancel/
+ORANGE_ML_NOTIFY_URL=https://example.com/billing/webhook/orange/
+```
+
+### Debugging & Monitoring
+
+**En dev** (DEBUG=True):
+- Endpoint `/seller/abonnement/debug-om/` affiche l'état de la config (visible seulement en DEBUG)
+- Vérification des credentials + test OAuth2 token
+
+**WebhookLog (audit trail):**
+```python
+# Consulter les webhooks reçus
+from subscriptions.models import WebhookLog
+logs = WebhookLog.objects.filter(status='SUCCESS').order_by('-created_at')
+for log in logs[:10]:
+    print(f"{log.notif_token} → {log.status} ({log.created_at})")
+```
+
+**Idempotence testing:**
+```bash
+# Simuler un webhook dupliqué
+curl -X POST http://localhost:8000/billing/webhook/orange/ \
+  -H "Content-Type: application/json" \
+  -d '{"notif_token":"xxx", "status":"SUCCESS", "txnid":"yyy"}'
+# Log: "Webhook already processed — notif_token=... (idempotent skip)"
+```
+
+### Points de vigilance
+
+1. **Ne jamais logguer le notif_token en clair** (secret) — utiliser `[:16] + "..."` dans les logs
+2. **Ne jamais afficher l'order_id à l'utilisateur** sur la page de paiement
+3. **Webhook doit TOUJOURS retourner 200 OK** même en cas d'erreur (sinon Orange Money retry infini)
+4. **order_id doit être UNIQUE** — voir la validation dans `SubscriptionPayment.save()`
+5. **SSL verification JAMAIS désactivée** — auditer les appels `requests.post()` régulièrement
+
+### Migration de la DB
+
+```bash
+python manage.py makemigrations subscriptions
+python manage.py migrate subscriptions
+```
+
+Ajoute:
+- Champ `notif_token` (unique, indexed) à `SubscriptionPayment`
+- Change `order_id` max_length de 100 à 24
+- Crée table `WebhookLog` avec indexes
