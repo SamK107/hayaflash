@@ -109,21 +109,46 @@ Légende : ✅ Fait · ⚠️ Partiel · ❌ Manquant · 🔍 À vérifier (néc
 
 ## 5. Sauvegardes & reprise après sinistre
 
-- ❌ **Backup base de données automatique** — aucun script de backup dans
-  `infra/scripts/` (seuls `deploy.sh` et `smoke_test.sh` y figurent), aucun cron
-  ni tâche Celery Beat de dump visible dans `config/settings/base.py`
-  (`CELERY_BEAT_SCHEDULE` ne contient que les tâches métier flash-sales).
-- ❌ **Backup des fichiers médias** — rien trouvé.
-- ❌ **Chiffrement des sauvegardes** — sans objet tant qu'il n'y a pas de
-  sauvegarde.
-- ❌ **Copie hors-site** — rien trouvé.
-- ❌ **Test de restauration** — rien trouvé.
-- ❌ **Rétention documentée** — rien trouvé.
+> Mise à jour 17/09 : squelette livré (`infra/scripts/backup.sh`,
+> `restore_test.sh`, `copy_offsite.sh`), testé en local avec un simulateur de
+> `docker compose exec` (Docker non accessible dans l'environnement de dev) —
+> voir PR #18. Rien n'a encore tourné contre le vrai VPS ni le vrai disque.
 
-**C'est la catégorie la plus en retard du projet.** Si une sauvegarde existe
-déjà au niveau du VPS (HestiaCP, snapshot du provider), elle n'est documentée
-nulle part dans le repo — donc invisible et non vérifiable en cas de succession
-ou de changement d'opérateur. Priorité haute.
+- ⚠️ **Backup base de données** — `infra/scripts/backup.sh` existe
+  (`pg_dump | gzip`, horodaté, rétention locale configurable, 14j par défaut)
+  mais **aucun cron ni tâche Celery Beat ne l'appelle encore** — exécution
+  manuelle uniquement pour l'instant.
+- ⚠️ **Backup des fichiers médias** — couvert par le même script
+  (`tar czf` du volume médias via le conteneur `web`). Même limite : pas
+  encore automatisé.
+- ❌ **Chiffrement des sauvegardes** — toujours absent. Décision à prendre
+  (GPG au repos sur le disque externe ? chiffrement du disque lui-même au
+  niveau OS ?).
+- ⚠️ **Copie hors-site** — **décision prise le 17/09 : disque externe branché
+  sur le VPS**, pas encore mis en place physiquement au moment de cette
+  révision. `infra/scripts/copy_offsite.sh` est prêt : il refuse de copier
+  tant qu'un fichier témoin (`.hayaflash_backup_target`) n'existe pas à la
+  racine du point de montage — protection contre une copie silencieuse sur le
+  disque local du VPS si le disque externe n'est pas réellement monté.
+  Rétention hors-site 60j par défaut (volontairement plus longue que la
+  rétention locale). **Reste à faire dès le disque branché** : monter le
+  disque sur le VPS, créer le fichier témoin, lancer une première exécution
+  réelle.
+- ✅ **Test de restauration** — `infra/scripts/restore_test.sh` : restaure un
+  dump dans une base éphémère séparée (jamais la base de l'app), vérifie
+  qu'au moins une table existe, la supprime systématiquement (y compris en
+  cas d'échec). Testé en local (chemin nominal + fichier introuvable + 0
+  table restaurée) ; pas encore exécuté contre un vrai dump de prod.
+- ⚠️ **Rétention documentée** — désormais documentée ici et dans les scripts
+  eux-mêmes (14j local / 60j hors-site) ; ces durées sont un défaut
+  raisonnable, pas une décision produit validée séparément.
+
+**Toujours la catégorie la plus en retard du projet**, même si elle n'est
+plus à zéro : le code existe et est testé en local, mais rien n'a encore
+tourné en conditions réelles (cron, VPS, disque physiquement branché). Si une
+sauvegarde existe déjà au niveau du VPS (HestiaCP, snapshot du provider),
+elle reste non documentée dans le repo — donc invisible et non vérifiable en
+cas de succession ou de changement d'opérateur.
 
 ---
 
@@ -249,11 +274,14 @@ stat -c "%a %U:%G" /srv/hayaflash/.env   # attendu : 600, propriétaire du servi
 
 ## Synthèse des priorités
 
-1. **Sauvegardes (catégorie 5)** — le point le plus en retard, à traiter en
-   premier : au minimum un dump PostgreSQL quotidien + copie hors-site.
+1. **Sauvegardes (catégorie 5)** — scripts livrés et testés en local (17/09),
+   mais encore rien de réel : brancher le disque externe, créer le fichier
+   témoin, exécuter `backup.sh` puis `copy_offsite.sh` puis `restore_test.sh`
+   une première fois contre le VPS, et brancher `backup.sh` sur un cron.
 2. **Health check applicatif (catégorie 2)** — faire vérifier DB/Redis par
    `/health/` plutôt qu'un `200 OK` statique.
-3. **CSP (catégorie 4)** — ajouter `django-csp` avec `default-src 'self'`.
+3. ~~**CSP (catégorie 4)**~~ — fait (14/09, `django-csp` en mode Report-Only).
+   Reste : décider du passage en mode bloquant (retirer `'unsafe-inline'`).
 4. **Notification admin sur webhook suspect (catégorie 8)** — capturer les
    signatures invalides vers Sentry ou une alerte dédiée.
 5. **Durcissement VPS (catégorie 7)** — à vérifier par SSH avec les commandes
