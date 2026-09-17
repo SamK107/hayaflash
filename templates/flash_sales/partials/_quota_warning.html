@@ -1,0 +1,154 @@
+{% if not quota.is_pro %}
+<div class="quota-warning-widget">
+  <div class="quota-warning-header">
+    <h3 class="quota-title">Quota mensuel</h3>
+    <span class="quota-usage">
+      {{ quota.monthly_count }}/{{ quota.monthly_limit }} ventes utilisées
+    </span>
+  </div>
+
+  <div class="quota-progress">
+    <div class="progress-bar">
+      <div
+        class="progress-fill {% if quota.monthly_count >= quota.monthly_limit %}full{% elif quota.monthly_count >= quota.monthly_limit|add:"-1" %}warning{% else %}normal{% endif %}"
+        style="width: {{ quota.monthly_count|add:'0'|mul:100|divide:quota.monthly_limit|floatformat:0 }}%"
+      ></div>
+    </div>
+    <p class="quota-status">
+      {% if quota.monthly_count >= quota.monthly_limit %}
+        <span class="status-danger">Limite atteinte</span>
+      {% elif quota.monthly_count >= quota.monthly_limit|add:"-1" %}
+        <span class="status-warning">Dernier(s) emplacement(s) disponible(s)</span>
+      {% else %}
+        <span class="status-ok">{{ quota.monthly_limit|add:"-"|add:quota.monthly_count }} emplacement(s) restant(s)</span>
+      {% endif %}
+    </p>
+  </div>
+
+  {% if quota.monthly_count >= quota.monthly_limit %}
+  <div class="quota-action">
+    <a href="{% url 'subscriptions:upgrade' 'medium' %}" class="upgrade-cta">
+      Passer au plan Pro pour des ventes illimitées →
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+<style>
+.quota-warning-widget {
+  background: white;
+  border-left: 4px solid #ff6b35;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.quota-warning-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.quota-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.quota-usage {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #ff6b35;
+}
+
+.quota-progress {
+  margin-bottom: 1rem;
+}
+
+.progress-bar {
+  height: 8px;
+  background: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.progress-fill.normal {
+  background: #4CAF50;
+}
+
+.progress-fill.warning {
+  background: #FFC107;
+}
+
+.progress-fill.full {
+  background: #f44336;
+}
+
+.quota-status {
+  font-size: 0.85rem;
+  color: #666;
+  margin: 0;
+}
+
+.status-ok {
+  color: #4CAF50;
+  font-weight: 500;
+}
+
+.status-warning {
+  color: #FFC107;
+  font-weight: 500;
+}
+
+.status-danger {
+  color: #f44336;
+  font-weight: 500;
+}
+
+.quota-action {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.upgrade-cta {
+  display: inline-block;
+  color: #ff6b35;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.upgrade-cta:hover {
+  color: #e55a24;
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .quota-warning-widget {
+    padding: 0.75rem;
+  }
+
+  .quota-warning-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
+  .quota-usage {
+    font-size: 0.85rem;
+  }
+}
+</style>
+{% endif %}

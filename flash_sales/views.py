@@ -17,6 +17,7 @@ from .services.crud import (
     save_sale_audio,
     update_flash_sale,
 )
+from subscriptions.models import Plan, PLAN_FEATURES, PLAN_PRICES
 from subscriptions.services.limits import get_or_create_subscription, get_sale_quota
 
 
@@ -65,8 +66,32 @@ def flash_sale_create_view(request):
     seller = _get_seller(request)
     can_create, reason = can_seller_create_sale(seller)
     if not can_create:
-        messages.error(request, reason)
-        return redirect("flash_sales:list")
+        # Render paywall instead of just showing error + redirect
+        quota = get_sale_quota(seller)
+        sub = get_or_create_subscription(seller)
+
+        # Build plan options with pricing and features
+        plans = []
+        for plan_key in [Plan.FREE, Plan.MEDIUM, Plan.PRO]:
+            plan_info = {
+                "key": plan_key,
+                "label": dict(Plan.choices)[plan_key],
+                "price": PLAN_PRICES[plan_key],
+                "features": PLAN_FEATURES[plan_key],
+                "is_current": sub.plan == plan_key and not sub.is_expired,
+            }
+            # Mark MEDIUM/PRO as recommended
+            if plan_key == Plan.MEDIUM and not sub.is_paid:
+                plan_info["recommended"] = True
+            plans.append(plan_info)
+
+        ctx = {
+            "quota": quota,
+            "plans": plans,
+            "current_plan": sub.plan,
+            "reason": reason,
+        }
+        return render(request, "flash_sales/quota_exceeded.html", ctx)
 
     form = FlashSaleForm(
         request.POST or None,

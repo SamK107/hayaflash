@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase
+from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import SellerProfile
@@ -13,6 +15,7 @@ from flash_sales.services.ordering import assert_flash_sale_accepts_orders
 from orders.services.create_order import create_order
 from orders.tests import valid_delivery_payload
 from products.models import Product
+from subscriptions.models import Plan, Subscription
 
 
 User = get_user_model()
@@ -364,3 +367,92 @@ class ActiveLiveSaleNavBadgeTest(TestCase):
         self.client.force_login(self.seller_user)
         resp = self.client.get("/seller/")
         self.assertIsNone(resp.context["active_sale"])
+
+
+class SubscriptionEnforcementIntegrationTest(TestCase):
+    """
+    Verifie l'enforcement du quota au niveau HTTP reel (flash_sale_create_view),
+    pas seulement au niveau service isole (deja couvert dans subscriptions/tests.py).
+    Couvre aussi, via ce chemin HTTP, le fix fail-closed et l'exclusion des
+    ventes CANCELLED du comptage.
+    """
+
+    def setUp(self) -> None:
+        self.seller_user = User.objects.create_user(
+            phone="+22300000050", password="x", display_name="SellerQuota"
+        )
+        self.seller = SellerProfile.objects.create(user=self.seller_user)
+        Subscription.objects.get_or_create(
+            seller=self.seller, defaults={"plan": Plan.FREE}
+        )
+        self.client.force_login(self.seller_user)
+        self.create_url = reverse("flash_sales:create")
+
+    def _existing_sale(self, *, status, days_from_now=5):
+        now = timezone.now()
+        return FlashSale.objects.create(
+            owner=self.seller,
+            title="Vente existante",
+            start_time=now + timedelta(days=days_from_now),
+            end_time=now + timedelta(days=days_from_now, hours=1),
+            status=status,
+        )
+
+    def _valid_post_data(self, *, days_from_now=1):
+        # Format espace (pas "T") : c'est le format que Django parse par
+        # defaut cote serveur, independamment du widget datetime-local HTML5.
+        start = timezone.now() + timedelta(days=days_from_now)
+        return {
+            "title": "Nouvelle vente",
+            "description": "",
+            "teasers": "",
+            "start_time": start.strftime("%Y-%m-%d %H:%M"),
+            "delivery_zone": "",
+            "duration_preset": "60",
+        }
+
+    def test_free_seller_at_quota_is_redirected_without_creating_sale(self) -> None:
+        for _ in range(3):
+            self._existing_sale(status=FlashSaleStatus.SCHEDULED)
+
+        count_before = FlashSale.objects.filter(owner=self.seller).count()
+        resp = self.client.post(self.create_url, self._valid_post_data())
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, "flash_sales/quota_exceeded.html")
+        self.assertEqual(
+            FlashSale.objects.filter(owner=self.seller).count(), count_before
+        )
+
+    def test_cancelled_sale_frees_a_slot_for_new_creation(self) -> None:
+        self._existing_sale(status=FlashSaleStatus.SCHEDULED)
+        self._existing_sale(status=FlashSaleStatus.SCHEDULED)
+        self._existing_sale(status=FlashSaleStatus.CANCELLED)  # ne compte pas
+
+        resp = self.client.post(self.create_url, self._valid_post_data())
+
+        new_sale = FlashSale.objects.filter(
+            owner=self.seller, title="Nouvelle vente"
+        ).first()
+        self.assertIsNotNone(
+            new_sale, "La vente aurait du etre creee (quota non atteint : 2/3)"
+        )
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(
+            resp["Location"], reverse("flash_sales:detail", kwargs={"pk": new_sale.pk})
+        )
+
+    def test_quota_check_exception_blocks_creation_via_http(self) -> None:
+        """Integration du fix fail-closed : une panne subscriptions bloque au niveau HTTP."""
+        with patch(
+            "subscriptions.services.limits.can_create_flash_sale",
+            side_effect=RuntimeError("panne simulee"),
+        ):
+            resp = self.client.post(self.create_url, self._valid_post_data())
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, "flash_sales/quota_exceeded.html")
+        self.assertEqual(
+            FlashSale.objects.filter(owner=self.seller, title="Nouvelle vente").count(),
+            0,
+        )

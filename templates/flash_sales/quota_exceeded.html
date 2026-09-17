@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Passer a un plan superieur — HayaFlash{% endblock %}
+{% block navbar %}{% include "partials/_nav_seller.html" %}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50">
+<div class="max-w-2xl mx-auto px-4 py-8 space-y-6">
+
+  <!-- Header -->
+  <div class="flex items-center gap-3">
+    <a href="{% url 'flash_sales:list' %}" class="text-gray-400 hover:text-gray-600 transition-colors">
+      <i data-lucide="arrow-left" class="w-5 h-5"></i>
+    </a>
+    <h1 class="text-xl font-bold text-gray-900">Limite mensuelle atteinte</h1>
+  </div>
+
+  <div class="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex items-start gap-3">
+    <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600 shrink-0 mt-0.5"></i>
+    <p class="text-sm text-amber-800">{{ reason }}</p>
+  </div>
+
+  <!-- Plans disponibles -->
+  <div>
+    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 px-1">Choisir un plan</p>
+    <div class="grid gap-4 sm:grid-cols-2">
+      {% for plan in plans %}
+      {% if plan.is_current %}
+      <div class="bg-green-50 border-2 border-green-200 rounded-2xl p-5 flex flex-col gap-4">
+        <div class="flex items-center justify-between">
+          <p class="text-lg font-black text-gray-900">{{ plan.label }}</p>
+          <span class="text-xs font-bold bg-green-600 text-white px-2.5 py-1 rounded-full">Actif</span>
+        </div>
+        <div>
+          {% if plan.price == 0 %}
+          <span class="text-2xl font-black text-gray-900">Gratuit</span>
+          {% else %}
+          <span class="text-3xl font-black text-gray-900">{{ plan.price|floatformat:"0g" }}</span>
+          <span class="text-sm font-semibold text-gray-400 ml-1">FCFA / mois</span>
+          {% endif %}
+        </div>
+        <p class="text-sm text-green-700 font-medium">C'est votre plan actuel.</p>
+      </div>
+      {% elif plan.key == "free" %}
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-4 opacity-60">
+        <p class="text-lg font-black text-gray-900">{{ plan.label }}</p>
+        <div>
+          <span class="text-2xl font-black text-gray-900">Gratuit</span>
+        </div>
+        <ul class="space-y-2 flex-1">
+          {% for feat in plan.features %}
+          <li class="flex items-start gap-2 text-sm text-gray-700">
+            <i data-lucide="check" class="w-4 h-4 text-green-500 shrink-0 mt-0.5"></i>{{ feat }}
+          </li>
+          {% endfor %}
+        </ul>
+        <button class="flex items-center justify-center gap-2 font-bold py-3 rounded-xl text-sm bg-gray-100 text-gray-400 cursor-not-allowed" disabled>
+          Votre plan
+        </button>
+      </div>
+      {% else %}
+      <div class="bg-white rounded-2xl border-2 shadow-sm p-5 flex flex-col gap-4
+        {% if plan.recommended %}border-primary{% else %}border-gray-100{% endif %}">
+        {% if plan.recommended %}
+        <div class="flex items-center justify-between">
+          <span class="text-lg font-black text-gray-900">{{ plan.label }}</span>
+          <span class="text-xs font-bold bg-primary text-white px-2.5 py-1 rounded-full">Recommande</span>
+        </div>
+        {% else %}
+        <p class="text-lg font-black text-gray-900">{{ plan.label }}</p>
+        {% endif %}
+        <div>
+          <span class="text-3xl font-black text-gray-900">{{ plan.price|floatformat:"0g" }}</span>
+          <span class="text-sm font-semibold text-gray-400 ml-1">FCFA / mois</span>
+        </div>
+        <ul class="space-y-2 flex-1">
+          {% for feat in plan.features %}
+          <li class="flex items-start gap-2 text-sm text-gray-700">
+            <i data-lucide="check" class="w-4 h-4 text-green-500 shrink-0 mt-0.5"></i>{{ feat }}
+          </li>
+          {% endfor %}
+        </ul>
+        <a href="{% url 'subscriptions:checkout' plan.key %}"
+           class="flex items-center justify-center gap-2 font-bold py-3 rounded-xl text-sm transition-all active:scale-[.98]
+             {% if plan.recommended %}bg-primary text-white hover:bg-red-700 shadow-sm
+             {% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+          <i data-lucide="zap" class="w-4 h-4"></i>
+          Passer a {{ plan.label }}
+        </a>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+
+  <p class="text-center text-xs text-gray-400 pb-4">
+    <a href="{% url 'flash_sales:list' %}" class="underline hover:text-gray-600">Retour a mes ventes</a>
+  </p>
+</div>
+</div>
+{% endblock %}

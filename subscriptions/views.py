@@ -200,8 +200,17 @@ def payment_cancel_view(request, payment_id):
 @require_POST
 def payment_callback_view(request):
     """
-    Callback asynchrone Orange Money.
-    Orange poste ici quand le paiement est confirme ou echoue.
+    Callback asynchrone Orange Money — /seller/abonnement/callback/
+    Orange poste ici quand le paiement est confirmé ou échoue.
+
+    IMPORTANT: Cette URL est historique (ancien chemin /seller/...).
+    Préférer /billing/webhook/orange/ qui est stable et enregistrée chez Orange Money.
+
+    Règles de sécurité:
+    1. Lookup par notif_token UNIQUEMENT (pas par order_id)
+    2. Idempotent: si payment.status == 'success', pas de re-traitement
+    3. @csrf_exempt seulement sur ce webhook
+    4. Retourner toujours 200 OK
     """
     try:
         raw_body = request.body
@@ -213,35 +222,57 @@ def payment_callback_view(request):
             data = {k: v[0] for k, v in parse_qs(raw_body.decode()).items()}
 
         from .services.orange_money import verify_callback
+        from django.db import transaction
 
         result = verify_callback(data)
 
-        order_id = result.get("order_id") or ""
-        if not order_id:
-            logger.warning("Orange callback sans order_id: %s", data)
+        # SÉCURITÉ CRITIQUE: Lookup par notif_token UNIQUEMENT (pas order_id)
+        notif_token = result.get("notif_token") or ""
+        if not notif_token:
+            logger.warning("Orange callback sans notif_token: %s", data)
             return HttpResponse("OK")
 
         try:
-            payment = SubscriptionPayment.objects.get(order_id=order_id)
+            payment = SubscriptionPayment.objects.select_related("seller").get(
+                notif_token=notif_token
+            )
         except SubscriptionPayment.DoesNotExist:
-            logger.warning("Orange callback — order_id inconnu: %s", order_id)
+            logger.warning("Orange callback — notif_token inconnu: %s", notif_token)
             return HttpResponse("OK")
 
-        payment.raw_callback = data
-        payment.txn_id = result.get("txn_id", "")
+        # IDEMPOTENCE: Si déjà success, pas de re-traitement
+        if payment.status == PaymentStatus.SUCCESS:
+            logger.info(
+                "Webhook already processed — notif_token=%s (idempotent skip)",
+                notif_token[:16] + "...",
+            )
+            return HttpResponse("OK")
 
-        if result["success"]:
-            from .services.payment import activate_subscription_from_payment
+        # Traitement du webhook
+        with transaction.atomic():
+            payment.raw_callback = data
+            payment.txn_id = result.get("txn_id", "")
 
-            activate_subscription_from_payment(payment)
-            logger.info("Subscription activated via callback — order_id=%s", order_id)
-        else:
-            if payment.status == PaymentStatus.PENDING:
-                payment.status = PaymentStatus.FAILED
-                payment.save()
+            if result["success"]:
+                from .services.payment import activate_subscription_from_payment
 
-    except Exception:
-        logger.exception("Orange Money callback processing error")
+                activate_subscription_from_payment(payment)
+                logger.info(
+                    "Subscription activated via callback — notif_token=%s",
+                    notif_token[:16] + "...",
+                )
+            else:
+                if payment.status == PaymentStatus.PENDING:
+                    payment.status = PaymentStatus.FAILED
+                    payment.save()
+                logger.warning(
+                    "Payment failed — notif_token=%s status=%s",
+                    notif_token[:16] + "...",
+                    result.get("status", ""),
+                )
+
+    except Exception as exc:
+        logger.exception("Orange Money callback processing error: %s", str(exc))
 
     return HttpResponse("OK")
 

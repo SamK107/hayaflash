@@ -108,11 +108,23 @@ services:
   # ── Nginx (reverse proxy + static) ───────────────────────────────────────────
   nginx:
     image: nginx:1.27-alpine
+    # env_file (et non `environment: ${PROD_DOMAIN}`) : la substitution
+    # `${VAR}` du compose file est résolue par le CLI docker compose depuis
+    # l'environnement du shell hôte / un .env à côté de ce fichier, ce qui
+    # n'est jamais garanti sur le VPS (nginx est démarré une fois puis jamais
+    # retouché par deploy.sh). En passant par le même /srv/hayaflash/.env que
+    # les autres services (voir x-django-base), PROD_DOMAIN atterrit
+    # directement dans l'environnement du conteneur nginx, où l'entrypoint
+    # envsubst le lit pour substituer server_name / ssl_certificate dans
+    # prod.conf (monté en template ci-dessous). Sans cette variable, nginx
+    # démarre avec un ${PROD_DOMAIN} littéral dans le chemin du certificat
+    # et plante au boot.
+    env_file: /srv/hayaflash/.env
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./infra/nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./infra/nginx/prod.conf:/etc/nginx/templates/default.conf.template:ro
       - static_data:/srv/static:ro
       - media_data:/srv/media:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro

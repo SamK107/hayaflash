@@ -7,7 +7,9 @@ from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_GET, require_POST
 
-from analytics.services.abuse import normalize_tracking_source
+import re
+
+from analytics.services.abuse import allow_tracking_request, normalize_tracking_source
 from analytics.services.public_pages import (
     resolve_flash_sale_public_page,
     resolve_seller_public_page,
@@ -33,6 +35,19 @@ def _apply_public_cache_headers(
 def _client_accepts_etag(request, etag: str) -> bool:
     if_none_match = request.META.get("HTTP_IF_NONE_MATCH", "")
     return etag and if_none_match.strip('"') == etag
+
+
+# Tolère espaces, tirets, parenthèses et un "+" initial ; exige 8 à 15 chiffres
+# (format E.164 large — le numéro n'est pas normalisé ici, juste filtré des
+# valeurs manifestement invalides/spam avant écriture en base).
+_PHONE_RE = re.compile(r"^\+?[0-9()\-\s]{8,20}$")
+
+
+def _is_valid_phone(phone: str) -> bool:
+    if not _PHONE_RE.match(phone):
+        return False
+    digit_count = sum(1 for c in phone if c.isdigit())
+    return 8 <= digit_count <= 15
 
 
 @require_GET
@@ -103,6 +118,11 @@ def flash_sale_interest(request, slug: str):
     """
     from flash_sales.models import FlashSale, SaleInterest
 
+    if not allow_tracking_request(request):
+        return JsonResponse(
+            {"error": "Trop de requêtes. Réessayez plus tard."}, status=429
+        )
+
     flash_sale = get_object_or_404(FlashSale, public_slug=slug)
 
     try:
@@ -111,10 +131,12 @@ def flash_sale_interest(request, slug: str):
         return JsonResponse({"error": "JSON invalide."}, status=400)
 
     phone = (data.get("phone") or "").strip()
-    name = (data.get("name") or "").strip()
+    name = (data.get("name") or "").strip()[:120]
 
     if not phone:
         return JsonResponse({"error": "Le téléphone est obligatoire."}, status=400)
+    if not _is_valid_phone(phone):
+        return JsonResponse({"error": "Numéro de téléphone invalide."}, status=400)
 
     interest = SaleInterest.objects.create(
         flash_sale=flash_sale,

@@ -162,8 +162,24 @@ class SubscriptionPayment(models.Model):
         db_index=True,
     )
     # Orange Money specifics
-    order_id = models.CharField(max_length=100, unique=True, db_index=True)
-    pay_token = models.CharField(max_length=200, blank=True, default="")
+    # order_id: Maximum 24 characters (Orange Money HTTP 400 limit)
+    # Validé à la création dans services/payment.py
+    order_id = models.CharField(
+        max_length=24,
+        unique=True,
+        db_index=True,
+        help_text="Identifiant commande Orange Money (max 24 chars)",
+    )
+    # notif_token: Token unique pour lookup webhook (sécurité critique)
+    # IMPORTANT: Cet identifiant est utilisé UNIQUEMENT pour la sécurité des webhooks.
+    # Les webhooks font un lookup par notif_token (pas par order_id) pour assurer
+    # que seuls les paiements stockés peuvent être activés. Pas de HMAC/signature requis.
+    notif_token = models.CharField(
+        max_length=128,
+        unique=True,
+        db_index=True,
+        help_text="Token de notification Orange Money (lookup webhook)",
+    )
     txn_id = models.CharField(max_length=200, blank=True, default="")
     payment_url = models.URLField(blank=True, default="")
     raw_response = models.JSONField(default=dict, blank=True)
@@ -179,10 +195,81 @@ class SubscriptionPayment(models.Model):
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["order_id"]),
+            models.Index(fields=["notif_token"]),
             models.Index(fields=["seller", "status"]),
         ]
+
+    def clean(self):
+        """Validation de order_id ≤ 24 caractères."""
+        super().clean()
+        if len(self.order_id) > 24:
+            raise ValueError(
+                f"order_id ne doit pas dépasser 24 caractères ({len(self.order_id)} fournis)"
+            )
+
+    def save(self, *args, **kwargs):
+        """Valide l'ordre_id avant sauvegarde."""
+        self.clean()
+        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return (
             f"{self.seller} — {self.plan} — {self.status} — {self.created_at:%d/%m/%Y}"
+        )
+
+
+class WebhookLog(models.Model):
+    """
+    Audit trail de toutes les notifications webhooks Orange Money.
+    Utilisé pour déboguer et auditeur les paiements reçus.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    payment = models.ForeignKey(
+        SubscriptionPayment,
+        on_delete=models.CASCADE,
+        related_name="webhook_logs",
+        help_text="Paiement associé (si trouvé)",
+    )
+    # Le token du webhook (même si le paiement n'a pas été trouvé)
+    notif_token = models.CharField(max_length=128, db_index=True)
+    status = models.CharField(
+        max_length=20,
+        blank=True,
+        help_text="Statut rapporté par Orange Money (success/failure/etc)",
+    )
+    txn_id = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="ID transaction Orange Money",
+    )
+    # Payload brut pour audit et débogage
+    raw_payload = models.JSONField(
+        help_text="Payload brut reçu du webhook (sans secrets)"
+    )
+    # Statut du traitement
+    processed = models.BooleanField(
+        default=True,
+        help_text="True si le webhook a été traité (activation ou mise à jour du paiement)",
+    )
+    error_message = models.TextField(
+        blank=True,
+        help_text="Message d'erreur si le traitement a échoué",
+    )
+    # Dates
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Log webhook Orange Money"
+        verbose_name_plural = "Logs webhooks Orange Money"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["notif_token"]),
+            models.Index(fields=["payment", "status"]),
+        ]
+
+    def __str__(self) -> str:
+        return (
+            f"Webhook {self.notif_token[:16]}... — "
+            f"{self.status} — {self.created_at:%d/%m/%Y %H:%M:%S}"
         )

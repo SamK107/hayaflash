@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import timedelta
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.utils import timezone
 
 from flash_sales.models import FlashSale, FlashSaleStatus
+
+logger = logging.getLogger(__name__)
 
 
 def create_flash_sale(
@@ -148,4 +151,9 @@ def can_seller_create_sale(seller) -> tuple[bool, str]:
 
         return can_create_flash_sale(seller)
     except Exception:
-        return True, ""  # Fail open si subscriptions non disponible
+        # Fail-closed : une panne cote subscriptions (DB, bug futur, migration
+        # cassee) ne doit jamais desactiver silencieusement le quota. On refuse
+        # la creation plutot que de laisser un vendeur FREE creer des ventes
+        # illimitees sans controle.
+        logger.exception("Quota check failed for seller %s", getattr(seller, "pk", seller))
+        return False, "Impossible de verifier votre quota. Reessayez."
