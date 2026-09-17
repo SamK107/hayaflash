@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}HayaFlash — Programmez. Vendez. Haya s'occupe du reste.{% endblock %}
 {% block meta_description %}Commandes en temps réel, livraisons suivies, encaissements confirmés. La plateforme qui transforme vos ventes flash en machine à commandes — pour vendeurs au Mali.{% endblock %}
 
 {% block extra_head %}
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
+<!-- Poppins — auto-hébergée (remplace fonts.googleapis.com) -->
+<link rel="stylesheet" href="{% static 'fonts/poppins/poppins.css' %}">
 
 <style>
 /* ─────────────────────────────────────────────────

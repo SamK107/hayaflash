@@ -52,7 +52,8 @@
   {% if flash_sale.cover_image %}
   <div class="relative bg-gray-900 overflow-hidden">
     <img src="{{ flash_sale.cover_image.url }}" alt="{{ flash_sale.title }}"
-         class="w-full h-52 sm:h-64 object-cover opacity-85">
+         class="w-full h-52 sm:h-64 object-cover opacity-85"
+         loading="eager" fetchpriority="high" decoding="async">
     <div class="absolute inset-0 bg-gradient-to-t from-gray-900/50 to-transparent"></div>
     <div class="absolute bottom-4 left-4">
       <span class="text-white/80 text-xs font-semibold bg-black/30 px-2 py-1 rounded-full">
@@ -276,6 +277,7 @@
     <div class="relative bg-gray-100">
       <img src="{{ flash_sale.cover_image.url }}" alt="{{ flash_sale.title }}"
            class="w-full h-56 sm:h-72 object-cover cursor-zoom-in"
+           loading="eager" fetchpriority="high" decoding="async"
            ondblclick="hfZoom(this)" title="Double-clic pour agrandir">
       <span class="absolute bottom-2 right-2 bg-black/40 text-white text-xs px-2 py-0.5 rounded-full pointer-events-none">🔍</span>
     </div>
@@ -322,6 +324,7 @@
         <div class="relative">
           <img src="{{ img.file.url }}" alt="{{ p.name }}"
                class="w-full h-44 object-cover cursor-zoom-in"
+               loading="lazy" decoding="async"
                ondblclick="hfZoom(this)" title="Double-clic pour agrandir">
           <span class="absolute bottom-2 right-2 bg-black/40 text-white text-xs px-1.5 py-0.5 rounded-full pointer-events-none">🔍</span>
           {% if p.stock_available == 0 %}

@@ -34,7 +34,7 @@
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
       {% with cover=product.media.all|first %}
       {% if cover and cover.file %}
-      <img src="{{ cover.file.url }}" alt="{{ product.name }}" class="w-full aspect-video object-cover">
+      <img src="{{ cover.file.url }}" alt="{{ product.name }}" class="w-full aspect-video object-cover" loading="eager" fetchpriority="high" decoding="async">
       {% else %}
       <div class="w-full aspect-video bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
         <i data-lucide="image" class="w-12 h-12 text-gray-400"></i>

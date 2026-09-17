@@ -174,6 +174,8 @@ gunicorn==25.3.0
 psycopg2-binary==2.9.11
 python-dotenv==1.2.2
 whitenoise==6.12.0
+Brotli==1.1.0            # ajouté 14/09 — précompression Brotli par WhiteNoise en plus de gzip
+django-csp==3.8          # ajouté 14/09 — Content-Security-Policy (Report-Only, voir § Performance & SEO)
 pillow==12.2.0
 dj-database-url==2.3.0
 requests==2.33.1
@@ -201,10 +203,32 @@ requests==2.33.1
 
 ---
 
+## Performance & SEO (chantier ouvert le 13/09, exécuté le 14/09)
+
+Contexte complet : `docs/AUDIT_PERFORMANCE_SEO.md`. Détail de maintenance du
+build front : `docs/FRONTEND_VENDORING.md`.
+
+| Action | État |
+|---|---|
+| Vendoring Tailwind (build CLI purgé, remplace `cdn.tailwindcss.com`), HTMX 2.0.0, Alpine 3.14.9 (version figée), Lucide 0.462.0 (version figée, remplace `@latest`) | ✅ Fait (14/09) — `static/vendor/`, référencé dans `templates/base.html` |
+| Auto-hébergement des polices Inter (`base.html`) et Poppins (`core/home.html`), suppression de `fonts.googleapis.com` | ✅ Fait (14/09) — `static/fonts/` |
+| `loading="lazy"`/`decoding="async"` sur les images produits below-the-fold, `fetchpriority="high"` sur les covers above-the-fold | ✅ Fait (14/09) — `flash_sale_public.html`, `public_detail.html`, `public_calendar.html`, `client_order.html`, `detail.html`, `_sale_list_section.html`, `seller/home.html` |
+| Redimensionnement automatique des images à l'upload (max 1600px, best-effort) | ✅ Fait (14/09) — `core/services/image_optimize.py`, câblé dans `FlashSale.save()` et `ProductMedia.save()` |
+| `robots.txt` + `sitemap.xml` (home, `/ventes/`, ventes live/programmées, vendeurs actifs) | ✅ Fait (14/09) — `core/sitemaps.py`, routes dans `config/urls.py` |
+| `<link rel="canonical">` sur `/ventes/<slug>/` vers `/f/<slug>/` (duplication de contenu — voir `CLAUDE.md` point 14) | ✅ Fait (14/09) |
+| Brotli (en plus de gzip) sur WhiteNoise | ✅ Fait (14/09) — `Brotli` dans `requirements.txt`, activation automatique par WhiteNoise |
+| Content-Security-Policy | 🟡 Fait en **Report-Only** (14/09) — `CSP_REPORT_ONLY = True` dans `config/settings/base.py`. Ne bloque rien. Passage en mode bloquant = décision à prendre après vérification sans violation sur staging (console navigateur), et après avoir traité les `onclick=`/`<script>` inline qui nécessitent aujourd'hui `'unsafe-inline'`. |
+| Tree-shaking Lucide (356 Ko → ~15-20 Ko estimé, ~67 icônes utilisées sur les ~1500 de la lib) | ❌ Pas fait — nécessite de pouvoir tester visuellement en live (accès shell machine indisponible le 14/09, cf. bug Windows connu côté pont Claude) |
+| Migration `flash_sales/0010_saleinterest_reminded_at` | ❌ **Toujours pas appliquée** — nécessite `python manage.py migrate` en local (non exécutable à distance actuellement) |
+| Suite de tests relancée | ❌ **Toujours pas relancée** depuis le 18/07 — même contrainte d'accès |
+
+---
+
 ## Prochaines priorités suggérées
 
-1. **Appliquer la migration `flash_sales/0010_saleinterest_reminded_at`** (`python manage.py migrate`) pour activer le rappel automatique ajouté le 09-09
-2. **Clarifier F3 "Sales Drawer"** avec le product owner en montrant le code existant (`orderDrawer` dans `flash_sale_public.html`) : confirme-t-il le label, ou s'agit-il d'autre chose ?
-3. **Web Share API** sur les pages publiques (`/f/<slug>/`, `/s/<slug>/`) si voulu en complément du QR code/WhatsApp
-4. **Re-lancer la suite de tests** pour confirmer l'état de couverture actuel (dernière mesure connue : 18/07) et couvrir la nouvelle tâche `send_pending_sale_reminders`
+1. **Appliquer la migration `flash_sales/0010_saleinterest_reminded_at`** (`python manage.py migrate`) pour activer le rappel automatique ajouté le 09-09 — **et relancer `pytest --ds=config.settings.test`** pour confirmer l'état de couverture actuel (dernière mesure connue : 18/07) avant tout déploiement
+2. **Retirer `if: false`** sur `deploy-staging`/`deploy-prod` (`.github/workflows/deploy.yml`) une fois le VPS prêt
+3. **Décider du passage de la CSP en mode bloquant** (`CSP_REPORT_ONLY = False`) après vérification sans violation sur staging
+4. **Clarifier F3 "Sales Drawer"** avec le product owner en montrant le code existant (`orderDrawer` dans `flash_sale_public.html`) : confirme-t-il le label, ou s'agit-il d'autre chose ?
+5. **Web Share API** sur les pages publiques (`/f/<slug>/`, `/s/<slug>/`) si voulu en complément du QR code/WhatsApp
 5. **Décider du sort des items démo optionnels** (`is_demo`, reset auto, badge DÉMO) si un usage showroom partenaires est prévu

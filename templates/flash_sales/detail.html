@@ -22,6 +22,7 @@
         {% if sale.cover_image %}
         <img src="{{ sale.cover_image.url }}" alt="{{ sale.title }}"
              class="w-full h-40 object-cover cursor-zoom-in"
+             loading="lazy" decoding="async"
              ondblclick="hfZoom(this)" title="Double-clic pour agrandir">
         {% endif %}
         <div class="p-6">
@@ -105,6 +106,7 @@
             {% if product.media.all.0 %}
             <img src="{{ product.media.all.0.file.url }}" alt="{{ product.name }}"
                  class="w-12 h-12 rounded-xl object-cover flex-shrink-0 cursor-zoom-in"
+                 loading="lazy" decoding="async"
                  ondblclick="hfZoom(this)" title="Double-clic pour agrandir">
             {% else %}
             <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">

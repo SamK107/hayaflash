@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /platform-admin/
+Disallow: /seller/
+Disallow: /orders/
+Disallow: /billing/
+Disallow: /api/
+Disallow: /__debug__/
+
+Sitemap: {{ request.scheme }}://{{ request.get_host }}/sitemap.xml

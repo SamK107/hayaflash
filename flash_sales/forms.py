@@ -102,7 +102,7 @@ class FlashSaleForm(forms.ModelForm):
             "delivery_zone": "Zone de livraison",
             "cover_image": "Image de couverture",
             "max_orders": "Plafond de commandes",
-            "teasers": "Teasers (page d'attente, optionnel)",
+            "teasers": "APERÇUS — Découvrez ce qui arrive bientôt",
         }
 
     def __init__(self, *args, seller=None, existing_sale_pk=None, **kwargs):

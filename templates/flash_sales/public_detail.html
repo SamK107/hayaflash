@@ -4,6 +4,10 @@
 {% block meta_description %}{{ sale.description|default:sale.title|truncatewords:20 }}{% endblock %}
 
 {% block extra_head %}
+<!-- Cette page duplique /f/<slug>/ (analytics.views.flash_sale_public_page, qui
+     porte déjà OG/JSON-LD/canonical) — canonical ici pour éviter le contenu
+     dupliqué aux yeux des moteurs de recherche. -->
+<link rel="canonical" href="{{ request.scheme }}://{{ request.get_host }}{% url 'public_flash_sale' slug=sale.public_slug %}">
 <style>
 @keyframes urgence-pulse {
   0%,100% { background-color: #dc2626; }
@@ -83,6 +87,7 @@
     <div class="relative bg-gray-100">
       <img src="{{ sale.cover_image.url }}" alt="{{ sale.title }}"
            class="w-full h-56 sm:h-72 object-cover cursor-zoom-in"
+           loading="eager" fetchpriority="high" decoding="async"
            ondblclick="hfZoom(this)"
            title="Double-clic pour agrandir">
       <span class="absolute bottom-2 right-2 bg-black/40 text-white text-xs
@@ -143,6 +148,7 @@
         <div class="relative">
           <img src="{{ img.file.url }}" alt="{{ product.name }}"
                class="w-full h-44 object-cover cursor-zoom-in"
+               loading="lazy" decoding="async"
                ondblclick="hfZoom(this)"
                title="Double-clic pour agrandir">
           <span class="absolute bottom-2 right-2 bg-black/40 text-white text-xs

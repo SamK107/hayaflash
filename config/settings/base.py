@@ -201,6 +201,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.sitemaps",
     "rest_framework",
     "corsheaders",
     "django_htmx",
@@ -225,6 +226,7 @@ PAYMENTS_MOCK_SIMULATE_FAILURE = _env_bool(
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "csp.middleware.CSPMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
@@ -334,6 +336,38 @@ if os.environ.get("DEFAULT_FROM_EMAIL"):
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
+
+# ── Content-Security-Policy ──────────────────────────────────────────────────
+# Étape 1 du durcissement post-vendoring (13/09) : tout le JS/CSS/police est
+# maintenant self-hosted (static/vendor, static/fonts), donc une vraie CSP est
+# possible — avant, 5 origines externes (unpkg/jsdelivr/cdn.tailwindcss.com/
+# fonts.googleapis.com) l'auraient rendue inutilement permissive.
+#
+# Démarrage volontairement en Report-Only (CSP_REPORT_ONLY = True) : la policy
+# est envoyée et visible dans la console navigateur (onglet Network/Console)
+# mais ne bloque RIEN tant qu'on n'a pas confirmé qu'aucune ressource légitime
+# n'est reportée comme violation. 'unsafe-inline' reste nécessaire pour
+# script-src/style-src tant que les nombreux onclick="" et <script> inline
+# (toasts, zoom lightbox, install PWA, service worker...) n'ont pas été migrés
+# vers des gestionnaires d'événements externes — c'est un chantier à part,
+# volontairement pas fait dans cette passe pour ne rien casser sans pouvoir
+# tester (voir docs/CODEBASE_STATUS.md).
+#
+# Prochaine étape, une fois confirmé sans violation sur staging :
+# CSP_REPORT_ONLY = False (dans prod.py) pour passer en mode bloquant.
+CSP_REPORT_ONLY = True
+CSP_DEFAULT_SRC = ["'self'"]
+CSP_SCRIPT_SRC = ["'self'", "'unsafe-inline'"]
+CSP_STYLE_SRC = ["'self'", "'unsafe-inline'"]
+CSP_IMG_SRC = ["'self'", "data:", "blob:"]
+CSP_FONT_SRC = ["'self'"]
+CSP_CONNECT_SRC = ["'self'"]
+CSP_MEDIA_SRC = ["'self'"]
+CSP_MANIFEST_SRC = ["'self'"]
+CSP_WORKER_SRC = ["'self'"]
+CSP_OBJECT_SRC = ["'none'"]
+CSP_BASE_URI = ["'self'"]
+CSP_FRAME_ANCESTORS = ["'none'"]
 
 DATABASE_ROUTERS = ["config.db_router.DefaultRouter"]
 

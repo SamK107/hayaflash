@@ -109,6 +109,13 @@ class ProductMedia(models.Model):
     def __str__(self):
         return f"Media #{self.order} - {self.product.name}"
 
+    def save(self, *args, **kwargs):
+        from core.services.image_optimize import is_pending_upload, resize_uploaded_image
+
+        if self.media_type == self.MediaType.IMAGE and is_pending_upload(self.file):
+            resize_uploaded_image(self.file)
+        super().save(*args, **kwargs)
+
 
 class ProductVariant(models.Model):
     product = models.ForeignKey(
