@@ -418,8 +418,8 @@ class SubscriptionEnforcementIntegrationTest(TestCase):
         count_before = FlashSale.objects.filter(owner=self.seller).count()
         resp = self.client.post(self.create_url, self._valid_post_data())
 
-        self.assertEqual(resp.status_code, 302)
-        self.assertEqual(resp["Location"], reverse("flash_sales:list"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, "flash_sales/quota_exceeded.html")
         self.assertEqual(
             FlashSale.objects.filter(owner=self.seller).count(), count_before
         )
@@ -450,8 +450,8 @@ class SubscriptionEnforcementIntegrationTest(TestCase):
         ):
             resp = self.client.post(self.create_url, self._valid_post_data())
 
-        self.assertEqual(resp.status_code, 302)
-        self.assertEqual(resp["Location"], reverse("flash_sales:list"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, "flash_sales/quota_exceeded.html")
         self.assertEqual(
             FlashSale.objects.filter(owner=self.seller, title="Nouvelle vente").count(),
             0,

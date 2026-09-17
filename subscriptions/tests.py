@@ -201,6 +201,7 @@ class PaymentActivationIdempotenceTest(TestCase):
             phone="+22300000042",
             status=status,
             order_id=f"HF-TEST-{uuid.uuid4().hex[:12].upper()}",
+            notif_token=uuid.uuid4().hex,
         )
 
     def test_calling_twice_on_same_payment_does_not_extend_twice(self):
@@ -359,8 +360,8 @@ class SubscriptionExpiryTest(TestCase):
             },
         )
 
-        self.assertEqual(resp.status_code, 302)
-        self.assertEqual(resp["Location"], reverse("flash_sales:list"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, "flash_sales/quota_exceeded.html")
         self.assertFalse(
             FlashSale.objects.filter(
                 owner=self.seller, title="4e vente apres expiration"
