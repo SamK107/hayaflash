@@ -1,300 +1,100 @@
 {% extends "base.html" %}
-{% load static %}
-
-{% block title %}Upgrade Your Plan — HayaFlash{% endblock %}
+{% block title %}Passer a un plan superieur — HayaFlash{% endblock %}
+{% block navbar %}{% include "partials/_nav_seller.html" %}{% endblock %}
 
 {% block content %}
-<div class="quota-exceeded-container">
-  <div class="paywall-header">
-    <h1>Vous avez atteint votre limite mensuelle</h1>
-    <p class="subtitle">{{ reason }}</p>
+<div class="min-h-screen bg-gray-50">
+<div class="max-w-2xl mx-auto px-4 py-8 space-y-6">
+
+  <!-- Header -->
+  <div class="flex items-center gap-3">
+    <a href="{% url 'flash_sales:list' %}" class="text-gray-400 hover:text-gray-600 transition-colors">
+      <i data-lucide="arrow-left" class="w-5 h-5"></i>
+    </a>
+    <h1 class="text-xl font-bold text-gray-900">Limite mensuelle atteinte</h1>
   </div>
 
-  <div class="plans-grid">
-    {% for plan in plans %}
-    <div class="plan-card {% if plan.recommended %}recommended{% endif %} {% if plan.is_current %}current{% endif %}">
-      {% if plan.recommended %}
-      <div class="plan-badge">Recommandé</div>
-      {% endif %}
+  <div class="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex items-start gap-3">
+    <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600 shrink-0 mt-0.5"></i>
+    <p class="text-sm text-amber-800">{{ reason }}</p>
+  </div>
 
-      <h3 class="plan-name">{{ plan.label }}</h3>
-
-      <div class="plan-price">
-        {% if plan.price == 0 %}
-          <span class="price-text">Gratuit</span>
-        {% else %}
-          <span class="price-amount">{{ plan.price }}</span>
-          <span class="price-currency">FCFA</span>
-          <span class="price-period">/mois</span>
-        {% endif %}
+  <!-- Plans disponibles -->
+  <div>
+    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 px-1">Choisir un plan</p>
+    <div class="grid gap-4 sm:grid-cols-2">
+      {% for plan in plans %}
+      {% if plan.is_current %}
+      <div class="bg-green-50 border-2 border-green-200 rounded-2xl p-5 flex flex-col gap-4">
+        <div class="flex items-center justify-between">
+          <p class="text-lg font-black text-gray-900">{{ plan.label }}</p>
+          <span class="text-xs font-bold bg-green-600 text-white px-2.5 py-1 rounded-full">Actif</span>
+        </div>
+        <div>
+          {% if plan.price == 0 %}
+          <span class="text-2xl font-black text-gray-900">Gratuit</span>
+          {% else %}
+          <span class="text-3xl font-black text-gray-900">{{ plan.price|floatformat:"0g" }}</span>
+          <span class="text-sm font-semibold text-gray-400 ml-1">FCFA / mois</span>
+          {% endif %}
+        </div>
+        <p class="text-sm text-green-700 font-medium">C'est votre plan actuel.</p>
       </div>
-
-      <div class="plan-features">
-        <h4>Fonctionnalités</h4>
-        <ul>
-          {% for feature in plan.features %}
-          <li>
-            <span class="feature-icon">✓</span>
-            <span class="feature-text">{{ feature }}</span>
+      {% elif plan.key == "free" %}
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-4 opacity-60">
+        <p class="text-lg font-black text-gray-900">{{ plan.label }}</p>
+        <div>
+          <span class="text-2xl font-black text-gray-900">Gratuit</span>
+        </div>
+        <ul class="space-y-2 flex-1">
+          {% for feat in plan.features %}
+          <li class="flex items-start gap-2 text-sm text-gray-700">
+            <i data-lucide="check" class="w-4 h-4 text-green-500 shrink-0 mt-0.5"></i>{{ feat }}
           </li>
           {% endfor %}
         </ul>
+        <button class="flex items-center justify-center gap-2 font-bold py-3 rounded-xl text-sm bg-gray-100 text-gray-400 cursor-not-allowed" disabled>
+          Votre plan
+        </button>
       </div>
-
-      <div class="plan-action">
-        {% if plan.is_current %}
-          <button class="btn btn-secondary" disabled>Plan actuel</button>
-        {% elif plan.key == "free" %}
-          <button class="btn btn-secondary" disabled>Votre plan</button>
+      {% else %}
+      <div class="bg-white rounded-2xl border-2 shadow-sm p-5 flex flex-col gap-4
+        {% if plan.recommended %}border-primary{% else %}border-gray-100{% endif %}">
+        {% if plan.recommended %}
+        <div class="flex items-center justify-between">
+          <span class="text-lg font-black text-gray-900">{{ plan.label }}</span>
+          <span class="text-xs font-bold bg-primary text-white px-2.5 py-1 rounded-full">Recommande</span>
+        </div>
         {% else %}
-          <a href="{% url 'subscriptions:upgrade' plan.key %}" class="btn btn-primary">
-            Passer à {{ plan.label }}
-          </a>
+        <p class="text-lg font-black text-gray-900">{{ plan.label }}</p>
         {% endif %}
+        <div>
+          <span class="text-3xl font-black text-gray-900">{{ plan.price|floatformat:"0g" }}</span>
+          <span class="text-sm font-semibold text-gray-400 ml-1">FCFA / mois</span>
+        </div>
+        <ul class="space-y-2 flex-1">
+          {% for feat in plan.features %}
+          <li class="flex items-start gap-2 text-sm text-gray-700">
+            <i data-lucide="check" class="w-4 h-4 text-green-500 shrink-0 mt-0.5"></i>{{ feat }}
+          </li>
+          {% endfor %}
+        </ul>
+        <a href="{% url 'subscriptions:checkout' plan.key %}"
+           class="flex items-center justify-center gap-2 font-bold py-3 rounded-xl text-sm transition-all active:scale-[.98]
+             {% if plan.recommended %}bg-primary text-white hover:bg-red-700 shadow-sm
+             {% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+          <i data-lucide="zap" class="w-4 h-4"></i>
+          Passer a {{ plan.label }}
+        </a>
       </div>
+      {% endif %}
+      {% endfor %}
     </div>
-    {% endfor %}
   </div>
 
-  <div class="paywall-footer">
-    <p class="footer-text">
-      Vous pourrez créer des ventes flash illimitées une fois votre plan upgraded.
-    </p>
-    <a href="{% url 'flash_sales:list' %}" class="btn btn-link">Retour à mes ventes</a>
-  </div>
+  <p class="text-center text-xs text-gray-400 pb-4">
+    <a href="{% url 'flash_sales:list' %}" class="underline hover:text-gray-600">Retour a mes ventes</a>
+  </p>
 </div>
-
-<style>
-.quota-exceeded-container {
-  max-width: 1200px;
-  margin: 3rem auto;
-  padding: 2rem;
-}
-
-.paywall-header {
-  text-align: center;
-  margin-bottom: 3rem;
-}
-
-.paywall-header h1 {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin-bottom: 0.5rem;
-}
-
-.paywall-header .subtitle {
-  font-size: 1.1rem;
-  color: #666;
-}
-
-.plans-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
-  margin-bottom: 3rem;
-}
-
-.plan-card {
-  border: 2px solid #e0e0e0;
-  border-radius: 12px;
-  padding: 2rem;
-  background: white;
-  transition: all 0.3s ease;
-  position: relative;
-}
-
-.plan-card:hover {
-  border-color: #ff6b35;
-  box-shadow: 0 8px 24px rgba(255, 107, 53, 0.15);
-}
-
-.plan-card.recommended {
-  border-color: #ff6b35;
-  box-shadow: 0 8px 24px rgba(255, 107, 53, 0.15);
-  transform: scale(1.02);
-}
-
-.plan-card.current {
-  background: #f8f8f8;
-  border-color: #999;
-}
-
-.plan-badge {
-  position: absolute;
-  top: -12px;
-  left: 20px;
-  background: #ff6b35;
-  color: white;
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.plan-name {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin: 1rem 0;
-}
-
-.plan-price {
-  margin: 1.5rem 0;
-  padding: 1.5rem 0;
-  border-top: 1px solid #e0e0e0;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-.price-amount {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: #ff6b35;
-}
-
-.price-currency {
-  font-size: 1rem;
-  color: #666;
-  margin-left: 0.25rem;
-}
-
-.price-period {
-  font-size: 0.9rem;
-  color: #999;
-  margin-left: 0.5rem;
-}
-
-.price-text {
-  font-size: 1.2rem;
-  color: #666;
-  font-weight: 500;
-}
-
-.plan-features {
-  margin: 1.5rem 0;
-}
-
-.plan-features h4 {
-  font-size: 0.9rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: #666;
-  margin-bottom: 0.75rem;
-}
-
-.plan-features ul {
-  list-style: none;
-  padding: 0;
-}
-
-.plan-features li {
-  display: flex;
-  align-items: flex-start;
-  margin-bottom: 0.75rem;
-  font-size: 0.95rem;
-  color: #333;
-}
-
-.feature-icon {
-  color: #ff6b35;
-  font-weight: bold;
-  margin-right: 0.5rem;
-  flex-shrink: 0;
-}
-
-.feature-text {
-  line-height: 1.4;
-}
-
-.plan-action {
-  margin-top: 1.5rem;
-}
-
-.btn {
-  display: inline-block;
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 6px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: none;
-  text-align: center;
-  transition: all 0.3s ease;
-  width: 100%;
-}
-
-.btn-primary {
-  background: #ff6b35;
-  color: white;
-}
-
-.btn-primary:hover {
-  background: #e55a24;
-  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
-}
-
-.btn-secondary {
-  background: #e0e0e0;
-  color: #666;
-}
-
-.btn-secondary:hover {
-  background: #d0d0d0;
-}
-
-.btn-secondary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-link {
-  background: transparent;
-  color: #ff6b35;
-  border: 1px solid #ff6b35;
-  text-decoration: none;
-}
-
-.btn-link:hover {
-  background: #fff5f0;
-}
-
-.paywall-footer {
-  text-align: center;
-  padding: 2rem;
-  background: #f8f8f8;
-  border-radius: 8px;
-}
-
-.footer-text {
-  color: #666;
-  margin-bottom: 1rem;
-  font-size: 1rem;
-}
-
-/* Mobile responsive */
-@media (max-width: 768px) {
-  .quota-exceeded-container {
-    margin: 1rem auto;
-    padding: 1rem;
-  }
-
-  .paywall-header h1 {
-    font-size: 1.75rem;
-  }
-
-  .plans-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  .plan-card.recommended {
-    transform: scale(1);
-  }
-
-  .price-amount {
-    font-size: 2rem;
-  }
-}
-</style>
+</div>
 {% endblock %}
