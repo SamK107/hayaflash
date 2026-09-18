@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 from typing import Any
 
 from django.conf import settings
@@ -10,6 +11,8 @@ from django.db import transaction
 
 from payments.models import PaymentTransaction, PaymentTransactionStatus
 from payments.services.ledger import append_balanced_entries_for_success
+
+logger = logging.getLogger(__name__)
 
 
 class WebhookProcessingError(Exception):
@@ -113,4 +116,13 @@ def apply_provider_webhook(
             return pt
         pt.status = PaymentTransactionStatus.FAILED
         pt.save(update_fields=["status", "updated_at"])
+        # event_level=ERROR sur le LoggingIntegration Sentry (prod.py) : ce
+        # logger.error() est ce qui declenche l'alerte admin (GOVERNANCE_SECURITE.md
+        # categorie 8) -- un logger.warning() ne remonterait qu'en breadcrumb, jamais
+        # comme evenement visible.
+        logger.error(
+            "Paiement passe a FAILED via webhook — transaction_id=%s payment_id=%s",
+            transaction_id,
+            pt.id,
+        )
         return pt

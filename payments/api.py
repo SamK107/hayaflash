@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from django.core.exceptions import ValidationError
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
@@ -16,6 +18,8 @@ from payments.services.payments import (
     payment_public_snapshot,
 )
 from payments.services.webhooks import WebhookProcessingError, apply_provider_webhook
+
+logger = logging.getLogger(__name__)
 
 
 def _flatten_validation_messages(payload: dict) -> str:
@@ -85,6 +89,15 @@ def payment_webhook_view(request) -> Response:
             "not_found": status.HTTP_404_NOT_FOUND,
         }
         http_status = mapping.get(exc.code, status.HTTP_400_BAD_REQUEST)
+        if exc.code in ("signature", "misconfigured"):
+            # event_level=ERROR sur le LoggingIntegration Sentry (prod.py) :
+            # ce logger.error() declenche l'alerte admin (GOVERNANCE_SECURITE.md
+            # categorie 8). Limite aux deux codes reellement suspects/actionnables
+            # -- pas "not_found"/"invalid", trop courant sur du bruit de webhook
+            # ordinaire pour justifier une alerte a chaque occurrence.
+            logger.error(
+                "Webhook paiement rejete (%s) : %s", exc.code, exc, exc_info=False
+            )
         return Response({"detail": str(exc)}, status=http_status)
 
     return Response(
