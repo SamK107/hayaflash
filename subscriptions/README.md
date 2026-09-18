@@ -26,7 +26,7 @@ subscriptions/
 ├── admin.py               # Django admin: SubscriptionAdmin, SubscriptionPaymentAdmin
 │
 ├── services/
-│   ├── limits.py          # check_flash_sale_product_quota() — quota par plan
+│   ├── limits.py          # get_sale_quota(), can_create_flash_sale() — quota par plan
 │   ├── payment.py         # create_orange_payment(), activate_subscription_from_payment()
 │   ├── orange_money.py    # OAuth2 + WebPay API client
 │   └── platform_reporting.py  # Reporting MRR/ARR pour admin plateforme
@@ -146,12 +146,18 @@ def activate_subscription_from_payment(payment: SubscriptionPayment) -> Subscrip
 Vérification des quotas.
 
 ```python
-def check_flash_sale_product_quota(seller, count=1) -> None:
-    """Lève QuotaExceeded si dépassement de quota."""
-    # FREE/MEDIUM: 3 ventes/mois
-    # PRO: illimité
-    # Fail-closed: toute exception lève QuotaExceeded
+def get_sale_quota(seller) -> dict:
+    """Retourne l'etat du quota (can_create, monthly_count, monthly_limit, reason)."""
+    # FREE/MEDIUM: 3 ventes/mois (hors CANCELLED)
+    # PRO: illimité tant que non expiré
+
+def can_create_flash_sale(seller) -> tuple[bool, str]:
+    """Raccourci (can_create, reason) au-dessus de get_sale_quota()."""
 ```
+
+Appelée via `flash_sales.services.crud.can_seller_create_sale()`, qui est
+**fail-closed** : toute exception pendant la verification refuse la creation
+plutot que de l'autoriser silencieusement (voir CLAUDE.md point 8).
 
 ## Vues
 
@@ -300,18 +306,14 @@ except Exception as e:
     print(f"Token error: {e}")
 ```
 
-## Checklist de migration
+## Phase 8.1 — déployée
 
-Quand déployer la Phase 8.1 :
-
-- [ ] Créer migration Django : `python manage.py makemigrations subscriptions`
-- [ ] Valider migration : `python manage.py sqlmigrate subscriptions 0002`
-- [ ] Appliquer en dev : `python manage.py migrate`
-- [ ] Appliquer en staging : `python manage.py migrate` (via déploiement)
-- [ ] Appliquer en prod : `python manage.py migrate` (via déploiement)
-- [ ] Tester: créer un paiement en dev via ngrok, valider webhook
-- [ ] Vérifier logs (WebhookLog) → audit trail complète
-- [ ] Mettre à jour `docs/CODEBASE_STATUS.md` § Subscriptions
+Migrations `0004_orange_money_security_improvements` et
+`0005_rename_..._notif_t_...` appliquées sur `main` (PR #15, 17/09). Reste à
+faire avant une vraie mise en prod : tester un paiement réel via ngrok en dev
+(jamais fait, `ORANGE_ML_BASE_URL` exige HTTPS publique), et confirmer que
+le VPS de prod aura `python manage.py migrate` dans sa checklist de déploiement
+(`infra/scripts/deploy.sh` l'appelle déjà automatiquement).
 
 ## Points clés
 
