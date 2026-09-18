@@ -109,6 +109,10 @@ Légende : ✅ Fait · ⚠️ Partiel · ❌ Manquant · 🔍 À vérifier (néc
 
 ## 5. Sauvegardes & reprise après sinistre
 
+> Décisions d'infrastructure (stockage hors-site, chiffrement, séquencement
+> cron/première exécution réelle) actées dans
+> [`docs/decisions/ADR-0001-strategie-sauvegardes.md`](docs/decisions/ADR-0001-strategie-sauvegardes.md).
+>
 > Mise à jour 17/09 : squelette livré (`infra/scripts/backup.sh`,
 > `restore_test.sh`, `copy_offsite.sh`), testé en local avec un simulateur de
 > `docker compose exec` (Docker non accessible dans l'environnement de dev) —
