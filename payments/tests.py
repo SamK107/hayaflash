@@ -142,6 +142,51 @@ class PaymentFlowTests(LiveFlashSaleProductFixture):
         self.assertEqual(pt.status, PaymentTransactionStatus.FAILED)
         self.assertEqual(LedgerEntry.objects.filter(transaction=pt).count(), 0)
 
+    def test_failed_webhook_logs_error_for_admin_alert(self) -> None:
+        """
+        GOVERNANCE_SECURITE.md categorie 8 : un passage a FAILED doit remonter
+        vers Sentry. LoggingIntegration (prod.py) a event_level=ERROR -- seul
+        logger.error() declenche une alerte, logger.warning() ne ferait qu'un
+        breadcrumb invisible. On verifie ici le niveau reellement utilise.
+        """
+        order = self._make_order()
+        r1 = self.client.post(
+            "/api/v1/payments/initiate/",
+            {
+                "order_id": order.pk,
+                "phone": "+15557000001",
+                "provider": "moov",
+                "client_reference": str(uuid4()),
+            },
+            format="json",
+        )
+        pref = r1.data["provider_reference"]
+        body = {"status": "failed", "transaction_id": pref}
+        raw, sig = _sign_webhook("unit-test-webhook-secret", body)
+        with self.assertLogs("payments.services.webhooks", level="ERROR") as logs:
+            w = self.raw_client.post(
+                "/api/v1/payments/webhook/",
+                data=raw,
+                content_type="application/json",
+                HTTP_X_PAYMENT_SIGNATURE=sig,
+            )
+        self.assertEqual(w.status_code, 200)
+        self.assertTrue(any(pref in msg for msg in logs.output))
+
+    def test_invalid_signature_webhook_logs_error_for_admin_alert(self) -> None:
+        """Meme raisonnement que ci-dessus, pour une signature invalide (webhook suspect)."""
+        body = {"status": "success", "transaction_id": "does-not-matter"}
+        raw = json.dumps(body, separators=(",", ":"), sort_keys=True).encode("utf-8")
+        with self.assertLogs("payments.api", level="ERROR") as logs:
+            w = self.raw_client.post(
+                "/api/v1/payments/webhook/",
+                data=raw,
+                content_type="application/json",
+                HTTP_X_PAYMENT_SIGNATURE="sha256=not-a-real-signature",
+            )
+        self.assertEqual(w.status_code, 403)
+        self.assertTrue(any("signature" in msg.lower() for msg in logs.output))
+
     def test_client_reference_idempotent_initiate(self) -> None:
         order = self._make_order()
         cref = str(uuid4())
