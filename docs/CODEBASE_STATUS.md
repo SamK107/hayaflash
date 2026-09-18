@@ -1,12 +1,17 @@
 # HayaFlash — État du Codebase
 
-> Mis à jour le 2026-09-09. Basé sur audit direct du code source (pas sur les docs).
+> Mis à jour le 2026-09-18. Basé sur audit direct du code source (pas sur les docs).
 > **Ce fichier est la source de vérité sur ce qui EXISTE et ce qui RESTE À FAIRE.**
 > Mettre à jour après chaque chantier significatif.
 >
-> Note : la version précédente (13/07) listait la Phase 7 comme "à faire" alors que le
-> code avait déjà été livré. Cette révision corrige l'écart après audit direct
-> (urls.py, views.py, models.py, admin.py, settings de chaque app concernée).
+> Note : la révision précédente (09-09) affirmait trois choses fausses, découvertes
+> en comparant ce fichier au code réel le 18/09 : le rappel automatique `SaleInterest`
+> était déjà marqué "non automatisé" dans la structure alors que la section "Résolu"
+> plus bas du même fichier le disait fait ; la migration `0010_saleinterest_reminded_at`
+> était marquée "toujours pas appliquée" alors qu'elle l'était ; le Web Share API était
+> listé en lacune alors qu'il est implémenté depuis PR #10 (13/09). Cette révision
+> corrige ces trois écarts et ajoute Phase 8.1 (Orange Money) + les chantiers
+> gouvernance/sauvegardes, absents du fichier jusqu'ici.
 
 ---
 
@@ -20,11 +25,12 @@ hayaflash/
 ├── core/           ✅ Complet (+ platform-admin)
 ├── delivery/       ✅ Complet (+ audio_note câblé)
 ├── flash_sales/    ✅ Complet (+ interests, analytics)
-├── notifications/  ✅ Complet (rappel SaleInterest non automatisé — voir lacunes)
+├── notifications/  ✅ Complet (rappel SaleInterest automatisé depuis le 09-09)
 ├── orders/         ✅ Complet
 ├── payments/       ✅ Mock complet (COD V1, activer en V1.1)
 ├── products/       ✅ Complet
-├── subscriptions/  ✅ Complet (+ admin, platform_reporting, fixes quota 18/07)
+├── subscriptions/  ✅ Complet (+ admin, platform_reporting, Orange Money Phase 8.1,
+│                     fixes quota fail-closed/CANCELLED/expiry — mergés 18/09, PR #15)
 ├── templates/      ✅ Complet
 ├── Dockerfile      ✅ Présent
 ├── docker-compose.yml              ✅ Dev
@@ -78,12 +84,14 @@ hayaflash/
 - Prix : FREE=0 FCFA, MEDIUM=2 000 FCFA, PRO=5 000 FCFA
 - Limites ventes/mois : FREE=3, MEDIUM=3, PRO=None (illimité)
 - `Subscription` : seller (OneToOne), plan, expires_at
-- `SubscriptionPayment` : UUID PK, seller, plan, provider, amount, phone, status, order_id, pay_token, txn_id, payment_url, raw_response, raw_callback, paid_at — **enregistré dans l'admin Django** (`SubscriptionPaymentAdmin`, filtres status/plan/provider)
-- `SubscriptionAdmin` : actions de simulation de plan (Gratuit perpétuel / Medium 90j / Pro 90j) sans paiement réel
+- `SubscriptionPayment` : UUID PK, seller, plan, provider, amount, phone, status, order_id (≤24 chars), `notif_token` (unique, indexé — remplace `pay_token` depuis PR #15), txn_id, payment_url, raw_response, raw_callback, paid_at — **enregistré dans l'admin Django** (`SubscriptionPaymentAdmin`, filtres status/plan/provider)
+- `WebhookLog` : audit trail des webhooks Orange Money reçus (notif_token, status, raw_payload, processed) — voir `docs/decisions/ADR-0001-strategie-sauvegardes.md` pour le contexte plus large sauvegardes
+- `SubscriptionAdmin` + `SellerProfileAdmin` (accounts) : actions de simulation de plan (Gratuit perpétuel / Medium 90j / Pro 90j) sans paiement réel — PR #17
 - `services/platform_reporting.py` : MRR, revenu YTD, timeline mensuelle, résumé remittance Orange, liste vendeurs abonnés — alimente `/platform-admin/`
-- `services/limits.py` : fail-closed sur exception quota (refuse plutôt que d'autoriser en illimité), `CANCELLED` exclu du comptage de quota (libère le slot), PRO expiré retombe à FREE (audit du 18/07, tests dédiés en place)
-- Providers : orange / moov / wave — service Orange Money dans `subscriptions/services/orange_money.py`
-- Vues billing : checkout, payment_pending, subscription dashboard
+- `services/limits.py` : `get_sale_quota()`/`can_create_flash_sale()` — **fail-closed sur exception** (`flash_sales.services.crud.can_seller_create_sale()` refuse plutôt que d'autoriser en illimité), `CANCELLED` exclu du comptage de quota (libère le slot), PRO/MEDIUM expiré retombe à FREE. **Attention** : ce fix a été écrit le 18/07 sur une branche (`feature/home-admin-seed`) jamais mergée à l'époque — il n'était **pas réellement actif sur `main` avant le 18/09** (PR #15), malgré ce que laissait penser la précédente révision de ce fichier. Tests dédiés en place (`subscriptions/tests.py`, `flash_sales/tests.py`).
+- Orange Money WebPay (Phase 8.1, PR #15, 18/09) : `services/orange_money.py` (OAuth2 + WebPay client), `services/payment.py` (`create_orange_payment()`, `activate_subscription_from_payment()`), `billing_views.py` (URLs stables `/billing/return/`, `/billing/cancel/`, `/billing/webhook/orange/`, enregistrées chez Orange Money). Détail complet : `CLAUDE.md` § Orange Money Payment Integration, `subscriptions/README.md`.
+- Paywall quota (`templates/flash_sales/quota_exceeded.html`) : lien vers `subscriptions:checkout` réparé le 17/09 (référençait une URL `subscriptions:upgrade` inexistante, `NoReverseMatch`/500 systématique) — voir PR mergée sur `feature/orange-money-payment-integration`.
+- Providers : orange (implémenté) / moov / wave (UI présente, service non implémenté — message "disponible prochainement")
 
 ### `notifications/`
 - `Notification` : recipient_phone, channel (whatsapp/sms/email), message, status (pending/sent/failed), error_message, sent_at
@@ -105,7 +113,7 @@ hayaflash/
 
 ### `core/`
 - `platform_admin_dashboard` (`@staff_member_required`, url `/platform-admin/`) : total vendeurs actifs, abonnements par plan, ventes live, commandes du mois, MRR, revenu total, revenu YTD, timeline, résumé Orange, vendeurs abonnés, 20 derniers paiements
-- `seed_demo` (management command) : 4 boutiques de démo (FREE/MEDIUM/PRO/PRO), voir `docs/DEMO_PLAN.md`
+- `seed_demo` : **n'existe pas sur `main`**. Une version (juillet, `feature/home-admin-seed`) appelait `Product.objects.get_or_create(owner=...)` et `create_order(flash_sale=..., product=..., ...)` — deux signatures obsolètes (`Product` s'attache via `flash_sale`, pas `owner` ; `create_order()` prend un payload dict). Volontairement exclue lors de la récupération de cette branche (PR #17, 17/09) plutôt que rejouée telle quelle. `docs/DEMO_PLAN.md`, référencé par une précédente révision de ce fichier, n'existe pas non plus sur `main` pour la même raison.
 
 ### `config/`
 - Settings multi-env : base, dev, staging, prod, test
@@ -116,8 +124,6 @@ hayaflash/
 ---
 
 ## Phase 7 — Terminée (vérifiée par audit code, 09/09)
-
-Workflow détaillé : `docs/PHASE7_WORKFLOW.md`
 
 | Fonctionnalité | Statut |
 |---|---|
@@ -130,19 +136,41 @@ Workflow détaillé : `docs/PHASE7_WORKFLOW.md`
 
 ---
 
+## Phase 8 — Performance/SEO + Phase 8.1 Orange Money (18/09)
+
+| Fonctionnalité | Statut |
+|---|---|
+| Vendoring CDN (Tailwind/HTMX/Alpine/Lucide/polices), lazy loading, sitemap/robots, CSP report-only, redimensionnement upload | ✅ Fait (PR #16, 14-17/09) |
+| Orange Money WebPay (checkout, webhook idempotent, `notif_token`, `WebhookLog`) | ✅ Fait (PR #15, 18/09) — voir CLAUDE.md § Orange Money Payment Integration |
+| Quota fail-closed + `CANCELLED` exclu + expiry → FREE | ✅ Fait (PR #15, 18/09 — récupéré d'une branche de juillet jamais mergée) |
+| Paywall `quota_exceeded.html` (lien cassé réparé) + design aligné Tailwind | ✅ Fait (17/09) |
+| Actions admin simulation de plan (accounts + subscriptions) + section marketing home | ✅ Fait (PR #17, 17/09) |
+| Scripts sauvegarde DB/médias + test de restauration + copie hors-site | 🟡 Code prêt et testé en local, rien d'automatisé/exécuté en réel (PR #18/#19, 17-18/09) — voir `docs/decisions/ADR-0001-strategie-sauvegardes.md` |
+| Healthcheck `/health/` vérifie DB + cache | 🟡 En revue (PR #20, 18/09) |
+| Alerte admin sur webhook suspect / paiement FAILED | 🟡 En revue (PR #21, 18/09) |
+
+---
+
 ## Ce qui n'existe PAS (lacunes résiduelles réelles)
 
-### 1. Web Share API
-Le partage est WhatsApp (`wa.me` + `api.whatsapp.com`) + QR code. Pas de `navigator.share()` détecté dans les vues/services examinés (templates non audités en détail — à vérifier si besoin).
-
-### 2. F3 "Sales Drawer" — statut à reconfirmer
+### 1. F3 "Sales Drawer" — statut à reconfirmer
 Le code contient déjà un composant "drawer" (bottom-sheet Alpine.js `orderDrawer` +
 `interest-drawer-w`/`interest-drawer-end`) dans `templates/analytics/flash_sale_public.html`,
 antérieur à la note "zéro code" du 18/07. Voir `docs/PROJECT_SPEC.md` — reste à confirmer
 avec le product owner si c'est bien ce que désignait le label externe "F3 Sales Drawer".
 
-### 3. Démo — items marqués optionnels dans `DEMO_PLAN.md`
-Flag `is_demo` sur `SellerProfile`, reset automatisé hebdomadaire, badge "DÉMO" visible : non vérifiés dans le code, marqués facultatifs à la création du plan (14/07).
+### 2. Démo — `seed_demo` et flag `is_demo`
+`seed_demo`, reset automatisé hebdomadaire, badge "DÉMO" visible sur `SellerProfile` :
+non implémentés. `docs/DEMO_PLAN.md` (qui les décrivait comme facultatifs) a été retiré
+du dépôt (voir § `core/`) — à recréer si un usage showroom partenaires est décidé.
+
+### 3. Passage de la CSP en mode bloquant
+`CSP_REPORT_ONLY = True` depuis le 14/09 — décision produit à prendre après vérification
+sans violation sur staging et traitement des `onclick=`/`<script>` inline restants.
+
+### 4. Chiffrement des sauvegardes hors-site
+Décidé (GPG/age, voir ADR-0001) mais pas implémenté : `infra/scripts/copy_offsite.sh`
+copie en clair pour l'instant.
 
 ## Résolu depuis la dernière révision (09-09)
 
@@ -195,11 +223,14 @@ requests==2.33.1
 | flash_sales | Présent |
 | products | Présent |
 | core | Présent |
-| subscriptions | ✅ Renforcé (audit 18/07 : fail-closed, CANCELLED, expiry — +35 tests) |
+| subscriptions | ✅ Renforcé (fail-closed, CANCELLED, expiry, webhooks Orange Money — merge effectif 18/09) |
 | notifications | À compléter |
 | E2E | ❌ Absent |
 
-> Suite complète au 18/07 : 103 passed, 3 skipped (~77% couverture). Non ré-exécutée lors de cet audit (accès shell direct au dépôt indisponible) — à relancer pour confirmer l'état actuel.
+> Suite complète relancée le 18/09 sur `main` (`manage.py test --settings=config.settings.test`) :
+> **118 passed, 3 skipped**. Deux PR en revue (#20, #21) ajoutent 5 tests supplémentaires
+> (healthcheck DB/cache, alertes webhook). Couverture non remesurée (`--cov-fail-under=60`
+> dans la CI, pas de rapport détaillé regénéré pour ce fichier).
 
 ---
 
@@ -218,17 +249,20 @@ build front : `docs/FRONTEND_VENDORING.md`.
 | `<link rel="canonical">` sur `/ventes/<slug>/` vers `/f/<slug>/` (duplication de contenu — voir `CLAUDE.md` point 14) | ✅ Fait (14/09) |
 | Brotli (en plus de gzip) sur WhiteNoise | ✅ Fait (14/09) — `Brotli` dans `requirements.txt`, activation automatique par WhiteNoise |
 | Content-Security-Policy | 🟡 Fait en **Report-Only** (14/09) — `CSP_REPORT_ONLY = True` dans `config/settings/base.py`. Ne bloque rien. Passage en mode bloquant = décision à prendre après vérification sans violation sur staging (console navigateur), et après avoir traité les `onclick=`/`<script>` inline qui nécessitent aujourd'hui `'unsafe-inline'`. |
-| Tree-shaking Lucide (356 Ko → ~15-20 Ko estimé, ~67 icônes utilisées sur les ~1500 de la lib) | ❌ Pas fait — nécessite de pouvoir tester visuellement en live (accès shell machine indisponible le 14/09, cf. bug Windows connu côté pont Claude) |
-| Migration `flash_sales/0010_saleinterest_reminded_at` | ❌ **Toujours pas appliquée** — nécessite `python manage.py migrate` en local (non exécutable à distance actuellement) |
-| Suite de tests relancée | ❌ **Toujours pas relancée** depuis le 18/07 — même contrainte d'accès |
+| Tree-shaking Lucide (356 Ko → ~15-20 Ko estimé, ~67 icônes utilisées sur les ~1500 de la lib) | ❌ Pas fait — nécessite de pouvoir tester visuellement en live |
+| Migration `flash_sales/0010_saleinterest_reminded_at` | ✅ Appliquée (confirmé `showmigrations` le 18/09) |
+| Suite de tests relancée | ✅ Relancée le 18/09 — 118 passed, 3 skipped |
 
 ---
 
 ## Prochaines priorités suggérées
 
-1. **Appliquer la migration `flash_sales/0010_saleinterest_reminded_at`** (`python manage.py migrate`) pour activer le rappel automatique ajouté le 09-09 — **et relancer `pytest --ds=config.settings.test`** pour confirmer l'état de couverture actuel (dernière mesure connue : 18/07) avant tout déploiement
-2. **Retirer `if: false`** sur `deploy-staging`/`deploy-prod` (`.github/workflows/deploy.yml`) une fois le VPS prêt
-3. **Décider du passage de la CSP en mode bloquant** (`CSP_REPORT_ONLY = False`) après vérification sans violation sur staging
-4. **Clarifier F3 "Sales Drawer"** avec le product owner en montrant le code existant (`orderDrawer` dans `flash_sale_public.html`) : confirme-t-il le label, ou s'agit-il d'autre chose ?
-5. **Web Share API** sur les pages publiques (`/f/<slug>/`, `/s/<slug>/`) si voulu en complément du QR code/WhatsApp
-5. **Décider du sort des items démo optionnels** (`is_demo`, reset auto, badge DÉMO) si un usage showroom partenaires est prévu
+Recoupé avec `GOVERNANCE_SECURITE.md` § Synthèse des priorités (plus détaillé sur la partie sécurité/infra) :
+
+1. **Brancher le disque externe sur le VPS** et lancer une première exécution réelle de `infra/scripts/backup.sh` → `copy_offsite.sh` → `restore_test.sh` (voir ADR-0001) — rien de tout ça n'a encore tourné en conditions réelles.
+2. **Chiffrer les sauvegardes hors-site** (`copy_offsite.sh` copie en clair aujourd'hui).
+3. **Retirer `if: false`** sur `deploy-staging`/`deploy-prod` (`.github/workflows/deploy.yml`) une fois le VPS prêt.
+4. **Durcissement VPS** (fail2ban, ufw, SSH par clé) — à vérifier par SSH dès qu'un accès est disponible (`GOVERNANCE_SECURITE.md` catégorie 7).
+5. **Décider du passage de la CSP en mode bloquant** (`CSP_REPORT_ONLY = False`) après vérification sans violation sur staging.
+6. **Clarifier F3 "Sales Drawer"** avec le product owner en montrant le code existant (`orderDrawer` dans `flash_sale_public.html`) : confirme-t-il le label, ou s'agit-il d'autre chose ?
+7. **Décider du sort des items démo** (`seed_demo` à réécrire pour le schéma actuel, `is_demo`, reset auto, badge DÉMO) si un usage showroom partenaires est prévu.
