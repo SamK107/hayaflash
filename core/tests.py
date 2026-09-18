@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from django.test import Client, TestCase
 
 
@@ -16,4 +18,36 @@ class RootHealthEndpointTests(TestCase):
     def test_root_health_returns_200(self) -> None:
         resp = Client().get("/health/")
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.json().get("status"), "ok")
+        body = resp.json()
+        self.assertEqual(body.get("status"), "ok")
+        self.assertEqual(body["checks"], {"database": "ok", "cache": "ok"})
+
+    def test_health_returns_503_when_database_down(self) -> None:
+        with patch(
+            "django.db.backends.utils.CursorWrapper.execute",
+            side_effect=Exception("panne simulee"),
+        ):
+            resp = Client().get("/health/")
+        self.assertEqual(resp.status_code, 503)
+        body = resp.json()
+        self.assertEqual(body.get("status"), "degraded")
+        self.assertEqual(body["checks"]["database"], "error")
+
+    def test_health_returns_503_when_cache_down(self) -> None:
+        with patch(
+            "django.core.cache.cache.set", side_effect=Exception("panne simulee")
+        ):
+            resp = Client().get("/health/")
+        self.assertEqual(resp.status_code, 503)
+        body = resp.json()
+        self.assertEqual(body.get("status"), "degraded")
+        self.assertEqual(body["checks"]["cache"], "error")
+
+    def test_health_still_anonymous_and_accessible_when_degraded(self) -> None:
+        with patch(
+            "django.db.backends.utils.CursorWrapper.execute",
+            side_effect=Exception("panne simulee"),
+        ):
+            resp = Client().get("/health/")
+        self.assertIn(resp.status_code, (200, 503))
+        self.assertNotEqual(resp.status_code, 403)

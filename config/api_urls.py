@@ -6,6 +6,10 @@ Domain routes will be added per app when implemented.
 
 from __future__ import annotations
 
+import logging
+
+from django.core.cache import cache
+from django.db import connections
 from django.urls import include, path
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -17,6 +21,8 @@ from flash_sales.api import flash_sale_list_api, flash_sale_detail_api
 
 router = DefaultRouter()
 
+logger = logging.getLogger(__name__)
+
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
@@ -26,7 +32,44 @@ def health(_request):
     # sans authentification. Sans cet override, DEFAULT_PERMISSION_CLASSES =
     # IsAuthenticated (config/settings/base.py) le fait 403 systematiquement —
     # aucun de ces appelants n'a de session/token.
-    return Response({"status": "ok", "service": "HayaFlash"})
+    #
+    # Verifie DB + cache (Redis en staging/prod) plutot qu'un 200 statique :
+    # un "vert" qui ne prouve rien masque une DB ou un Redis down (voir
+    # GOVERNANCE_SECURITE.md categorie 2). Chaque check est isole dans son
+    # propre try/except — une exception de driver (psycopg2, redis) ne doit
+    # jamais faire planter le healthcheck lui-meme en 500.
+    checks = {}
+    healthy = True
+
+    try:
+        with connections["default"].cursor() as cursor:
+            cursor.execute("SELECT 1")
+        checks["database"] = "ok"
+    except Exception:
+        logger.exception("Healthcheck: connexion base de donnees echouee")
+        checks["database"] = "error"
+        healthy = False
+
+    try:
+        marker = "healthcheck-ping"
+        cache.set(marker, "1", timeout=5)
+        if cache.get(marker) != "1":
+            raise ConnectionError("cache round-trip mismatch")
+        checks["cache"] = "ok"
+    except Exception:
+        logger.exception("Healthcheck: connexion cache echouee")
+        checks["cache"] = "error"
+        healthy = False
+
+    status_code = 200 if healthy else 503
+    return Response(
+        {
+            "status": "ok" if healthy else "degraded",
+            "service": "HayaFlash",
+            "checks": checks,
+        },
+        status=status_code,
+    )
 
 
 urlpatterns = [
