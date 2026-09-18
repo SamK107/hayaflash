@@ -83,9 +83,12 @@ Légende : ✅ Fait · ⚠️ Partiel · ❌ Manquant · 🔍 À vérifier (néc
 
 ## 4. Sécurité applicative
 
-- ❌ **CSP (Content-Security-Policy)** — aucun package `django-csp` dans
-  `requirements.txt`, aucun header CSP dans `config/settings/prod.py` ni dans
-  `infra/nginx/prod.conf`. Manquant.
+- 🟡 **CSP (Content-Security-Policy)** — `django-csp==3.8` (`requirements.txt`),
+  policy declaree dans `config/settings/base.py`, active en mode
+  **Report-Only** (`CSP_REPORT_ONLY = True`) depuis le 14/09 (voir PR #16).
+  Ne bloque rien tant que `'unsafe-inline'` reste necessaire aux `onclick=`/
+  `<script>` inline existants. Passage en mode bloquant = decision produit a
+  part (verifier d'abord l'absence de violation sur staging).
 - ✅ **Headers sécurité prod** — dans `config/settings/prod.py` :
   `SECURE_SSL_REDIRECT`, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`,
   `SESSION_COOKIE_HTTPONLY`, `CSRF_COOKIE_HTTPONLY`, `X_FRAME_OPTIONS=DENY`,
