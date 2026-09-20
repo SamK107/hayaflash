@@ -1,0 +1,651 @@
+{% extends "base.html" %}
+{% block title %}Publication rapide — {{ flash_sale.title }} — HayaFlash{% endblock %}
+{% block navbar %}{% include "partials/_nav_seller.html" %}{% endblock %}
+
+{% block extra_head %}
+<style>
+  .hf-input { width: 100%; padding: 0.6rem 0.85rem; border: 1px solid #e5e7eb; border-radius: 0.6rem;
+    font-size: 0.875rem; background: white; color: #111827; }
+  .hf-input:focus { outline: none; border-color: #FF4D2E; box-shadow: 0 0 0 3px rgba(255,77,46,0.12); }
+  .qp-drop { transition: background-color .15s, border-color .15s; }
+  [x-cloak] { display: none !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8"
+     x-data="quickPublishApp()"
+     x-init="init()">
+
+  <nav class="flex items-center gap-2 text-sm text-gray-400 mb-6">
+    <a href="{% url 'flash_sales:list' %}" class="hover:text-primary transition-colors">Mes ventes</a>
+    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+    <a href="{% url 'flash_sales:detail' flash_sale.pk %}" class="hover:text-primary transition-colors truncate max-w-xs">{{ flash_sale.title }}</a>
+    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+    <span class="text-gray-700 font-medium">Publication rapide</span>
+  </nav>
+
+  {% if is_admin %}
+  <div class="mb-4 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800 flex items-center gap-2">
+    <i data-lucide="shield-alert" class="w-4 h-4"></i>
+    Mode support : vous modifiez le catalogue de <strong>{{ impersonated_seller.business_name|default:impersonated_seller.seller_code }}</strong>.
+  </div>
+  {% endif %}
+
+  <div class="mb-6">
+    <h1 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+      <i data-lucide="zap" class="w-5 h-5 text-primary"></i>Publication rapide
+    </h1>
+    <p class="text-sm text-gray-400 mt-1">Ajoutez ou modifiez plusieurs produits d'un coup pour « {{ flash_sale.title }} ».</p>
+  </div>
+
+  <template x-if="message">
+    <div class="mb-4 p-3 rounded-xl text-sm font-medium"
+         :class="{
+           'bg-green-50 text-green-700': messageType === 'success',
+           'bg-red-50 text-red-700': messageType === 'error',
+           'bg-yellow-50 text-yellow-700': messageType === 'warning'
+         }"
+         x-text="message"></div>
+  </template>
+
+  {% if previous_sales %}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-5 flex items-center gap-3 flex-wrap">
+    <span class="text-sm text-gray-500 flex items-center gap-1.5">
+      <i data-lucide="copy" class="w-4 h-4"></i>Reprendre les produits d'une vente précédente :
+    </span>
+    <select x-model="duplicateFromId" class="hf-input flex-1 min-w-[180px]">
+      <option value="">Choisir une vente...</option>
+      {% for prev in previous_sales %}
+      <option value="{{ prev.pk }}">{{ prev.title }} ({{ prev.start_time|date:"j M Y" }})</option>
+      {% endfor %}
+    </select>
+    <button type="button" @click="duplicateFrom()" :disabled="!duplicateFromId || loading"
+            class="px-4 py-2 text-sm font-semibold text-primary bg-primary/5 rounded-lg hover:bg-primary/10 disabled:opacity-40">
+      Reprendre
+    </button>
+  </div>
+  {% endif %}
+
+  <!-- Upload groupe d'images -->
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-5">
+    <h2 class="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+      <i data-lucide="images" class="w-4 h-4 text-gray-400"></i>Photos (optionnel)
+    </h2>
+    <div class="qp-drop border-2 border-dashed border-gray-200 rounded-xl p-6 text-center"
+         :class="{ 'bg-primary/5 border-primary': dragOver }"
+         @dragover.prevent="dragOver = true"
+         @dragleave.prevent="dragOver = false"
+         @drop.prevent="dragOver = false; handleFiles($event.dataTransfer.files)">
+      <input type="file" multiple accept="image/*" x-ref="fileInput" class="hidden"
+             @change="handleFiles($event.target.files); $event.target.value = ''">
+      <input type="file" accept="image/*" x-ref="rowFileInput" class="hidden"
+             @change="uploadRowImage($event.target.files[0]); $event.target.value = ''">
+      <i data-lucide="upload-cloud" class="w-8 h-8 mx-auto text-gray-300 mb-2"></i>
+      <p class="text-sm text-gray-500">
+        Glissez vos photos ici, ou
+        <button type="button" class="text-primary font-semibold hover:underline" @click="$refs.fileInput.click()">parcourir</button>
+      </p>
+      <p class="text-xs text-gray-400 mt-1">Déposez vos photos dans le même ordre que vos lignes : elles se positionnent automatiquement sur les lignes sans photo. Nommer le fichier comme le produit fonctionne aussi. Une photo sans ligne correspondante crée directement une nouvelle ligne — il ne reste qu'à renseigner nom/prix/stock. Max 5 Mo/photo.</p>
+      <template x-if="uploadingCount > 0">
+        <p class="text-xs text-primary mt-2" x-text="`Envoi de ${uploadingCount} photo(s)...`"></p>
+      </template>
+    </div>
+  </div>
+
+  <!-- Grille produits -->
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-50 flex-wrap gap-3">
+      <h2 class="text-sm font-bold text-gray-900 flex items-center gap-2">
+        <i data-lucide="package" class="w-4 h-4 text-gray-400"></i>
+        Catalogue (<span x-text="rows.length"></span>) ·
+        <span x-text="selectedCount"></span> sélectionné(s)
+      </h2>
+      <div class="flex items-center gap-2 flex-wrap">
+        <button type="button" @click="addBlankRow()"
+                class="px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-50 rounded-lg hover:bg-gray-100">
+          + Nouveau produit
+        </button>
+        <button type="button" @click="showDiscount = true"
+                class="px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100">
+          % Remise groupée
+        </button>
+        <button type="button" @click="showStock = true"
+                class="px-3 py-1.5 text-xs font-semibold text-green-700 bg-green-50 rounded-lg hover:bg-green-100">
+          Stock par défaut
+        </button>
+        <button type="button" @click="toggleShowArchived()"
+                class="px-3 py-1.5 text-xs font-semibold rounded-lg"
+                :class="showArchived ? 'text-amber-700 bg-amber-50 hover:bg-amber-100' : 'text-gray-500 bg-gray-50 hover:bg-gray-100'">
+          <span x-text="showArchived ? 'Masquer les produits masqués' : 'Voir les produits masqués'"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mini-formulaires remise / stock groupés -->
+    <div x-show="showDiscount" x-cloak class="px-5 py-3 bg-blue-50/50 border-b border-blue-100 flex items-center gap-2">
+      <span class="text-xs text-blue-800">Appliquer une remise de</span>
+      <input type="number" x-model.number="discountPercent" min="0" max="90" class="hf-input w-20 py-1.5">
+      <span class="text-xs text-blue-800">% sur le prix catalogue des lignes cochées</span>
+      <button type="button" @click="applyDiscount()" class="ml-auto px-3 py-1 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700">Appliquer</button>
+      <button type="button" @click="showDiscount = false" class="text-blue-400 hover:text-blue-600"><i data-lucide="x" class="w-4 h-4"></i></button>
+    </div>
+    <div x-show="showStock" x-cloak class="px-5 py-3 bg-green-50/50 border-b border-green-100 flex items-center gap-2">
+      <span class="text-xs text-green-800">Fixer le stock à</span>
+      <input type="number" x-model.number="defaultStock" min="0" class="hf-input w-24 py-1.5">
+      <span class="text-xs text-green-800">pour les lignes cochées</span>
+      <button type="button" @click="applyDefaultStock()" class="ml-auto px-3 py-1 text-xs font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700">Appliquer</button>
+      <button type="button" @click="showStock = false" class="text-green-400 hover:text-green-600"><i data-lucide="x" class="w-4 h-4"></i></button>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs text-gray-400 border-b border-gray-50">
+            <th class="px-4 py-2 w-8"><input type="checkbox" @change="toggleAll($event.target.checked)"></th>
+            <th class="px-2 py-2 w-14">Photo</th>
+            <th class="px-2 py-2">Nom</th>
+            <th class="px-2 py-2 w-28">Prix catalogue</th>
+            <th class="px-2 py-2 w-28">Prix promo</th>
+            <th class="px-2 py-2 w-24">Stock</th>
+            <th class="px-2 py-2 w-20">Ordre</th>
+            <th class="px-2 py-2 w-10"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="(row, idx) in rows" :key="row.key">
+            <tr class="border-b border-gray-50 hover:bg-gray-50/40" :class="{ 'opacity-40': !row.selected, 'bg-amber-50/40': row.isActive === false }">
+              <td class="px-4 py-2 align-middle">
+                <input type="checkbox" x-model="row.selected">
+              </td>
+              <td class="px-2 py-2 align-middle">
+                <button type="button" class="relative block w-10 h-10 group"
+                        title="Changer la photo"
+                        @click="openRowFilePicker(row)">
+                  <template x-if="row.image_url">
+                    <img :src="row.image_url" class="w-10 h-10 rounded-lg object-cover">
+                  </template>
+                  <template x-if="!row.image_url">
+                    <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                      <i data-lucide="package" class="w-5 h-5 text-gray-300"></i>
+                    </div>
+                  </template>
+                  <div class="absolute inset-0 rounded-lg bg-black/0 group-hover:bg-black/30 flex items-center justify-center transition-colors">
+                    <i data-lucide="camera" class="w-4 h-4 text-white opacity-0 group-hover:opacity-100"></i>
+                  </div>
+                </button>
+              </td>
+              <td class="px-2 py-2 align-middle">
+                <input type="text" x-model="row.name" :disabled="!row.isNew" class="hf-input py-1.5"
+                       :class="!row.isNew && 'bg-gray-50 text-gray-500'" placeholder="Nom du produit">
+              </td>
+              <td class="px-2 py-2 align-middle">
+                <input type="number" x-model.number="row.price" :disabled="!row.isNew" min="0" class="hf-input py-1.5"
+                       :class="!row.isNew && 'bg-gray-50 text-gray-500'">
+              </td>
+              <td class="px-2 py-2 align-middle">
+                <input type="number" x-model.number="row.promo_price" min="0" class="hf-input py-1.5" placeholder="=prix">
+              </td>
+              <td class="px-2 py-2 align-middle">
+                <input type="number" x-model.number="row.stock" min="0" class="hf-input py-1.5">
+              </td>
+              <td class="px-2 py-2 align-middle">
+                <input type="number" x-model.number="row.display_order" min="0" class="hf-input py-1.5">
+              </td>
+              <td class="px-2 py-2 align-middle text-center">
+                <div class="flex items-center justify-center gap-1">
+                  <template x-if="!row.isNew && row.isActive === false">
+                    <button type="button" @click="reactivateRow(idx)" title="Réafficher ce produit"
+                            class="text-amber-500 hover:text-amber-600">
+                      <i data-lucide="eye" class="w-4 h-4"></i>
+                    </button>
+                  </template>
+                  <template x-if="!(!row.isNew && row.isActive === false)">
+                    <button type="button" @click="archiveRow(idx)"
+                            :title="row.isNew ? 'Retirer cette ligne' : 'Masquer (sans supprimer)'"
+                            class="text-gray-300 hover:text-amber-500">
+                      <i data-lucide="eye-off" class="w-4 h-4"></i>
+                    </button>
+                  </template>
+                  <button type="button" @click="deleteRow(idx)"
+                          :title="row.isNew ? 'Retirer cette ligne' : 'Supprimer définitivement'"
+                          class="text-gray-300 hover:text-red-500">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </template>
+          <template x-if="rows.length === 0">
+            <tr><td colspan="8" class="px-4 py-10 text-center text-gray-400 text-sm">
+              Catalogue vide. Utilisez « Nouveau produit » ou l'upload de photos ci-dessus.
+            </td></tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="flex items-center justify-end gap-3 mt-6">
+    <a href="{% url 'flash_sales:detail' flash_sale.pk %}" class="px-5 py-2.5 text-sm font-semibold text-gray-500 hover:text-gray-700">Annuler</a>
+    <button type="button" @click="publish()" :disabled="loading || selectedCount === 0"
+            class="px-6 py-2.5 text-sm font-bold text-white bg-primary rounded-xl hover:bg-primary/90 disabled:opacity-40 flex items-center gap-2">
+      <i data-lucide="rocket" class="w-4 h-4"></i>
+      <span x-text="loading ? 'Publication...' : `Publier ${selectedCount} produit(s)`"></span>
+    </button>
+  </div>
+</div>
+
+<script>
+function quickPublishApp() {
+  return {
+    rows: [],
+    dragOver: false,
+    uploadingCount: 0,
+    loading: false,
+    message: '',
+    messageType: 'success',
+    showDiscount: false,
+    showStock: false,
+    discountPercent: 10,
+    defaultStock: 10,
+    duplicateFromId: '',
+
+    apiCatalogUrl: '{{ api_catalog_url }}',
+    apiBulkUpdateUrl: '{{ api_bulk_update_url }}',
+    apiBulkUploadUrl: '{{ api_bulk_upload_url }}',
+    apiAssignImageUrl: '{{ api_assign_image_url }}',
+    apiDuplicateUrl: '{{ api_duplicate_url }}',
+    apiArchiveProductUrl: '{{ api_archive_product_url }}',
+    apiDeleteProductUrl: '{{ api_delete_product_url }}',
+    showArchived: false,
+    saleDetailUrl: '{% url "flash_sales:detail" flash_sale.pk %}',
+    pendingUploadRow: null,
+
+    get selectedCount() {
+      return this.rows.filter(r => r.selected).length;
+    },
+
+    csrfToken() {
+      const m = document.cookie.match(/csrftoken=([^;]+)/);
+      return m ? m[1] : '';
+    },
+
+    async init() {
+      await this.loadCatalog();
+    },
+
+    // lucide.createIcons() (templates/base.html) ne tourne qu'au chargement
+    // initial de la page et apres un swap htmx -- cette page n'utilise pas
+    // htmx pour sa grille (Alpine seul), donc toute icone ajoutee/mise a
+    // jour dynamiquement (lignes chargees en async, nouvelle ligne, bascule
+    // masque/actif...) restait une balise <i> vide, invisible. On force
+    // une passe lucide apres chaque mutation qui ajoute ou change une icone.
+    refreshIcons() {
+      this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+    },
+
+    async loadCatalog() {
+      try {
+        const url = this.apiCatalogUrl + (this.showArchived
+          ? (this.apiCatalogUrl.includes('?') ? '&' : '?') + 'include_archived=1'
+          : '');
+        const res = await fetch(url, { headers: { 'Accept': 'application/json' }, cache: 'no-store' });
+        if (!res.ok) throw new Error('Erreur de chargement du catalogue.');
+        const data = await res.json();
+        const existingByProductId = {};
+        (data.flash_sale_products || []).forEach(fsp => { existingByProductId[fsp.product.id] = fsp; });
+
+        this.rows = (data.catalog || []).map(p => {
+          const link = existingByProductId[p.id];
+          return {
+            key: 'p' + p.id,
+            isNew: false,
+            product_id: p.id,
+            name: p.name,
+            price: parseFloat(p.price),
+            image_url: (p.media && p.media[0]) ? p.media[0].file_url : null,
+            selected: !!link,
+            promo_price: link && link.promo_price ? parseFloat(link.promo_price) : null,
+            stock: p.stock_available,
+            display_order: link ? link.display_order : 0,
+            isActive: p.is_active,
+          };
+        });
+        this.refreshIcons();
+      } catch (e) {
+        this.setMessage(e.message || 'Erreur de chargement.', 'error');
+      }
+    },
+
+    addBlankRow(overrides) {
+      const row = Object.assign({
+        key: 'new' + Date.now() + Math.random(),
+        isNew: true,
+        product_id: null,
+        name: '',
+        price: 0,
+        image_url: null,
+        pendingFile: null,  // File en attente d'envoi, posee via une photo
+        // groupee non rattachee (ni par nom, ni par position) : le produit
+        // n'existe pas encore, la photo ne peut etre envoyee au serveur
+        // qu'apres sa creation (cf. publish()).
+        selected: true,
+        promo_price: null,
+        stock: 0,
+        display_order: 0,
+        isActive: true,
+      }, overrides || {});
+      this.rows.unshift(row);
+      this.refreshIcons();
+      return row;
+    },
+
+    removeRow(idx) {
+      // Ligne pas encore publiee (aucun produit cree cote serveur) : simple
+      // retrait local, rien a synchroniser.
+      this.rows.splice(idx, 1);
+    },
+
+    async archiveRow(idx) {
+      const row = this.rows[idx];
+      if (row.isNew) { this.removeRow(idx); return; }
+      if (!confirm(`Masquer « ${row.name} » ? Il n'apparaitra plus dans cette liste (ni dans les prochaines ventes) mais rien n'est supprime -- vous pourrez le reafficher via « Voir les produits masqués ».`)) return;
+
+      try {
+        const res = await fetch(this.apiArchiveProductUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.csrfToken() },
+          body: JSON.stringify({ product_id: row.product_id, is_active: false }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Erreur pendant le masquage.');
+        this.rows.splice(idx, 1);
+        this.setMessage(`« ${row.name} » masqué.`, 'success');
+      } catch (e) {
+        this.setMessage(e.message, 'error');
+      }
+    },
+
+    async reactivateRow(idx) {
+      const row = this.rows[idx];
+      try {
+        const res = await fetch(this.apiArchiveProductUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.csrfToken() },
+          body: JSON.stringify({ product_id: row.product_id, is_active: true }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Erreur pendant la réactivation.');
+        row.isActive = true;
+        this.refreshIcons();
+        this.setMessage(`« ${row.name} » réaffiché.`, 'success');
+      } catch (e) {
+        this.setMessage(e.message, 'error');
+      }
+    },
+
+    async deleteRow(idx) {
+      const row = this.rows[idx];
+      if (row.isNew) { this.removeRow(idx); return; }
+      if (!confirm(`Supprimer définitivement « ${row.name} » ? Cette action est irréversible. Si ce produit a déjà été vendu, la suppression sera refusée -- utilisez plutôt « masquer » dans ce cas.`)) return;
+
+      try {
+        const res = await fetch(this.apiDeleteProductUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.csrfToken() },
+          body: JSON.stringify({ product_id: row.product_id }),
+        });
+        if (res.status === 409) {
+          const data = await res.json();
+          this.setMessage(data.detail, 'warning');
+          return;
+        }
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.detail || 'Erreur pendant la suppression.');
+        }
+        this.rows.splice(idx, 1);
+        this.setMessage(`« ${row.name} » supprimé.`, 'success');
+      } catch (e) {
+        this.setMessage(e.message, 'error');
+      }
+    },
+
+    async toggleShowArchived() {
+      this.showArchived = !this.showArchived;
+      await this.loadCatalog();
+    },
+
+    toggleAll(checked) {
+      this.rows.forEach(r => { r.selected = checked; });
+    },
+
+    applyDiscount() {
+      const factor = 1 - (this.discountPercent || 0) / 100;
+      this.rows.filter(r => r.selected).forEach(r => {
+        r.promo_price = Math.max(0, Math.round(r.price * factor));
+      });
+      this.showDiscount = false;
+    },
+
+    applyDefaultStock() {
+      this.rows.filter(r => r.selected).forEach(r => {
+        r.stock = this.defaultStock;
+      });
+      this.showStock = false;
+    },
+
+    openRowFilePicker(row) {
+      this.pendingUploadRow = row;
+      this.$refs.rowFileInput.click();
+    },
+
+    async uploadRowImage(file) {
+      const row = this.pendingUploadRow;
+      this.pendingUploadRow = null;
+      if (!file || !row) return;
+
+      if (row.isNew) {
+        // Produit pas encore cree : on garde la photo en memoire, elle
+        // partira vers le serveur au moment de publish() une fois le
+        // produit reellement cree (meme mecanisme que pour une photo
+        // groupee sans correspondance, cf. handleFiles).
+        row.pendingFile = file;
+        row.image_url = URL.createObjectURL(file);
+        return;
+      }
+      if (!row.product_id) return;
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('product_id', row.product_id);
+      try {
+        const res = await fetch(this.apiAssignImageUrl, {
+          method: 'POST',
+          headers: { 'X-CSRFToken': this.csrfToken() },
+          body: formData,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Erreur pendant l\'envoi de la photo.');
+        row.image_url = data.url;
+        this.setMessage('Photo mise a jour.', 'success');
+      } catch (e) {
+        this.setMessage(e.message, 'error');
+      }
+    },
+
+    async handleFiles(fileList) {
+      const files = Array.from(fileList || []);
+      if (files.length === 0) return;
+      this.uploadingCount = files.length;
+      const formData = new FormData();
+      files.forEach(f => formData.append('files', f));
+      // Ordre des lignes actuellement affichees (produits deja crees
+      // seulement -- une ligne "nouvelle" pas encore publiee n'a pas de
+      // product_id et ne peut pas recevoir de photo pour l'instant) :
+      // sert de filet de secours positionnel quand le nom du fichier ne
+      // correspond a aucun produit (photos prises au telephone, non
+      // renommees). Le vendeur depose ses photos dans le meme ordre que
+      // ses lignes, aucun renommage requis.
+      const productOrder = this.rows.filter(r => !r.isNew && r.product_id).map(r => r.product_id);
+      formData.append('product_order', JSON.stringify(productOrder));
+      try {
+        const res = await fetch(this.apiBulkUploadUrl, {
+          method: 'POST',
+          headers: { 'X-CSRFToken': this.csrfToken() },
+          body: formData,
+        });
+        const data = await res.json();
+        let byPosition = 0;
+        (data.uploads || []).forEach(u => {
+          const row = this.rows.find(r => r.product_id === u.auto_assigned_product_id);
+          if (row) row.image_url = u.url;
+          if (u.match_kind === 'position') byPosition += 1;
+        });
+
+        // Photos sans correspondance (ni nom, ni ligne existante vide) :
+        // plutot que de forcer un rattachement manuel, on cree directement
+        // une ligne vide par photo, dans l'ordre de depot, avec la photo
+        // deja en place (previsualisation locale). Le vendeur n'a plus qu'a
+        // renseigner nom/prix/stock ; la photo part vers le serveur des que
+        // la ligne est publiee (cf. publish()), une fois le produit cree.
+        const unmatched = data.errors || [];
+        const newRows = unmatched.map(err => {
+          const file = files.find(f => f.name === err.filename);
+          return {
+            key: 'new' + Date.now() + Math.random(),
+            isNew: true,
+            product_id: null,
+            name: '',
+            price: 0,
+            image_url: file ? URL.createObjectURL(file) : null,
+            pendingFile: file || null,
+            selected: true,
+            promo_price: null,
+            stock: 0,
+            display_order: 0,
+            isActive: true,
+          };
+        });
+        if (newRows.length) {
+          this.rows.splice(0, 0, ...newRows);
+          this.refreshIcons();
+        }
+
+        const parts = [];
+        if (data.uploads && data.uploads.length) {
+          const positionNote = byPosition ? ` (dont ${byPosition} par ordre de dépôt)` : '';
+          parts.push(`${data.uploads.length} photo(s) rattachée(s)${positionNote}`);
+        }
+        if (newRows.length) {
+          parts.push(`${newRows.length} nouvelle(s) ligne(s) créée(s) avec photo à compléter`);
+        }
+        if (parts.length) {
+          this.setMessage(parts.join(' · ') + '.', newRows.length && !data.uploads?.length ? 'warning' : 'success');
+        }
+      } catch (e) {
+        this.setMessage("Erreur pendant l'envoi des photos.", 'error');
+      } finally {
+        this.uploadingCount = 0;
+      }
+    },
+
+    async duplicateFrom() {
+      if (!this.duplicateFromId) return;
+      this.loading = true;
+      try {
+        const res = await fetch(this.apiDuplicateUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.csrfToken() },
+          body: JSON.stringify({ previous_sale_id: this.duplicateFromId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Erreur.');
+        this.setMessage(`${data.duplicated_count} produit(s) repris.`, 'success');
+        await this.loadCatalog();
+      } catch (e) {
+        this.setMessage(e.message, 'error');
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async publish() {
+      const selected = this.rows.filter(r => r.selected);
+      if (selected.length === 0) return;
+      this.loading = true;
+      try {
+        const mutations = selected.map(r => {
+          const base = {
+            promo_price: r.promo_price || null,
+            display_order: r.display_order || 0,
+            is_active: true,
+          };
+          if (r.isNew) {
+            base.product_new = {
+              name: r.name, price: r.price, stock: r.stock || 0, unit: 'piece',
+            };
+          } else {
+            base.product_id = r.product_id;
+            base.stock = r.stock;
+          }
+          return base;
+        });
+
+        const res = await fetch(this.apiBulkUpdateUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.csrfToken() },
+          body: JSON.stringify({ mutations }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          const detail = data.detail || 'Certaines lignes sont invalides.';
+          this.setMessage(detail, 'error');
+          return;
+        }
+
+        // Lignes creees a partir d'une photo groupee sans correspondance
+        // (cf. handleFiles) : le produit vient d'etre cree par bulk-update
+        // ci-dessus, on peut desormais lui envoyer la photo restee en
+        // attente en memoire.
+        const pendingUploads = selected
+          .map((row, i) => ({ row, result: (data.results || [])[i] }))
+          .filter(({ row, result }) => row.pendingFile && result);
+        if (pendingUploads.length) {
+          await Promise.all(pendingUploads.map(async ({ row, result }) => {
+            const fd = new FormData();
+            fd.append('file', row.pendingFile);
+            fd.append('product_id', result.product_id);
+            try {
+              await fetch(this.apiAssignImageUrl, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': this.csrfToken() },
+                body: fd,
+              });
+            } catch (e) {
+              // Publication deja actee cote produits/vente ; une photo en
+              // echec ici reste corrigeable ensuite via le bouton photo en
+              // ligne, pas la peine de bloquer la redirection pour ca.
+            }
+          }));
+        }
+
+        this.setMessage(`${data.created_count + data.updated_count} produit(s) publié(s).`, 'success');
+        setTimeout(() => { window.location.href = this.saleDetailUrl; }, 900);
+      } catch (e) {
+        this.setMessage('Erreur pendant la publication.', 'error');
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    setMessage(text, type) {
+      this.message = text;
+      this.messageType = type;
+      setTimeout(() => { this.message = ''; }, 6000);
+    },
+  };
+}
+</script>
+{% endblock %}

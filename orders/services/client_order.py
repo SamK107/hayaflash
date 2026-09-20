@@ -19,7 +19,7 @@ from flash_sales.models import FlashSale
 from flash_sales.services.ordering import assert_flash_sale_accepts_orders
 from orders.models import Order
 from orders.services.create_order import create_order
-from products.models import Product
+from products.models import FlashSaleProduct, Product
 
 ORDER_SUBMIT_RATE_WINDOW_SECONDS = 60
 ORDER_SUBMIT_RATE_MAX_PER_WINDOW = 30
@@ -156,7 +156,10 @@ def build_create_order_payload_from_public(*, data: dict[str, Any]) -> dict[str,
     product = Product.objects.filter(pk=product_id).first()
     if product is None:
         raise ValidationError({"product_id": "Product not found."})
-    if product.flash_sale_id != flash_sale.id:
+    is_linked = FlashSaleProduct.objects.filter(
+        flash_sale_id=flash_sale.id, product_id=product_id, is_active=True
+    ).exists()
+    if not is_linked:
         raise ValidationError(
             {"product_id": "This product is not part of the selected flash sale."}
         )
@@ -207,10 +210,7 @@ def resolve_client_order_page(request: HttpRequest) -> dict[str, Any]:
         FlashSale.objects.filter(pk=flash_sale_id).select_related("owner__user").first()
     )
     product = (
-        Product.objects.filter(pk=product_id)
-        .select_related("flash_sale")
-        .prefetch_related("media")
-        .first()
+        Product.objects.filter(pk=product_id).prefetch_related("media").first()
     )
     if flash_sale is None or product is None:
         return {
@@ -221,7 +221,10 @@ def resolve_client_order_page(request: HttpRequest) -> dict[str, Any]:
             "flash_sale_title": "",
             "can_submit": False,
         }
-    if product.flash_sale_id != flash_sale.id:
+    is_linked = FlashSaleProduct.objects.filter(
+        flash_sale_id=flash_sale.id, product_id=product.id, is_active=True
+    ).exists()
+    if not is_linked:
         return {
             "page_error": "Ce produit n’appartient pas à cette vente flash.",
             "flash_sale_id": str(flash_sale_id),

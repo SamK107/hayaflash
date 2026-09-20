@@ -40,9 +40,7 @@ def flash_sale_list_api(request: Request) -> Response:
 def flash_sale_detail_api(request: Request, slug: str) -> Response:
     """GET /api/v1/flash-sales/<slug>/ — detail + produits. Public, voir ci-dessus."""
     try:
-        sale = FlashSale.objects.prefetch_related("products__media").get(
-            public_slug=slug
-        )
+        sale = FlashSale.objects.get(public_slug=slug)
     except FlashSale.DoesNotExist:
         return Response(
             {"error": "not_found", "detail": "Vente introuvable."}, status=404

@@ -3,13 +3,14 @@ from __future__ import annotations
 from django.contrib import admin
 
 from flash_sales.models import FlashSale
-from products.models import Product
+from products.models import FlashSaleProduct
 
 
-class ProductInline(admin.TabularInline):
-    model = Product
+class FlashSaleProductInline(admin.TabularInline):
+    model = FlashSaleProduct
     extra = 0
-    fields = ("name", "price", "stock_available", "is_active", "display_order")
+    fields = ("product", "promo_price", "display_order", "is_active")
+    autocomplete_fields = ("product",)
     show_change_link = True
 
 
@@ -34,7 +35,7 @@ class FlashSaleAdmin(admin.ModelAdmin):
     )
     date_hierarchy = "start_time"
     readonly_fields = ("public_slug", "created_at", "updated_at")
-    inlines = (ProductInline,)
+    inlines = (FlashSaleProductInline,)
 
     fieldsets = (
         (

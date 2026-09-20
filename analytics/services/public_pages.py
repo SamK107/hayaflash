@@ -113,7 +113,6 @@ def resolve_flash_sale_public_page(request: HttpRequest, slug: str) -> dict[str,
     flash_sale = (
         FlashSale.objects.filter(public_slug=cleaned)
         .select_related("owner__user")
-        .prefetch_related("products", "products__media")
         .first()
     )
     if flash_sale is None:
@@ -121,7 +120,9 @@ def resolve_flash_sale_public_page(request: HttpRequest, slug: str) -> dict[str,
 
     version = get_page_version(flash_page_version_key(cleaned))
     share_link = get_or_create_flash_sale_share_link(flash_sale=flash_sale)
-    products = list(flash_sale.products.all())
+    from products.services.crud import products_for_sale
+
+    products = products_for_sale(flash_sale, only_active=True)
     flash_path = flash_sale_public_path(flash_sale.public_slug)
     flash_url = absolute_url(request, flash_path)
     wa = build_whatsapp_urls(
@@ -201,13 +202,17 @@ def build_referral_loop_context(
     flash_sale = (
         FlashSale.objects.filter(pk=flash_sale_id)
         .select_related("owner__user")
-        .prefetch_related("products", "products__media")
         .first()
     )
     if flash_sale is None:
         return {"available": False}
 
-    product = next((p for p in flash_sale.products.all() if p.pk == product_id), None)
+    from products.services.crud import products_for_sale
+
+    product = next(
+        (p for p in products_for_sale(flash_sale, only_active=False) if p.pk == product_id),
+        None,
+    )
     if product is None:
         return {"available": False}
 

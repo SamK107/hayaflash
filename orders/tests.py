@@ -15,7 +15,7 @@ from accounts.models import SellerProfile
 from flash_sales.models import FlashSale, FlashSaleStatus
 from orders.models import Order, OrderItem
 from orders.services.create_order import create_order
-from products.models import Product
+from products.models import FlashSaleProduct, Product
 
 User = get_user_model()
 
@@ -57,12 +57,13 @@ class LiveFlashSaleProductFixture(TestCase):
             owner=self.seller,
         )
         self.product = Product.objects.create(
-            flash_sale=self.sale,
+            owner=self.seller,
             name="Widget",
             stock_available=10,
             stock_initial=10,
             price=Decimal("19.99"),
         )
+        FlashSaleProduct.objects.create(flash_sale=self.sale, product=self.product)
 
 
 class CreateOrderServiceTests(LiveFlashSaleProductFixture):
@@ -172,12 +173,13 @@ class CreateOrderConcurrencyTests(TransactionTestCase):
             owner=self.seller,
         )
         self.product = Product.objects.create(
-            flash_sale=self.sale,
+            owner=self.seller,
             name="Hot",
             stock_available=1,
             stock_initial=1,
             price=Decimal("1.00"),
         )
+        FlashSaleProduct.objects.create(flash_sale=self.sale, product=self.product)
 
     def _payload(self, client_request_id: str) -> dict:
         return {
@@ -295,12 +297,13 @@ class PublicOrderAPIConcurrencyTests(TransactionTestCase):
             owner=self.seller,
         )
         self.product = Product.objects.create(
-            flash_sale=self.sale,
+            owner=self.seller,
             name="Solo",
             stock_available=1,
             stock_initial=1,
             price=Decimal("5.00"),
         )
+        FlashSaleProduct.objects.create(flash_sale=self.sale, product=self.product)
 
     def test_concurrent_last_unit_via_api_one_201_one_400(self) -> None:
         codes: list[int] = []

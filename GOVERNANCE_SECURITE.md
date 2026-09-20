@@ -83,12 +83,9 @@ Légende : ✅ Fait · ⚠️ Partiel · ❌ Manquant · 🔍 À vérifier (néc
 
 ## 4. Sécurité applicative
 
-- 🟡 **CSP (Content-Security-Policy)** — `django-csp==3.8` (`requirements.txt`),
-  policy declaree dans `config/settings/base.py`, active en mode
-  **Report-Only** (`CSP_REPORT_ONLY = True`) depuis le 14/09 (voir PR #16).
-  Ne bloque rien tant que `'unsafe-inline'` reste necessaire aux `onclick=`/
-  `<script>` inline existants. Passage en mode bloquant = decision produit a
-  part (verifier d'abord l'absence de violation sur staging).
+- ❌ **CSP (Content-Security-Policy)** — aucun package `django-csp` dans
+  `requirements.txt`, aucun header CSP dans `config/settings/prod.py` ni dans
+  `infra/nginx/prod.conf`. Manquant.
 - ✅ **Headers sécurité prod** — dans `config/settings/prod.py` :
   `SECURE_SSL_REDIRECT`, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`,
   `SESSION_COOKIE_HTTPONLY`, `CSRF_COOKIE_HTTPONLY`, `X_FRAME_OPTIONS=DENY`,
@@ -107,55 +104,55 @@ Légende : ✅ Fait · ⚠️ Partiel · ❌ Manquant · 🔍 À vérifier (néc
   mémoire par process). Le throttling DRF utilise `CACHES["default"]`, qui
   bascule sur `django-redis` dès que `REDIS_URL` est défini (`base.py`) — donc
   cohérent entre workers en staging/prod.
+- ✅ **Nouvelle surface API "Publication rapide" (20/09)** — `products/api.py`
+  (`FlashSaleProductViewSet`) n'ajoute aucune exception au modèle d'auth
+  existant : `DEFAULT_PERMISSION_CLASSES=IsAuthenticated` + throttling global
+  s'appliquent déjà, et chaque action passe par `SellerOwnershipMixin`
+  (`products/mixins.py`) pour verrouiller l'accès au vendeur propriétaire (ou
+  à un staff avec `?seller_id=` explicite, jamais implicite). Suppression
+  définitive d'un produit protégée par `on_delete=PROTECT` (`Order`/`OrderItem`)
+  — refusée si des commandes existent, pas de perte d'historique possible via
+  cette route. Toutes les mutations (`bulk-update`, `archive-product`,
+  `delete-product`) sont journalisées via `core.models.audit()`.
 
 ---
 
 ## 5. Sauvegardes & reprise après sinistre
 
-> Décisions d'infrastructure (stockage hors-site, chiffrement, séquencement
-> cron/première exécution réelle) actées dans
-> [`docs/decisions/ADR-0001-strategie-sauvegardes.md`](docs/decisions/ADR-0001-strategie-sauvegardes.md).
->
-> Mise à jour 17/09 : squelette livré (`infra/scripts/backup.sh`,
-> `restore_test.sh`, `copy_offsite.sh`), testé en local avec un simulateur de
-> `docker compose exec` (Docker non accessible dans l'environnement de dev) —
-> voir PR #18. Rien n'a encore tourné contre le vrai VPS ni le vrai disque.
+- ⚠️ **Backup base de données automatique** — `infra/scripts/backup.sh` existe
+  désormais dans `main` (dump `pg_dump` + rétention locale, testé en local via
+  simulateur Docker), mais aucun cron ni tâche Celery Beat ne l'exécute
+  (`CELERY_BEAT_SCHEDULE` dans `config/settings/base.py` ne contient que les
+  tâches métier flash-sales) — activation reportée à la phase de déploiement
+  (voir ADR-0001).
+- ⚠️ **Backup des fichiers médias** — couvert par le même `backup.sh` (archive
+  médias), mêmes réserves que ci-dessus.
+- ❌ **Chiffrement des sauvegardes** — décidé (age/gpg, clé hors VPS et hors
+  disque externe — voir ADR-0001) mais pas encore implémenté dans le script.
+- ❌ **Copie hors-site** — décidé (disque externe périodique — voir ADR-0001)
+  mais pas encore implémenté ; le script actuel ne fait que la rétention
+  locale sur le VPS.
+- ✅ **Test de restauration** — `infra/scripts/restore_test.sh` existe et est
+  validé en local (restauration + comptage de tables) ; reste à valider en
+  conditions réelles sur le VPS lors du premier déploiement.
+- ⚠️ **Rétention documentée** — rétention locale gérée par `backup.sh`
+  (purge par ancienneté, testée) ; rétention sur le disque externe hors-site
+  pas encore définie.
 
-- ⚠️ **Backup base de données** — `infra/scripts/backup.sh` existe
-  (`pg_dump | gzip`, horodaté, rétention locale configurable, 14j par défaut)
-  mais **aucun cron ni tâche Celery Beat ne l'appelle encore** — exécution
-  manuelle uniquement pour l'instant.
-- ⚠️ **Backup des fichiers médias** — couvert par le même script
-  (`tar czf` du volume médias via le conteneur `web`). Même limite : pas
-  encore automatisé.
-- ❌ **Chiffrement des sauvegardes** — toujours absent. Décision à prendre
-  (GPG au repos sur le disque externe ? chiffrement du disque lui-même au
-  niveau OS ?).
-- ⚠️ **Copie hors-site** — **décision prise le 17/09 : disque externe branché
-  sur le VPS**, pas encore mis en place physiquement au moment de cette
-  révision. `infra/scripts/copy_offsite.sh` est prêt : il refuse de copier
-  tant qu'un fichier témoin (`.hayaflash_backup_target`) n'existe pas à la
-  racine du point de montage — protection contre une copie silencieuse sur le
-  disque local du VPS si le disque externe n'est pas réellement monté.
-  Rétention hors-site 60j par défaut (volontairement plus longue que la
-  rétention locale). **Reste à faire dès le disque branché** : monter le
-  disque sur le VPS, créer le fichier témoin, lancer une première exécution
-  réelle.
-- ✅ **Test de restauration** — `infra/scripts/restore_test.sh` : restaure un
-  dump dans une base éphémère séparée (jamais la base de l'app), vérifie
-  qu'au moins une table existe, la supprime systématiquement (y compris en
-  cas d'échec). Testé en local (chemin nominal + fichier introuvable + 0
-  table restaurée) ; pas encore exécuté contre un vrai dump de prod.
-- ⚠️ **Rétention documentée** — désormais documentée ici et dans les scripts
-  eux-mêmes (14j local / 60j hors-site) ; ces durées sont un défaut
-  raisonnable, pas une décision produit validée séparément.
+**C'est la catégorie la plus en retard du projet.** Si une sauvegarde existe
+déjà au niveau du VPS (HestiaCP, snapshot du provider), elle n'est documentée
+nulle part dans le repo — donc invisible et non vérifiable en cas de succession
+ou de changement d'opérateur. Priorité haute.
 
-**Toujours la catégorie la plus en retard du projet**, même si elle n'est
-plus à zéro : le code existe et est testé en local, mais rien n'a encore
-tourné en conditions réelles (cron, VPS, disque physiquement branché). Si une
-sauvegarde existe déjà au niveau du VPS (HestiaCP, snapshot du provider),
-elle reste non documentée dans le repo — donc invisible et non vérifiable en
-cas de succession ou de changement d'opérateur.
+**Mise à jour 2026-09-18** : scripts de dump DB + médias écrits, testés en
+local et mergés dans `main` (PR [#18](https://github.com/SamK107/hayaflash/pull/18),
+squash-mergé). Les décisions d'infrastructure (stockage hors-site,
+chiffrement, activation du cron, première exécution réelle) sont actées dans
+[`docs/decisions/ADR-0001-strategie-sauvegardes.md`](docs/decisions/ADR-0001-strategie-sauvegardes.md) —
+exécution différée à la phase de déploiement final. Statut de la catégorie
+inchangé (❌) tant que rien n'est en place sur le VPS réel : les scripts
+existent dans le repo mais ne sont ni chiffrés vers un stockage hors-site, ni
+plannifiés, ni exécutés en conditions réelles.
 
 ---
 
@@ -281,14 +278,11 @@ stat -c "%a %U:%G" /srv/hayaflash/.env   # attendu : 600, propriétaire du servi
 
 ## Synthèse des priorités
 
-1. **Sauvegardes (catégorie 5)** — scripts livrés et testés en local (17/09),
-   mais encore rien de réel : brancher le disque externe, créer le fichier
-   témoin, exécuter `backup.sh` puis `copy_offsite.sh` puis `restore_test.sh`
-   une première fois contre le VPS, et brancher `backup.sh` sur un cron.
+1. **Sauvegardes (catégorie 5)** — le point le plus en retard, à traiter en
+   premier : au minimum un dump PostgreSQL quotidien + copie hors-site.
 2. **Health check applicatif (catégorie 2)** — faire vérifier DB/Redis par
    `/health/` plutôt qu'un `200 OK` statique.
-3. ~~**CSP (catégorie 4)**~~ — fait (14/09, `django-csp` en mode Report-Only).
-   Reste : décider du passage en mode bloquant (retirer `'unsafe-inline'`).
+3. **CSP (catégorie 4)** — ajouter `django-csp` avec `default-src 'self'`.
 4. **Notification admin sur webhook suspect (catégorie 8)** — capturer les
    signatures invalides vers Sentry ou une alerte dédiée.
 5. **Durcissement VPS (catégorie 7)** — à vérifier par SSH avec les commandes

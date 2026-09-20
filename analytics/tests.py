@@ -34,7 +34,7 @@ from flash_sales.models import FlashSale, FlashSaleStatus
 from flash_sales.services.slugs import generate_unique_flash_sale_public_slug
 from orders.models import Order
 from orders.services.create_order import create_order
-from products.models import Product
+from products.models import FlashSaleProduct, Product
 
 User = get_user_model()
 
@@ -60,12 +60,13 @@ class ViralGrowthFixture(TestCase):
             owner=self.seller,
         )
         self.product = Product.objects.create(
-            flash_sale=self.sale,
+            owner=self.seller,
             name="Sac wax",
             stock_available=5,
             stock_initial=5,
             price=Decimal("15000.00"),
         )
+        FlashSaleProduct.objects.create(flash_sale=self.sale, product=self.product)
         self.client = Client()
         self.api = APIClient()
 

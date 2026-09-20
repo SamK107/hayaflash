@@ -73,6 +73,19 @@ class FlashSale(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # Catalogue reutilisable : un Product peut etre rattache a plusieurs
+    # ventes via FlashSaleProduct (prix promo / ordre / actif par vente).
+    # M2M via `through` -> conserve `sale.products.all()/.filter()/.prefetch_related()`
+    # fonctionnels partout ou c'etait deja utilise (vues, API, pages publiques,
+    # analytics) sans avoir a reecrire chaque appelant.
+    products = models.ManyToManyField(
+        "products.Product",
+        through="products.FlashSaleProduct",
+        through_fields=("flash_sale", "product"),
+        related_name="+",
+        blank=True,
+    )
+
     class Meta:
         ordering = ["-start_time"]
         verbose_name = "Vente flash"

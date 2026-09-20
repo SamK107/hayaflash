@@ -6,13 +6,25 @@ from django.db import models
 
 
 class Product(models.Model):
-    flash_sale = models.ForeignKey(
-        "flash_sales.FlashSale",
-        on_delete=models.SET_NULL,
+    """Produit du catalogue permanent d'un vendeur.
+
+    Historiquement rattache directement a une FlashSale (champ `flash_sale`
+    supprime par cette migration). Desormais reutilisable entre plusieurs
+    ventes via la table de jonction `FlashSaleProduct`.
+    """
+
+    owner = models.ForeignKey(
+        "accounts.SellerProfile",
+        on_delete=models.CASCADE,
         null=True,
         blank=True,
-        related_name="products",
-        verbose_name="Vente flash",
+        related_name="products_catalog",
+        verbose_name="Vendeur",
+        help_text=(
+            "Nullable pour compat avec d'eventuelles lignes orphelines "
+            "historiques (vente supprimee avant ce refactor) ; toujours "
+            "renseigne pour les produits crees via l'application."
+        ),
     )
     name = models.CharField(max_length=255, verbose_name="Nom du produit")
     description = models.TextField(blank=True, verbose_name="Description")
@@ -52,11 +64,12 @@ class Product(models.Model):
         verbose_name = "Produit"
         verbose_name_plural = "Produits"
         indexes = [
-            models.Index(fields=["flash_sale", "is_active"]),
+            models.Index(fields=["owner", "is_active"]),
+            models.Index(fields=["created_at"]),
         ]
 
     def __str__(self):
-        return f"{self.name} ({self.flash_sale_id})"
+        return f"{self.name} ({self.owner_id})"
 
     @property
     def is_available(self):
@@ -192,4 +205,70 @@ class StockMovement(models.Model):
         sign = "+" if self.quantity_change > 0 else ""
         return (
             f"{self.product.name} {sign}{self.quantity_change} ({self.movement_type})"
+        )
+
+
+class FlashSaleProduct(models.Model):
+    """Lien entre une vente flash et un produit du catalogue vendeur.
+
+    Permet de reutiliser un meme `Product` sur plusieurs ventes, avec un prix
+    promo et un ordre d'affichage propres a chaque vente. Le stock reste gere
+    sur `Product` (stock_initial/stock_available) : c'est un choix delibere,
+    car `orders/services/create_order.py` decremente et verrouille le stock
+    au niveau Product (pas question de dupliquer/fragmenter le stock reel
+    entre ventes pour cette premiere iteration du catalogue).
+    """
+
+    flash_sale = models.ForeignKey(
+        "flash_sales.FlashSale",
+        on_delete=models.CASCADE,
+        related_name="flash_sale_products",
+        verbose_name="Vente flash",
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="flash_sale_links",
+        verbose_name="Produit",
+    )
+    promo_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Prix promo",
+        help_text="Prix applique pour cette vente. Vide = prix catalogue (Product.price).",
+    )
+    display_order = models.IntegerField(default=0, verbose_name="Ordre d'affichage")
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Actif dans cette vente",
+        help_text="Permet de retirer un produit d'une vente sans le retirer du catalogue.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [("flash_sale", "product")]
+        ordering = ["display_order", "-created_at"]
+        verbose_name = "Produit de vente flash"
+        verbose_name_plural = "Produits de vente flash"
+        indexes = [
+            models.Index(fields=["flash_sale", "is_active"]),
+        ]
+
+    def __str__(self):
+        return f"{self.product.name} @ {self.flash_sale.title}"
+
+    @property
+    def effective_price(self):
+        """Prix applique = promo_price si defini, sinon prix catalogue."""
+        return self.promo_price if self.promo_price is not None else self.product.price
+
+    @property
+    def is_available(self):
+        return (
+            self.is_active
+            and self.product.is_active
+            and self.product.stock_available > 0
         )

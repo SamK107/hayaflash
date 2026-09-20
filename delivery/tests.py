@@ -48,15 +48,16 @@ class DeliveryTestFixture(TestCase):
             status=FlashSaleStatus.LIVE,
             owner=self.seller,
         )
-        from products.models import Product
+        from products.models import FlashSaleProduct, Product
 
         self.product = Product.objects.create(
-            flash_sale=self.sale,
+            owner=self.seller,
             name="Widget",
             stock_available=10,
             stock_initial=10,
             price=Decimal("19.99"),
         )
+        FlashSaleProduct.objects.create(flash_sale=self.sale, product=self.product)
         self.api = APIClient()
 
     def _order_body(self, **overrides) -> dict:

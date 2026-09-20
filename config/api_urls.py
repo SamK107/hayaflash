@@ -18,6 +18,7 @@ from rest_framework.routers import DefaultRouter
 
 from orders.api import api_v1_orders_create
 from flash_sales.api import flash_sale_list_api, flash_sale_detail_api
+from products.api import FlashSaleProductViewSet
 
 router = DefaultRouter()
 
@@ -81,6 +82,44 @@ urlpatterns = [
     path("flash-sales/", flash_sale_list_api, name="api-flash-sales-list"),
     path(
         "flash-sales/<slug:slug>/", flash_sale_detail_api, name="api-flash-sales-detail"
+    ),
+    # Publication rapide (catalogue produits reutilisable entre ventes) --
+    # namespace distinct du router DRF generique ci-dessous : ce sont des
+    # actions metier (catalog/bulk-update/...), pas du CRUD ModelViewSet.
+    path(
+        "flash-sales/<int:flash_sale_pk>/products/catalog/",
+        FlashSaleProductViewSet.as_view({"get": "catalog"}),
+        name="flashsaleproduct-catalog",
+    ),
+    path(
+        "flash-sales/<int:flash_sale_pk>/products/bulk-update/",
+        FlashSaleProductViewSet.as_view({"post": "bulk_update"}),
+        name="flashsaleproduct-bulk-update",
+    ),
+    path(
+        "flash-sales/<int:flash_sale_pk>/products/duplicate-from/",
+        FlashSaleProductViewSet.as_view({"post": "duplicate_from"}),
+        name="flashsaleproduct-duplicate-from",
+    ),
+    path(
+        "flash-sales/<int:flash_sale_pk>/products/bulk-upload-images/",
+        FlashSaleProductViewSet.as_view({"post": "bulk_upload_images"}),
+        name="flashsaleproduct-bulk-upload-images",
+    ),
+    path(
+        "flash-sales/<int:flash_sale_pk>/products/assign-image/",
+        FlashSaleProductViewSet.as_view({"post": "assign_image"}),
+        name="flashsaleproduct-assign-image",
+    ),
+    path(
+        "flash-sales/<int:flash_sale_pk>/products/archive-product/",
+        FlashSaleProductViewSet.as_view({"post": "archive_product"}),
+        name="flashsaleproduct-archive-product",
+    ),
+    path(
+        "flash-sales/<int:flash_sale_pk>/products/delete-product/",
+        FlashSaleProductViewSet.as_view({"post": "delete_product"}),
+        name="flashsaleproduct-delete-product",
     ),
     path("", include(router.urls)),
 ]

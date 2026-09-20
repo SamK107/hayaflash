@@ -65,7 +65,16 @@ class FlashSalePublicSerializer(serializers.ModelSerializer):
 
 
 class FlashSaleDetailSerializer(FlashSalePublicSerializer):
-    products = ProductPublicSerializer(many=True, read_only=True)
+    products = serializers.SerializerMethodField()
 
     class Meta(FlashSalePublicSerializer.Meta):
         fields = FlashSalePublicSerializer.Meta.fields + ["products"]
+
+    def get_products(self, obj):
+        # Passe par products_for_sale() pour appliquer le prix effectif
+        # (promo_price de CETTE vente) et l'ordre/filtre propres a la vente,
+        # plutot que le prix/ordre catalogue brut de Product.
+        from products.services.crud import products_for_sale
+
+        products = products_for_sale(obj, only_active=True)
+        return ProductPublicSerializer(products, many=True, context=self.context).data
