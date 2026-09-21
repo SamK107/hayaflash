@@ -21,7 +21,6 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
 from core.models import audit
-from flash_sales.models import FlashSale
 
 from .mixins import SellerOwnershipMixin
 from .models import FlashSaleProduct, Product, ProductMedia

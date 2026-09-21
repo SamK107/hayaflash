@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from flash_sales.models import FlashSale
 
 from .forms import ProductForm
-from .models import FlashSaleProduct, Product
+from .models import FlashSaleProduct
 from .services.crud import (
     add_product_image,
     attach_product_to_sale,
