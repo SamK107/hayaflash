@@ -14,7 +14,7 @@ from flash_sales.models import FlashSale, FlashSaleStatus
 from flash_sales.services.ordering import assert_flash_sale_accepts_orders
 from orders.services.create_order import create_order
 from orders.tests import valid_delivery_payload
-from products.models import Product
+from products.models import FlashSaleProduct, Product
 from subscriptions.models import Plan, Subscription
 
 
@@ -89,12 +89,13 @@ class FlashSaleTests(TestCase):
         assert_flash_sale_accepts_orders(sale)
 
         product = Product.objects.create(
-            flash_sale=sale,
+            owner=sale.owner,
             name="SKU-1",
             stock_available=5,
             stock_initial=5,
             price="10.00",
         )
+        FlashSaleProduct.objects.create(flash_sale=sale, product=product)
         order = create_order(
             {
                 "flash_sale_id": sale.pk,
@@ -110,9 +111,8 @@ class FlashSaleTests(TestCase):
         self.assertEqual(product.stock_available, 4)
 
     def test_assert_flash_sale_accepts_orders_rejects_missing_flash_sale(self) -> None:
-        product = Product.objects.create(flash_sale=None, name="Orphan")
         with self.assertRaises(ValidationError):
-            assert_flash_sale_accepts_orders(product.flash_sale)
+            assert_flash_sale_accepts_orders(None)
 
 
 class CeleryTasksTest(TestCase):

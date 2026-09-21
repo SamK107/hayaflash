@@ -111,35 +111,25 @@ def clone_flash_sale(*, sale: FlashSale, seller) -> FlashSale:
         new_sale.description_audio = sale.description_audio.name
     new_sale.save()
 
-    # Cloner les produits
-    from products.models import Product, ProductMedia
+    # Relier la nouvelle vente aux MEMES produits du catalogue (le catalogue
+    # est desormais reutilisable entre ventes : plus de duplication de
+    # Product/ProductMedia ici, seulement le lien FlashSaleProduct, avec le
+    # meme prix promo et le meme ordre que sur la vente d'origine).
+    from products.models import FlashSaleProduct
 
-    for p in sale.products.filter(is_active=True).order_by("display_order"):
-        new_p = Product(
+    links = (
+        FlashSaleProduct.objects.filter(flash_sale=sale, is_active=True)
+        .select_related("product")
+        .order_by("display_order")
+    )
+    for link in links:
+        FlashSaleProduct.objects.create(
             flash_sale=new_sale,
-            name=p.name,
-            description=p.description,
-            price=p.price,
-            unit=p.unit,
-            display_order=p.display_order,
-            characteristics=p.characteristics,
-            stock_initial=p.stock_initial,
-            stock_available=p.stock_initial,  # reset au stock initial
+            product=link.product,
+            promo_price=link.promo_price,
+            display_order=link.display_order,
             is_active=True,
         )
-        if p.description_audio:
-            new_p.description_audio = p.description_audio.name
-        new_p.save()
-        # Cloner les medias (meme fichier, pas de copie physique)
-        for m in p.media.all():
-            ProductMedia.objects.create(
-                product=new_p,
-                media_type=m.media_type,
-                file=m.file.name if m.file else None,
-                video_url=m.video_url,
-                alt_text=m.alt_text,
-                order=m.order,
-            )
 
     return new_sale
 

@@ -31,7 +31,7 @@ class ProductModelTest(TestCase):
 
     def _product(self, **kwargs) -> Product:
         defaults = {
-            "flash_sale": self.sale,
+            "owner": self.seller,
             "name": "Sac a main",
             "price": Decimal("15000.00"),
             "stock_initial": 10,

@@ -92,10 +92,16 @@
             Produits ({{ products|length }})
           </h2>
           {% if sale.status == "scheduled" %}
-          <a href="{% url 'products:create' sale.pk %}"
-             class="flex items-center gap-1.5 text-sm text-primary font-semibold hover:bg-primary/5 px-3 py-1.5 rounded-lg transition-colors">
-            <i data-lucide="plus" class="w-4 h-4"></i>Ajouter
-          </a>
+          <div class="flex items-center gap-2">
+            <a href="{% url 'products:quick_publish' sale.pk %}"
+               class="flex items-center gap-1.5 text-sm text-primary font-semibold hover:bg-primary/5 px-3 py-1.5 rounded-lg transition-colors">
+              <i data-lucide="zap" class="w-4 h-4"></i>Publication rapide
+            </a>
+            <a href="{% url 'products:create' sale.pk %}"
+               class="flex items-center gap-1.5 text-sm text-primary font-semibold hover:bg-primary/5 px-3 py-1.5 rounded-lg transition-colors">
+              <i data-lucide="plus" class="w-4 h-4"></i>Ajouter
+            </a>
+          </div>
           {% endif %}
         </div>
 

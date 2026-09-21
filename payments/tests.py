@@ -277,7 +277,7 @@ class WebhookConcurrencyTests(TransactionTestCase):
 
         from accounts.models import SellerProfile
         from flash_sales.models import FlashSale, FlashSaleStatus
-        from products.models import Product
+        from products.models import FlashSaleProduct, Product
 
         User = get_user_model()
         self.api = APIClient()
@@ -295,12 +295,13 @@ class WebhookConcurrencyTests(TransactionTestCase):
             owner=seller,
         )
         product = Product.objects.create(
-            flash_sale=sale,
+            owner=seller,
             name="Item",
             stock_available=10,
             stock_initial=10,
             price=Decimal("3.00"),
         )
+        FlashSaleProduct.objects.create(flash_sale=sale, product=product)
         self.order = create_order(
             {
                 "flash_sale_id": sale.pk,

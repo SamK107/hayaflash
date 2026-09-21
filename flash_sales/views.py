@@ -126,7 +126,9 @@ def flash_sale_create_view(request):
 def flash_sale_detail_view(request, pk: int):
     seller = _get_seller(request)
     sale = get_object_or_404(FlashSale, pk=pk, owner=seller)
-    products = sale.products.prefetch_related("media").order_by("display_order")
+    from products.services.crud import products_for_sale
+
+    products = products_for_sale(sale, only_active=False)
     return render(
         request,
         "flash_sales/detail.html",

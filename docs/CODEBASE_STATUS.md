@@ -1,6 +1,6 @@
 # HayaFlash — État du Codebase
 
-> Mis à jour le 2026-09-18. Basé sur audit direct du code source (pas sur les docs).
+> Mis à jour le 2026-09-20. Basé sur audit direct du code source (pas sur les docs).
 > **Ce fichier est la source de vérité sur ce qui EXISTE et ce qui RESTE À FAIRE.**
 > Mettre à jour après chaque chantier significatif.
 >
@@ -59,8 +59,23 @@ hayaflash/
 - Vue `seller_analytics_view` : dashboard analytics MEDIUM (30j)/PRO (annuel + top produits), gate sur `sub.has_stats`
 
 ### `products/`
-- `Product` : flash_sale (FK nullable), name, description, price, stock_initial, stock_available, unit, characteristics (JSONField), description_audio (FileField), display_order, is_active
-- `ProductMedia` : product (FK), media_type (image/video), file (ImageField), video_url, alt_text, order
+- **Refactor 20/09 (PR "Publication rapide")** : `Product.flash_sale` (FK) supprimé.
+  `Product` appartient maintenant au vendeur (`owner` FK vers `SellerProfile`, nullable
+  pour les lignes orphelines historiques) et devient un catalogue réutilisable entre
+  ventes. Le lien produit ↔ vente passe par un modèle through explicite,
+  `FlashSaleProduct` (`flash_sale`, `product`, `promo_price` nullable, `display_order`,
+  `is_active`, `unique_together`), exposé aussi via `FlashSale.products` (M2M through,
+  `related_name="+"` pour ne pas casser les `sale.products.all()` existants). Migration
+  en 3 temps (additive → data migration → suppression du FK legacy), testée sur copie
+  de la DB réelle avant application (78/78 lignes migrées, 0 orphelin).
+- `Product` : owner (FK `SellerProfile`, nullable), name, description, price,
+  stock_initial, stock_available, unit, characteristics (JSONField),
+  description_audio (FileField), display_order, is_active (masquage catalogue —
+  voir Publication rapide ci-dessous)
+- `FlashSaleProduct` : flash_sale (FK), product (FK), promo_price (nullable —
+  fallback `product.price`), display_order, is_active ; propriétés `effective_price`
+  et `is_available`
+- `ProductMedia` : product (FK), media_type (image/video), file (ImageField), video_url, alt_text, order — une seule photo par produit dans la grille Publication rapide (upload remplace, n'empile plus)
 - `ProductVariant` : product (FK), type, value, stock, price_delta
 - `StockMovement` : product, order (FK nullable), quantity_change, movement_type (reservation/release/correction/initial), notes
 
@@ -151,6 +166,21 @@ hayaflash/
 
 ---
 
+## Phase 9 — Publication rapide (catalogue produits) (20/09)
+
+| Fonctionnalité | Statut |
+|---|---|
+| Refactor `Product` en catalogue réutilisable par vendeur (`owner` + `FlashSaleProduct` through-model, remplace `Product.flash_sale`) | ✅ Fait — migration en 3 temps testée sur copie DB réelle |
+| Page `/<flash_sale_pk>/quick-publish/` : grille Alpine.js/Tailwind pour publier/mettre à jour 20+ produits en une fois (prix promo, stock, ordre) | ✅ Fait |
+| API DRF `FlashSaleProductViewSet` (`catalog`, `bulk-update` transactionnel tout-ou-rien, `duplicate-from`, `bulk-upload-images`, `assign-image`, `archive-product`, `delete-product`) | ✅ Fait |
+| Upload photo groupé : rattachement auto par nom de fichier normalisé (espaces/`_`/`-` équivalents), puis par ordre de dépôt sur les lignes sans photo, puis création automatique d'une nouvelle ligne (photo déjà en place) si aucune correspondance | ✅ Fait |
+| Masquer/réafficher un produit catalogue (`is_active`, sans le supprimer) et suppression définitive (protégée par `on_delete=PROTECT` sur `Order`/`OrderItem.product` — refusée avec message explicite si le produit a déjà des commandes) | ✅ Fait |
+| Mode support (`/admin/sellers/<seller_id>/<flash_sale_pk>/quick-publish/`, staff only, `?seller_id=` impersonation) | ✅ Fait |
+| Non-régression checkout : `price_snapshot` utilise `FlashSaleProduct.effective_price` (prix promo), pas le prix catalogue brut | ✅ Fait — testé |
+| `flash_sales.services.crud.clone_flash_sale` : réutilise le catalogue existant au lieu de dupliquer `Product`/`ProductMedia` | ✅ Fait |
+
+---
+
 ## Ce qui n'existe PAS (lacunes résiduelles réelles)
 
 ### 1. F3 "Sales Drawer" — statut à reconfirmer
@@ -221,16 +251,16 @@ requests==2.33.1
 | payments | Présent |
 | accounts | Présent |
 | flash_sales | Présent |
-| products | Présent |
+| products | ✅ Renforcé — `products/tests_quick_publish.py` (46 tests : modèles, API bulk-update/catalog/duplicate/upload/archive/delete, mode admin, non-régression checkout) |
 | core | Présent |
 | subscriptions | ✅ Renforcé (fail-closed, CANCELLED, expiry, webhooks Orange Money — merge effectif 18/09) |
 | notifications | À compléter |
 | E2E | ❌ Absent |
 
-> Suite complète relancée le 18/09 sur `main` (`manage.py test --settings=config.settings.test`) :
-> **118 passed, 3 skipped**. Deux PR en revue (#20, #21) ajoutent 5 tests supplémentaires
-> (healthcheck DB/cache, alertes webhook). Couverture non remesurée (`--cov-fail-under=60`
-> dans la CI, pas de rapport détaillé regénéré pour ce fichier).
+> Suite complète relancée le 20/09 sur `feat/quick-publish-catalog`
+> (`manage.py test --settings=config.settings.test`) : **169 passed, 3 skipped**.
+> Couverture non remesurée (`--cov-fail-under=60` dans la CI, pas de rapport détaillé
+> regénéré pour ce fichier).
 
 ---
 

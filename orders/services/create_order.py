@@ -13,7 +13,7 @@ from flash_sales.models import FlashSale
 from flash_sales.services.ordering import assert_flash_sale_accepts_orders
 from orders.models import Order, OrderItem, OrderStatus
 from orders.services.dashboard import invalidate_seller_kpi_cache
-from products.models import Product
+from products.models import FlashSaleProduct, Product
 
 
 def _require_str(value: Any, field: str) -> str:
@@ -103,16 +103,24 @@ def _create_order_transactional(data: dict[str, Any]) -> Order:
     assert_flash_sale_accepts_orders(flash_sale)
 
     locked: dict[int, Product] = {}
+    prices: dict[int, Decimal] = {}
     for product_id in sorted(totals_by_product):
-        product = (
-            Product.objects.select_for_update()
-            .filter(pk=product_id, flash_sale_id=flash_sale.id)
+        # Le produit doit etre rattache (et actif) sur CETTE vente via le
+        # catalogue reutilisable (FlashSaleProduct) -- Product n'a plus de FK
+        # directe vers FlashSale depuis le refactor catalogue/Publication
+        # rapide.
+        link = (
+            FlashSaleProduct.objects.filter(
+                flash_sale_id=flash_sale.id, product_id=product_id, is_active=True
+            )
+            .select_related("product")
             .first()
         )
-        if product is None:
+        if link is None:
             raise ValidationError(
                 {"items": f"Product {product_id} was not found for this flash sale."}
             )
+        product = Product.objects.select_for_update().get(pk=product_id)
         need = totals_by_product[product_id]
         if product.stock_available < need:
             raise ValidationError(
@@ -124,6 +132,7 @@ def _create_order_transactional(data: dict[str, Any]) -> Order:
                 }
             )
         locked[product_id] = product
+        prices[product_id] = link.effective_price
 
     order = Order.service_objects.create(
         flash_sale=flash_sale,
@@ -141,7 +150,7 @@ def _create_order_transactional(data: dict[str, Any]) -> Order:
             order=order,
             product=product,
             product_name_snapshot=product.name,
-            price_snapshot=Decimal(product.price),
+            price_snapshot=Decimal(prices[pid]),
             quantity=qty,
         )
 

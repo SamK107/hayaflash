@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from django.contrib import admin
 
-from products.models import Product, ProductMedia, ProductVariant, StockMovement
+from products.models import (
+    FlashSaleProduct,
+    Product,
+    ProductMedia,
+    ProductVariant,
+    StockMovement,
+)
 
 
 class ProductMediaInline(admin.TabularInline):
@@ -21,7 +27,7 @@ class ProductVariantInline(admin.TabularInline):
 class ProductAdmin(admin.ModelAdmin):
     list_display = (
         "name",
-        "flash_sale",
+        "owner",
         "price",
         "stock_available",
         "stock_initial",
@@ -29,8 +35,8 @@ class ProductAdmin(admin.ModelAdmin):
         "is_active",
         "created_at",
     )
-    list_filter = ("is_active", "flash_sale__status")
-    search_fields = ("name", "flash_sale__title")
+    list_filter = ("is_active",)
+    search_fields = ("name", "owner__business_name", "owner__seller_code")
     readonly_fields = ("created_at", "updated_at")
     inlines = [ProductMediaInline, ProductVariantInline]
 
@@ -38,7 +44,7 @@ class ProductAdmin(admin.ModelAdmin):
         (
             "Informations",
             {
-                "fields": ("flash_sale", "name", "description", "price", "unit"),
+                "fields": ("owner", "name", "description", "price", "unit"),
             },
         ),
         (
@@ -82,3 +88,19 @@ class StockMovementAdmin(admin.ModelAdmin):
     search_fields = ("product__name",)
     readonly_fields = ("created_at",)
     date_hierarchy = "created_at"
+
+
+@admin.register(FlashSaleProduct)
+class FlashSaleProductAdmin(admin.ModelAdmin):
+    list_display = (
+        "product",
+        "flash_sale",
+        "promo_price",
+        "display_order",
+        "is_active",
+        "created_at",
+    )
+    list_filter = ("is_active", "flash_sale__status")
+    search_fields = ("product__name", "flash_sale__title")
+    readonly_fields = ("created_at", "updated_at")
+    autocomplete_fields = ("flash_sale", "product")
