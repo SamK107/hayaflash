@@ -60,7 +60,7 @@
           </div>
 
           {% if not sub.is_pro %}
-          <a href="#" class="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl
+          <a href="{% url 'subscriptions:subscription' %}" class="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl
                              text-sm font-semibold hover:bg-primary-dark transition-colors shadow-sm">
             <i data-lucide="zap" class="w-4 h-4"></i>Passer Pro
           </a>
