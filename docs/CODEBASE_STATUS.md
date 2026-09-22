@@ -181,6 +181,59 @@ hayaflash/
 
 ---
 
+## Phase 10 — Audit fonctionnel, pages acheteur, PWA multi-boutiques & conversion (à venir)
+
+Cadré le 22/09 avant la configuration du déploiement VPS automatique (voir
+`GOVERNANCE_SECURITE.md` § 6). Objectif : fiabiliser et optimiser l'expérience
+avant d'ouvrir le déploiement continu, pas ajouter du périmètre non maîtrisé.
+
+### 10.0 — Audit fonctionnel navigateur (pré-requis, en cours)
+
+| Parcours | Statut |
+|---|---|
+| Vendeur : inscription/connexion, création vente, Publication Rapide | 📋 À faire |
+| Acheteur : page vente publique, commande, checkout, paiement | 📋 À faire |
+| Vendeur : dashboard livraison, paramètres, abonnement | 📋 À faire |
+| Admin plateforme (staff, mode support) | 📋 À faire |
+
+Bugs et correctifs trouvés à consigner ici au fur et à mesure (pas seulement
+dans les messages de commit) pour garder une trace centralisée.
+
+### 10.1 — Optimisation pages acheteur (dépend de 10.0)
+
+| Piste identifiée | Statut |
+|---|---|
+| Stock restant plus visible (compte à rebours, jauge) | 📋 À faire — attend les constats de 10.0 |
+| Preuve sociale live (`SaleInterest` déjà en base — "X personnes intéressées") | 📋 À faire |
+| Tunnel de commande raccourci (friction minimale avant nom/téléphone) | 📋 À faire |
+
+### 10.2 — PWA acheteur multi-boutiques + notifications (à venir)
+
+| Fonctionnalité | Statut |
+|---|---|
+| Bug à corriger : manifest unique (`start_url: /seller/`) partagé par les pages acheteur — une installation depuis une vente ouvre l'espace vendeur | 📋 À faire |
+| Manifest acheteur séparé (icône/nom propres), scope dédié aux routes publiques, `start_url` vers un tableau de bord découverte | 📋 À faire |
+| Champs structurés `pays`/`ville` (remplace le texte libre `delivery_zone`) pour permettre le filtrage géographique | 📋 À faire |
+| Dashboard "Découvrir" : boutiques avec vente programmée/en cours uniquement, filtrées par ville, extensible pays plus tard (expansion Afrique de l'Ouest) | 📋 À faire |
+| Notifications push (Web Push, clés VAPID, nouveau canal `push` dans `notifications/services/`, réutilise le pattern `send_pending_sale_reminders`) | 📋 À faire — nécessite l'installation PWA acheteur fonctionnelle (iOS : push impossible hors app installée) |
+| Bandeau d'installation iOS (pas de `beforeinstallprompt` sur Safari — instructions manuelles "Ajouter à l'écran d'accueil") | 📋 À faire |
+
+### 10.3 — Scarcité & conversion (à venir)
+
+| Fonctionnalité | Statut |
+|---|---|
+| Rareté par défaut : temporelle (compte à rebours), stock réel affiché, preuve sociale live | 📋 À faire — voir 10.1 |
+| Quota de places strict : option activable par le vendeur (pas un comportement par défaut) — pertinent pour billetterie/événementiel | 📋 À faire (post-audit) |
+
+### 10.4 — Billetterie & confirmation de livraison par QR (optionnel, post-lancement)
+
+| Fonctionnalité | Statut |
+|---|---|
+| QR de confirmation livraison (paiement sur place) : jeton signé (`django.core.signing`) à usage unique, scan caméra navigateur (`getUserMedia` + `jsQR`) dans l'app vendeur déjà installée, lié à `Delivery` (UUID déjà en place) | 📋 À faire — non bloquant pour le lancement |
+| Billetterie événementielle : module distinct (pas le même flux que la livraison — contrôle d'accès, pas logistique), quota strict pertinent ici | 📋 À faire — non bloquant, piste d'extension produit |
+
+---
+
 ## Ce qui n'existe PAS (lacunes résiduelles réelles)
 
 ### 1. F3 "Sales Drawer" — statut à reconfirmer
@@ -296,3 +349,9 @@ Recoupé avec `GOVERNANCE_SECURITE.md` § Synthèse des priorités (plus détail
 5. **Décider du passage de la CSP en mode bloquant** (`CSP_REPORT_ONLY = False`) après vérification sans violation sur staging.
 6. **Clarifier F3 "Sales Drawer"** avec le product owner en montrant le code existant (`orderDrawer` dans `flash_sale_public.html`) : confirme-t-il le label, ou s'agit-il d'autre chose ?
 7. **Décider du sort des items démo** (`seed_demo` à réécrire pour le schéma actuel, `is_demo`, reset auto, badge DÉMO) si un usage showroom partenaires est prévu.
+8. **Audit fonctionnel navigateur** (Phase 10.0, ci-dessus) avant d'activer le
+   déploiement continu — corriger ce qui est cassé pendant que `deploy-staging`/
+   `deploy-prod` sont encore en pause plutôt qu'après.
+9. **PWA acheteur** (Phase 10.2) : corriger le bug de manifest partagé
+   (`start_url: /seller/` hérité par les pages acheteur) avant toute
+   communication invitant les clients à installer l'app.
