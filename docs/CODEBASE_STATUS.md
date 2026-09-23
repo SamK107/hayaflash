@@ -220,19 +220,27 @@ dans les messages de commit) pour garder une trace centralisée.
 
 ### 10.3 — Scarcité & conversion (à venir)
 
-| Fonctionnalité | Statut |
-|---|---|
-| Rareté par défaut : temporelle (compte à rebours), stock réel affiché, preuve sociale live | 📋 À faire — voir 10.1 |
-| Quota de places strict : option activable par le vendeur (pas un comportement par défaut) — pertinent pour billetterie/événementiel | 📋 À faire (post-audit) |
+Principe décidé le 23/09 : la rareté de base est **active par défaut pour tous
+les vendeurs** (c'est l'essence d'une vente flash) ; seul le quota strict est
+une **option activée par le vendeur**.
+
+| Fonctionnalité | Activation | Statut |
+|---|---|---|
+| Rareté temporelle (compte à rebours), stock réel affiché, preuve sociale live | Par défaut, pour tous — pas d'option | 📋 À faire — voir 10.1 |
+| Quota de places strict (pertinent billetterie/événementiel) | **Option vendeur**, désactivée par défaut | 📋 À faire (post-audit) |
 
 ### 10.4 — Billetterie & confirmation de livraison par QR (optionnel, post-lancement)
 
-| Fonctionnalité | Statut |
-|---|---|
-| QR de confirmation livraison (paiement sur place) : jeton signé (`django.core.signing`) à usage unique, scan caméra navigateur (`getUserMedia` + `jsQR`) dans l'app vendeur déjà installée, lié à `Delivery` (UUID déjà en place) | 📋 À faire — non bloquant pour le lancement |
-| Billetterie événementielle : module distinct (pas le même flux que la livraison — contrôle d'accès, pas logistique), quota strict pertinent ici | 📋 À faire — non bloquant, piste d'extension produit |
+Principe décidé le 23/09 : les deux fonctionnalités sont des **options au choix
+du vendeur**, jamais imposées. Non bloquantes pour le lancement.
+
+| Fonctionnalité | Activation | Statut |
+|---|---|---|
+| QR de confirmation livraison (paiement sur place) : jeton signé (`django.core.signing`) à usage unique, scan caméra navigateur (`getUserMedia` + `jsQR`) dans l'app vendeur déjà installée, lié à `Delivery` (UUID déjà en place) | **Option vendeur** (réglage boutique ou par vente), désactivée par défaut | 📋 À faire — non bloquant pour le lancement |
+| Billetterie événementielle : module distinct (contrôle d'accès, pas logistique), quota strict pertinent ici | **Choix du vendeur à la création** : type de vente « Vente classique » / « Événement » (pas une simple case à cocher) | 📋 À faire — non bloquant, piste d'extension produit |
 
 ---
+
 
 ## Ce qui n'existe PAS (lacunes résiduelles réelles)
 
