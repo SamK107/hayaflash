@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import close_old_connections, connection
 from django.test import TestCase, TransactionTestCase
+from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 from unittest import skipIf
@@ -218,6 +219,40 @@ class CreateOrderConcurrencyTests(TransactionTestCase):
         self.assertEqual(Order.objects.count(), 1)
         self.product.refresh_from_db()
         self.assertEqual(self.product.stock_available, 0)
+
+
+class ClientOrderPageWiringTests(LiveFlashSaleProductFixture):
+    """
+    Garde-fou Phase 10.0 : la page publique /order/ affichait un
+    <form method="POST"> sans action, donc une vraie soumission tombait sur
+    cette meme vue @require_GET (405) — aucune commande n'aboutissait jamais
+    en conditions reelles, malgre des tests unitaires tous verts (ils
+    n'appelaient que l'API JSON directement, jamais le formulaire HTML).
+    """
+
+    def test_order_page_exposes_the_real_api_url_when_submittable(self) -> None:
+        resp = self.client.get(
+            reverse("client_order"),
+            {"flash_sale_id": self.sale.pk, "product_id": self.product.pk},
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.context["can_submit"])
+        self.assertEqual(resp.context["api_orders_url"], "/api/v1/orders/")
+        # Le template doit reellement pointer le fetch() JS vers cette URL,
+        # pas seulement l'avoir dans le contexte.
+        self.assertContains(resp, "/api/v1/orders/")
+
+    def test_posting_directly_to_order_page_is_rejected(self) -> None:
+        """
+        Documente le piege : /order/ est @require_GET, donc un <form
+        method="POST"> sans action ne doit jamais y etre soumis directement
+        (le JS doit intercepter le submit et appeler l'API a la place).
+        """
+        resp = self.client.post(
+            reverse("client_order"),
+            {"flash_sale_id": self.sale.pk, "product_id": self.product.pk},
+        )
+        self.assertEqual(resp.status_code, 405)
 
 
 class PublicOrderAPITests(LiveFlashSaleProductFixture):

@@ -49,9 +49,23 @@ def home(request):
     return render(request, "core/home.html")
 
 
+def _post_login_redirect_target(user) -> str:
+    """
+    Route par defaut apres connexion : la plupart des comptes sont des
+    vendeurs (SellerProfile), mais un compte staff cree via createsuperuser
+    (ou tout futur compte non-vendeur) n'en a pas. Sans ce garde-fou,
+    seller_home_view plante en 500 (RelatedObjectDoesNotExist) des la
+    redirection post-connexion — decouvert en auditant la connexion d'un
+    compte staff (voir Phase 10.0).
+    """
+    if not SellerProfile.objects.filter(user=user).exists():
+        return "platform_admin" if user.is_staff else "seller_home"
+    return "seller_home"
+
+
 def login_view(request):
     if request.user.is_authenticated:
-        return redirect("seller_home")
+        return redirect(_post_login_redirect_target(request.user))
 
     error = None
 
@@ -66,7 +80,7 @@ def login_view(request):
             user = authenticate(request, username=phone, password=password)
             if user is not None:
                 login(request, user)
-                next_url = request.GET.get("next") or "seller_home"
+                next_url = request.GET.get("next") or _post_login_redirect_target(user)
                 return redirect(next_url)
             else:
                 error = "Numero de telephone ou mot de passe incorrect."
@@ -145,7 +159,16 @@ def seller_home_view(request):
     from flash_sales.models import FlashSale, FlashSaleStatus
     from orders.models import Order
 
-    seller = request.user.seller_profile
+    # Garde-fou : un compte sans SellerProfile (staff createsuperuser, lien
+    # /seller/ favori/partage par erreur) plantait ici en 500. Le cas normal
+    # est deja evite en amont par _post_login_redirect_target(), ceci couvre
+    # les acces directs a l'URL.
+    seller = getattr(request.user, "seller_profile", None)
+    if seller is None:
+        if request.user.is_staff:
+            return redirect("platform_admin")
+        messages.error(request, "Ce compte n'a pas de profil vendeur.")
+        return redirect("login")
 
     active_sales = FlashSale.objects.filter(
         owner=seller,

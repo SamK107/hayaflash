@@ -143,8 +143,23 @@ class FlashSale(models.Model):
             raise ValueError(
                 f"Impossible d'ouvrir une vente avec le statut '{self.status}'."
             )
+        update_fields = ["status", "updated_at"]
+        now = timezone.now()
+        # "Ouvrir la vente" promet au vendeur "Les commandes sont acceptees."
+        # Mais accepts_orders()/is_live() se basent uniquement sur la fenetre
+        # start_time..end_time, pas sur le statut : ouvrir une vente
+        # programmee plus tot que prevu (cas normal, ex. le vendeur est prêt
+        # en avance) laissait start_time dans le futur -> aucune commande
+        # n'etait jamais acceptee malgre le message de succes (voir Phase
+        # 10.0). On avance la fenetre a "maintenant" en conservant la duree
+        # prevue par le vendeur.
+        if now < self.start_time:
+            duration = self.end_time - self.start_time
+            self.start_time = now
+            self.end_time = now + duration
+            update_fields.extend(["start_time", "end_time"])
         self.status = FlashSaleStatus.LIVE
-        self.save(update_fields=["status", "updated_at"])
+        self.save(update_fields=update_fields)
 
     def close_sale(self):
         self.status = FlashSaleStatus.CLOSED

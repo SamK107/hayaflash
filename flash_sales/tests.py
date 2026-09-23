@@ -73,6 +73,52 @@ class FlashSaleTests(TestCase):
         with self.assertRaises(ValueError):
             sale.open_sale()
 
+    def test_open_sale_early_pulls_start_time_forward(self) -> None:
+        """
+        Ouvrir une vente programmee AVANT son heure prevue doit vraiment la
+        rendre commandable tout de suite (le message affiche au vendeur est
+        "Les commandes sont acceptees.") : is_live()/accepts_orders ne se
+        basent que sur start_time/end_time, pas sur le statut. Sans ce
+        garde-fou, le bouton "Ouvrir la vente" mentait au vendeur et aucune
+        commande n'etait jamais acceptee (voir Phase 10.0).
+        """
+        now = timezone.now()
+        sale = self._sale(
+            status=FlashSaleStatus.SCHEDULED,
+            start_time=now + timedelta(hours=2),
+            end_time=now + timedelta(hours=3),
+        )
+        sale.open_sale()
+        sale.refresh_from_db()
+
+        self.assertEqual(sale.status, FlashSaleStatus.LIVE)
+        self.assertTrue(sale.is_live())
+        self.assertTrue(sale.accepts_orders)
+        # La duree prevue par le vendeur (1h) est conservee, seule la
+        # fenetre est avancee a maintenant.
+        self.assertAlmostEqual(
+            (sale.end_time - sale.start_time).total_seconds(),
+            timedelta(hours=1).total_seconds(),
+            delta=2,
+        )
+
+    def test_open_sale_after_start_time_does_not_shift_window(self) -> None:
+        """Ouvrir une vente pile a l'heure (ou en retard) ne doit pas toucher
+        a la fenetre existante — seul le cas "trop tot" a besoin du garde-fou."""
+        now = timezone.now()
+        sale = self._sale(
+            status=FlashSaleStatus.SCHEDULED,
+            start_time=now - timedelta(minutes=5),
+            end_time=now + timedelta(hours=1),
+        )
+        original_start, original_end = sale.start_time, sale.end_time
+        sale.open_sale()
+        sale.refresh_from_db()
+
+        self.assertEqual(sale.status, FlashSaleStatus.LIVE)
+        self.assertEqual(sale.start_time, original_start)
+        self.assertEqual(sale.end_time, original_end)
+
     def test_assert_flash_sale_accepts_orders_blocks_outside_live_window(self) -> None:
         now = timezone.now()
         sale = self._sale(

@@ -124,6 +124,100 @@ function onlineStatus() {
 }
 
 // ---------------------------------------------------------------------------
+// clientOrderForm(config)
+// Usage: x-data="clientOrderForm({ flashSaleId, productId, shareRef,
+//        trackingSource, price, maxQty, apiUrl })" sur le wrapper englobant
+//        le <form> ET le bloc de confirmation (le scope Alpine doit couvrir
+//        les deux, la confirmation ne fait pas partie du <form>).
+// Poste en JSON vers /api/v1/orders/ (seul endpoint qui cree reellement une
+// commande - voir orders/api.py::api_v1_orders_create). Un <form
+// method="POST"> classique vers /order/ echoue toujours en 405 (cette vue
+// est @require_GET) : voir Phase 10.0.
+// ---------------------------------------------------------------------------
+function clientOrderForm(config) {
+  const cfg = config || {};
+  return {
+    submitting: false,
+    submitted: false,
+    submitError: '',
+    orderResult: null,
+    qty: 1,
+    maxQty: cfg.maxQty || 99,
+    inc() { if (this.qty < this.maxQty) this.qty++; },
+    dec() { if (this.qty > 1) this.qty--; },
+    ...gpsCapture(),
+    get total() {
+      const price = Number(cfg.price) || 0;
+      return (price * this.qty).toLocaleString('fr-FR') + ' FCFA';
+    },
+    async submitOrder() {
+      if (this.submitting) return;
+      this.submitError = '';
+
+      const name = (this.$refs.customerName?.value || '').trim();
+      const phone = (this.$refs.customerPhone?.value || '').trim();
+      const address = (this.$refs.deliveryAddress?.value || '').trim();
+      const notes = (this.$refs.deliveryNotes?.value || '').trim();
+
+      if (!name || !phone || !address) {
+        this.submitError = 'Merci de renseigner votre nom, votre telephone et votre adresse.';
+        return;
+      }
+
+      const clientRequestId = (window.crypto && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : ('order-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+
+      const payload = {
+        flash_sale_id: cfg.flashSaleId,
+        product_id: cfg.productId,
+        name,
+        phone,
+        quantity: this.qty,
+        address_text: address,
+        delivery_notes: notes,
+        client_request_id: clientRequestId,
+      };
+      if (this.lat) payload.latitude = this.lat;
+      if (this.lng) payload.longitude = this.lng;
+      if (this.accuracy) payload.geo_accuracy = this.accuracy;
+      if (this.status === 'success') payload.geo_method = 'gps';
+      if (cfg.shareRef) payload.ref = cfg.shareRef;
+      if (cfg.trackingSource) payload.src = cfg.trackingSource;
+
+      this.submitting = true;
+      try {
+        const res = await fetch(cfg.apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const firstVal = Object.values(data)[0];
+          this.submitError = Array.isArray(firstVal)
+            ? String(firstVal[0])
+            : String(firstVal || 'Une erreur est survenue, veuillez reessayer.');
+          window.dispatchEvent(new CustomEvent('hf-toast', {
+            detail: { msg: this.submitError, type: 'error' },
+          }));
+          return;
+        }
+        this.orderResult = data;
+        this.submitted = true;
+        window.dispatchEvent(new CustomEvent('hf-toast', {
+          detail: { msg: 'Commande envoyee !', type: 'success' },
+        }));
+      } catch (e) {
+        this.submitError = 'Connexion impossible. Verifiez votre reseau et reessayez.';
+      } finally {
+        this.submitting = false;
+      }
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // imagePreview()
 // Usage: x-data="imagePreview()" sur le wrapper du champ file
 // ---------------------------------------------------------------------------

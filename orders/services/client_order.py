@@ -5,6 +5,7 @@ from typing import Any
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.http import HttpRequest
+from django.urls import reverse
 
 from accounts.services.users import normalize_phone
 from analytics.services.share_links import build_order_share_urls
@@ -270,6 +271,10 @@ def resolve_client_order_page(request: HttpRequest) -> dict[str, Any]:
         # Objets complets pour le template Tailwind
         "product": product,
         "flash_sale": flash_sale,
+        # Endpoint JSON reellement appele par le formulaire (voir Phase 10.0 :
+        # le <form method="POST"> seul pointait vers cette meme page, qui est
+        # en @require_GET -> 405 systematique, aucune commande n'aboutissait).
+        "api_orders_url": reverse("api-v1-orders"),
     }
 
 
