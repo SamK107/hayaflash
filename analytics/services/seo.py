@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import time
 from typing import Any
 
 from django.http import HttpRequest
@@ -81,8 +83,15 @@ def build_flash_sale_seo(
     )
 
 
+# Version du code servi, incluse dans les ETag des pages publiques : sans elle,
+# un navigateur qui a deja vu la page recoit un 304 apres un deploiement et
+# garde l'ancien HTML (nouveaux scripts/templates invisibles). APP_RELEASE
+# (ex. SHA git, a definir au deploiement) sinon heure de demarrage du process.
+_RELEASE = os.environ.get("APP_RELEASE") or str(int(time.time()))
+
+
 def compute_page_etag(*, slug: str, version: int, extra: str = "") -> str:
-    raw = f"{slug}:{version}:{extra}"
+    raw = f"{_RELEASE}:{slug}:{version}:{extra}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
 
 
