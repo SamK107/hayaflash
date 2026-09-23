@@ -24,3 +24,5 @@ staticfiles/
 
 # Logs
 *.log
+
+Claude outputs/
