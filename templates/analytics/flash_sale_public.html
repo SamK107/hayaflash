@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block pwa_manifest %}<link rel="manifest" href="/static/manifest-buyer.json" />{% endblock %}
 {% load static %}
 {% load hf_filters %}
 {% block title %}{{ flash_sale.title }} — HayaFlash{% endblock %}
@@ -22,14 +23,15 @@
 {% endblock %}
 {% block content %}
 
-{% if not is_live and flash_sale.status != 'scheduled' %}
+{% if page_state == 'ended' %}
 <!-- ════ PAGE FIN DE VENTE (serveur terminé OU fenêtre Celery 0-60s) ════ -->
 {% include "analytics/partials/sale_ended.html" %}
 
-{% elif flash_sale.status == 'scheduled' %}
+{% elif page_state == 'waiting' %}
 <!-- ════ PAGE D'ATTENTE PRÉ-OUVERTURE ════ -->
 <div class="min-h-screen bg-gray-50"
-     x-data="hfWaiting({{ open_ts_ms }})" x-init="init()">
+     data-page-state="waiting"
+     x-data="hfWaiting({{ open_ts_ms }})">{# init() appele automatiquement par Alpine : ne pas ajouter x-init="init()" (double execution) #}
 
   <!-- HEADER -->
   <header class="bg-white border-b border-gray-100 sticky top-0 z-30 px-4 py-3
@@ -329,7 +331,7 @@
           <span class="absolute bottom-2 right-2 bg-black/40 text-white text-xs px-1.5 py-0.5 rounded-full pointer-events-none">🔍</span>
           {% if p.stock_available == 0 %}
           <div class="absolute inset-0 bg-black/50 flex items-center justify-center">
-            <span class="bg-white text-gray-700 font-bold px-4 py-2 rounded-full text-sm">Epuise</span>
+            <span class="bg-white text-gray-700 font-bold px-4 py-2 rounded-full text-sm">Épuisé</span>
           </div>
           {% endif %}
         </div>
@@ -361,7 +363,7 @@
             </div>
             {% if p.stock_available is not None %}
             <div class="text-right" id="stock-badge-{{ p.pk }}">
-              {% if p.stock_available == 0 %}<span class="text-sm font-bold text-gray-400">Epuise</span>
+              {% if p.stock_available == 0 %}<span class="text-sm font-bold text-gray-400">Épuisé</span>
               {% elif p.stock_available <= 5 %}<span class="text-sm font-bold text-red-500">Plus que {{ p.stock_available }} !</span>
               {% else %}<span class="text-sm text-gray-400">{{ p.stock_available }} restant(s)</span>{% endif %}
             </div>
@@ -381,7 +383,7 @@
               <i data-lucide="shopping-bag" class="w-4 h-4"></i>
               Commander · {{ p.price|thousands }} FCFA
             </button>
-            {% elif is_live %}<div class="w-full bg-gray-100 text-gray-400 py-3.5 rounded-xl font-bold text-sm text-center">Epuise</div>
+            {% elif is_live %}<div class="w-full bg-gray-100 text-gray-400 py-3.5 rounded-xl font-bold text-sm text-center">Épuisé</div>
             {% else %}
             <div class="w-full bg-amber-50 text-amber-700 border border-amber-200 py-3.5 rounded-xl font-medium text-sm text-center flex items-center justify-center gap-2">
               <i data-lucide="clock" class="w-4 h-4"></i>Disponible a l'ouverture
@@ -451,7 +453,7 @@
         <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
           <i data-lucide="check-circle" class="w-8 h-8 text-green-600"></i>
         </div>
-        <h3 class="text-lg font-black text-gray-900 mb-1">Commande envoyee !</h3>
+        <h3 class="text-lg font-black text-gray-900 mb-1">Commande envoyée !</h3>
         <p class="text-sm text-gray-500 mb-1">Vous serez contacte au <span class="font-bold text-gray-700" x-text="submittedPhone"></span></p>
         <p class="text-xs text-gray-400 mb-4">Le vendeur vous appellera pour confirmer la livraison.</p>
         <button @click="drawerOpen=false; orderSuccess=false"
@@ -462,7 +464,7 @@
       <div x-show="!orderSuccess">
         <div x-show="orderError" class="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-3 text-sm text-red-700" x-text="orderError" x-cloak></div>
         <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-2">Quantite</label>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Quantité</label>
           <div class="flex items-center gap-4">
             <button type="button" @click="if(qty>1) qty--"
                     class="w-12 h-12 rounded-xl border-2 border-gray-200 flex items-center justify-center text-gray-600 text-2xl font-bold hover:border-primary hover:text-primary transition-colors">-</button>
@@ -478,10 +480,10 @@
                  class="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
         </div>
         <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1.5">Telephone <span class="text-red-500">*</span></label>
+          <label class="block text-sm font-semibold text-gray-700 mb-1.5">Téléphone <span class="text-red-500">*</span></label>
           <input type="tel" x-model="customerPhone" placeholder="+223 70 00 00 00" required
                  class="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-          <p class="text-xs text-gray-400 mt-1">Le vendeur vous appelle sur ce numero pour la livraison</p>
+          <p class="text-xs text-gray-400 mt-1">Le vendeur vous appelle sur ce numéro pour la livraison</p>
         </div>
         <div>
           <label class="block text-sm font-semibold text-gray-700 mb-1.5">
@@ -495,7 +497,7 @@
             Obligatoire, sauf si vous enregistrez un message vocal ci-dessous.
           </p>
           <p x-show="audioUrl" x-cloak class="text-xs text-green-600 mt-1 flex items-center gap-1">
-            <i data-lucide="check-circle" class="w-3 h-3"></i>Message vocal enregistre — l'adresse ecrite est optionnelle.
+            <i data-lucide="check-circle" class="w-3 h-3"></i>Message vocal enregistré — l'adresse écrite est optionnelle.
           </p>
 
           <button type="button" @click="requestGeoPosition()" :disabled="geoStatus === 'loading'"
@@ -510,7 +512,7 @@
           <div x-show="geoStatus === 'success'" x-cloak
                class="mt-2 flex items-center gap-2 px-4 py-2.5 bg-green-50 text-green-700 rounded-xl text-sm font-medium">
             <i data-lucide="check-circle" class="w-4 h-4 shrink-0"></i>
-            <span>Position envoyee <span class="font-normal text-green-600" x-text="geoAccuracy ? '(precision ~' + geoAccuracy + ' m)' : ''"></span></span>
+            <span>Position envoyée <span class="font-normal text-green-600" x-text="geoAccuracy ? '(précision ~' + geoAccuracy + ' m)' : ''"></span></span>
           </div>
           <p x-show="geoStatus === 'denied'" x-cloak class="text-xs text-amber-600 mt-1">
             Localisation refusee — votre adresse ecrite suffit pour la livraison.
@@ -528,7 +530,7 @@
             <span class="text-gray-400 font-normal text-xs">(si vous ne pouvez pas ecrire, ce message suffit)</span>
           </label>
           <p x-show="address.trim().length >= 10 && !audioUrl" x-cloak class="text-xs text-green-600 mb-2 flex items-center gap-1">
-            <i data-lucide="check-circle" class="w-3 h-3"></i>Adresse deja indiquee — ce message est optionnel.
+            <i data-lucide="check-circle" class="w-3 h-3"></i>Adresse déjà indiquée — ce message est optionnel.
           </p>
           <button type="button"
                   x-show="!isRecording && !audioUrl"
@@ -728,15 +730,31 @@ function hfWaiting(openAtMs) {
       });
     },
     _onOpen() {
-      // Arreter le tick, démarrer un poll lent (toutes les 10s)
-      // pour attendre que le vendeur ouvre la vente côté serveur
+      // Heure d'ouverture atteinte : on verifie en arriere-plan (fetch, sans
+      // recharger ni faire clignoter la page) et on ne recharge qu'UNE fois,
+      // quand le serveur ne renvoie plus la page d'attente. Intervalle
+      // croissant (3s, 6s, 12s... max 30s), abandon apres ~10 min.
+      if (this.opened) return;
       if (this._tickId) { clearInterval(this._tickId); this._tickId = null; }
       this.h = '00'; this.m = '00'; this.s = '00';
       this.colorBg = 'bg-red-50'; this.colorText = 'text-red-700';
       this.opened = true;
-      // Premier essai après 3s, puis toutes les 10s
-      setTimeout(() => location.reload(), 3000);
-      this._pollId = setInterval(() => location.reload(), 10000);
+      const started = Date.now();
+      let wait = 3000;
+      const check = async () => {
+        try {
+          const res = await fetch(location.href, { cache: 'no-store', credentials: 'same-origin' });
+          const html = await res.text();
+          if (res.ok && !html.includes('data-page-state=' + '"waiting"')) {
+            location.reload();
+            return;
+          }
+        } catch (e) { /* reseau instable : on reessaie plus tard */ }
+        if (Date.now() - started > 10 * 60 * 1000) return;
+        wait = Math.min(wait * 2, 30000);
+        this._pollId = setTimeout(check, wait);
+      };
+      this._pollId = setTimeout(check, wait);
     },
     _tick() {
       const rem = Math.max(0, Math.floor((openAtMs - Date.now()) / 1000));
@@ -804,7 +822,7 @@ function updateProductStockAfterOrder(productId, newStock, stockInitial) {
   const badge = document.getElementById('stock-badge-' + productId);
   if (badge) {
     if (newStock <= 0) {
-      badge.innerHTML = '<span class="text-sm font-bold text-gray-400">Epuise</span>';
+      badge.innerHTML = '<span class="text-sm font-bold text-gray-400">Épuisé</span>';
     } else if (newStock <= 5) {
       badge.innerHTML = '<span class="text-sm font-bold text-red-500">Plus que ' + newStock + ' !</span>';
     } else {
@@ -823,7 +841,7 @@ function updateProductStockAfterOrder(productId, newStock, stockInitial) {
   if (newStock <= 0) {
     const cta = document.getElementById('order-cta-' + productId);
     if (cta) {
-      cta.innerHTML = '<div class="w-full bg-gray-100 text-gray-400 py-3.5 rounded-xl font-bold text-sm text-center">Epuise</div>';
+      cta.innerHTML = '<div class="w-full bg-gray-100 text-gray-400 py-3.5 rounded-xl font-bold text-sm text-center">Épuisé</div>';
     }
   }
 }
@@ -904,7 +922,7 @@ function orderDrawer(saleId) {
     },
     async submitOrder() {
       this.orderError = '';
-      if (!this.customerPhone.trim()) { this.orderError = 'Le numero de telephone est obligatoire.'; return; }
+      if (!this.customerPhone.trim()) { this.orderError = 'Le numéro de téléphone est obligatoire.'; return; }
       if (!this.address.trim() && !this.audioBase64) {
         this.orderError = "Indiquez votre adresse (par ecrit ou en message vocal).";
         return;
@@ -958,7 +976,7 @@ async function submitInterest(e, slug, sfx) {
   const txtEl = document.getElementById('interest-submit-text' + sfx);
   const frmEl = document.getElementById('interest-form'        + sfx);
   const sucEl = document.getElementById('interest-success'     + sfx);
-  if (!phone) { errEl.textContent = 'Le telephone est obligatoire.'; errEl.classList.remove('hidden'); return; }
+  if (!phone) { errEl.textContent = 'Le téléphone est obligatoire.'; errEl.classList.remove('hidden'); return; }
   errEl.classList.add('hidden'); btn.disabled = true; txtEl.textContent = 'Envoi...';
   const csrf = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
   try {
@@ -994,7 +1012,7 @@ function hfCloseInterestEnd() {
 }
 
 /* ── OVERLAY FIN DE VENTE (page live : déclenché à end_time) ── */
-{% if is_live %}
+{% if page_state == 'live' %}
 (function() {
   const endMs = new Date('{{ flash_sale.end_time.isoformat }}').getTime();
   const delay = endMs - Date.now();

@@ -184,6 +184,7 @@ def _row_dict_from_delivery(delivery: Delivery) -> dict[str, Any]:
         "waze_url": delivery.get_waze_url(),
         "cod_amount": delivery.cod_amount,
         "cod_collected": delivery.cod_collected,
+        "status": delivery.status,
         "status_label": delivery.get_status_display(),
         "assigned_to": delivery.assigned_to or "",
         **_action_flags(order=order, delivery=delivery),

@@ -1,0 +1,30 @@
+{
+  "id": "/ventes/",
+  "name": "HayaFlash — Ventes flash",
+  "short_name": "HayaFlash",
+  "description": "Les ventes flash des boutiques près de chez vous",
+  "start_url": "/ventes/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#FFFFFF",
+  "theme_color": "#FF4D2E",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "/static/img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": [
+    "shopping"
+  ]
+}

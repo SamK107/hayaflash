@@ -24,11 +24,33 @@ from analytics.services.share_links import (
     get_or_create_seller_share_link,
     seller_public_path,
 )
-from flash_sales.models import FlashSale
+from flash_sales.models import FlashSale, FlashSaleStatus
 
 
 def _seller_display_name(profile: SellerProfile) -> str:
     return (profile.business_name or profile.user.display_name or "Vendeur").strip()
+
+
+def _flash_sale_page_state(flash_sale: FlashSale, *, is_live: bool) -> str:
+    """
+    Etat d'affichage de /f/<slug>/ : "waiting" | "live" | "ended".
+
+    Aligne sur la regle de commande (``is_live()`` = fenetre horaire) et non
+    sur le statut seul : une vente encore SCHEDULED dont l'heure d'ouverture
+    est passee (Celery beat en retard ou arrete) accepte deja les commandes,
+    elle s'affiche donc en "live". Avant ce correctif, la page d'attente
+    restait affichee et se rechargeait toutes les 10 s sans fin.
+    """
+    if flash_sale.status == FlashSaleStatus.CANCELLED:
+        return "ended"
+    if is_live:
+        return "live"
+    if (
+        flash_sale.status == FlashSaleStatus.SCHEDULED
+        and flash_sale.start_time > timezone.now()
+    ):
+        return "waiting"
+    return "ended"
 
 
 def resolve_seller_public_page(request: HttpRequest, slug: str) -> dict[str, Any]:
@@ -60,8 +82,20 @@ def resolve_seller_public_page(request: HttpRequest, slug: str) -> dict[str, Any
             start_time__lte=now,
             end_time__gte=now,
         )
+        .exclude(status=FlashSaleStatus.CANCELLED)
         .only("id", "title", "public_slug", "start_time", "end_time")
         .order_by("-start_time")[:12]
+    )
+    # Ventes programmees (Phase 10.0, decision 23/09) : une boutique qui annonce
+    # sa prochaine vente garde l'acheteur (bouton "M'alerter" sur /f/<slug>/).
+    upcoming_sales = list(
+        FlashSale.objects.filter(
+            owner_id=seller.pk,
+            status=FlashSaleStatus.SCHEDULED,
+            start_time__gt=now,
+        )
+        .only("id", "title", "public_slug", "start_time", "end_time")
+        .order_by("start_time")[:6]
     )
 
     share_link = get_or_create_seller_share_link(seller=seller)
@@ -83,7 +117,10 @@ def resolve_seller_public_page(request: HttpRequest, slug: str) -> dict[str, Any
     etag = compute_page_etag(
         slug=cleaned,
         version=version,
-        extra=f"{stats['total_orders']}:{len(active_sales)}",
+        extra=(
+            f"{stats['total_orders']}:{len(active_sales)}:"
+            + ",".join(f"{s.pk}@{s.start_time:%Y%m%d%H%M}" for s in upcoming_sales)
+        ),
     )
 
     return {
@@ -92,6 +129,7 @@ def resolve_seller_public_page(request: HttpRequest, slug: str) -> dict[str, Any
         "seller_slug": seller.public_slug,
         "seller_id": seller.pk,
         "active_sales": active_sales,
+        "upcoming_sales": upcoming_sales,
         "total_orders": stats["total_orders"],
         "products_sold": stats["products_sold"],
         "seller_url": seller_url,
@@ -156,6 +194,7 @@ def resolve_flash_sale_public_page(request: HttpRequest, slug: str) -> dict[str,
         )
 
     is_live = flash_sale.is_live()
+    page_state = _flash_sale_page_state(flash_sale, is_live=is_live)
     teasers_list = [
         t.strip() for t in (flash_sale.teasers or "").splitlines() if t.strip()
     ]
@@ -163,7 +202,7 @@ def resolve_flash_sale_public_page(request: HttpRequest, slug: str) -> dict[str,
     etag = compute_page_etag(
         slug=cleaned,
         version=version,
-        extra=f"{is_live}:{len(products)}",
+        extra=f"{page_state}:{len(products)}",
     )
 
     return {
@@ -173,6 +212,7 @@ def resolve_flash_sale_public_page(request: HttpRequest, slug: str) -> dict[str,
         "seller_slug": flash_sale.owner.public_slug,
         "seller_id": flash_sale.owner_id,
         "is_live": is_live,
+        "page_state": page_state,
         "open_ts_ms": open_ts_ms,
         "teasers_list": teasers_list,
         "product_count": len(products),

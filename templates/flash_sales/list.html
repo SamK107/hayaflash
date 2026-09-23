@@ -66,7 +66,7 @@
       {% endfor %}
     </div>
     <div x-show="tab === 'scheduled'">
-      {% include "flash_sales/_sale_list_section.html" with sales=sales_scheduled empty_msg="Aucune vente programmee." %}
+      {% include "flash_sales/_sale_list_section.html" with sales=sales_scheduled empty_msg="Aucune vente programmée." %}
     </div>
     <div x-show="tab === 'live'" x-cloak>
       {% include "flash_sales/_sale_list_section.html" with sales=sales_live empty_msg="Aucune vente en cours." live=True %}
@@ -75,7 +75,7 @@
       {% include "flash_sales/_sale_list_section.html" with sales=sales_closed empty_msg="Aucune vente en traitement." %}
     </div>
     <div x-show="tab === 'done'" x-cloak>
-      {% include "flash_sales/_sale_list_section.html" with sales=sales_done empty_msg="Aucune vente terminee." %}
+      {% include "flash_sales/_sale_list_section.html" with sales=sales_done empty_msg="Aucune vente terminée." %}
     </div>
   </div>
 

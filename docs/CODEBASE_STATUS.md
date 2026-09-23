@@ -212,10 +212,15 @@ Audit Playwright en deux sessions (21 et 22/09), rapport détaillé :
 | 4 | Ventes programmées du calendrier public `/ventes/` sans lien (carte non cliquable) | Mineur | Carte liée à `/f/<slug>/` (gère l'état programmé + bouton "M'alerter") + test `PublicCalendarScheduledLinkTest` — 23/09 |
 | 5 | Lien "Passer Pro" (paramètres) vers une mauvaise page | Mineur | commit `01550e0` (22/09) |
 
+| 6 | Boutique publique `/s/<slug>/` n'affichait que les ventes live (décision produit 23/09 : afficher aussi les programmées) ; une vente annulée dans sa fenêtre horaire y apparaissait encore | Produit | Section "Prochainement" (6 max, liens vers `/f/<slug>/`) + exclusion `CANCELLED` + ETag incluant les ventes à venir — test `test_seller_public_page_lists_upcoming_scheduled_sales` (23/09) |
+| 7 | Accents manquants dans l'UI (`Debut`, `Programmee`, `Epuise`, `Telephone`…) | Mineur | ~45 libellés corrigés dans 14 templates + onglets de `flash_sales/views.py` (23/09) |
+| 8 | Couleur du badge de statut livraison jamais appliquée (le template comparait `status_label` à `'Livree'`/`'Echec'`, les libellés réels sont `Livré`/`Échec livraison`) | Mineur | Comparaison sur le code `row.status` (`delivery/services/seller_dashboard.py` expose `status`) (23/09) |
+| 9 | Page `/f/<slug>/` qui se recharge et clignote toutes les 10 s sans fin : vente encore `SCHEDULED` après son heure d'ouverture (Celery beat en retard/arrêté, cas systématique en local) → page d'attente affichée alors que la vente accepte déjà les commandes (`is_live()`), + `init()` Alpine exécuté deux fois (`x-init` en double) | Majeur (UX acheteur) | État d'affichage calculé côté serveur (`page_state` = waiting/live/ended, aligné sur `is_live()`, `CANCELLED` → ended) ; poll d'ouverture en `fetch` silencieux à intervalle croissant (3 s → 30 s, arrêt après 10 min) qui ne recharge qu'une fois ; `x-init` en double retiré — test `test_flash_sale_page_state_follows_time_window` (23/09) |
+
 **Restant / en attente :**
-- Accents manquants dans l'UI (`Debut`, `Programmee`…) — commit dédié séparé.
-- Décision produit : la boutique `/s/<slug>/` n'affiche que les ventes live, pas les programmées.
+- Libellés des modèles sans accents (`FlashSaleStatus` : `Programmee`, `Fermee`, `En execution`, `Terminee`, `Annulee` ; `verbose_name="Debut"`) — changement de `choices` = nouvelle migration (sans effet sur la base), à faire dans un commit dédié avec `makemigrations`.
 - Test Orange Money bout en bout (voir tableau ci-dessus) — en production, argent réel.
+- **À corriger (trouvé le 23/09)** : `assert_flash_sale_accepts_orders()` ne regarde que la fenêtre horaire — une vente `CANCELLED` dans sa fenêtre accepte encore les commandes via `POST /api/v1/orders/`. La page publique l'affiche désormais comme terminée, mais la règle côté API reste à durcir (exclure `CANCELLED`, voire `CLOSED`/`COMPLETED`).
 
 Leçon : les tests unitaires (API/services) ne voient pas les bugs de câblage
 HTML/JS. Garder ce format d'audit navigateur avant chaque activation du
@@ -233,7 +238,7 @@ déploiement continu.
 
 | Fonctionnalité | Statut |
 |---|---|
-| Bug à corriger : manifest unique (`start_url: /seller/`) partagé par les pages acheteur — une installation depuis une vente ouvre l'espace vendeur | 📋 À faire |
+| Bug à corriger : manifest unique (`start_url: /seller/`) partagé par les pages acheteur — une installation depuis une vente ouvre l'espace vendeur | ✅ Corrigé (23/09) — `static/manifest-buyer.json` (`id: /ventes/`, `start_url: /ventes/?source=pwa`), bloc `{% block pwa_manifest %}` dans `base.html` surchargé par les 5 pages acheteur (`/f/`, `/s/`, `/ventes/`, `/ventes/<slug>/`, `/order/`) ; manifest vendeur conserve `start_url: /seller/` + `id: /seller/` explicite. Tests dans `analytics/tests.py`. À vérifier sur téléphone réel (Android : installer depuis `/f/<slug>/` → doit ouvrir `/ventes/`). |
 | Manifest acheteur séparé (icône/nom propres), scope dédié aux routes publiques, `start_url` vers un tableau de bord découverte | 📋 À faire |
 | Champs structurés `pays`/`ville` (remplace le texte libre `delivery_zone`) pour permettre le filtrage géographique | 📋 À faire |
 | Dashboard "Découvrir" : boutiques avec vente programmée/en cours uniquement, filtrées par ville, extensible pays plus tard (expansion Afrique de l'Ouest) | 📋 À faire |
@@ -342,7 +347,7 @@ requests==2.33.1
 
 > Suite complète relancée le 23/09 sur `main` après les correctifs Phase 10.0
 > (`manage.py test --settings=config.settings.test`) : **173 tests, OK (3 skipped)**
-> — 174 attendus avec `PublicCalendarScheduledLinkTest`. (Le 20/09 : 169 tests au total.)
+> — 178 attendus avec les tests ajoutés le 23/09 (calendrier, boutique, manifests). (Le 20/09 : 169 tests au total.)
 > Couverture non remesurée (`--cov-fail-under=60` dans la CI, pas de rapport détaillé
 > regénéré pour ce fichier).
 

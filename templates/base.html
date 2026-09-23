@@ -8,7 +8,8 @@
   <title>{% block title %}HayaFlash{% endblock %}</title>
   <meta name="description" content="{% block meta_description %}HayaFlash — Ventes flash a Bamako{% endblock %}">
   <!-- PWA -->
-  <link rel="manifest" href="/static/manifest.json" />
+  {# Manifest vendeur par defaut ; les pages acheteur surchargent ce bloc (Phase 10.2). #}
+  {% block pwa_manifest %}<link rel="manifest" href="/static/manifest.json" />{% endblock %}
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />

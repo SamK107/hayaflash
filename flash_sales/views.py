@@ -45,10 +45,10 @@ def flash_sale_list_view(request):
         "sales_done": sales_done,
         "quota": quota,
         "tab_list": [
-            ("scheduled", "Programmees", sales_scheduled.count()),
+            ("scheduled", "Programmées", sales_scheduled.count()),
             ("live", "En cours", sales_live.count()),
             ("closed", "Traitement", sales_closed.count()),
-            ("done", "Terminees", sales_done.count()),
+            ("done", "Terminées", sales_done.count()),
         ],
         "pro_features": [
             "Ventes flash illimitees chaque mois",

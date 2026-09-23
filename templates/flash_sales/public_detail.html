@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block pwa_manifest %}<link rel="manifest" href="/static/manifest-buyer.json" />{% endblock %}
 {% load static %}
 {% block title %}{{ sale.title }} — HayaFlash{% endblock %}
 {% block meta_description %}{{ sale.description|default:sale.title|truncatewords:20 }}{% endblock %}

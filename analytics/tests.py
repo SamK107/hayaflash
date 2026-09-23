@@ -146,6 +146,86 @@ class ShareLinkTests(ViralGrowthFixture):
 
 
 class PublicPageTests(ViralGrowthFixture):
+    def test_flash_sale_page_state_follows_time_window(self) -> None:
+        # Vente SCHEDULED dont l'heure est passee (Celery beat arrete) : elle
+        # accepte les commandes, la page ne doit pas rester en "attente"
+        # (boucle de rechargement toutes les 10 s constatee le 23/09).
+        now = timezone.now()
+        url = reverse("public_flash_sale", kwargs={"slug": self.sale.public_slug})
+
+        self.sale.status = FlashSaleStatus.SCHEDULED
+        self.sale.save()
+        cache.clear()
+        resp = self.client.get(url)
+        self.assertEqual(resp.context["page_state"], "live")
+        self.assertNotContains(resp, 'data-page-state="waiting"')
+
+        self.sale.start_time = now + timedelta(hours=1)
+        self.sale.end_time = now + timedelta(hours=2)
+        self.sale.save()
+        cache.clear()
+        resp = self.client.get(url)
+        self.assertEqual(resp.context["page_state"], "waiting")
+        self.assertContains(resp, 'data-page-state="waiting"')
+
+        self.sale.start_time = now - timedelta(hours=2)
+        self.sale.end_time = now - timedelta(hours=1)
+        self.sale.save()
+        cache.clear()
+        resp = self.client.get(url)
+        self.assertEqual(resp.context["page_state"], "ended")
+
+        self.sale.status = FlashSaleStatus.CANCELLED
+        self.sale.start_time = now - timedelta(hours=1)
+        self.sale.end_time = now + timedelta(hours=1)
+        self.sale.save()
+        cache.clear()
+        resp = self.client.get(url)
+        self.assertEqual(resp.context["page_state"], "ended")
+
+    def test_buyer_pages_use_buyer_pwa_manifest(self) -> None:
+        # Phase 10.2 : installer l'app depuis une page acheteur ne doit plus
+        # ouvrir l'espace vendeur (manifest vendeur start_url=/seller/).
+        for url in (
+            reverse("public_flash_sale", kwargs={"slug": self.sale.public_slug}),
+            reverse("public_seller", kwargs={"slug": self.seller.public_slug}),
+            reverse("flash_sale_calendar"),
+        ):
+            resp = self.client.get(url)
+            self.assertEqual(resp.status_code, 200, url)
+            self.assertContains(resp, "/static/manifest-buyer.json")
+            self.assertNotContains(resp, 'href="/static/manifest.json"')
+
+    def test_seller_pages_keep_seller_pwa_manifest(self) -> None:
+        resp = self.client.get(reverse("login"))
+        self.assertContains(resp, 'href="/static/manifest.json"')
+
+    def test_seller_public_page_lists_upcoming_scheduled_sales(self) -> None:
+        now = timezone.now()
+        upcoming = FlashSale.objects.create(
+            title="Vente de samedi",
+            start_time=now + timedelta(days=2),
+            end_time=now + timedelta(days=2, hours=1),
+            status=FlashSaleStatus.SCHEDULED,
+            owner=self.seller,
+        )
+        cancelled = FlashSale.objects.create(
+            title="Vente annulee",
+            start_time=now + timedelta(days=3),
+            end_time=now + timedelta(days=3, hours=1),
+            status=FlashSaleStatus.CANCELLED,
+            owner=self.seller,
+        )
+        url = reverse("public_seller", kwargs={"slug": self.seller.public_slug})
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Prochainement")
+        self.assertContains(resp, "Vente de samedi")
+        self.assertContains(
+            resp, reverse("public_flash_sale", kwargs={"slug": upcoming.public_slug})
+        )
+        self.assertNotContains(resp, cancelled.title)
+
     def test_seller_public_page_anonymous_200_with_seo(self) -> None:
         url = reverse("public_seller", kwargs={"slug": self.seller.public_slug})
         resp = self.client.get(url)
