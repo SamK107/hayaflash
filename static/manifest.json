@@ -50,6 +50,21 @@
       ]
     }
   ],
+  "screenshots": [
+    {
+      "src": "/static/img/screenshots/seller-mobile.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "label": "Tableau de bord vendeur HayaFlash"
+    },
+    {
+      "src": "/static/img/screenshots/seller-desktop.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Tableau de bord vendeur HayaFlash"
+    }
+  ],
   "categories": [
     "shopping",
     "business"

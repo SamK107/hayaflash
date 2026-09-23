@@ -1,5 +1,5 @@
 /* HayaFlash Service Worker — cache assets statiques, offline gracieux */
-const CACHE = 'hayaflash-v3'; // v3 (23/09) : icones + bandeau d'installation
+const CACHE = 'hayaflash-v4'; // v4 (23/09) : captures d'ecran dans le manifest vendeur
 const STATIC_ASSETS = [
   '/static/manifest.json',
   '/static/js/hf-components.js',
