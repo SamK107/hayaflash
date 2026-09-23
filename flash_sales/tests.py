@@ -502,3 +502,28 @@ class SubscriptionEnforcementIntegrationTest(TestCase):
             FlashSale.objects.filter(owner=self.seller, title="Nouvelle vente").count(),
             0,
         )
+
+
+class PublicCalendarScheduledLinkTest(TestCase):
+    """Audit 10.0 : les ventes programmees du calendrier public n'avaient pas de lien."""
+
+    def setUp(self) -> None:
+        seller_user = User.objects.create_user(
+            phone="+15550009999", password="x", display_name="Seller"
+        )
+        self.seller = SellerProfile.objects.create(user=seller_user)
+
+    def test_scheduled_sale_card_links_to_public_page(self) -> None:
+        now = timezone.now()
+        sale = FlashSale.objects.create(
+            title="Vente a venir",
+            start_time=now + timedelta(hours=2),
+            end_time=now + timedelta(hours=3),
+            status=FlashSaleStatus.SCHEDULED,
+            owner=self.seller,
+        )
+        response = self.client.get(reverse("flash_sale_calendar"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response, reverse("public_flash_sale", kwargs={"slug": sale.public_slug})
+        )

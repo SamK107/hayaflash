@@ -189,15 +189,37 @@ avant d'ouvrir le déploiement continu, pas ajouter du périmètre non maîtris�
 
 ### 10.0 — Audit fonctionnel navigateur (pré-requis, en cours)
 
+Audit Playwright en deux sessions (21 et 22/09), rapport détaillé :
+`Claude outputs/AUDIT_10.0_rapport_suite.md` (dossier local, ignoré par git).
+
 | Parcours | Statut |
 |---|---|
-| Vendeur : inscription/connexion, création vente, Publication Rapide | 📋 À faire |
-| Acheteur : page vente publique, commande, checkout, paiement | 📋 À faire |
-| Vendeur : dashboard livraison, paramètres, abonnement | 📋 À faire |
-| Admin plateforme (staff, mode support) | 📋 À faire |
+| Vendeur : connexion, création vente, ouverture, Publication Rapide (avec upload photo) | ✅ Testé (22/09) |
+| Acheteur : page vente publique, commande, confirmation | ✅ Testé après correctif (22/09) |
+| Acheteur : paiement Orange Money réel (abonnement vendeur) | 🟡 Redirection vers la page de paiement Orange confirmée (23/09) — reste à valider paiement → webhook → `WebhookLog` → activation du plan, et le chemin annulation |
+| Vendeur : dashboard livraison | ✅ Testé (commande visible, 22/09) |
+| Vendeur : paramètres, abonnement | 🟡 Partiel — lien "Passer Pro" corrigé (22/09), parcours complet non rejoué |
+| Admin plateforme (staff) + `/admin/` Django | ✅ Testé (22/09) |
+| Mode support (`quick-publish` en impersonation staff) | 📋 Non testé en navigateur (couvert par tests unitaires) |
 
-Bugs et correctifs trouvés à consigner ici au fur et à mesure (pas seulement
-dans les messages de commit) pour garder une trace centralisée.
+**Bugs trouvés et corrigés :**
+
+| # | Bug | Gravité | Correctif |
+|---|---|---|---|
+| 1 | Formulaire de commande `/order/` sans `action` → POST sur une vue `@require_GET` → **405 pour 100 % des acheteurs** (invisible en tests unitaires, qui passaient par l'API) | Critique | `clientOrderForm()` (Alpine, `static/js/hf-components.js`) appelle `POST /api/v1/orders/` — commit `fbc171a` (23/09) |
+| 2 | "Ouvrir la vente" en avance : statut LIVE affiché mais `is_live()` (basé sur `start_time`/`end_time`) refusait les commandes, message d'erreur technique en anglais | Critique | `open_sale()` avance `start_time` à maintenant en conservant la durée prévue — commit `fbc171a` |
+| 3 | `/seller/` en 500 pour un compte staff sans `SellerProfile` | Majeur | Redirection vers `/platform-admin/` — commit `fbc171a` |
+| 4 | Ventes programmées du calendrier public `/ventes/` sans lien (carte non cliquable) | Mineur | Carte liée à `/f/<slug>/` (gère l'état programmé + bouton "M'alerter") + test `PublicCalendarScheduledLinkTest` — 23/09 |
+| 5 | Lien "Passer Pro" (paramètres) vers une mauvaise page | Mineur | commit `01550e0` (22/09) |
+
+**Restant / en attente :**
+- Accents manquants dans l'UI (`Debut`, `Programmee`…) — commit dédié séparé.
+- Décision produit : la boutique `/s/<slug>/` n'affiche que les ventes live, pas les programmées.
+- Test Orange Money bout en bout (voir tableau ci-dessus) — en production, argent réel.
+
+Leçon : les tests unitaires (API/services) ne voient pas les bugs de câblage
+HTML/JS. Garder ce format d'audit navigateur avant chaque activation du
+déploiement continu.
 
 ### 10.1 — Optimisation pages acheteur (dépend de 10.0)
 
@@ -318,8 +340,9 @@ requests==2.33.1
 | notifications | À compléter |
 | E2E | ❌ Absent |
 
-> Suite complète relancée le 20/09 sur `feat/quick-publish-catalog`
-> (`manage.py test --settings=config.settings.test`) : **169 passed, 3 skipped**.
+> Suite complète relancée le 23/09 sur `main` après les correctifs Phase 10.0
+> (`manage.py test --settings=config.settings.test`) : **173 tests, OK (3 skipped)**
+> — 174 attendus avec `PublicCalendarScheduledLinkTest`. (Le 20/09 : 169 tests au total.)
 > Couverture non remesurée (`--cov-fail-under=60` dans la CI, pas de rapport détaillé
 > regénéré pour ce fichier).
 
