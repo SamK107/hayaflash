@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 from unittest.mock import patch
+from uuid import uuid4
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
@@ -12,6 +13,7 @@ from django.utils import timezone
 from accounts.models import SellerProfile
 from flash_sales.models import FlashSale, FlashSaleStatus
 from flash_sales.services.ordering import assert_flash_sale_accepts_orders
+from orders.models import Order
 from orders.services.create_order import create_order
 from orders.tests import valid_delivery_payload
 from products.models import FlashSaleProduct, Product
@@ -527,3 +529,70 @@ class PublicCalendarScheduledLinkTest(TestCase):
         self.assertContains(
             response, reverse("public_flash_sale", kwargs={"slug": sale.public_slug})
         )
+
+
+class OrderingStatusGuardTest(TestCase):
+    """Une vente annulee/fermee/terminee refuse les commandes, meme dans sa fenetre horaire."""
+
+    def setUp(self) -> None:
+        seller_user = User.objects.create_user(
+            phone="+15550008888", password="x", display_name="Seller"
+        )
+        self.seller = SellerProfile.objects.create(user=seller_user)
+        self.product = Product.objects.create(
+            owner=self.seller,
+            name="Pagne",
+            price="5000.00",
+            stock_initial=10,
+            stock_available=10,
+        )
+
+    def _sale(self, status) -> FlashSale:
+        now = timezone.now()
+        sale = FlashSale.objects.create(
+            title="Vente test",
+            start_time=now - timedelta(minutes=10),
+            end_time=now + timedelta(hours=1),
+            status=status,
+            owner=self.seller,
+        )
+        FlashSaleProduct.objects.create(flash_sale=sale, product=self.product)
+        return sale
+
+    def test_blocked_statuses_inside_window(self) -> None:
+        for status in (
+            FlashSaleStatus.CANCELLED,
+            FlashSaleStatus.CLOSED,
+            FlashSaleStatus.EXECUTING,
+            FlashSaleStatus.COMPLETED,
+        ):
+            with self.subTest(status=status):
+                sale = self._sale(status)
+                with self.assertRaises(ValidationError) as ctx:
+                    assert_flash_sale_accepts_orders(sale)
+                self.assertIn("annulée", str(ctx.exception))
+
+    def test_live_and_late_scheduled_accept_orders(self) -> None:
+        for status in (FlashSaleStatus.LIVE, FlashSaleStatus.SCHEDULED):
+            with self.subTest(status=status):
+                assert_flash_sale_accepts_orders(self._sale(status))
+
+    def test_api_refuses_order_on_cancelled_sale(self) -> None:
+        sale = self._sale(FlashSaleStatus.CANCELLED)
+        payload = {
+            "flash_sale_id": sale.pk,
+            "product_id": self.product.pk,
+            "name": "Client",
+            "phone": "+22370000001",
+            "quantity": 1,
+            "client_request_id": str(uuid4()),
+            "delivery": valid_delivery_payload(),
+        }
+        resp = self.client.post(
+            "/api/v1/orders/", data=payload, content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 400, resp.content)
+        self.assertIn("annulée", resp.content.decode())
+        self.assertFalse(Order.service_objects.filter(flash_sale=sale).exists())
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.stock_available, 10)

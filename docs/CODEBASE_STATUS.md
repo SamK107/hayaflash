@@ -216,11 +216,12 @@ Audit Playwright en deux sessions (21 et 22/09), rapport détaillé :
 | 7 | Accents manquants dans l'UI (`Debut`, `Programmee`, `Epuise`, `Telephone`…) | Mineur | ~45 libellés corrigés dans 14 templates + onglets de `flash_sales/views.py` (23/09) |
 | 8 | Couleur du badge de statut livraison jamais appliquée (le template comparait `status_label` à `'Livree'`/`'Echec'`, les libellés réels sont `Livré`/`Échec livraison`) | Mineur | Comparaison sur le code `row.status` (`delivery/services/seller_dashboard.py` expose `status`) (23/09) |
 | 9 | Page `/f/<slug>/` qui se recharge et clignote toutes les 10 s sans fin : vente encore `SCHEDULED` après son heure d'ouverture (Celery beat en retard/arrêté, cas systématique en local) → page d'attente affichée alors que la vente accepte déjà les commandes (`is_live()`), + `init()` Alpine exécuté deux fois (`x-init` en double) | Majeur (UX acheteur) | État d'affichage calculé côté serveur (`page_state` = waiting/live/ended, aligné sur `is_live()`, `CANCELLED` → ended) ; poll d'ouverture en `fetch` silencieux à intervalle croissant (3 s → 30 s, arrêt après 10 min) qui ne recharge qu'une fois ; `x-init` en double retiré — test `test_flash_sale_page_state_follows_time_window` (23/09) |
+| 10 | Une vente annulée (ou fermée/terminée par le vendeur) dans sa plage horaire acceptait encore des commandes via `POST /api/v1/orders/` et `/order/` : `assert_flash_sale_accepts_orders()` ne vérifiait que `is_live()` | Majeur (intégrité commandes/stock) | Garde de statut ajoutée (`ORDERABLE_STATUSES` = LIVE + SCHEDULED, ce dernier pour tolérer un Celery en retard) + messages d'erreur en français compréhensibles par l'acheteur — tests `OrderingStatusGuardTest` (4 statuts bloqués, API 400 sans commande créée) (23/09) |
 
 **Restant / en attente :**
 - Libellés des modèles sans accents (`FlashSaleStatus` : `Programmee`, `Fermee`, `En execution`, `Terminee`, `Annulee` ; `verbose_name="Debut"`) — changement de `choices` = nouvelle migration (sans effet sur la base), à faire dans un commit dédié avec `makemigrations`.
 - Test Orange Money bout en bout (voir tableau ci-dessus) — en production, argent réel.
-- **À corriger (trouvé le 23/09)** : `assert_flash_sale_accepts_orders()` ne regarde que la fenêtre horaire — une vente `CANCELLED` dans sa fenêtre accepte encore les commandes via `POST /api/v1/orders/`. La page publique l'affiche désormais comme terminée, mais la règle côté API reste à durcir (exclure `CANCELLED`, voire `CLOSED`/`COMPLETED`).
+
 
 Leçon : les tests unitaires (API/services) ne voient pas les bugs de câblage
 HTML/JS. Garder ce format d'audit navigateur avant chaque activation du
@@ -347,7 +348,7 @@ requests==2.33.1
 
 > Suite complète relancée le 23/09 sur `main` après les correctifs Phase 10.0
 > (`manage.py test --settings=config.settings.test`) : **173 tests, OK (3 skipped)**
-> — 178 attendus avec les tests ajoutés le 23/09 (calendrier, boutique, manifests). (Le 20/09 : 169 tests au total.)
+> — 181 attendus avec les tests ajoutés le 23/09 (calendrier, boutique, manifests). (Le 20/09 : 169 tests au total.)
 > Couverture non remesurée (`--cov-fail-under=60` dans la CI, pas de rapport détaillé
 > regénéré pour ce fichier).
 
