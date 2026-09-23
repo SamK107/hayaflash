@@ -196,6 +196,17 @@ class PublicPageTests(ViralGrowthFixture):
             self.assertContains(resp, "/static/manifest-buyer.json")
             self.assertNotContains(resp, 'href="/static/manifest.json"')
 
+    def test_brand_icons_wired(self) -> None:
+        resp = self.client.get(
+            reverse("public_flash_sale", kwargs={"slug": self.sale.public_slug})
+        )
+        self.assertContains(resp, "img/brand/bolt.svg")
+        self.assertContains(resp, "/static/img/apple-touch-icon-buyer.png")
+        self.assertContains(resp, "/static/favicon.ico")
+        fav = self.client.get("/favicon.ico")
+        self.assertEqual(fav.status_code, 301)
+        self.assertEqual(fav["Location"], "/static/favicon.ico")
+
     def test_seller_pages_keep_seller_pwa_manifest(self) -> None:
         resp = self.client.get(reverse("login"))
         self.assertContains(resp, 'href="/static/manifest.json"')

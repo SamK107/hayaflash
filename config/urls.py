@@ -3,13 +3,15 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.sitemaps.views import sitemap
 from django.urls import include, path
-from django.views.generic import TemplateView
+from django.views.generic import RedirectView, TemplateView
 
 from config.api_urls import health
 from core.sitemaps import sitemaps
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    # Les navigateurs demandent /favicon.ico a la racine, quelle que soit la page.
+    path("favicon.ico", RedirectView.as_view(url="/static/favicon.ico", permanent=True)),
     path(
         "robots.txt",
         TemplateView.as_view(template_name="robots.txt", content_type="text/plain"),

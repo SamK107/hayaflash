@@ -1,10 +1,11 @@
 /* HayaFlash Service Worker — cache assets statiques, offline gracieux */
-const CACHE = 'hayaflash-v1';
+const CACHE = 'hayaflash-v2'; // v2 (23/09) : nouvelles icones
 const STATIC_ASSETS = [
   '/static/manifest.json',
   '/static/js/hf-components.js',
   '/static/img/icon-192.png',
   '/static/img/icon-512.png',
+  '/static/img/brand/bolt.svg',
 ];
 
 /* ── Install : pré-cache les assets critiques ─────────────────────────── */

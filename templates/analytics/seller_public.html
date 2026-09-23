@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block pwa_manifest %}<link rel="manifest" href="/static/manifest-buyer.json" />{% endblock %}
+{% block pwa_manifest %}<link rel="manifest" href="/static/manifest-buyer.json" /><link rel="apple-touch-icon" href="/static/img/apple-touch-icon-buyer.png" />{% endblock %}
 {% block title %}{{ seo.title|default:seller_name }} -- HayaFlash{% endblock %}
 {% block meta_description %}Boutique {{ seller_name }} sur HayaFlash -- Ventes flash a Bamako{% endblock %}
 

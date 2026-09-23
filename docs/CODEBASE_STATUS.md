@@ -244,6 +244,7 @@ déploiement continu.
 | Champs structurés `pays`/`ville` (remplace le texte libre `delivery_zone`) pour permettre le filtrage géographique | 📋 À faire |
 | Dashboard "Découvrir" : boutiques avec vente programmée/en cours uniquement, filtrées par ville, extensible pays plus tard (expansion Afrique de l'Ouest) | 📋 À faire |
 | Notifications push (Web Push, clés VAPID, nouveau canal `push` dans `notifications/services/`, réutilise le pattern `send_pending_sale_reminders`) | 📋 À faire — nécessite l'installation PWA acheteur fonctionnelle (iOS : push impossible hors app installée) |
+| Identité visuelle PWA : éclair vectoriel (`static/img/brand/bolt.svg`, dégradé #FFC24A→#FF4D2E) remplace l'emoji ⚡ dans les en-têtes (rendu identique sur tous les téléphones) ; icônes acheteur (éclair blanc sur orange) et vendeur (éclair dégradé sur bleu nuit) en 192/512 `any` + `maskable`, `apple-touch-icon` 180 px par app, `favicon.ico` (16/32/48) + favicon SVG, redirection `/favicon.ico` ; cache service worker passé en `hayaflash-v2` | ✅ Fait (23/09) — à vérifier sur téléphone réel (installation via HTTPS/ngrok) |
 | Bandeau d'installation iOS (pas de `beforeinstallprompt` sur Safari — instructions manuelles "Ajouter à l'écran d'accueil") | 📋 À faire |
 
 ### 10.3 — Scarcité & conversion (à venir)
@@ -348,7 +349,7 @@ requests==2.33.1
 
 > Suite complète relancée le 23/09 sur `main` après les correctifs Phase 10.0
 > (`manage.py test --settings=config.settings.test`) : **173 tests, OK (3 skipped)**
-> — 181 attendus avec les tests ajoutés le 23/09 (calendrier, boutique, manifests). (Le 20/09 : 169 tests au total.)
+> — 182 attendus avec les tests ajoutés le 23/09 (calendrier, boutique, manifests). (Le 20/09 : 169 tests au total.)
 > Couverture non remesurée (`--cov-fail-under=60` dans la CI, pas de rapport détaillé
 > regénéré pour ce fichier).
 

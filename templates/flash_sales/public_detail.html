@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block pwa_manifest %}<link rel="manifest" href="/static/manifest-buyer.json" />{% endblock %}
+{% block pwa_manifest %}<link rel="manifest" href="/static/manifest-buyer.json" /><link rel="apple-touch-icon" href="/static/img/apple-touch-icon-buyer.png" />{% endblock %}
 {% load static %}
 {% block title %}{{ sale.title }} — HayaFlash{% endblock %}
 {% block meta_description %}{{ sale.description|default:sale.title|truncatewords:20 }}{% endblock %}
@@ -33,7 +33,7 @@
                  flex items-center justify-between gap-3 shadow-sm">
     <a href="{% url 'flash_sale_calendar' %}"
        class="flex items-center gap-2 font-extrabold text-gray-900 shrink-0">
-      <span class="text-primary text-xl">⚡</span>
+      <img src="{% static 'img/brand/bolt.svg' %}" alt="" aria-hidden="true" width="22" height="22" class="shrink-0 inline-block">
       <span>Haya<span class="text-primary">Flash</span></span>
     </a>
     <div class="flex items-center gap-2">
