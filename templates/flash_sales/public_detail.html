@@ -308,26 +308,6 @@ function hfSpeak(btn, text) {
   speechSynthesis.speak(utt);
 }
 
-/* ── PWA INSTALL ── */
-let _hfPwaPrompt = null;
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault(); _hfPwaPrompt = e;
-  const btn = document.getElementById('hf-pwa-btn');
-  if (btn) { btn.classList.remove('hidden'); btn.classList.add('flex'); }
-});
-async function hfPwaInstall() {
-  if (!_hfPwaPrompt) return;
-  _hfPwaPrompt.prompt();
-  const { outcome } = await _hfPwaPrompt.userChoice;
-  _hfPwaPrompt = null;
-  if (outcome === 'accepted') {
-    const btn = document.getElementById('hf-pwa-btn');
-    if (btn) btn.classList.add('hidden');
-  }
-}
-window.addEventListener('appinstalled', () => {
-  const btn = document.getElementById('hf-pwa-btn');
-  if (btn) btn.classList.add('hidden');
-});
+/* ── PWA INSTALL : gere par static/js/hf-install.js ── */
 </script>
 {% endblock %}

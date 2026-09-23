@@ -957,6 +957,7 @@ function orderDrawer(saleId) {
           this.submittedPhone = this.customerPhone.trim();
           this.orderSuccess = true;
           updateProductStockAfterOrder(this.productId, this.maxQty - this.qty, this.stockInitial);
+          if (window.hfInstallInvite) window.hfInstallInvite('buyer', { delay: 2500 });
         }
         else { this.orderError = Object.values(data).flat()[0] || 'Une erreur est survenue.'; }
       } catch(e) {
@@ -987,6 +988,7 @@ async function submitInterest(e, slug, sfx) {
     });
     if (res.ok || res.status === 201) {
       frmEl.classList.add('hidden'); sucEl.classList.remove('hidden'); lucide.createIcons();
+      if (window.hfInstallInvite) window.hfInstallInvite('buyer', { delay: 2500 });
     } else {
       errEl.textContent = 'Erreur. Reessayez.'; errEl.classList.remove('hidden');
       btn.disabled = false; txtEl.textContent = sfx ? 'Je veux etre prevenu(e)' : 'Confirmer ma reservation';
@@ -1057,19 +1059,5 @@ function hfSpeak(btn, text) {
   speechSynthesis.speak(u);
 }
 
-/* ── PWA ── */
-var _hfPwaP = null;
-window.addEventListener('beforeinstallprompt', function(e) {
-  e.preventDefault(); _hfPwaP = e;
-  document.querySelectorAll('.hf-pwa-install').forEach(function(el) { el.style.display = 'flex'; });
-});
-function hfPwaInstall() {
-  if (!_hfPwaP) return;
-  _hfPwaP.prompt();
-  _hfPwaP.userChoice.then(function(r) {
-    _hfPwaP = null;
-    if (r.outcome === 'accepted')
-      document.querySelectorAll('.hf-pwa-install').forEach(function(el) { el.style.display = 'none'; });
-  });
-}
+/* ── PWA : gere par static/js/hf-install.js (hfPwaInstall / hfInstallInvite) ── */
 </script>{% endblock %}

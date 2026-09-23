@@ -117,6 +117,8 @@
 
   <!-- HayaFlash Alpine components -->
   <script src="{% static 'js/hf-components.js' %}"></script>
+  <!-- Installation PWA : bouton + bandeau d'invitation (hfPwaInstall / hfInstallInvite) -->
+  <script src="{% static 'js/hf-install.js' %}"></script>
 
   <!-- Init Lucide icons -->
   <script>
@@ -173,28 +175,6 @@
         img.style.cursor = 'zoom-in';
         img.addEventListener('dblclick', function(){ window.hfZoom(img); });
       });
-    });
-  })();
-  </script>
-
-  <!-- ── PWA install prompt global ── -->
-  <script>
-  (function () {
-    var _p = null;
-    window.addEventListener('beforeinstallprompt', function(e){
-      e.preventDefault(); _p = e;
-      document.querySelectorAll('.hf-pwa-install').forEach(function(el){ el.style.display='flex'; });
-    });
-    window.hfPwaInstall = async function() {
-      if (!_p) return;
-      _p.prompt();
-      var r = await _p.userChoice;
-      _p = null;
-      if (r.outcome === 'accepted')
-        document.querySelectorAll('.hf-pwa-install').forEach(function(el){ el.style.display='none'; });
-    };
-    window.addEventListener('appinstalled', function(){
-      document.querySelectorAll('.hf-pwa-install').forEach(function(el){ el.style.display='none'; });
     });
   })();
   </script>

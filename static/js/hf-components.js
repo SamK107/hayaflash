@@ -205,6 +205,7 @@ function clientOrderForm(config) {
         }
         this.orderResult = data;
         this.submitted = true;
+        if (window.hfInstallInvite) window.hfInstallInvite('buyer', { delay: 2500 });
         window.dispatchEvent(new CustomEvent('hf-toast', {
           detail: { msg: 'Commande envoyee !', type: 'success' },
         }));

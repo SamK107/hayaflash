@@ -207,6 +207,19 @@ class PublicPageTests(ViralGrowthFixture):
         self.assertEqual(fav.status_code, 301)
         self.assertEqual(fav["Location"], "/static/favicon.ico")
 
+    def test_install_invite_wired(self) -> None:
+        # Bandeau d'installation : script charge partout, declenche apres
+        # commande/alerte cote acheteur et sur les pages vendeur.
+        resp = self.client.get(
+            reverse("public_flash_sale", kwargs={"slug": self.sale.public_slug})
+        )
+        self.assertContains(resp, "js/hf-install.js")
+        self.assertContains(resp, "hfInstallInvite('buyer'")
+        self.client.force_login(self.seller_user)
+        resp = self.client.get(reverse("seller_home"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "hfInstallInvite('seller'")
+
     def test_seller_pages_keep_seller_pwa_manifest(self) -> None:
         resp = self.client.get(reverse("login"))
         self.assertContains(resp, 'href="/static/manifest.json"')

@@ -29,7 +29,18 @@ if not SECRET_KEY:
         stacklevel=1,
     )
 
-ALLOWED_HOSTS = _csv("ALLOWED_HOSTS", "localhost,127.0.0.1,10.248.111.89")
+ALLOWED_HOSTS = _csv("ALLOWED_HOSTS", "localhost,127.0.0.1")
+# Tunnels ngrok (test mobile HTTPS / PWA / webhooks Orange Money) : le point
+# initial autorise tous les sous-domaines, l'URL ngrok change a chaque
+# redemarrage sans devoir toucher .env. Dev uniquement.
+ALLOWED_HOSTS += [".ngrok-free.app", ".ngrok-free.dev", ".ngrok.io"]
+
+# Formulaires POST via le tunnel HTTPS (sinon erreur CSRF 403 "Origin checking failed").
+CSRF_TRUSTED_ORIGINS = _csv("CSRF_TRUSTED_ORIGINS") + [
+    "https://*.ngrok-free.app",
+    "https://*.ngrok-free.dev",
+    "https://*.ngrok.io",
+]
 
 CORS_ALLOW_ALL_ORIGINS = True
 if not os.environ.get("EMAIL_BACKEND"):
