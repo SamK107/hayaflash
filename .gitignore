@@ -26,3 +26,6 @@ staticfiles/
 *.log
 
 Claude outputs/
+
+# Certificats HTTPS locaux (mkcert, runserver_https) : propres a chaque poste
+.certs/
