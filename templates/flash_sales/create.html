@@ -210,6 +210,13 @@
         </div>
       </div>
 
+      <!-- Type de produits (affiche sur le calendrier public /ventes/) -->
+      <div>
+        <label class="hf-label" for="{{ form.category.id_for_label }}">{{ form.category.label }}</label>
+        {{ form.category }}
+        <p class="hf-hint">Aide les acheteurs à repérer votre vente dans la liste des ventes.</p>
+      </div>
+
       <!-- Zone de livraison + plafond -->
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>

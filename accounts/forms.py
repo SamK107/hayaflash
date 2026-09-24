@@ -22,7 +22,7 @@ class SellerProfileForm(forms.ModelForm):
 
     class Meta:
         model = SellerProfile
-        fields = ["avatar", "business_name", "bio", "delivery_zones"]
+        fields = ["avatar", "business_name", "bio", "delivery_zones", "category"]
         widgets = {
             "avatar": forms.FileInput(attrs={"class": "hidden", "accept": "image/*"}),
             "business_name": forms.TextInput(
@@ -44,11 +44,13 @@ class SellerProfileForm(forms.ModelForm):
                     "placeholder": "Ex : Bamako, Kati, Koulikoro",
                 }
             ),
+            "category": forms.Select(attrs={"class": "hf-input"}),
         }
         labels = {
             "business_name": "Nom commercial",
             "bio": "Description de la boutique",
             "delivery_zones": "Zones de livraison",
+            "category": "Type de produits vendus",
         }
 
     def __init__(self, *args, user=None, **kwargs):

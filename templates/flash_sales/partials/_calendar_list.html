@@ -1,0 +1,44 @@
+{# Liste compacte des ventes (calendrier public /ventes/) — rendue seule lors des rafraichissements HTMX. #}
+{% for group in groups %}
+<section class="hfc-group hfc-group--{% if group.key == 'live' %}live{% elif group.key == 'soon' %}soon{% else %}later{% endif %}">
+  <h2 class="hfc-group-title">
+    {% if group.key == 'live' %}<span class="hfc-dot" aria-hidden="true"></span>{% endif %}
+    {{ group.label }}<span class="hfc-count">{{ group.sales|length }}</span>
+  </h2>
+  <ul class="hfc-list">
+    {% for sale in group.sales %}
+    <li>
+      <a class="hfc-row" href="{% url 'public_flash_sale' slug=sale.public_slug %}"
+         {% if group.key == 'live' %}data-end="{{ sale.end_time.isoformat }}"{% else %}data-start="{{ sale.start_time.isoformat }}"{% if group.key != 'soon' %} data-later="1"{% endif %}{% endif %}>
+        {% if sale.owner.avatar %}
+        <img class="hfc-av" src="{{ sale.owner.avatar.url }}" alt="" width="40" height="40" loading="lazy" decoding="async">
+        {% else %}
+        <span class="hfc-av" aria-hidden="true">{{ sale.owner.business_name|default:"?"|slice:":1"|upper }}</span>
+        {% endif %}
+        <span class="hfc-main">
+          <span class="hfc-shop">{{ sale.owner.business_name|default:"Boutique" }}</span>
+          <span class="hfc-meta"><b>{{ sale.effective_category_label }}</b> · {{ sale.title }}</span>
+        </span>
+        <span class="hfc-when">
+          {% if group.key == 'live' %}
+          <span class="hfc-pill">En direct</span>
+          <span class="hfc-time" data-countdown>jusqu’à {{ sale.end_time|time:"H:i" }}</span>
+          {% elif group.key == 'soon' %}
+          <span class="hfc-pill" data-countdown>Bientôt</span>
+          <span class="hfc-time">{{ sale.start_time|time:"H:i" }} – {{ sale.end_time|time:"H:i" }}</span>
+          {% else %}
+          <span class="hfc-pill">{{ sale.start_time|time:"H:i" }}</span>
+          <span class="hfc-time">jusqu’à {{ sale.end_time|time:"H:i" }}</span>
+          {% endif %}
+        </span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% empty %}
+<div class="hfc-empty">
+  <p class="hfc-empty-title">Aucune vente en ce moment</p>
+  <p>Les prochaines ventes flash apparaîtront ici dès qu’elles seront programmées.</p>
+</div>
+{% endfor %}

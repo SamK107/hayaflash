@@ -21,6 +21,7 @@ def create_flash_sale(
     start_time,
     end_time,
     delivery_zone: str = "",
+    category: str = "",
     cover_image=None,
     max_orders: int | None = None,
 ) -> FlashSale:
@@ -37,6 +38,7 @@ def create_flash_sale(
         start_time=start_time,
         end_time=end_time,
         delivery_zone=delivery_zone.strip() if delivery_zone else "",
+        category=category or "",
         max_orders=max_orders,
         status=FlashSaleStatus.SCHEDULED,
     )
@@ -69,6 +71,7 @@ def update_flash_sale(*, sale: FlashSale, seller, **kwargs) -> FlashSale:
         "start_time",
         "end_time",
         "delivery_zone",
+        "category",
         "cover_image",
         "max_orders",
     }
@@ -99,6 +102,7 @@ def clone_flash_sale(*, sale: FlashSale, seller) -> FlashSale:
         title=f"Copie de {sale.title}",
         description=sale.description,
         delivery_zone=sale.delivery_zone,
+        category=sale.category,
         max_orders=sale.max_orders,
         start_time=new_start,
         end_time=new_end,

@@ -4,6 +4,8 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
+from core.choices import SaleCategory
+
 
 class FlashSaleStatus(models.TextChoices):
     SCHEDULED = "scheduled", "Programmee"
@@ -50,6 +52,13 @@ class FlashSale(models.Model):
         blank=True,
         verbose_name="Zone de livraison",
         help_text="Ex: Bamako, ACI 2000, Kalaban Coura",
+    )
+    category = models.CharField(
+        max_length=20,
+        choices=SaleCategory.choices,
+        blank=True,
+        verbose_name="Type de produits",
+        help_text="Vide = type de produits de la boutique.",
     )
     max_orders = models.IntegerField(
         null=True,
@@ -114,6 +123,15 @@ class FlashSale(models.Model):
             resize_uploaded_image(self.cover_image)
 
         super().save(*args, **kwargs)
+
+    @property
+    def effective_category(self) -> str:
+        """Categorie affichee : celle de la vente, sinon celle de la boutique."""
+        return self.category or getattr(self.owner, "category", "") or SaleCategory.AUTRE
+
+    @property
+    def effective_category_label(self) -> str:
+        return SaleCategory(self.effective_category).label
 
     def is_live(self):
         now = timezone.now()

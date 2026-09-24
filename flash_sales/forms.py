@@ -50,6 +50,7 @@ class FlashSaleForm(forms.ModelForm):
             "teasers",
             "start_time",
             "delivery_zone",
+            "category",
             "cover_image",
             "max_orders",
         ]
@@ -87,6 +88,7 @@ class FlashSaleForm(forms.ModelForm):
                     "class": "hf-input",
                 }
             ),
+            "category": forms.Select(attrs={"class": "hf-input"}),
             "max_orders": forms.NumberInput(
                 attrs={
                     "placeholder": "Laisser vide = illimite",
@@ -109,6 +111,12 @@ class FlashSaleForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self._seller = seller
         self._existing_sale_pk = existing_sale_pk
+        self.fields["category"].choices = [("", "Type de produits de la boutique")] + list(
+            self.fields["category"].choices
+        )[1:]
+        # Nouvelle vente : type de produits de la boutique par defaut.
+        if not (kwargs.get("instance") and kwargs["instance"].pk) and seller is not None:
+            self.initial.setdefault("category", getattr(seller, "category", ""))
 
         # Pre-remplir les champs virtuels si edition
         instance = kwargs.get("instance")
