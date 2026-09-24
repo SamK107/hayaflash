@@ -7,7 +7,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from .models import FlashSale, FlashSaleStatus
+from .models import FlashSale
+from .services.ordering import live_now_q, upcoming_q
 from .serializers import FlashSalePublicSerializer, FlashSaleDetailSerializer
 
 
@@ -23,9 +24,7 @@ def flash_sale_list_api(request: Request) -> Response:
     corrige separement dans config/api_urls.py).
     """
     sales = (
-        FlashSale.objects.filter(
-            status__in=[FlashSaleStatus.SCHEDULED, FlashSaleStatus.LIVE]
-        )
+        FlashSale.objects.filter(live_now_q() | upcoming_q())
         .select_related("owner")
         .order_by("start_time")
     )

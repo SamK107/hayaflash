@@ -6,12 +6,15 @@ from django.urls import include, path
 from django.views.generic import RedirectView, TemplateView
 
 from config.api_urls import health
+from core import views as core_views
 from core.sitemaps import sitemaps
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     # Les navigateurs demandent /favicon.ico a la racine, quelle que soit la page.
     path("favicon.ico", RedirectView.as_view(url="/static/favicon.ico", permanent=True)),
+    # Service worker a la racine : portee "/" (PWA installable + hors ligne).
+    path("sw.js", core_views.service_worker, name="service_worker"),
     path(
         "robots.txt",
         TemplateView.as_view(template_name="robots.txt", content_type="text/plain"),

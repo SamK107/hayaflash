@@ -5,6 +5,7 @@ import json
 from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 import re
@@ -109,6 +110,13 @@ def track_whatsapp_share(request):
     return HttpResponse(status=302, headers={"Location": target})
 
 
+# csrf_exempt : endpoint public appele en fetch par des visiteurs anonymes. Les
+# pages publiques (/f/<slug>/) sont mises en cache (Cache-Control public + ETag)
+# et ne posent pas de cookie csrftoken : sans exemption, tout "M'alerter"
+# d'un visiteur sans cookie finissait en 403 ("Erreur. Reessayez.").
+# Risque CSRF nul ici : aucune action liee a la session/utilisateur, simple
+# inscription d'un numero, deja limitee par allow_tracking_request().
+@csrf_exempt
 @require_POST
 def flash_sale_interest(request, slug: str):
     """

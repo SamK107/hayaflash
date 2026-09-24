@@ -171,12 +171,3 @@
   </div>
 
 </nav>
-{# Invitation a installer l'espace vendeur (bandeau, 1 fois / 7 jours max, jamais si deja installe) #}
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    // Pas sur une page acheteur consultee par un vendeur connecte (manifest acheteur).
-    var mf = document.querySelector('link[rel="manifest"]');
-    if (mf && mf.getAttribute('href').indexOf('manifest-buyer') !== -1) return;
-    if (window.hfInstallInvite) window.hfInstallInvite('seller', { delay: 4000 });
-  });
-</script>

@@ -8,6 +8,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 
+from core.context_processors import request_pwa_install_invite
+
 from .forms import FlashSaleForm
 from .models import FlashSale, FlashSaleStatus, SaleInterest
 from .services.crud import (
@@ -108,6 +110,7 @@ def flash_sale_create_view(request):
                 start_time=data["start_time"],
                 end_time=data["end_time"],
                 delivery_zone=data.get("delivery_zone", ""),
+                category=data.get("category", ""),
                 cover_image=data.get("cover_image"),
                 max_orders=data.get("max_orders"),
             )
@@ -115,6 +118,9 @@ def flash_sale_create_view(request):
             if audio:
                 save_sale_audio(sale=sale, audio_file=audio)
             messages.success(request, "Vente creee avec succes !")
+            # Bandeau "Installez votre espace vendeur" sur la page suivante (1re
+            # vente ; relance a la vente suivante si "Plus tard" — plafond cote JS).
+            request_pwa_install_invite(request, "seller")
             return redirect("flash_sales:detail", pk=sale.pk)
         except Exception as e:
             messages.error(request, str(e))
@@ -162,6 +168,7 @@ def flash_sale_edit_view(request, pk: int):
                 start_time=data["start_time"],
                 end_time=data["end_time"],
                 delivery_zone=data.get("delivery_zone", ""),
+                category=data.get("category", ""),
                 cover_image=data.get("cover_image"),
                 max_orders=data.get("max_orders"),
             )
@@ -264,6 +271,7 @@ def flash_sale_clone_view(request, pk: int):
     try:
         new_sale = clone_flash_sale(sale=sale, seller=seller)
         messages.success(request, "Vente clonee ! Modifiez les dates puis ouvrez-la.")
+        request_pwa_install_invite(request, "seller")
         return redirect("flash_sales:edit", pk=new_sale.pk)
     except Exception as e:
         messages.error(request, str(e))

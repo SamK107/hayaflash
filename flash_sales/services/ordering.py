@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from django.core.exceptions import ValidationError
+from django.db.models import Q
+from django.utils import timezone
 
 from flash_sales.models import FlashSale, FlashSaleStatus
 
@@ -35,3 +37,27 @@ def assert_flash_sale_accepts_orders(flash_sale: FlashSale | None) -> None:
         raise ValidationError({"flash_sale": MSG_SALE_ENDED})
     if not flash_sale.is_live():
         raise ValidationError({"flash_sale": MSG_OUTSIDE_WINDOW})
+
+
+# ── Visibilite publique : meme regle que la prise de commande ─────────────
+# L'heure fait foi ; le statut (bascule par Celery beat auto_open/auto_close)
+# ne sert qu'a exclure les ventes fermees/annulees. Sans ca, une vente dont la
+# fermeture automatique n'a pas tourne (beat arrete/en retard, ou dev sans
+# Celery) restait affichee "EN DIRECT · termine dans 00:00:00" des semaines
+# apres sa fin, avec un bouton Commander qui refusait la commande.
+
+
+def live_now_q(now=None) -> Q:
+    """Ventes en cours = commandables maintenant (cf. assert_flash_sale_accepts_orders)."""
+    now = now or timezone.now()
+    return Q(status__in=ORDERABLE_STATUSES, start_time__lte=now, end_time__gte=now)
+
+
+def upcoming_q(now=None) -> Q:
+    """Ventes programmees pas encore commencees."""
+    now = now or timezone.now()
+    return Q(status=FlashSaleStatus.SCHEDULED, start_time__gt=now)
+
+
+def is_orderable_now(flash_sale: FlashSale) -> bool:
+    return flash_sale.status in ORDERABLE_STATUSES and flash_sale.is_live()

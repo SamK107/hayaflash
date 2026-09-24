@@ -69,6 +69,7 @@ TEMPLATES = [
                 # la suite de tests malgre leur presence en prod/dev.
                 "core.context_processors.seller_interests_count",
                 "core.context_processors.active_live_sale",
+                "core.context_processors.pwa_install",
             ],
         },
     },

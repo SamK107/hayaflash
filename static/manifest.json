@@ -24,6 +24,12 @@
       "purpose": "any"
     },
     {
+      "src": "/static/img/icon-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
       "src": "/static/img/icon-seller-maskable-192.png",
       "sizes": "192x192",
       "type": "image/png",
@@ -32,6 +38,12 @@
     {
       "src": "/static/img/icon-seller-maskable-512.png",
       "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/static/img/icon-seller-maskable-1024.png",
+      "sizes": "1024x1024",
       "type": "image/png",
       "purpose": "maskable"
     }
@@ -48,6 +60,21 @@
           "sizes": "192x192"
         }
       ]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/static/img/screenshots/seller-mobile.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "label": "Tableau de bord vendeur HayaFlash"
+    },
+    {
+      "src": "/static/img/screenshots/seller-desktop.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Tableau de bord vendeur HayaFlash"
     }
   ],
   "categories": [

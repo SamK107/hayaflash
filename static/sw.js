@@ -1,5 +1,5 @@
 /* HayaFlash Service Worker — cache assets statiques, offline gracieux */
-const CACHE = 'hayaflash-v3'; // v3 (23/09) : icones + bandeau d'installation
+const CACHE = 'hayaflash-v9'; // v9 (24/09) : icones acheteur + vendeur regenerees (1024 px, nettes)
 const STATIC_ASSETS = [
   '/static/manifest.json',
   '/static/js/hf-components.js',
@@ -36,7 +36,23 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(request.url);
 
-  // Assets statiques : cache-first
+  // Scripts applicatifs et manifests : network-first (fallback cache hors
+  // ligne). En cache-first, un telephone gardait l'ANCIEN hf-install.js
+  // apres une mise a jour (ancien bandeau d'installation affiche).
+  if (url.pathname.startsWith('/static/js/') || url.pathname.endsWith('.json')) {
+    event.respondWith(
+      fetch(request).then(resp => {
+        if (resp.ok) {
+          const clone = resp.clone();
+          caches.open(CACHE).then(c => c.put(request, clone));
+        }
+        return resp;
+      }).catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // Autres assets statiques (images, polices, CSS vendorise) : cache-first
   if (url.pathname.startsWith('/static/')) {
     event.respondWith(
       caches.match(request).then(cached => cached || fetch(request).then(resp => {

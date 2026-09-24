@@ -7,10 +7,8 @@ Ne couvre que les URLs vraiment publiques et destinées à l'indexation :
 - pages publiques vente flash (/f/<slug>/ — canonique, cf. templates/analytics/flash_sale_public.html)
 - pages publiques vendeur (/s/<slug>/)
 
-Ne référence PAS /ventes/<slug>/ (flash_sales/public_detail.html) : cette page
-duplique /f/<slug>/ et pointe déjà vers elle via <link rel="canonical">
-(voir templates/flash_sales/public_detail.html) — l'indexer en plus créerait
-du contenu dupliqué.
+Ne référence PAS /ventes/<slug>/ : ancien doublon de /f/<slug>/, désormais
+une simple redirection 301 vers /f/<slug>/ (flash_sales.public_views).
 """
 
 from __future__ import annotations
@@ -19,7 +17,8 @@ from django.contrib.sitemaps import Sitemap
 from django.urls import reverse
 
 from accounts.models import SellerProfile
-from flash_sales.models import FlashSale, FlashSaleStatus
+from flash_sales.models import FlashSale
+from flash_sales.services.ordering import live_now_q, upcoming_q
 
 
 class StaticViewSitemap(Sitemap):
@@ -40,9 +39,9 @@ class FlashSaleSitemap(Sitemap):
         # Seules les ventes visibles publiquement méritent d'être indexées —
         # une vente terminée/annulée n'a plus d'intérêt pour un moteur de
         # recherche et sa page affiche un état "vente terminée".
-        return FlashSale.objects.filter(
-            status__in=[FlashSaleStatus.LIVE, FlashSaleStatus.SCHEDULED]
-        ).order_by("-start_time")
+        return FlashSale.objects.filter(live_now_q() | upcoming_q()).order_by(
+            "-start_time"
+        )
 
     def location(self, item):
         return reverse("public_flash_sale", kwargs={"slug": item.public_slug})
@@ -51,7 +50,7 @@ class FlashSaleSitemap(Sitemap):
         return item.updated_at
 
     def priority(self, item):
-        return 0.9 if item.status == FlashSaleStatus.LIVE else 0.6
+        return 0.9 if item.is_live() else 0.6
 
 
 class SellerSitemap(Sitemap):

@@ -596,3 +596,47 @@ class OrderingStatusGuardTest(TestCase):
         self.assertFalse(Order.service_objects.filter(flash_sale=sale).exists())
         self.product.refresh_from_db()
         self.assertEqual(self.product.stock_available, 10)
+
+
+class SellerInstallInviteTest(TestCase):
+    """Bandeau "Installez votre espace vendeur" : apres creation d'une vente
+    uniquement, affiche une seule fois (flag de session consomme par base.html)."""
+
+    def setUp(self) -> None:
+        self.seller_user = User.objects.create_user(
+            phone="+22300000060", password="x", display_name="SellerInstall"
+        )
+        self.seller = SellerProfile.objects.create(user=self.seller_user)
+        Subscription.objects.get_or_create(
+            seller=self.seller, defaults={"plan": Plan.FREE}
+        )
+        self.client.force_login(self.seller_user)
+
+    def test_invite_after_first_sale_then_consumed(self) -> None:
+        self.assertNotContains(self.client.get(reverse("seller_home")), "hfInstallInvite(")
+        start = timezone.now() + timedelta(days=1)
+        resp = self.client.post(
+            reverse("flash_sales:create"),
+            {
+                "title": "Premiere vente",
+                "description": "",
+                "teasers": "",
+                "start_time": start.strftime("%Y-%m-%d %H:%M"),
+                "delivery_zone": "",
+                "duration_preset": "60",
+            },
+            follow=True,
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "hfInstallInvite('seller'")
+        # Consomme : pas de nouvelle invitation sur la page suivante.
+        self.assertNotContains(self.client.get(reverse("seller_home")), "hfInstallInvite(")
+
+    def test_htmx_fragment_does_not_consume_invite(self) -> None:
+        from core.context_processors import PWA_INSTALL_INVITE_SESSION_KEY
+
+        session = self.client.session
+        session[PWA_INSTALL_INVITE_SESSION_KEY] = "seller"
+        session.save()
+        self.client.get(reverse("seller_home"), HTTP_HX_REQUEST="true")
+        self.assertEqual(self.client.session.get(PWA_INSTALL_INVITE_SESSION_KEY), "seller")
