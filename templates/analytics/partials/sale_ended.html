@@ -5,10 +5,12 @@
   <!-- Header -->
   <header class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm shrink-0">
     <span class="flex items-center gap-2 font-extrabold text-gray-900">
-      <img src="{% static 'img/brand/bolt.svg' %}" alt="" aria-hidden="true" width="22" height="22" class="shrink-0 inline-block">Haya<span class="text-primary">Flash</span>
+      <img src="{% static 'img/brand/bolt.svg' %}" alt="" aria-hidden="true" width="22" height="22" class="shrink-0 inline-block"><span>Haya<span class="text-primary">Flash</span></span>
     </span>
-    <span class="flex items-center gap-1.5 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-3 py-1 rounded-full">
-      <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>Vente terminée
+    {# Gris neutre : le vert est reserve aux confirmations (commande, alerte, installation). #}
+    <span class="flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full"
+          style="color:#4B5563;background:#F3F4F6;border:1px solid #E5E7EB">
+      <i data-lucide="flag" class="w-3.5 h-3.5"></i>Vente terminée
     </span>
   </header>
 
@@ -16,44 +18,59 @@
 
     <!-- Icône + titre -->
     <div class="text-center pt-2">
-      <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4
-                  ring-8 ring-green-50">
-        <i data-lucide="check" class="w-10 h-10 text-green-600"></i>
+      <div class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4"
+           style="background:#F3F4F6;box-shadow:0 0 0 8px #F9FAFB">
+        <i data-lucide="flag" class="w-10 h-10" style="color:#6B7280"></i>
       </div>
       <p class="text-xs font-bold text-primary uppercase tracking-widest mb-1">Vente Flash</p>
       <h1 class="text-xl font-black text-gray-900 leading-snug">{{ flash_sale.title }}</h1>
     </div>
 
-    <!-- Récapitulatif -->
-    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-50">
-      <div class="flex items-center gap-3 px-4 py-3">
-        <div class="w-8 h-8 bg-green-50 rounded-full flex items-center justify-center shrink-0">
-          <i data-lucide="play-circle" class="w-4 h-4 text-green-600"></i>
-        </div>
-        <div>
-          <p class="text-xs text-gray-400">Ouverture</p>
-          <p class="text-sm font-bold text-gray-800">{{ flash_sale.start_time|date:"d/m/Y à H:i" }}</p>
-        </div>
+    {# Plus de dates / prix / stock d'une vente finie : preuve sociale + prochaine vente (analytics.services.public_pages._ended_sale_context). #}
+    <p style="margin:-8px 0 0;text-align:center;font-size:13px;color:#6B7280">
+      Terminée le {{ flash_sale.end_time|date:"d/m/Y" }} · {% if seller_slug %}<a href="{% url 'public_seller' slug=seller_slug %}" style="color:#1A1A2E;font-weight:700;text-decoration:underline">{{ seller_name }}</a>{% else %}{{ seller_name }}{% endif %}
+    </p>
+
+    {% if ended_stats.items_sold or ended_stats.interested %}
+    <!-- Preuve sociale -->
+    <div style="background:#fff;border:1px solid #F1F2F4;border-radius:16px;padding:16px;display:flex;gap:12px;justify-content:center;text-align:center">
+      {% if ended_stats.items_sold %}
+      <div style="flex:1">
+        <p style="margin:0;font-size:26px;font-weight:900;color:#FF4D2E;line-height:1.1">{{ ended_stats.items_sold }}</p>
+        <p style="margin:2px 0 0;font-size:12px;color:#6B7280">article{{ ended_stats.items_sold|pluralize }} vendu{{ ended_stats.items_sold|pluralize }} en {{ ended_stats.duration_minutes }} min</p>
       </div>
-      <div class="flex items-center gap-3 px-4 py-3">
-        <div class="w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center shrink-0">
-          <i data-lucide="flag" class="w-4 h-4 text-gray-400"></i>
-        </div>
-        <div>
-          <p class="text-xs text-gray-400">Fermeture</p>
-          <p class="text-sm font-bold text-gray-800">{{ flash_sale.end_time|date:"d/m/Y à H:i" }}</p>
-        </div>
+      {% endif %}
+      {% if ended_stats.orders > 1 %}
+      <div style="flex:1">
+        <p style="margin:0;font-size:26px;font-weight:900;color:#1A1A2E;line-height:1.1">{{ ended_stats.orders }}</p>
+        <p style="margin:2px 0 0;font-size:12px;color:#6B7280">clients servis</p>
       </div>
-      <div class="flex items-center gap-3 px-4 py-3">
-        <div class="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
-          <span class="text-primary font-black text-sm">{{ seller_name|slice:":1"|upper }}</span>
-        </div>
-        <div>
-          <p class="text-xs text-gray-400">Vendeur</p>
-          <p class="text-sm font-bold text-gray-800">{{ seller_name }}</p>
-        </div>
+      {% endif %}
+      {% if ended_stats.interested %}
+      <div style="flex:1">
+        <p style="margin:0;font-size:26px;font-weight:900;color:#1A1A2E;line-height:1.1">{{ ended_stats.interested }}</p>
+        <p style="margin:2px 0 0;font-size:12px;color:#6B7280">personne{{ ended_stats.interested|pluralize }} en attente de la prochaine</p>
       </div>
+      {% endif %}
     </div>
+    {% endif %}
+
+    {% if next_sale %}
+    <!-- Prochaine vente du meme vendeur -->
+    <a href="{% url 'public_flash_sale' slug=next_sale.public_slug %}"
+       style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:16px;text-decoration:none;
+              {% if next_sale_is_live %}background:#FFF1EE;border:2px solid #FF4D2E{% else %}background:#EEF2FF;border:2px solid #6366F1{% endif %}">
+      <span style="flex:1;min-width:0">
+        <span style="display:block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:{% if next_sale_is_live %}#D93A1C{% else %}#4338CA{% endif %}">
+          {% if next_sale_is_live %}● En direct maintenant{% else %}Prochaine vente · {{ next_sale.start_time|date:"d/m" }} à {{ next_sale.start_time|time:"H:i" }}{% endif %}
+        </span>
+        <span style="display:block;font-size:15px;font-weight:800;color:#1A1A2E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ next_sale.title }}</span>
+      </span>
+      <span style="flex-shrink:0;font-size:13px;font-weight:800;color:#fff;padding:8px 12px;border-radius:12px;background:{% if next_sale_is_live %}#FF4D2E{% else %}#4F46E5{% endif %}">
+        {% if next_sale_is_live %}Commander{% else %}Voir{% endif %}
+      </span>
+    </a>
+    {% endif %}
 
     <!-- Message de remerciement -->
     <div class="bg-primary/5 border border-primary/15 rounded-2xl px-5 py-4 text-center">
@@ -73,6 +90,10 @@
       <i data-lucide="bell" class="w-5 h-5"></i>
       M'alerter pour la prochaine vente
     </button>
+
+    <a href="{% url 'flash_sale_calendar' %}" style="display:block;text-align:center;font-size:14px;font-weight:700;color:#4338CA;text-decoration:none">
+      Voir toutes les ventes en direct et à venir →
+    </a>
 
     <p class="text-center text-xs text-gray-300">Propulsé par <strong>HayaFlash</strong> · Mali</p>
   </div>

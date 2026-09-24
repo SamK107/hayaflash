@@ -25,6 +25,7 @@ from analytics.services.share_links import (
     seller_public_path,
 )
 from flash_sales.models import FlashSale, FlashSaleStatus
+from flash_sales.services.ordering import ORDERABLE_STATUSES, live_now_q, upcoming_q
 
 
 def _seller_display_name(profile: SellerProfile) -> str:
@@ -41,7 +42,9 @@ def _flash_sale_page_state(flash_sale: FlashSale, *, is_live: bool) -> str:
     elle s'affiche donc en "live". Avant ce correctif, la page d'attente
     restait affichee et se rechargeait toutes les 10 s sans fin.
     """
-    if flash_sale.status == FlashSaleStatus.CANCELLED:
+    if flash_sale.status not in ORDERABLE_STATUSES:
+        # Annulee, ou fermee/terminee par le vendeur AVANT l'heure de fin :
+        # la commande est refusee, la page ne doit pas afficher "en direct".
         return "ended"
     if is_live:
         return "live"
@@ -51,6 +54,47 @@ def _flash_sale_page_state(flash_sale: FlashSale, *, is_live: bool) -> str:
     ):
         return "waiting"
     return "ended"
+
+
+def _ended_sale_context(flash_sale: FlashSale) -> dict[str, Any]:
+    """Page d'une vente terminee : preuve sociale + prochaine vente de la boutique.
+
+    Remplace l'affichage des dates / prix / stock (sans interet pour l'acheteur
+    une fois la vente finie) par ce qui le fait revenir : ce qui s'est vendu,
+    et la prochaine vente (en cours ou programmee) du meme vendeur.
+    Les chiffres nuls ne sont pas affiches (pas de "0 article vendu").
+    """
+    from django.db.models import Count, Sum
+
+    from orders.models import Order, OrderItem, OrderStatus
+
+    orders = Order.objects.filter(flash_sale=flash_sale).exclude(
+        status=OrderStatus.CANCELLED
+    )
+    agg = orders.aggregate(n=Count("id"))
+    items_sold = (
+        OrderItem.objects.filter(order__in=orders).aggregate(q=Sum("quantity"))["q"] or 0
+    )
+    interested = flash_sale.interests.count()
+    minutes = max(1, int((flash_sale.end_time - flash_sale.start_time).total_seconds() // 60))
+    now = timezone.now()
+    next_sale = (
+        FlashSale.objects.filter(live_now_q(now) | upcoming_q(now), owner_id=flash_sale.owner_id)
+        .exclude(pk=flash_sale.pk)
+        .only("title", "public_slug", "start_time", "end_time", "status")
+        .order_by("start_time")
+        .first()
+    )
+    return {
+        "ended_stats": {
+            "orders": agg["n"] or 0,
+            "items_sold": items_sold,
+            "interested": interested,
+            "duration_minutes": minutes,
+        },
+        "next_sale": next_sale,
+        "next_sale_is_live": bool(next_sale and next_sale.is_live()),
+    }
 
 
 def resolve_seller_public_page(request: HttpRequest, slug: str) -> dict[str, Any]:
@@ -77,23 +121,14 @@ def resolve_seller_public_page(request: HttpRequest, slug: str) -> dict[str, Any
     stats = get_seller_public_stats(seller.pk)
     now = timezone.now()
     active_sales = list(
-        FlashSale.objects.filter(
-            owner_id=seller.pk,
-            start_time__lte=now,
-            end_time__gte=now,
-        )
-        .exclude(status=FlashSaleStatus.CANCELLED)
+        FlashSale.objects.filter(live_now_q(now), owner_id=seller.pk)
         .only("id", "title", "public_slug", "start_time", "end_time")
         .order_by("-start_time")[:12]
     )
     # Ventes programmees (Phase 10.0, decision 23/09) : une boutique qui annonce
     # sa prochaine vente garde l'acheteur (bouton "M'alerter" sur /f/<slug>/).
     upcoming_sales = list(
-        FlashSale.objects.filter(
-            owner_id=seller.pk,
-            status=FlashSaleStatus.SCHEDULED,
-            start_time__gt=now,
-        )
+        FlashSale.objects.filter(upcoming_q(now), owner_id=seller.pk)
         .only("id", "title", "public_slug", "start_time", "end_time")
         .order_by("start_time")[:6]
     )
@@ -199,10 +234,14 @@ def resolve_flash_sale_public_page(request: HttpRequest, slug: str) -> dict[str,
         t.strip() for t in (flash_sale.teasers or "").splitlines() if t.strip()
     ]
     open_ts_ms = int(flash_sale.start_time.timestamp() * 1000)
+    ended = _ended_sale_context(flash_sale) if page_state == "ended" else {}
+    next_sale = ended.get("next_sale")
     etag = compute_page_etag(
         slug=cleaned,
         version=version,
-        extra=f"{page_state}:{len(products)}",
+        extra=f"{page_state}:{len(products)}:"
+        + (f"{next_sale.pk}@{next_sale.start_time:%Y%m%d%H%M}" if next_sale else "-")
+        + (f":{ended['ended_stats']['items_sold']}" if ended else ""),
     )
 
     return {
@@ -229,6 +268,7 @@ def resolve_flash_sale_public_page(request: HttpRequest, slug: str) -> dict[str,
         "share_token": share_link.token,
         "page_etag": etag,
         "page_version": version,
+        **ended,
     }
 
 

@@ -209,7 +209,9 @@ class PublicPageTests(ViralGrowthFixture):
 
     def test_install_invite_wired(self) -> None:
         # Bandeau d'installation : script charge partout, declenche apres
-        # commande/alerte cote acheteur et sur les pages vendeur.
+        # commande/alerte cote acheteur. Cote vendeur, PLUS sur chaque page :
+        # uniquement apres creation d'une vente (flag de session, voir
+        # SellerInstallInviteTest dans flash_sales/tests.py).
         resp = self.client.get(
             reverse("public_flash_sale", kwargs={"slug": self.sale.public_slug})
         )
@@ -218,7 +220,46 @@ class PublicPageTests(ViralGrowthFixture):
         self.client.force_login(self.seller_user)
         resp = self.client.get(reverse("seller_home"))
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "hfInstallInvite('seller'")
+        self.assertNotContains(resp, "hfInstallInvite('seller'")
+
+    def test_buyer_manifest_chosen_by_url_prefix(self) -> None:
+        # Toute page sous un prefixe acheteur recoit le manifest acheteur, sans
+        # surcharge dans le template (ex. futur espace client sous /ventes/).
+        from django.test import RequestFactory
+
+        from core.context_processors import pwa_install
+
+        rf = RequestFactory()
+        for path in ("/f/x/", "/s/x/", "/ventes/", "/ventes/nouvelle-page/", "/order/"):
+            self.assertEqual(pwa_install(rf.get(path))["pwa_app"], "buyer", path)
+        for path in ("/", "/login/", "/seller/", "/orders/dashboard/", "/billing/"):
+            self.assertEqual(pwa_install(rf.get(path))["pwa_app"], "seller", path)
+
+    def test_interest_post_works_without_csrf_cookie(self) -> None:
+        # Visiteur anonyme sans cookie csrftoken (page publique en cache) :
+        # "M'alerter" doit fonctionner (403 CSRF constate le 23/09).
+        from flash_sales.models import SaleInterest
+
+        strict = Client(enforce_csrf_checks=True)
+        resp = strict.post(
+            reverse("flash_sale_interest", kwargs={"slug": self.sale.public_slug}),
+            data='{"phone": "+223 70 00 00 01", "name": "Awa"}',
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertTrue(
+            SaleInterest.objects.filter(flash_sale=self.sale, name="Awa").exists()
+        )
+
+    def test_service_worker_served_at_root(self) -> None:
+        resp = self.client.get("/sw.js")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Service-Worker-Allowed"], "/")
+        self.assertIn("javascript", resp["Content-Type"])
+        page = self.client.get(
+            reverse("public_flash_sale", kwargs={"slug": self.sale.public_slug})
+        )
+        self.assertContains(page, "register('/sw.js'")
 
     def test_seller_pages_keep_seller_pwa_manifest(self) -> None:
         resp = self.client.get(reverse("login"))
@@ -416,3 +457,126 @@ class CacheInvalidationTests(ViralGrowthFixture):
         etag = first["ETag"].strip('"')
         second = self.client.get(url, HTTP_IF_NONE_MATCH=etag)
         self.assertEqual(second.status_code, 304)
+
+
+class PublicVisibilityByTimeTests(ViralGrowthFixture):
+    """Ventes terminees/fermees invisibles cote acheteur meme si le statut n'a
+    pas ete mis a jour (Celery beat arrete ou en retard, dev sans Celery)."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        now = timezone.now()
+        # Terminee depuis des semaines mais restee LIVE (auto_close non passe).
+        self.stale = FlashSale.objects.create(
+            title="Vieille vente restee LIVE",
+            start_time=now - timedelta(days=30, hours=2),
+            end_time=now - timedelta(days=30),
+            status=FlashSaleStatus.LIVE,
+            owner=self.seller,
+        )
+        # Programmee dont l'heure est passee (auto_open non passe) : en cours.
+        self.late_open = FlashSale.objects.create(
+            title="Ouverte sans Celery",
+            start_time=now - timedelta(minutes=10),
+            end_time=now + timedelta(hours=1),
+            status=FlashSaleStatus.SCHEDULED,
+            owner=self.seller,
+        )
+        # Fermee par le vendeur avant l'heure de fin.
+        self.closed_early = FlashSale.objects.create(
+            title="Fermee par le vendeur",
+            start_time=now - timedelta(minutes=30),
+            end_time=now + timedelta(hours=1),
+            status=FlashSaleStatus.CLOSED,
+            owner=self.seller,
+        )
+
+    def test_calendar_lists_only_orderable_live_and_upcoming(self) -> None:
+        resp = self.client.get(reverse("flash_sale_calendar"))
+        groups = {g["key"]: g["sales"] for g in resp.context["groups"]}
+        live = groups.get("live", [])
+        self.assertIn(self.sale, live)
+        self.assertIn(self.late_open, live)
+        self.assertNotIn(self.stale, live)
+        self.assertNotIn(self.closed_early, live)
+        self.assertNotContains(resp, "Vieille vente restee LIVE")
+
+    def test_old_detail_url_redirects_to_canonical_page(self) -> None:
+        resp = self.client.get(f"/ventes/{self.stale.public_slug}/")
+        self.assertEqual(resp.status_code, 301)
+        self.assertEqual(
+            resp["Location"],
+            reverse("public_flash_sale", kwargs={"slug": self.stale.public_slug}),
+        )
+
+    def test_public_page_state_follows_order_rule(self) -> None:
+        for sale, state in (
+            (self.stale, "ended"),
+            (self.closed_early, "ended"),
+            (self.late_open, "live"),
+        ):
+            cache.clear()
+            resp = self.client.get(
+                reverse("public_flash_sale", kwargs={"slug": sale.public_slug})
+            )
+            self.assertEqual(resp.context["page_state"], state, sale.title)
+
+    def test_seller_public_page_and_api_hide_ended_sales(self) -> None:
+        resp = self.client.get(
+            reverse("public_seller", kwargs={"slug": self.seller.public_slug})
+        )
+        self.assertNotContains(resp, "Vieille vente restee LIVE")
+        self.assertNotContains(resp, "Fermee par le vendeur")
+        titles = {s["title"] for s in self.api.get("/api/v1/flash-sales/").json()}
+        self.assertNotIn(self.stale.title, titles)
+        self.assertIn(self.late_open.title, titles)
+
+
+class CalendarListAndEndedPageTests(ViralGrowthFixture):
+    def _sale(self, title, start, end, status=FlashSaleStatus.SCHEDULED, **kw):
+        return FlashSale.objects.create(
+            title=title, start_time=start, end_time=end, status=status,
+            owner=self.seller, **kw,
+        )
+
+    def test_calendar_groups_order_and_category(self) -> None:
+        from core.choices import SaleCategory
+
+        now = timezone.now()
+        self.seller.category = SaleCategory.CHAUSSURES
+        self.seller.save()
+        soon = self._sale("Dans 20 min", now + timedelta(minutes=20), now + timedelta(hours=1))
+        later = self._sale(
+            "Dans 3 jours", now + timedelta(days=3), now + timedelta(days=3, hours=1),
+            category=SaleCategory.BEAUTE,
+        )
+        resp = self.client.get(reverse("flash_sale_calendar"))
+        keys = [g["key"] for g in resp.context["groups"]]
+        self.assertEqual(keys[0], "live")
+        self.assertEqual(keys[1], "soon")
+        self.assertEqual(keys[-1], timezone.localtime(later.start_time).date().isoformat())
+        self.assertIn(soon, resp.context["groups"][1]["sales"])
+        # Categorie : celle de la vente, sinon celle de la boutique.
+        self.assertContains(resp, "<b>Beauté</b>")
+        self.assertContains(resp, "<b>Chaussures</b>")
+        # Rafraichissement HTMX : seulement la liste.
+        part = self.client.get(reverse("flash_sale_calendar"), HTTP_HX_REQUEST="true")
+        self.assertNotContains(part, "<html")
+        self.assertContains(part, "hfc-row")
+
+    def test_ended_page_social_proof_and_next_sale(self) -> None:
+        now = timezone.now()
+        order = create_order(self._payload())
+        self.sale.start_time = now - timedelta(hours=3)
+        self.sale.end_time = now - timedelta(hours=2)
+        self.sale.save()
+        nxt = self._sale("Vente de demain", now + timedelta(days=1), now + timedelta(days=1, hours=1))
+        cache.clear()
+        resp = self.client.get(reverse("public_flash_sale", kwargs={"slug": self.sale.public_slug}))
+        self.assertEqual(resp.context["page_state"], "ended")
+        self.assertEqual(resp.context["ended_stats"]["items_sold"], order.items.first().quantity)
+        self.assertEqual(resp.context["next_sale"], nxt)
+        self.assertContains(resp, "Vente de demain")
+        self.assertContains(resp, "vendu")
+        # Plus de prix ni de bouton Commander sur une vente terminee.
+        self.assertNotContains(resp, "15 000")
