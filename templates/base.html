@@ -8,9 +8,10 @@
   <title>{% block title %}HayaFlash{% endblock %}</title>
   <meta name="description" content="{% block meta_description %}HayaFlash — Ventes flash a Bamako{% endblock %}">
   <!-- PWA -->
-  {# Manifest vendeur par defaut ; les pages acheteur surchargent ce bloc (Phase 10.2). #}
-  {% block pwa_manifest %}<link rel="manifest" href="/static/manifest.json" />
-  <link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png" />{% endblock %}
+  {# Manifest acheteur ou vendeur choisi selon l'URL (core.context_processors.pwa_install). #}
+  {% block pwa_manifest %}{% if pwa_app == "buyer" %}<link rel="manifest" href="/static/manifest-buyer.json" />
+  <link rel="apple-touch-icon" href="/static/img/apple-touch-icon-buyer.png" />{% else %}<link rel="manifest" href="/static/manifest.json" />
+  <link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png" />{% endif %}{% endblock %}
   <link rel="icon" href="/static/favicon.ico" sizes="48x48" />
   <link rel="icon" href="{% static 'img/brand/bolt.svg' %}" type="image/svg+xml" />
   <meta name="mobile-web-app-capable" content="yes" />
@@ -119,6 +120,10 @@
   <script src="{% static 'js/hf-components.js' %}"></script>
   <!-- Installation PWA : bouton + bandeau d'invitation (hfPwaInstall / hfInstallInvite) -->
   <script src="{% static 'js/hf-install.js' %}"></script>
+  {% with invite=pwa_install_invite %}{% if invite %}
+  {# Invitation demandee par la vue precedente (ex. 1re vente creee) #}
+  <script>document.addEventListener('DOMContentLoaded', function () { window.hfInstallInvite('{{ invite|escapejs }}', { delay: 2500 }); });</script>
+  {% endif %}{% endwith %}
 
   <!-- Init Lucide icons -->
   <script>
@@ -183,7 +188,13 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
-        navigator.serviceWorker.register('/static/sw.js')
+        // Ancien SW enregistre sous /static/ (portee inutile) : on le retire.
+        if (navigator.serviceWorker.getRegistrations) {
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            regs.forEach(function (r) { if (/\/static\/$/.test(r.scope)) r.unregister(); });
+          });
+        }
+        navigator.serviceWorker.register('/sw.js', { scope: '/' })
           .catch(function (err) { console.warn('SW registration failed:', err); });
       });
     }

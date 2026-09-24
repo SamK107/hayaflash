@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% block pwa_manifest %}<link rel="manifest" href="/static/manifest-buyer.json" /><link rel="apple-touch-icon" href="/static/img/apple-touch-icon-buyer.png" />{% endblock %}
 {% load static %}
 {% load hf_filters %}
 {% block title %}{{ flash_sale.title }} — HayaFlash{% endblock %}
@@ -37,7 +36,7 @@
   <header class="bg-white border-b border-gray-100 sticky top-0 z-30 px-4 py-3
                  flex items-center justify-between gap-3 shadow-sm">
     <span class="flex items-center gap-2 font-extrabold text-gray-900 shrink-0">
-      <img src="{% static 'img/brand/bolt.svg' %}" alt="" aria-hidden="true" width="22" height="22" class="shrink-0 inline-block">Haya<span class="text-primary">Flash</span>
+      <img src="{% static 'img/brand/bolt.svg' %}" alt="" aria-hidden="true" width="22" height="22" class="shrink-0 inline-block"><span>Haya<span class="text-primary">Flash</span></span>
     </span>
     <div class="flex items-center gap-2">
       <span class="inline-flex items-center gap-1.5 bg-amber-500 text-white text-xs font-black px-3 py-1.5 rounded-full">
@@ -593,7 +592,7 @@
      style="opacity:0; transition: opacity 0.8s ease;">
   <header class="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm shrink-0">
     <span class="flex items-center gap-2 font-extrabold text-gray-900">
-      <img src="{% static 'img/brand/bolt.svg' %}" alt="" aria-hidden="true" width="22" height="22" class="shrink-0 inline-block">Haya<span class="text-primary">Flash</span>
+      <img src="{% static 'img/brand/bolt.svg' %}" alt="" aria-hidden="true" width="22" height="22" class="shrink-0 inline-block"><span>Haya<span class="text-primary">Flash</span></span>
     </span>
     <span class="flex items-center gap-1.5 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-3 py-1 rounded-full">
       <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>Vente terminée
@@ -990,7 +989,9 @@ async function submitInterest(e, slug, sfx) {
       frmEl.classList.add('hidden'); sucEl.classList.remove('hidden'); lucide.createIcons();
       if (window.hfInstallInvite) window.hfInstallInvite('buyer', { delay: 2500 });
     } else {
-      errEl.textContent = 'Erreur. Reessayez.'; errEl.classList.remove('hidden');
+      let msg = 'Une erreur est survenue. Réessayez.';
+      try { const d = await res.json(); if (d && d.error) msg = d.error; } catch (_) {}
+      errEl.textContent = msg; errEl.classList.remove('hidden');
       btn.disabled = false; txtEl.textContent = sfx ? 'Je veux etre prevenu(e)' : 'Confirmer ma reservation';
     }
   } catch(ex) {

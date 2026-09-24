@@ -252,6 +252,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "core.context_processors.seller_interests_count",
                 "core.context_processors.active_live_sale",
+                "core.context_processors.pwa_install",
             ],
         },
     },
