@@ -156,7 +156,10 @@ def logout_view(request):
 
 @login_required
 def seller_home_view(request):
+    from django.utils import timezone
+
     from flash_sales.models import FlashSale, FlashSaleStatus
+    from flash_sales.services.ordering import live_now_q, upcoming_q
     from orders.models import Order
 
     # Garde-fou : un compte sans SellerProfile (staff createsuperuser, lien
@@ -170,19 +173,20 @@ def seller_home_view(request):
         messages.error(request, "Ce compte n'a pas de profil vendeur.")
         return redirect("login")
 
+    # Par l'heure (comme les pages publiques) : une vente dont l'heure de fin
+    # est passee n'est plus "a venir / en cours", meme si Celery ne l'a pas
+    # encore fermee.
+    now = timezone.now()
     active_sales = FlashSale.objects.filter(
-        owner=seller,
-        status__in=[FlashSaleStatus.SCHEDULED, FlashSaleStatus.LIVE],
+        live_now_q(now) | upcoming_q(now), owner=seller
     ).order_by("start_time")[:5]
 
-    recent_sales = FlashSale.objects.filter(
-        owner=seller,
-        status__in=[
-            FlashSaleStatus.COMPLETED,
-            FlashSaleStatus.CLOSED,
-            FlashSaleStatus.EXECUTING,
-        ],
-    ).order_by("-start_time")[:3]
+    recent_sales = (
+        FlashSale.objects.filter(owner=seller)
+        .exclude(live_now_q(now) | upcoming_q(now))
+        .exclude(status=FlashSaleStatus.CANCELLED)
+        .order_by("-start_time")[:3]
+    )
 
     total_orders = Order.objects.filter(flash_sale__owner=seller).count()
 
@@ -256,3 +260,36 @@ def platform_admin_dashboard(request):
         ),
     }
     return render(request, "core/platform_admin.html", context)
+
+
+def service_worker(request):
+    """
+    Sert le service worker a la RACINE (/sw.js).
+
+    Un SW servi depuis /static/sw.js n'a pour portee que /static/ : il ne
+    controle aucune page, donc ni le mode hors ligne ni les criteres
+    d'installabilite PWA de Chrome (bandeau "Installer" jamais propose).
+    """
+    from pathlib import Path
+
+    from django.conf import settings
+    from django.contrib.staticfiles import finders
+    from django.http import Http404, HttpResponse
+
+    path = finders.find("sw.js")
+    # Repli : collectstatic (prod) puis source du depot (settings de test,
+    # STATICFILES_DIRS vide et pas de collectstatic).
+    for base in (settings.STATIC_ROOT, Path(settings.BASE_DIR) / "static"):
+        if path or not base:
+            break
+        candidate = Path(base) / "sw.js"
+        path = str(candidate) if candidate.exists() else None
+    if not path:
+        raise Http404("sw.js introuvable")
+    with open(path, "rb") as fh:
+        body = fh.read()
+    response = HttpResponse(body, content_type="application/javascript; charset=utf-8")
+    response["Service-Worker-Allowed"] = "/"
+    # Le navigateur doit toujours revalider le SW pour recevoir les mises a jour.
+    response["Cache-Control"] = "no-cache"
+    return response
