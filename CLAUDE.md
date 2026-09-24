@@ -62,6 +62,8 @@ subscriptions/  → Plan FREE/MEDIUM/PRO, Subscription, SubscriptionPayment (Ora
 python manage.py runserver --settings=config.settings.dev
 python manage.py migrate
 python manage.py createsuperuser
+# HTTPS local (mkcert, port 8443) pour tester la PWA sur téléphone — voir docs/DEV_HTTPS_MOBILE.md
+python manage.py runserver_https --settings=config.settings.dev
 
 # Celery (deux terminaux séparés)
 celery -A config worker -l info
@@ -92,7 +94,7 @@ docker-compose up
 | `/f/<slug>/` | Page publique vente flash (SEO + commande) |
 | `/f/<slug>/qrcode/` | QR code de la vente (JSON, auth vendeur) |
 | `/s/<slug>/` | Page publique vendeur |
-| `/ventes/` | Calendrier public des ventes |
+| `/ventes/` | Liste publique des ventes en direct / à venir (lignes compactes, rafraîchie par HTMX) — start_url de l'app acheteur |
 | `/billing/` | Abonnements vendeur |
 | `/health/` | Healthcheck (alias racine, anonyme — voir point 8) |
 | `/api/v1/` | API REST (DRF) |
@@ -126,7 +128,8 @@ docker-compose up
 11. **F3 "Sales Drawer"** : incertitude de gouvernance non résolue — un composant drawer (`orderDrawer`, `templates/analytics/flash_sale_public.html`) existe, mais rien ne confirme que c'est ce que désignait ce label externe. Voir `docs/PROJECT_SPEC.md` § Incertitudes.
 12. **Vendoring front (14/09)** : Tailwind/HTMX/Alpine/Lucide/polices Inter+Poppins ne sont plus chargés depuis un CDN — build/téléchargement figé dans `static/vendor/` et `static/fonts/`, référencés via `{% static %}` dans `base.html`/`home.html`. Pour reconstruire le CSS Tailwind après un changement de classes dans les templates : voir `docs/FRONTEND_VENDORING.md`. Une `Content-Security-Policy` est active en **Report-Only** (`CSP_REPORT_ONLY = True`, `config/settings/base.py`) — elle ne bloque rien tant que `'unsafe-inline'` reste nécessaire aux nombreux `onclick=`/`<script>` inline ; passage en mode bloquant = décision produit à part (voir docs/CODEBASE_STATUS.md).
 13. **Images produits/couvertures** : redimensionnées automatiquement à l'upload (max 1600px, `core/services/image_optimize.py`, appelé depuis `FlashSale.save()` et `ProductMedia.save()`) — best-effort, ne bloque jamais l'upload en cas d'échec Pillow (même philosophie que `_attach_audio_note()`).
-14. **`/ventes/<slug>/`** (`flash_sales.public_views.public_flash_sale_detail`) duplique **`/f/<slug>/`** (`analytics.views.flash_sale_public_page`, qui porte le SEO complet OG/JSON-LD). Un `<link rel="canonical">` a été ajouté sur `/ventes/<slug>/` pointant vers `/f/<slug>/` pour éviter le contenu dupliqué aux yeux des moteurs de recherche — mais avoir deux vues/templates pour la même ressource reste une dette à trancher (fusionner, ou assumer les deux avec un rôle clair pour chacune).
+14. **`/ventes/<slug>/`** redirige en **301 vers `/f/<slug>/`** (24/09) — l'ancien doublon (`flash_sales/public_detail.html`, supprimé) affichait l'état d'après le statut brut (« EN DIRECT », prix, bouton Commander sur des ventes terminées). `/f/<slug>/` est la seule page publique d'une vente.
+15. **Visibilité publique = règle de commande** : « en cours » / « programmée » se calculent par l'**heure** (`flash_sales.services.ordering.live_now_q()` / `upcoming_q()`, alignés sur `assert_flash_sale_accepts_orders`), jamais par le statut seul — le statut LIVE/SCHEDULED n'est basculé que par Celery beat (`auto_open`/`auto_close`), absent en dev et possiblement en retard en prod. À utiliser pour toute nouvelle liste de ventes (calendrier `/ventes/`, boutique `/s/`, API publique, sitemap, dashboard vendeur).
 
 ---
 
