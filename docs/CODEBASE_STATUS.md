@@ -294,13 +294,23 @@ du dépôt (voir § `core/`) — à recréer si un usage showroom partenaires es
 
 ### 3. Passage de la CSP en mode bloquant
 `CSP_REPORT_ONLY = True` depuis le 14/09 — décision produit à prendre après vérification
-sans violation sur staging et traitement des `onclick=`/`<script>` inline restants.
+sans violation sur staging et traitement des `onclick=`/`<script>` inline restants
+(36 `on*=`, 18 `<script>` inline, 12 templates au 24/09). **Bloquant découvert le 24/09** :
+Alpine.js standard exige `'unsafe-eval'` (constructeur `AsyncFunction`), absent de la
+policy — basculer en l'état casserait Alpine. Voir `GOVERNANCE_SECURITE.md` catégorie 4.
 
-### 4. Chiffrement des sauvegardes hors-site
-Décidé (GPG/age, voir ADR-0001) mais pas implémenté : `infra/scripts/copy_offsite.sh`
-copie en clair pour l'instant.
+### 4. Sauvegardes — exécution réelle
+Code complet au 24/09 (dump, copie hors-site **chiffrée age**, orchestration
+`backup_nightly.sh`, cron prêt dans `infra/cron/`) ; rien n'a encore tourné sur le VPS
+(ADR-0001, décisions 3-4).
 
 ## Résolu depuis la dernière révision (09-09)
+
+### Sprint gouvernance A (24/09)
+Chiffrement age dans `copy_offsite.sh` ; `infra/scripts/backup_nightly.sh` + `infra/cron/hayaflash-backup`
+(non installé) ; Sentry staging opt-in (`config/settings/_sentry.py`) ; veille CVE
+`.github/workflows/deps-audit.yml` (pip-audit hebdo) ; registre `docs/INCIDENTS.md` ;
+`GOVERNANCE_SECURITE.md` remis à jour (PR #16/#20/#21 n'y étaient pas reflétées).
 
 ### Rappel automatique aux inscrits (`SaleInterest`)
 Ajouté : champ `SaleInterest.reminded_at` (migration `flash_sales/0010_saleinterest_reminded_at.py`),
@@ -321,7 +331,7 @@ django-cors-headers==4.9.0
 django-htmx==1.27.0
 celery==5.4.0
 redis==5.2.1
-django-celery-beat>=2.8.0
+django-celery-beat==2.9.0
 qrcode==8.2
 argon2-cffi==23.1.0
 sentry-sdk[django]==2.28.0
@@ -389,7 +399,7 @@ build front : `docs/FRONTEND_VENDORING.md`.
 Recoupé avec `GOVERNANCE_SECURITE.md` § Synthèse des priorités (plus détaillé sur la partie sécurité/infra) :
 
 1. **Brancher le disque externe sur le VPS** et lancer une première exécution réelle de `infra/scripts/backup.sh` → `copy_offsite.sh` → `restore_test.sh` (voir ADR-0001) — rien de tout ça n'a encore tourné en conditions réelles.
-2. **Chiffrer les sauvegardes hors-site** (`copy_offsite.sh` copie en clair aujourd'hui).
+2. ~~Chiffrer les sauvegardes hors-site~~ — fait le 24/09 (age asymétrique, sprint gouvernance A).
 3. **Retirer `if: false`** sur `deploy-staging`/`deploy-prod` (`.github/workflows/deploy.yml`) une fois le VPS prêt.
 4. **Durcissement VPS** (fail2ban, ufw, SSH par clé) — à vérifier par SSH dès qu'un accès est disponible (`GOVERNANCE_SECURITE.md` catégorie 7).
 5. **Décider du passage de la CSP en mode bloquant** (`CSP_REPORT_ONLY = False`) après vérification sans violation sur staging.

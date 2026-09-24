@@ -8,30 +8,11 @@ from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa: F403
 from .base import REST_FRAMEWORK as BASE_REST_FRAMEWORK
+from ._sentry import init_sentry
 from .base import SECRET_KEY, SENTRY_DSN, _csv  # noqa: F401
 
 # ── Sentry ────────────────────────────────────────────────────────────────────
-if SENTRY_DSN:
-    import sentry_sdk
-    from sentry_sdk.integrations.django import DjangoIntegration
-    from sentry_sdk.integrations.celery import CeleryIntegration
-    from sentry_sdk.integrations.logging import LoggingIntegration
-    import logging
-
-    sentry_sdk.init(
-        dsn=SENTRY_DSN,
-        integrations=[
-            DjangoIntegration(transaction_style="url"),
-            CeleryIntegration(monitor_beat_tasks=True),
-            LoggingIntegration(level=logging.INFO, event_level=logging.ERROR),
-        ],
-        traces_sample_rate=float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
-        profiles_sample_rate=float(
-            os.environ.get("SENTRY_PROFILES_SAMPLE_RATE", "0.05")
-        ),
-        environment="prod",
-        send_default_pii=False,
-    )
+init_sentry(SENTRY_DSN, environment="prod")
 
 DEBUG = False
 

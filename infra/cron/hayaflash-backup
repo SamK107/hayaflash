@@ -1,0 +1,16 @@
+# /etc/cron.d/hayaflash-backup — PAS ENCORE INSTALLE (ADR-0001, decision 3).
+#
+# Installation, lors de la checklist de deploiement final uniquement :
+#   sudo install -m 644 -o root -g root infra/cron/hayaflash-backup /etc/cron.d/hayaflash-backup
+#   sudo install -d -m 750 -o hayaflash -g hayaflash /srv/hayaflash/logs
+# Puis, le meme jour : executer une fois a la main
+#   sudo -u hayaflash bash /srv/hayaflash/infra/scripts/backup_nightly.sh
+# et valider immediatement avec infra/scripts/restore_test.sh (decision 4).
+#
+# Adapter l'utilisateur (6e champ) au compte qui opere Docker sur le VPS.
+# 02:30 UTC = 02:30 a Bamako : hors des creneaux de ventes flash.
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+30 2 * * * hayaflash cd /srv/hayaflash && bash infra/scripts/backup_nightly.sh >> /srv/hayaflash/logs/backup.log 2>&1

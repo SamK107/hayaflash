@@ -7,7 +7,13 @@ from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa: F403
 from .base import REST_FRAMEWORK as BASE_REST_FRAMEWORK
-from .base import ENVIRONMENT, SECRET_KEY, _csv  # noqa: F401
+from ._sentry import init_sentry
+from .base import ENVIRONMENT, SECRET_KEY, SENTRY_DSN, _csv  # noqa: F401
+
+# ── Sentry ────────────────────────────────────────────────────────────────────
+# Opt-in : actif seulement si SENTRY_DSN est defini dans le .env de staging.
+# Meme projet Sentry que la prod possible, separe par environment="staging".
+init_sentry(SENTRY_DSN, environment="staging")
 
 DEBUG = False
 
