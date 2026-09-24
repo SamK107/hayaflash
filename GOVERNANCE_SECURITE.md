@@ -4,8 +4,10 @@
 > du monitoring du projet. Pas un vœu pieux — un état vérifié, catégorie par
 > catégorie, avec la preuve (fichier lu, commande lancée) pour chaque ligne.
 >
-> **Dernière vérification : 2026-09-14** (audit direct du code source dans
-> `C:\projets\hayaflash`, session Claude/Cowork).
+> **Dernière vérification : 2026-09-24** (audit direct du code source dans
+> `C:\projets\hayaflash`, branche `main` à `1aa2f1a` + sprint gouvernance A,
+> session Claude/Cowork). Révision précédente : 2026-09-14 — les PR #16, #20
+> et #21 avaient corrigé plusieurs ❌ sans que ce fichier soit mis à jour.
 >
 > À remettre à jour à chaque changement d'infrastructure ou de déploiement
 > majeur. Aucune action destructive ou irréversible ne doit être exécutée sans
@@ -31,11 +33,15 @@ Légende : ✅ Fait · ⚠️ Partiel · ❌ Manquant · 🔍 À vérifier (néc
 - ✅ **Taux d'échantillonnage défini et non maximal** — `traces_sample_rate`
   réglable via `SENTRY_TRACES_SAMPLE_RATE` (défaut `0.1`), `profiles_sample_rate`
   via `SENTRY_PROFILES_SAMPLE_RATE` (défaut `0.05`).
-- ⚠️ **Environnement étiqueté** — `environment="prod"` codé en dur dans
-  `prod.py`. `staging.py` n'initialise pas Sentry du tout (choix documenté dans
-  `.env.example` : "Sentry — production uniquement") → **zéro visibilité sur les
-  erreurs en staging**. À décider : est-ce voulu, ou faut-il un DSN staging avec
-  `environment="staging"` ?
+- ✅ **Environnement étiqueté, staging couvert (24/09)** — initialisation
+  factorisée dans `config/settings/_sentry.py::init_sentry(dsn, environment)`,
+  appelée par `prod.py` (`environment="prod"`) **et** `staging.py`
+  (`environment="staging"`). Opt-in : sans `SENTRY_DSN` dans le `.env` de
+  l'environnement, rien n'est envoyé. `release=APP_RELEASE` (SHA git, déjà
+  utilisé pour les ETag) pour relier une erreur à un déploiement.
+- 🔍 **Règles d'alerte Sentry** — à configurer dans le dashboard : alerte
+  email/Slack sur nouvelle erreur `environment:prod` (et sur les `logger.error`
+  des webhooks paiement, catégorie 8).
 
 ---
 
@@ -46,12 +52,15 @@ Légende : ✅ Fait · ⚠️ Partiel · ❌ Manquant · 🔍 À vérifier (néc
   le `HEALTHCHECK` du `Dockerfile`, par `docker-compose.production.yml`
   (service `web`), et par `infra/scripts/smoke_test.sh` appelé depuis
   `deploy.sh` avec rollback automatique si échec.
-- ❌ **L'endpoint ne vérifie aucune dépendance critique** — il renvoie
-  systématiquement `{"status": "ok", "service": "HayaFlash"}` sans tester la
-  connexion DB, Redis ou Celery. Un healthcheck "vert" ne garantit donc pas que
-  l'app peut réellement servir une requête si la DB ou Redis est down.
-  **Action recommandée** : ajouter une vérification `connections["default"].cursor()`
-  et un ping cache, avec un code 503 si l'un échoue.
+- ✅ **L'endpoint vérifie DB + cache (PR #20)** — `config/api_urls.py:health` :
+  `SELECT 1` sur `connections["default"]` et aller-retour `cache.set/get`
+  (Redis en staging/prod), chaque check isolé dans son `try/except`, **503**
+  + `{"status": "degraded", "checks": {...}}` si l'un échoue. Accessible
+  anonymement (Docker, Nginx, `smoke_test.sh`).
+- ⚠️ **Celery non couvert par `/health/`** — un worker/beat arrêté n'est pas
+  détecté ici (ventes qui ne s'ouvrent/ferment plus). Couvert partiellement par
+  `CeleryIntegration(monitor_beat_tasks=True)` si Sentry Crons est activé ; à
+  confirmer au déploiement.
 - 🔍 **Monitoring externe indépendant** (UptimeRobot, Better Uptime, Cloudflare
   Health Checks) — non visible dans le repo, ne peut pas l'être. À confirmer :
   existe-t-il un monitoring externe déjà configuré pour HayaFlash ?
@@ -83,9 +92,22 @@ Légende : ✅ Fait · ⚠️ Partiel · ❌ Manquant · 🔍 À vérifier (néc
 
 ## 4. Sécurité applicative
 
-- ❌ **CSP (Content-Security-Policy)** — aucun package `django-csp` dans
-  `requirements.txt`, aucun header CSP dans `config/settings/prod.py` ni dans
-  `infra/nginx/prod.conf`. Manquant.
+- ⚠️ **CSP (Content-Security-Policy) — en place, mais Report-Only (PR #16)** —
+  `django-csp==3.8`, `CSPMiddleware`, policy `default-src 'self'` dans
+  `config/settings/base.py`, `CSP_REPORT_ONLY = True` (non surchargé dans
+  `prod.py`) → **ne bloque rien**. Pas de `report-uri` : les violations ne
+  sont visibles que dans la console du navigateur. Freins identifiés au
+  passage en mode bloquant (audit 24/09) :
+  - 36 handlers inline `on*=` et 18 `<script>` inline (12 templates) → exigent
+    `'unsafe-inline'` (déjà présent dans `script-src`, ce qui annule l'essentiel
+    de la protection XSS de la CSP).
+  - **Alpine.js standard (`static/vendor/alpinejs/alpine-3.14.9.min.js`)
+    évalue les expressions via le constructeur `AsyncFunction`** → exige
+    `'unsafe-eval'`, **absent** de la policy. Passer `CSP_REPORT_ONLY = False`
+    en l'état casserait Alpine sur les 18 templates qui l'utilisent.
+    Décision à prendre : ajouter `'unsafe-eval'` (simple, protection réduite)
+    ou migrer vers le build `@alpinejs/csp` (expressions limitées à des
+    propriétés de composants `Alpine.data()` — refactor important).
 - ✅ **Headers sécurité prod** — dans `config/settings/prod.py` :
   `SECURE_SSL_REDIRECT`, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`,
   `SESSION_COOKIE_HTTPONLY`, `CSRF_COOKIE_HTTPONLY`, `X_FRAME_OPTIONS=DENY`,
@@ -119,40 +141,49 @@ Légende : ✅ Fait · ⚠️ Partiel · ❌ Manquant · 🔍 À vérifier (néc
 
 ## 5. Sauvegardes & reprise après sinistre
 
-- ⚠️ **Backup base de données automatique** — `infra/scripts/backup.sh` existe
-  désormais dans `main` (dump `pg_dump` + rétention locale, testé en local via
-  simulateur Docker), mais aucun cron ni tâche Celery Beat ne l'exécute
-  (`CELERY_BEAT_SCHEDULE` dans `config/settings/base.py` ne contient que les
-  tâches métier flash-sales) — activation reportée à la phase de déploiement
-  (voir ADR-0001).
-- ⚠️ **Backup des fichiers médias** — couvert par le même `backup.sh` (archive
-  médias), mêmes réserves que ci-dessus.
-- ❌ **Chiffrement des sauvegardes** — décidé (age/gpg, clé hors VPS et hors
-  disque externe — voir ADR-0001) mais pas encore implémenté dans le script.
-- ❌ **Copie hors-site** — décidé (disque externe périodique — voir ADR-0001)
-  mais pas encore implémenté ; le script actuel ne fait que la rétention
-  locale sur le VPS.
-- ✅ **Test de restauration** — `infra/scripts/restore_test.sh` existe et est
-  validé en local (restauration + comptage de tables) ; reste à valider en
-  conditions réelles sur le VPS lors du premier déploiement.
-- ⚠️ **Rétention documentée** — rétention locale gérée par `backup.sh`
-  (purge par ancienneté, testée) ; rétention sur le disque externe hors-site
-  pas encore définie.
+Stratégie actée dans [`docs/decisions/ADR-0001-strategie-sauvegardes.md`](docs/decisions/ADR-0001-strategie-sauvegardes.md).
+**Code : complet. Exécution réelle : 0** — la catégorie reste la plus à risque
+tant que rien n'a tourné sur le VPS.
 
-**C'est la catégorie la plus en retard du projet.** Si une sauvegarde existe
-déjà au niveau du VPS (HestiaCP, snapshot du provider), elle n'est documentée
-nulle part dans le repo — donc invisible et non vérifiable en cas de succession
-ou de changement d'opérateur. Priorité haute.
-
-**Mise à jour 2026-09-18** : scripts de dump DB + médias écrits, testés en
-local et mergés dans `main` (PR [#18](https://github.com/SamK107/hayaflash/pull/18),
-squash-mergé). Les décisions d'infrastructure (stockage hors-site,
-chiffrement, activation du cron, première exécution réelle) sont actées dans
-[`docs/decisions/ADR-0001-strategie-sauvegardes.md`](docs/decisions/ADR-0001-strategie-sauvegardes.md) —
-exécution différée à la phase de déploiement final. Statut de la catégorie
-inchangé (❌) tant que rien n'est en place sur le VPS réel : les scripts
-existent dans le repo mais ne sont ni chiffrés vers un stockage hors-site, ni
-plannifiés, ni exécutés en conditions réelles.
+- ✅ **Dump DB + archive médias** — `infra/scripts/backup.sh` (`pg_dump`
+  compressé + `tar` des médias, rétention locale 14 j par défaut), testé en
+  local via simulateur Docker (PR #18).
+- ✅ **Chiffrement des sauvegardes hors-site (24/09)** —
+  `infra/scripts/copy_offsite.sh` chiffre chaque fichier avec **age**
+  (asymétrique) avant écriture sur le disque externe : seule la clé
+  **publique** est sur le VPS (`/srv/hayaflash/backup_recipients.txt`), la clé
+  privée reste dans le gestionnaire de mots de passe. Refus de copier si `age`
+  est absent, si le fichier de clés est vide ou s'il contient une clé privée.
+  Écriture via `.partial` + contrôle d'en-tête/taille + rename ; sha256 du
+  clair conservé (`.src.sha256`) pour vérifier une restauration. Testé en
+  local (24/09) : 3 cas de refus, copie, idempotence, aucun fichier en clair
+  sur le disque, round-trip `age -d` → sha256 identique.
+  Choix asymétrique plutôt que passphrase gpg : une passphrase aurait dû être
+  stockée sur le VPS pour que le cron tourne sans interaction — interdit par
+  l'ADR.
+- ✅ **Copie hors-site (code)** — même script : fichier témoin
+  `.hayaflash_backup_target` exigé à la racine du disque (pas de copie
+  silencieuse sur le disque local si le disque n'est pas monté), idempotent,
+  rétention hors-site 60 j par défaut.
+- ✅ **Orchestration prête à planifier (24/09)** —
+  `infra/scripts/backup_nightly.sh` enchaîne dump → copie chiffrée (sautée
+  sans erreur si le disque n'est pas branché, ADR décision 1) → ping
+  heartbeat (`BACKUP_HEARTBEAT_URL`, ex. healthchecks.io) uniquement en cas de
+  succès : un cron mort ou un dump en échec se voit par l'absence de ping.
+  `infra/cron/hayaflash-backup` (format `/etc/cron.d`, 02:30 UTC) —
+  **volontairement non installé** (ADR décision 3).
+- ✅ **Test de restauration (code)** — `infra/scripts/restore_test.sh`,
+  validé en local. Pour une sauvegarde hors-site : `age -d -i <clé privée>`
+  d'abord.
+- ❌ **Première exécution réelle + restauration réelle** — checklist de
+  déploiement final (ADR décision 4) : installer `age`, déposer la clé
+  publique, brancher le disque + `touch .hayaflash_backup_target`, lancer
+  `backup_nightly.sh` à la main, `restore_test.sh` sur ce dump, puis installer
+  le cron.
+- ✅ **Rétention documentée** — locale 14 j (`BACKUP_RETENTION_DAYS`),
+  hors-site 60 j (`OFFSITE_RETENTION_DAYS`).
+- ⚠️ **Limite 3-2-1 assumée** — disque externe au même endroit physique que
+  le VPS (voir ADR, « Conséquences »).
 
 ---
 
@@ -234,10 +265,12 @@ stat -c "%a %U:%G" /srv/hayaflash/.env   # attendu : 600, propriétaire du servi
   le corps brut, comparaison avec `hmac.compare_digest` (résistant aux attaques
   temporelles), secret requis (`PAYMENTS_WEBHOOK_SECRET`), aucune confiance
   sur l'IP source.
-- ❌ **Notification admin en cas d'échec de paiement ou de webhook suspect** —
-  aucune alerte visible (pas de `logger.warning`/capture Sentry explicite sur
-  signature invalide dans `webhooks.py`, pas de notification déclenchée sur
-  transition vers `FAILED`).
+- ✅ **Notification admin sur webhook suspect / paiement FAILED (PR #21)** —
+  `logger.error` (→ événement Sentry via `LoggingIntegration(event_level=ERROR)`)
+  sur signature invalide ou configuration manquante (`payments/api.py`) et sur
+  transition vers `FAILED` (`payments/services/webhooks.py`). Volontairement
+  pas d'alerte sur `not_found`/`invalid` (bruit). 🔍 Effectif seulement une
+  fois `SENTRY_DSN` + règle d'alerte configurés (catégorie 1).
 - ✅ **Idempotence des traitements** — `apply_provider_webhook()` : transaction
   atomique, `select_for_update()` sur la ligne de paiement, retour anticipé si
   déjà `SUCCESS` ou déjà `FAILED` — un même événement reçu deux fois ne rejoue
@@ -247,11 +280,14 @@ stat -c "%a %U:%G" /srv/hayaflash/.env   # attendu : 600, propriétaire du servi
 
 ## 9. Dépendances & supply chain
 
-- ⚠️ **Versions figées** — `requirements.txt` utilise `==` pour la quasi-totalité
-  des paquets, **sauf** `django-celery-beat>=2.8.0` qui n'est pas borné en haut.
-- 🔍 **Veille CVE** — aucun processus visible dans le repo (normal, c'est une
-  habitude d'équipe plus qu'un artefact de code). À confirmer avec toi : y a-t-il
-  une routine (même manuelle, ex. `pip list --outdated` mensuel) ?
+- ✅ **Versions figées** — tout `requirements.txt` en `==`
+  (`django-celery-beat==2.9.0` borné depuis la révision du 14/09).
+- ✅ **Veille CVE automatisée (24/09)** — `.github/workflows/deps-audit.yml` :
+  `pip-audit -r requirements.txt` chaque lundi 06:17 UTC, à chaque PR qui
+  touche `requirements.txt`, et à la demande. Séparé de `ci.yml` (une CVE
+  publiée la veille ne bloque pas un merge) ; un run planifié en échec envoie
+  un email GitHub au propriétaire du repo. Chaque CVE corrigée → une ligne
+  dans `docs/INCIDENTS.md`.
 - ✅ **`.venv` exclu du dépôt git** — présent dans `.gitignore`. Pas de
   `node_modules` dans le projet (Tailwind chargé en CDN d'après le `CLAUDE.md`).
 
@@ -270,22 +306,37 @@ stat -c "%a %U:%G" /srv/hayaflash/.env   # attendu : 600, propriétaire du servi
   scripté (`deploy.sh`), donc suivi par construction dès que le pipeline sera
   réactivé (point 6) ; pas de checklist manuelle nécessaire tant que le script
   couvre tout.
-- 🔍 **Historique des incidents/correctifs de sécurité conservé** — non trouvé
-  dans le repo. À confirmer : y a-t-il un endroit (Notion, fichier, autre) où
-  les incidents passés sont notés ?
+- ✅ **Registre des incidents/correctifs de sécurité (24/09)** —
+  `docs/INCIDENTS.md` (format, sources de détection, journal vide : pas encore
+  de production).
+- ✅ **Décisions d'architecture tracées** — `docs/decisions/` (ADR-0001).
 
 ---
 
-## Synthèse des priorités
+## Synthèse des priorités (révision 2026-09-24)
 
-1. **Sauvegardes (catégorie 5)** — le point le plus en retard, à traiter en
-   premier : au minimum un dump PostgreSQL quotidien + copie hors-site.
-2. **Health check applicatif (catégorie 2)** — faire vérifier DB/Redis par
-   `/health/` plutôt qu'un `200 OK` statique.
-3. **CSP (catégorie 4)** — ajouter `django-csp` avec `default-src 'self'`.
-4. **Notification admin sur webhook suspect (catégorie 8)** — capturer les
-   signatures invalides vers Sentry ou une alerte dédiée.
-5. **Durcissement VPS (catégorie 7)** — à vérifier par SSH avec les commandes
-   ci-dessus dès qu'un accès est disponible.
-6. Rappel opérationnel : réactiver `deploy-staging`/`deploy-prod` dans
-   `.github/workflows/deploy.yml` une fois le VPS prêt (catégorie 6).
+Le code couvre désormais toutes les catégories vérifiables depuis le repo.
+Ce qui reste se divise en une décision et un bloc « jour du déploiement ».
+
+**Décision à prendre (code)**
+
+1. **CSP en mode bloquant (catégorie 4)** — choisir entre `'unsafe-eval'` et
+   le build `@alpinejs/csp`, puis traiter les 36 `on*=` / 18 `<script>`
+   inline, vérifier 0 violation sur staging, `CSP_REPORT_ONLY = False` dans
+   `prod.py`. Option : ajouter un `report-uri` (Sentry accepte les rapports
+   CSP) pour mesurer avant de basculer.
+
+**Checklist jour du déploiement VPS (non faisable avant)**
+
+2. **Durcissement VPS (catégorie 7)** — ufw, fail2ban, SSH clé seule, mises à
+   jour auto, `.env` en 600 (commandes ci-dessus).
+3. **Sauvegardes (catégorie 5)** — installer `age`, clé publique, disque +
+   fichier témoin, `backup_nightly.sh` à la main, `restore_test.sh` sur le
+   dump réel, puis cron `infra/cron/hayaflash-backup` + heartbeat.
+4. **Observabilité (catégories 1-2)** — `SENTRY_DSN` prod (+ staging),
+   règles d'alerte, monitoring externe de `/health/` (UptimeRobot ou
+   équivalent), statut Celery beat.
+5. **Déploiement continu (catégorie 6)** — retirer `if: false` sur
+   `deploy-staging`/`deploy-prod` dans `.github/workflows/deploy.yml`.
+6. Mettre ce fichier à jour le jour même avec les preuves (sorties de
+   commandes) et passer les 🔍 en ✅/❌.
