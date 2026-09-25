@@ -16,7 +16,7 @@ def send_sms(phone: str, message: str) -> bool:
     if not api_key or not base_url:
         logger.warning(
             "SMS non configure (ORANGE_SMS_API_KEY ou ORANGE_SMS_BASE_URL manquant) "
-            "— SMS non envoye a %s",
+            "— SMS non envoyé à %s",
             phone,
         )
         return False

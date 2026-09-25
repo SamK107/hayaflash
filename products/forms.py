@@ -39,7 +39,7 @@ class ProductForm(forms.ModelForm):
             "name": "Nom du produit *",
             "description": "Description",
             "price": "Prix (FCFA) *",
-            "stock_initial": "Quantite disponible *",
-            "unit": "Unite",
+            "stock_initial": "Quantité disponible *",
+            "unit": "Unité",
             "display_order": "Ordre d'affichage",
         }

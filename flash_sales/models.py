@@ -8,12 +8,12 @@ from core.choices import SaleCategory
 
 
 class FlashSaleStatus(models.TextChoices):
-    SCHEDULED = "scheduled", "Programmee"
+    SCHEDULED = "scheduled", "Programmée"
     LIVE = "live", "En cours"
-    CLOSED = "closed", "Fermee"
-    EXECUTING = "executing", "En execution"
-    COMPLETED = "completed", "Terminee"
-    CANCELLED = "cancelled", "Annulee"
+    CLOSED = "closed", "Fermée"
+    EXECUTING = "executing", "En exécution"
+    COMPLETED = "completed", "Terminée"
+    CANCELLED = "cancelled", "Annulée"
 
 
 class FlashSale(models.Model):
@@ -32,7 +32,7 @@ class FlashSale(models.Model):
         db_index=True,
         help_text="Slug public pour la page de partage (/f/<slug>/).",
     )
-    start_time = models.DateTimeField(verbose_name="Debut")
+    start_time = models.DateTimeField(verbose_name="Début")
     end_time = models.DateTimeField(verbose_name="Fin")
     status = models.CharField(
         max_length=16,
@@ -64,7 +64,7 @@ class FlashSale(models.Model):
         null=True,
         blank=True,
         verbose_name="Plafond de commandes",
-        help_text="Laisser vide pour illimite",
+        help_text="Laisser vide pour illimité",
     )
     description_audio = models.FileField(
         upload_to="audio/sales/",
@@ -138,6 +138,13 @@ class FlashSale(models.Model):
         return self.start_time <= now <= self.end_time
 
     @property
+    def seller_state(self) -> str:
+        """Etat vendeur calcule par l'heure (voir services.ordering.seller_sale_state)."""
+        from flash_sales.services.ordering import seller_sale_state
+
+        return seller_sale_state(self)
+
+    @property
     def is_scheduled(self):
         return self.status == FlashSaleStatus.SCHEDULED
 
@@ -188,7 +195,12 @@ class FlashSale(models.Model):
         self.save(update_fields=["status", "updated_at"])
 
     def cancel_sale(self):
-        if self.status == FlashSaleStatus.LIVE:
+        # Une vente SCHEDULED dans sa fenetre horaire prend deja des commandes
+        # (beat en retard, cf. ORDERABLE_STATUSES) : l'annuler ferait disparaitre
+        # des commandes en cours du dashboard public. Meme regle que LIVE.
+        from flash_sales.services.ordering import is_orderable_now
+
+        if self.status == FlashSaleStatus.LIVE or is_orderable_now(self):
             raise ValueError(
                 "Impossible d'annuler une vente en cours. Fermez-la d'abord."
             )

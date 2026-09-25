@@ -104,7 +104,7 @@ def checkout_view(request, plan: str):
         phone = (request.POST.get("phone") or "").strip()
 
         if not phone:
-            messages.error(request, "Le numero de telephone est obligatoire.")
+            messages.error(request, "Le numéro de téléphone est obligatoire.")
             return render(
                 request,
                 "subscriptions/checkout.html",
@@ -133,7 +133,7 @@ def checkout_view(request, plan: str):
                 detail = str(exc) if _s.DEBUG else ""
                 messages.error(
                     request,
-                    f"Le paiement Orange Money n'a pas pu etre initie.{' — ' + detail if detail else ''}",
+                    f"Le paiement Orange Money n'a pas pu être initié.{' — ' + detail if detail else ''}",
                 )
         else:
             # Moov / Wave : pas encore disponible
@@ -167,7 +167,7 @@ def payment_return_view(request, payment_id):
     if payment.status == PaymentStatus.SUCCESS:
         messages.success(
             request,
-            f"Paiement confirme ! Votre plan {payment.get_plan_display()} est actif.",
+            f"Paiement confirmé ! Votre plan {payment.get_plan_display()} est actif.",
         )
         return redirect("subscriptions:subscription")
 
@@ -189,7 +189,7 @@ def payment_cancel_view(request, payment_id):
     if payment.status == PaymentStatus.PENDING:
         payment.status = PaymentStatus.CANCELLED
         payment.save()
-    messages.warning(request, "Paiement annule.")
+    messages.warning(request, "Paiement annulé.")
     return redirect("subscriptions:subscription")
 
 

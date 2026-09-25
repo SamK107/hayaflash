@@ -102,7 +102,7 @@ function gpsCapture() {
       const map = {
         idle:    '',
         loading: 'Localisation en cours...',
-        success: `Position capturee (±${this.accuracy}m)`,
+        success: `Position capturée (±${this.accuracy}m)`,
         error:   'Position non disponible — saisissez votre adresse',
       };
       return map[this.status] || '';
@@ -160,7 +160,7 @@ function clientOrderForm(config) {
       const notes = (this.$refs.deliveryNotes?.value || '').trim();
 
       if (!name || !phone || !address) {
-        this.submitError = 'Merci de renseigner votre nom, votre telephone et votre adresse.';
+        this.submitError = 'Merci de renseigner votre nom, votre téléphone et votre adresse.';
         return;
       }
 
@@ -197,7 +197,7 @@ function clientOrderForm(config) {
           const firstVal = Object.values(data)[0];
           this.submitError = Array.isArray(firstVal)
             ? String(firstVal[0])
-            : String(firstVal || 'Une erreur est survenue, veuillez reessayer.');
+            : String(firstVal || 'Une erreur est survenue, veuillez réessayer.');
           window.dispatchEvent(new CustomEvent('hf-toast', {
             detail: { msg: this.submitError, type: 'error' },
           }));
@@ -207,10 +207,10 @@ function clientOrderForm(config) {
         this.submitted = true;
         if (window.hfInstallInvite) window.hfInstallInvite('buyer', { delay: 2500 });
         window.dispatchEvent(new CustomEvent('hf-toast', {
-          detail: { msg: 'Commande envoyee !', type: 'success' },
+          detail: { msg: 'Commande envoyée !', type: 'success' },
         }));
       } catch (e) {
-        this.submitError = 'Connexion impossible. Verifiez votre reseau et reessayez.';
+        this.submitError = 'Connexion impossible. Vérifiez votre réseau et réessayez.';
       } finally {
         this.submitting = false;
       }

@@ -29,7 +29,7 @@ class SellerOwnershipMixin:
                 return get_object_or_404(SellerProfile, pk=seller_id)
 
         raise PermissionDenied(
-            "Ce compte n'est pas un compte vendeur (ou seller_id manquant pour un acces admin)."
+            "Ce compte n'est pas un compte vendeur (ou seller_id manquant pour un accès admin)."
         )
 
     def get_owned_flash_sale(self, flash_sale_pk):

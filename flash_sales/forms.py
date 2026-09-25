@@ -13,7 +13,7 @@ MAX_DAILY_OTHER = 3  # max 3 ventes par jour
 DURATION_CHOICES = [
     ("60", "1 heure"),
     ("120", "2 heures (maximum)"),
-    ("custom", "Duree personnalisee (max 2h)"),
+    ("custom", "Durée personnalisée (max 2h)"),
 ]
 
 
@@ -21,7 +21,7 @@ class FlashSaleForm(forms.ModelForm):
     # Champs virtuels — pas dans le modele
     duration_preset = forms.ChoiceField(
         choices=DURATION_CHOICES,
-        label="Duree de la vente *",
+        label="Durée de la vente *",
         initial="60",
         widget=forms.Select(attrs={"class": "hf-input", "x-model": "durationPreset"}),
     )
@@ -29,7 +29,7 @@ class FlashSaleForm(forms.ModelForm):
         required=False,
         min_value=15,
         max_value=MAX_DURATION_MINUTES,
-        label="Duree personnalisee (minutes)",
+        label="Durée personnalisée (minutes)",
         widget=forms.NumberInput(
             attrs={
                 "class": "hf-input",
@@ -64,7 +64,7 @@ class FlashSaleForm(forms.ModelForm):
             "description": forms.Textarea(
                 attrs={
                     "rows": 3,
-                    "placeholder": "Decrivez votre vente : produits, conditions, zone...",
+                    "placeholder": "Décrivez votre vente : produits, conditions, zone...",
                     "class": "hf-input",
                 }
             ),
@@ -91,7 +91,7 @@ class FlashSaleForm(forms.ModelForm):
             "category": forms.Select(attrs={"class": "hf-input"}),
             "max_orders": forms.NumberInput(
                 attrs={
-                    "placeholder": "Laisser vide = illimite",
+                    "placeholder": "Laisser vide = illimité",
                     "min": 1,
                     "class": "hf-input",
                 }
@@ -100,7 +100,7 @@ class FlashSaleForm(forms.ModelForm):
         labels = {
             "title": "Titre de la vente *",
             "description": "Description",
-            "start_time": "Date et heure de debut *",
+            "start_time": "Date et heure de début *",
             "delivery_zone": "Zone de livraison",
             "cover_image": "Image de couverture",
             "max_orders": "Plafond de commandes",
@@ -149,7 +149,7 @@ class FlashSaleForm(forms.ModelForm):
         start = self.cleaned_data.get("start_time")
         if start and start < timezone.now() - timedelta(minutes=5):
             raise forms.ValidationError(
-                "La date de debut ne peut pas etre dans le passe."
+                "La date de début ne peut pas être dans le passé."
             )
         return start
 
@@ -209,7 +209,7 @@ class FlashSaleForm(forms.ModelForm):
             if len(sales_that_day) >= MAX_DAILY_OTHER:
                 self.add_error(
                     "start_time",
-                    f"Vous avez deja {MAX_DAILY_OTHER} ventes ce jour-la. "
+                    f"Vous avez déjà {MAX_DAILY_OTHER} ventes ce jour-là. "
                     "Maximum 3 ventes flash par jour.",
                 )
 

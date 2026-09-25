@@ -50,13 +50,13 @@
           style="width:{% widthratio sales_this_month free_limit 100 %}%"></div>
       </div>
       {% if sales_this_month >= free_limit %}
-      <p class="text-xs text-red-600 mt-2">Limite atteinte. Passez au Pro pour des ventes illimitees.</p>
+      <p class="text-xs text-red-600 mt-2">Limite atteinte. Passez au Pro pour des ventes illimitées.</p>
       {% endif %}
     </div>
     {% else %}
     <div class="mt-4 pt-4 border-t border-gray-50">
       <p class="text-sm text-green-600 font-semibold flex items-center gap-2">
-        <i data-lucide="infinity" class="w-4 h-4"></i>Ventes flash illimitees
+        <i data-lucide="infinity" class="w-4 h-4"></i>Ventes flash illimitées
       </p>
     </div>
     {% endif %}
@@ -65,7 +65,7 @@
   <!-- Plans disponibles -->
   {% if not sub.is_pro %}
   <div>
-    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 px-1">Passer a un plan superieur</p>
+    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 px-1">Passer à un plan supérieur</p>
     <div class="grid gap-4 sm:grid-cols-2">
       {% for card in plans %}
       {% if not card.is_current %}
@@ -119,8 +119,8 @@
   <!-- Deja Pro -->
   <div class="bg-amber-50 border border-amber-200 rounded-2xl p-5 text-center">
     <i data-lucide="crown" class="w-10 h-10 text-amber-500 mx-auto mb-3"></i>
-    <p class="font-black text-amber-900 text-lg">Vous etes sur le plan Pro</p>
-    <p class="text-sm text-amber-700 mt-1">Ventes illimitees, toutes les fonctionnalites activees.</p>
+    <p class="font-black text-amber-900 text-lg">Vous êtes sur le plan Pro</p>
+    <p class="text-sm text-amber-700 mt-1">Ventes illimitées, toutes les fonctionnalités activées.</p>
     {% if sub.expires_at %}
     <p class="text-xs text-amber-600 mt-3">
       Expire le {{ sub.expires_at|date:"d/m/Y" }} —

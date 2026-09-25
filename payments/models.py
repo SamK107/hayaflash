@@ -20,8 +20,8 @@ class PaymentTransactionStatus(models.TextChoices):
 
 
 class LedgerEntryType(models.TextChoices):
-    DEBIT = "debit", "Debit"
-    CREDIT = "credit", "Credit"
+    DEBIT = "debit", "Débit"
+    CREDIT = "credit", "Crédit"
 
 
 class LedgerAccount(models.TextChoices):

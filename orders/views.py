@@ -62,18 +62,20 @@ def _rate_limited_partial_html(
 def seller_dashboard(request):
     if not _require_seller(request.user):
         return HttpResponseForbidden("Seller profile required.")
-    from flash_sales.models import FlashSale, FlashSaleStatus
+    from flash_sales.models import FlashSale
+    from flash_sales.services.ordering import live_now_q, seller_upcoming_q
 
     seller = request.user.seller_profile
+    # Par l'heure (CLAUDE.md point 15), comme la prise de commande.
     live_sale = (
-        FlashSale.objects.filter(owner=seller, status=FlashSaleStatus.LIVE)
+        FlashSale.objects.filter(live_now_q(), owner=seller)
         .order_by("-start_time")
         .first()
     )
     next_sale = None
     if not live_sale:
         next_sale = (
-            FlashSale.objects.filter(owner=seller, status=FlashSaleStatus.SCHEDULED)
+            FlashSale.objects.filter(seller_upcoming_q(), owner=seller)
             .order_by("start_time")
             .first()
         )

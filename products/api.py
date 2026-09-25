@@ -214,7 +214,7 @@ class FlashSaleProductViewSet(SellerOwnershipMixin, viewsets.ViewSet):
         except _BulkValidationFailed:
             return Response(
                 {
-                    "detail": "Certaines lignes sont invalides, aucune modification enregistree.",
+                    "detail": "Certaines lignes sont invalides, aucune modification enregistrée.",
                     "errors": errors,
                 },
                 status=status.HTTP_400_BAD_REQUEST,
@@ -252,7 +252,7 @@ class FlashSaleProductViewSet(SellerOwnershipMixin, viewsets.ViewSet):
         previous_sale = self.get_owned_flash_sale(previous_sale_id)
         if previous_sale.pk == sale.pk:
             return Response(
-                {"detail": "Impossible de dupliquer une vente sur elle-meme."},
+                {"detail": "Impossible de dupliquer une vente sur elle-même."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -387,7 +387,7 @@ class FlashSaleProductViewSet(SellerOwnershipMixin, viewsets.ViewSet):
         files = request.FILES.getlist("files")
         if not files:
             return Response(
-                {"detail": "Aucun fichier recu (champ 'files')."},
+                {"detail": "Aucun fichier reçu (champ 'files')."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if len(files) > MAX_BULK_IMAGES:
@@ -552,8 +552,8 @@ class FlashSaleProductViewSet(SellerOwnershipMixin, viewsets.ViewSet):
             return Response(
                 {
                     "detail": (
-                        "Ce produit a deja des commandes associees et ne peut "
-                        "pas etre supprime definitivement ; masquez-le a la place."
+                        "Ce produit a déjà des commandes associées et ne peut "
+                        "pas être supprimé définitivement ; masquez-le à la place."
                     )
                 },
                 status=status.HTTP_409_CONFLICT,

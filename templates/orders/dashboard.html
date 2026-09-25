@@ -103,7 +103,7 @@
         >
           <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
             <h3 class="text-lg font-bold text-gray-900 mb-2">Fermer la vente ?</h3>
-            <p class="text-gray-500 text-sm mb-5">Plus aucune commande ne sera acceptee. Cette action est definitive.</p>
+            <p class="text-gray-500 text-sm mb-5">Plus aucune commande ne sera acceptée. Cette action est définitive.</p>
             <div class="flex gap-3">
               <button @click="open = false" class="flex-1 border border-gray-300 text-gray-700 font-semibold py-3 rounded-xl hover:bg-gray-50">
                 Annuler
@@ -167,10 +167,10 @@
       <i data-lucide="zap" class="w-8 h-8 text-gray-400"></i>
     </div>
     <h2 class="text-xl font-bold text-gray-900 mb-2">Aucune vente active</h2>
-    <p class="text-gray-500 text-sm mb-6">Creez une vente flash pour voir votre dashboard LIVE ici.</p>
+    <p class="text-gray-500 text-sm mb-6">Créez une vente flash pour voir votre dashboard LIVE ici.</p>
     <a href="{% url 'flash_sales:create' %}" class="inline-flex items-center gap-2 bg-primary text-white font-bold px-6 py-3 rounded-xl hover:bg-red-700">
       <i data-lucide="plus" class="w-4 h-4"></i>
-      Creer une vente
+      Créer une vente
     </a>
   </div>
   {% endif %}

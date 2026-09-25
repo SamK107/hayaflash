@@ -640,3 +640,98 @@ class SellerInstallInviteTest(TestCase):
         session.save()
         self.client.get(reverse("seller_home"), HTTP_HX_REQUEST="true")
         self.assertEqual(self.client.session.get(PWA_INSTALL_INVITE_SESSION_KEY), "seller")
+
+
+class SellerListByTimeTest(TestCase):
+    """
+    Phase 10.0 (cloture) : /seller/flash-sales/, la fiche vente, le badge nav,
+    le dashboard LIVE et l'admin plateforme classaient par statut brut. Sans
+    Celery beat (dev) ou en retard (prod), une vente SCHEDULED deja ouverte
+    restait "Programmee" et une vente LIVE finie restait "LIVE" indefiniment.
+    Regle unique : l'heure fait foi (CLAUDE.md point 15).
+    """
+
+    def setUp(self) -> None:
+        self.seller_user = User.objects.create_user(
+            phone="+22300000091", password="x", display_name="SellerTabs"
+        )
+        self.seller = SellerProfile.objects.create(user=self.seller_user)
+        self.client.force_login(self.seller_user)
+        now = timezone.now()
+        h = timedelta(hours=1)
+
+        def mk(title, status, start, end):
+            return FlashSale.objects.create(
+                owner=self.seller, title=title, status=status,
+                start_time=start, end_time=end,
+            )
+
+        self.upcoming = mk("A venir", FlashSaleStatus.SCHEDULED, now + h, now + 2 * h)
+        self.late_open = mk("Ouverte sans beat", FlashSaleStatus.SCHEDULED, now - h, now + h)
+        self.live = mk("En direct", FlashSaleStatus.LIVE, now - h, now + h)
+        self.stale_live = mk("LIVE finie", FlashSaleStatus.LIVE, now - 3 * h, now - 2 * h)
+        self.stale_sched = mk("Jamais ouverte finie", FlashSaleStatus.SCHEDULED, now - 3 * h, now - 2 * h)
+        self.closed = mk("Fermee", FlashSaleStatus.CLOSED, now - h, now + h)
+        self.executing = mk("Execution", FlashSaleStatus.EXECUTING, now - 3 * h, now - 2 * h)
+        self.completed = mk("Terminee", FlashSaleStatus.COMPLETED, now - 3 * h, now - 2 * h)
+        self.cancelled = mk("Annulee", FlashSaleStatus.CANCELLED, now + h, now + 2 * h)
+
+    def test_tabs_follow_time_and_partition_all_sales(self) -> None:
+        resp = self.client.get(reverse("flash_sales:list"))
+        self.assertEqual(resp.status_code, 200)
+        ids = lambda key: {s.pk for s in resp.context[key]}  # noqa: E731
+        self.assertEqual(ids("sales_scheduled"), {self.upcoming.pk})
+        self.assertEqual(ids("sales_live"), {self.late_open.pk, self.live.pk})
+        self.assertEqual(
+            ids("sales_closed"),
+            {self.stale_live.pk, self.stale_sched.pk, self.closed.pk, self.executing.pk},
+        )
+        self.assertEqual(ids("sales_done"), {self.completed.pk, self.cancelled.pk})
+        total = sum(len(resp.context[k]) for k in
+                    ("sales_scheduled", "sales_live", "sales_closed", "sales_done"))
+        self.assertEqual(total, FlashSale.objects.filter(owner=self.seller).count())
+        self.assertEqual(resp.context["default_tab"], "live")
+
+    def test_seller_state_matches_tabs(self) -> None:
+        self.assertEqual(self.upcoming.seller_state, "upcoming")
+        self.assertEqual(self.late_open.seller_state, "live")
+        self.assertEqual(self.stale_live.seller_state, "ended")
+        self.assertEqual(self.stale_sched.seller_state, "ended")
+        self.assertEqual(self.closed.seller_state, "ended")
+        self.assertEqual(self.executing.seller_state, "executing")
+        self.assertEqual(self.completed.seller_state, "completed")
+        self.assertEqual(self.cancelled.seller_state, "cancelled")
+
+    def test_detail_of_stale_live_sale_offers_closing_not_live(self) -> None:
+        resp = self.client.get(reverse("flash_sales:detail", kwargs={"pk": self.stale_live.pk}))
+        html = resp.content.decode()
+        self.assertIn("Clôturer la vente", html)
+        self.assertIn("Fermée", html)
+        self.assertNotIn("animate-ping", html)  # pas de badge LIVE
+
+    def test_detail_of_late_opened_scheduled_sale_is_live(self) -> None:
+        resp = self.client.get(reverse("flash_sales:detail", kwargs={"pk": self.late_open.pk}))
+        html = resp.content.decode()
+        self.assertIn("Tableau LIVE", html)
+        self.assertNotIn("Annuler la vente", html)
+        self.assertNotIn("Ouvrir la vente", html)
+
+    def test_cannot_cancel_scheduled_sale_already_taking_orders(self) -> None:
+        with self.assertRaises(ValueError):
+            self.late_open.cancel_sale()
+        self.upcoming.cancel_sale()
+        self.upcoming.refresh_from_db()
+        self.assertEqual(self.upcoming.status, FlashSaleStatus.CANCELLED)
+
+    def test_nav_badge_and_live_dashboard_ignore_stale_live(self) -> None:
+        FlashSale.objects.filter(pk__in=[self.live.pk, self.late_open.pk]).delete()
+        resp = self.client.get("/seller/")
+        self.assertIsNone(resp.context["active_sale"])
+        resp = self.client.get(reverse("orders:seller_dashboard"))
+        self.assertIsNone(resp.context["live_sale"])
+        self.assertEqual(resp.context["next_sale"], self.upcoming)
+
+    def test_default_tab_is_scheduled_without_live_sale(self) -> None:
+        FlashSale.objects.filter(pk__in=[self.live.pk, self.late_open.pk]).delete()
+        resp = self.client.get(reverse("flash_sales:list"))
+        self.assertEqual(resp.context["default_tab"], "scheduled")

@@ -27,9 +27,9 @@ def create_flash_sale(
 ) -> FlashSale:
     """Cree une nouvelle vente flash pour un vendeur."""
     if end_time <= start_time:
-        raise ValidationError("La date de fin doit etre apres la date de debut.")
+        raise ValidationError("La date de fin doit être après la date de début.")
     if start_time < timezone.now():
-        raise ValidationError("La date de debut ne peut pas etre dans le passe.")
+        raise ValidationError("La date de début ne peut pas être dans le passé.")
 
     sale = FlashSale(
         owner=owner,
@@ -62,7 +62,7 @@ def update_flash_sale(*, sale: FlashSale, seller, **kwargs) -> FlashSale:
         raise PermissionDenied("Cette vente ne vous appartient pas.")
     if sale.status not in (FlashSaleStatus.SCHEDULED,):
         raise ValidationError(
-            "Une vente en cours ou terminee ne peut plus etre modifiee."
+            "Une vente en cours ou terminée ne peut plus être modifiée."
         )
 
     allowed = {
@@ -150,4 +150,4 @@ def can_seller_create_sale(seller) -> tuple[bool, str]:
         # la creation plutot que de laisser un vendeur FREE creer des ventes
         # illimitees sans controle.
         logger.exception("Quota check failed for seller %s", getattr(seller, "pk", seller))
-        return False, "Impossible de verifier votre quota. Reessayez."
+        return False, "Impossible de vérifier votre quota. Réessayez."

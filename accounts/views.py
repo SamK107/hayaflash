@@ -63,6 +63,7 @@ def seller_profile_edit(request):
     from accounts.models import SellerProfile
     from orders.services.dashboard import get_dashboard_kpis_cached
     from flash_sales.models import FlashSaleStatus
+    from flash_sales.services.ordering import live_now_q
 
     try:
         profile = request.user.seller_profile
@@ -87,7 +88,7 @@ def seller_profile_edit(request):
         "total_revenue": kpis.get("total_revenue", 0),
         "total_orders": kpis.get("total_orders", 0),
         "total_quantity": kpis.get("total_quantity", 0),
-        "live_count": sales_qs.filter(status=FlashSaleStatus.LIVE).count(),
+        "live_count": sales_qs.filter(live_now_q()).count(),
         "total_sales": sales_qs.count(),
         "completed_sales": sales_qs.filter(
             status__in=[FlashSaleStatus.COMPLETED, FlashSaleStatus.CLOSED]

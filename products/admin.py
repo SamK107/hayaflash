@@ -59,7 +59,7 @@ class ProductAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "Caracteristiques",
+            "Caractéristiques",
             {
                 "fields": ("characteristics",),
                 "classes": ("collapse",),

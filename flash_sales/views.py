@@ -7,11 +7,18 @@ import json
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 
 from core.context_processors import request_pwa_install_invite
 
 from .forms import FlashSaleForm
-from .models import FlashSale, FlashSaleStatus, SaleInterest
+from .models import FlashSale, SaleInterest
+from .services.ordering import (
+    live_now_q,
+    seller_done_q,
+    seller_processing_q,
+    seller_upcoming_q,
+)
 from .services.crud import (
     can_seller_create_sale,
     clone_flash_sale,
@@ -31,14 +38,13 @@ def _get_seller(request):
 def flash_sale_list_view(request):
     seller = _get_seller(request)
     sales = FlashSale.objects.filter(owner=seller).select_related("owner")
-    sales_scheduled = sales.filter(status=FlashSaleStatus.SCHEDULED)
-    sales_live = sales.filter(status=FlashSaleStatus.LIVE)
-    sales_closed = sales.filter(
-        status__in=[FlashSaleStatus.CLOSED, FlashSaleStatus.EXECUTING]
-    )
-    sales_done = sales.filter(
-        status__in=[FlashSaleStatus.COMPLETED, FlashSaleStatus.CANCELLED]
-    )
+    # Onglets calcules par l'heure, pas par le statut brut (voir
+    # services.ordering, section "Espace vendeur").
+    now = timezone.now()
+    sales_scheduled = sales.filter(seller_upcoming_q(now)).order_by("start_time")
+    sales_live = sales.filter(live_now_q(now)).order_by("end_time")
+    sales_closed = sales.filter(seller_processing_q(now)).order_by("-end_time")
+    sales_done = sales.filter(seller_done_q()).order_by("-end_time")
     quota = get_sale_quota(seller)
     ctx = {
         "sales_scheduled": sales_scheduled,
@@ -53,13 +59,15 @@ def flash_sale_list_view(request):
             ("done", "Terminées", sales_done.count()),
         ],
         "pro_features": [
-            "Ventes flash illimitees chaque mois",
-            "Statistiques et analyses avancees",
-            "Priorite dans les resultats de recherche",
+            "Ventes flash illimitées chaque mois",
+            "Statistiques et analyses avancées",
+            "Priorité dans les résultats de recherche",
             "Support vendeur prioritaire",
-            "Acces aux fonctionnalites beta en avant-premiere",
+            "Accès aux fonctionnalités bêta en avant-première",
         ],
     }
+    # Onglet ouvert par defaut : "En cours" s'il y a une vente live.
+    ctx["default_tab"] = "live" if ctx["tab_list"][1][2] else "scheduled"
     return render(request, "flash_sales/list.html", ctx)
 
 
@@ -117,7 +125,7 @@ def flash_sale_create_view(request):
             audio = request.FILES.get("description_audio")
             if audio:
                 save_sale_audio(sale=sale, audio_file=audio)
-            messages.success(request, "Vente creee avec succes !")
+            messages.success(request, "Vente créée avec succès !")
             # Bandeau "Installez votre espace vendeur" sur la page suivante (1re
             # vente ; relance a la vente suivante si "Plus tard" — plafond cote JS).
             request_pwa_install_invite(request, "seller")
@@ -172,7 +180,7 @@ def flash_sale_edit_view(request, pk: int):
                 cover_image=data.get("cover_image"),
                 max_orders=data.get("max_orders"),
             )
-            messages.success(request, "Vente mise a jour.")
+            messages.success(request, "Vente mise à jour.")
             return redirect("flash_sales:detail", pk=sale.pk)
         except Exception as e:
             messages.error(request, str(e))
@@ -188,7 +196,7 @@ def flash_sale_open_view(request, pk: int):
     sale = get_object_or_404(FlashSale, pk=pk, owner=seller)
     try:
         sale.open_sale()
-        messages.success(request, "Vente ouverte ! Les commandes sont acceptees.")
+        messages.success(request, "Vente ouverte ! Les commandes sont acceptées.")
         try:
             from core.models import audit
 
@@ -214,7 +222,7 @@ def flash_sale_close_view(request, pk: int):
     sale = get_object_or_404(FlashSale, pk=pk, owner=seller)
     try:
         sale.close_sale()
-        messages.success(request, "Vente fermee.")
+        messages.success(request, "Vente fermée.")
         try:
             from core.models import audit
 
@@ -240,7 +248,7 @@ def flash_sale_cancel_view(request, pk: int):
     sale = get_object_or_404(FlashSale, pk=pk, owner=seller)
     try:
         sale.cancel_sale()
-        messages.success(request, "Vente annulee.")
+        messages.success(request, "Vente annulée.")
         try:
             from core.models import audit
 
