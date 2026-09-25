@@ -35,13 +35,13 @@
 
   <p class="text-xs text-gray-400">
     Votre abonnement sera activé automatiquement une fois le paiement confirmé.
-    Rafraichissez cette page dans quelques instants.
+    Rafraîchissez cette page dans quelques instants.
   </p>
 
   <div class="space-y-2">
     <a href="{% url 'subscriptions:subscription' %}"
        class="flex items-center justify-center gap-2 w-full bg-primary text-white font-bold py-3.5 rounded-xl hover:bg-red-700 transition-colors">
-      <i data-lucide="refresh-cw" class="w-4 h-4"></i>Verifier le statut
+      <i data-lucide="refresh-cw" class="w-4 h-4"></i>Vérifier le statut
     </a>
     <p class="text-xs text-gray-400">
       Problème ? Contactez-nous sur WhatsApp avec la référence <strong>{{ payment.order_id }}</strong>

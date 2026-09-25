@@ -198,9 +198,9 @@ Audit Playwright en deux sessions (21 et 22/09), rapport détaillé :
 | Acheteur : page vente publique, commande, confirmation | ✅ Testé après correctif (22/09) |
 | Acheteur : paiement Orange Money réel (abonnement vendeur) | 🟡 Redirection vers la page de paiement Orange confirmée (23/09) — reste à valider paiement → webhook → `WebhookLog` → activation du plan, et le chemin annulation |
 | Vendeur : dashboard livraison | ✅ Testé (commande visible, 22/09) |
-| Vendeur : paramètres, abonnement | 🟡 Partiel — lien "Passer Pro" corrigé (22/09), parcours complet non rejoué |
+| Vendeur : paramètres, abonnement | ✅ Rejoué (25/09, Playwright) — paramètres → abonnement → checkout PRO ; sans identifiants Orange, erreur propre sans 500. Retour/annulation : correctif IDOR (voir bug 14) |
 | Admin plateforme (staff) + `/admin/` Django | ✅ Testé (22/09) |
-| Mode support (`quick-publish` en impersonation staff) | 📋 Non testé en navigateur (couvert par tests unitaires) |
+| Mode support (`quick-publish` en impersonation staff) | ✅ Testé en navigateur (25/09) — vendeur impersonné affiché, API catalogue appelée avec `?seller_id=` → 200, aucune erreur JS |
 
 **Bugs trouvés et corrigés :**
 
@@ -220,9 +220,11 @@ Audit Playwright en deux sessions (21 et 22/09), rapport détaillé :
 | 11 | ETag des pages publiques (`/f/`, `/s/`) indépendant de la version du code : après une mise à jour, un navigateur qui avait déjà vu la page recevait un 304 et gardait l'ancien HTML (nouveaux scripts invisibles — constaté avec le bandeau d'installation) | Majeur (déploiements) | `compute_page_etag()` inclut `APP_RELEASE` (SHA git à définir au déploiement, sinon heure de démarrage du process) (23/09) |
 | 12 | « M'alerter » / « M'informer » en échec (« Erreur. Reessayez. ») pour tout visiteur sans cookie `csrftoken` : les pages publiques mises en cache ne posent pas ce cookie → `POST /f/<slug>/interest/` refusé en 403 CSRF. Invisible en tests (le client de test Django désactive le CSRF par défaut) | Critique (inscriptions perdues) | `@csrf_exempt` sur `flash_sale_interest` (anonyme, sans session, déjà limité par `allow_tracking_request`) + message d'erreur serveur affiché au lieu du générique — test avec `Client(enforce_csrf_checks=True)` (23/09) |
 | 13 | Service worker enregistré depuis `/static/sw.js` → portée limitée à `/static/` : il ne contrôlait aucune page (mode hors ligne inopérant) et Chrome ne jugeait pas l'app installable → bandeau/bouton « Installer » jamais proposé | Majeur (PWA) | SW servi à la racine `/sw.js` (vue `core.views.service_worker`, en-tête `Service-Worker-Allowed: /`, `Cache-Control: no-cache`), enregistré avec `scope: '/'`, ancien enregistrement `/static/` retiré côté client ; `hf-install.js` écrit dans la console pourquoi le bandeau n'est pas affiché (23/09) |
+| 14 | `/billing/return/` et `/billing/cancel/` cherchaient le paiement par `order_id` seul : tout utilisateur connecté pouvait afficher ou annuler le paiement en attente d'un autre vendeur (IDOR) | Majeur (sécurité) | `_own_payment()` filtre sur le vendeur connecté — tests `BillingRedirectOwnershipTest` (échouent sur l'ancien code) (25/09) |
+| 15 | Liste vendeur `/seller/flash-sales/`, fiche vente, dashboard LIVE, badge LIVE du menu, admin plateforme : classement par statut brut (vente `SCHEDULED` en cours rangée dans « Programmées », vente `LIVE` expirée affichée LIVE indéfiniment) | Majeur (UX vendeur) | Règle horaire `seller_sale_state()` / `seller_*_q()` (`flash_sales/services/ordering.py`), badge partagé `partials/_seller_state_badge.html`, onglet « En cours » ouvert par défaut, bouton « Clôturer » sur une vente expirée ; annulation refusée pour une vente commandable — tests dans `flash_sales/tests.py` (25/09) |
+| 16 | Libellés sans accents dans les modèles (`choices`, `verbose_name`, `help_text`) et ~40 messages/templates vendeur | Mineur | Accents rétablis + migrations `*_libelles_accentues` (6 apps, sans effet sur les données) (25/09) |
 
 **Restant / en attente :**
-- Libellés des modèles sans accents (`FlashSaleStatus` : `Programmee`, `Fermee`, `En execution`, `Terminee`, `Annulee` ; `verbose_name="Debut"`) — changement de `choices` = nouvelle migration (sans effet sur la base), à faire dans un commit dédié avec `makemigrations`.
 - Test Orange Money bout en bout (voir tableau ci-dessus) — en production, argent réel.
 
 

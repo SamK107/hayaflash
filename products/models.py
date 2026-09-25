@@ -21,9 +21,9 @@ class Product(models.Model):
         related_name="products_catalog",
         verbose_name="Vendeur",
         help_text=(
-            "Nullable pour compat avec d'eventuelles lignes orphelines "
-            "historiques (vente supprimee avant ce refactor) ; toujours "
-            "renseigne pour les produits crees via l'application."
+            "Nullable pour compat avec d'éventuelles lignes orphelines "
+            "historiques (vente supprimée avant ce refactor) ; toujours "
+            "renseigné pour les produits créés via l'application."
         ),
     )
     name = models.CharField(max_length=255, verbose_name="Nom du produit")
@@ -39,13 +39,13 @@ class Product(models.Model):
     unit = models.CharField(
         max_length=50,
         default="piece",
-        verbose_name="Unite",
-        help_text="piece, kg, lot, carton...",
+        verbose_name="Unité",
+        help_text="pièce, kg, lot, carton...",
     )
     characteristics = models.JSONField(
         default=dict,
         blank=True,
-        verbose_name="Caracteristiques",
+        verbose_name="Caractéristiques",
     )
     description_audio = models.FileField(
         upload_to="audio/products/",
@@ -85,7 +85,7 @@ class Product(models.Model):
 class ProductMedia(models.Model):
     class MediaType(models.TextChoices):
         IMAGE = "image", "Image"
-        VIDEO = "video", "Video"
+        VIDEO = "video", "Vidéo"
 
     product = models.ForeignKey(
         Product,
@@ -107,7 +107,7 @@ class ProductMedia(models.Model):
     )
     video_url = models.URLField(
         blank=True,
-        verbose_name="URL video",
+        verbose_name="URL vidéo",
         help_text="Lien YouTube, TikTok ou autre",
     )
     alt_text = models.CharField(max_length=200, blank=True, verbose_name="Texte alt")
@@ -116,8 +116,8 @@ class ProductMedia(models.Model):
 
     class Meta:
         ordering = ["order"]
-        verbose_name = "Media produit"
-        verbose_name_plural = "Medias produits"
+        verbose_name = "Média produit"
+        verbose_name_plural = "Médias produits"
 
     def __str__(self):
         return f"Media #{self.order} - {self.product.name}"
@@ -148,7 +148,7 @@ class ProductVariant(models.Model):
         max_digits=10,
         decimal_places=2,
         default=0,
-        verbose_name="Difference de prix",
+        verbose_name="Différence de prix",
     )
 
     class Meta:
@@ -162,8 +162,8 @@ class ProductVariant(models.Model):
 
 class StockMovement(models.Model):
     class MovementType(models.TextChoices):
-        RESERVATION = "reservation", "Reservation (commande)"
-        RELEASE = "release", "Liberation (annulation)"
+        RESERVATION = "reservation", "Réservation (commande)"
+        RELEASE = "release", "Libération (annulation)"
         CORRECTION = "correction", "Correction manuelle"
         INITIAL = "initial", "Stock initial"
 
@@ -183,7 +183,7 @@ class StockMovement(models.Model):
     )
     quantity_change = models.IntegerField(
         verbose_name="Variation de stock",
-        help_text="Negatif = sortie, positif = entree",
+        help_text="Négatif = sortie, positif = entrée",
     )
     movement_type = models.CharField(
         max_length=20,

@@ -9,8 +9,8 @@ class Notification(models.Model):
 
     class Status(models.TextChoices):
         PENDING = "pending", "En attente"
-        SENT = "sent", "Envoyee"
-        FAILED = "failed", "Echouee"
+        SENT = "sent", "Envoyée"
+        FAILED = "failed", "Échouée"
 
     recipient_phone = models.CharField(max_length=20, verbose_name="Destinataire")
     channel = models.CharField(
@@ -25,7 +25,7 @@ class Notification(models.Model):
         verbose_name="Statut",
     )
     error_message = models.TextField(blank=True, verbose_name="Erreur")
-    sent_at = models.DateTimeField(null=True, blank=True, verbose_name="Envoyee le")
+    sent_at = models.DateTimeField(null=True, blank=True, verbose_name="Envoyée le")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

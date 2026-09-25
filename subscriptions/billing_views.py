@@ -27,6 +27,24 @@ from .models import PaymentStatus, SubscriptionPayment, WebhookLog
 logger = logging.getLogger(__name__)
 
 
+def _own_payment(request, order_id: str):
+    """Paiement du vendeur connecte uniquement (None sinon).
+
+    Les pages de retour/annulation sont des redirections navigateur : un
+    utilisateur connecte ne doit ni voir ni annuler le paiement d'un autre
+    vendeur en devinant un order_id (IDOR). Le webhook, lui, reste indexe par
+    notif_token (voir CLAUDE.md, Orange Money).
+    """
+    seller = getattr(request.user, "seller_profile", None)
+    if seller is None:
+        return None
+    return (
+        SubscriptionPayment.objects.select_related("seller")
+        .filter(order_id=order_id, seller=seller)
+        .first()
+    )
+
+
 @login_required
 def billing_return_view(request):
     """
@@ -41,18 +59,15 @@ def billing_return_view(request):
         # Pas d'order_id : probablement acces direct a l'URL, rediriger vers abonnement
         return redirect("subscriptions:subscription")
 
-    try:
-        payment = SubscriptionPayment.objects.select_related("seller").get(
-            order_id=order_id
-        )
-    except SubscriptionPayment.DoesNotExist:
-        logger.warning("billing_return: order_id inconnu: %s", order_id)
+    payment = _own_payment(request, order_id)
+    if payment is None:
+        logger.warning("billing_return: order_id inconnu ou d'un autre vendeur: %s", order_id)
         return redirect("subscriptions:subscription")
 
     if payment.status == PaymentStatus.SUCCESS:
         messages.success(
             request,
-            f"Paiement confirme ! Votre plan {payment.get_plan_display()} est actif.",
+            f"Paiement confirmé ! Votre plan {payment.get_plan_display()} est actif.",
         )
         return redirect("subscriptions:subscription")
 
@@ -67,16 +82,12 @@ def billing_cancel_view(request):
     """
     order_id = (request.GET.get("order_id") or "").strip()
 
-    if order_id:
-        try:
-            payment = SubscriptionPayment.objects.get(order_id=order_id)
-            if payment.status == PaymentStatus.PENDING:
-                payment.status = PaymentStatus.CANCELLED
-                payment.save()
-        except SubscriptionPayment.DoesNotExist:
-            pass
+    payment = _own_payment(request, order_id) if order_id else None
+    if payment is not None and payment.status == PaymentStatus.PENDING:
+        payment.status = PaymentStatus.CANCELLED
+        payment.save()
 
-    messages.warning(request, "Paiement annule.")
+    messages.warning(request, "Paiement annulé.")
     return redirect("subscriptions:subscription")
 
 

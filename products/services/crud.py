@@ -22,9 +22,9 @@ def create_product(
     Ne rattache plus a une vente : voir `attach_product_to_sale` pour ca.
     """
     if stock < 0:
-        raise ValidationError("Le stock ne peut pas etre negatif.")
+        raise ValidationError("Le stock ne peut pas être négatif.")
     if float(price) <= 0:
-        raise ValidationError("Le prix doit etre superieur a 0.")
+        raise ValidationError("Le prix doit être supérieur à 0.")
 
     product = Product.objects.create(
         owner=owner,
@@ -45,7 +45,7 @@ def create_product(
         product=product,
         quantity_change=stock,
         movement_type=StockMovement.MovementType.INITIAL,
-        notes="Stock initial a la creation du produit",
+        notes="Stock initial à la création du produit",
     )
     return product
 
@@ -110,7 +110,7 @@ def adjust_stock(*, product: Product, new_stock_available: int, notes: str = "")
     plutot que d'ecraser silencieusement `stock_available`.
     """
     if new_stock_available < 0:
-        raise ValidationError("Le stock ne peut pas etre negatif.")
+        raise ValidationError("Le stock ne peut pas être négatif.")
     delta = new_stock_available - product.stock_available
     if delta == 0:
         return product

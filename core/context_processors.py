@@ -39,10 +39,13 @@ def active_live_sale(request):
     except Exception:
         return {"active_sale": None}
 
-    from flash_sales.models import FlashSale, FlashSaleStatus
+    from flash_sales.models import FlashSale
+    from flash_sales.services.ordering import live_now_q
 
+    # Par l'heure (CLAUDE.md point 15) : une vente LIVE dont la fin est passee
+    # (beat en retard/absent) ne doit plus afficher le badge "LIVE".
     sale = (
-        FlashSale.objects.filter(owner=seller, status=FlashSaleStatus.LIVE)
+        FlashSale.objects.filter(live_now_q(), owner=seller)
         .order_by("start_time")
         .first()
     )

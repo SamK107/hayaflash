@@ -300,7 +300,7 @@
           {% endif %}
           {% if flash_sale.description %}
           <button onclick="hfSpeak(this,'{{ flash_sale.title|escapejs }}. {{ flash_sale.description|escapejs }}')"
-                  class="p-2.5 bg-orange-50 text-orange-500 rounded-xl hover:bg-orange-100 active:scale-95 transition-all" title="Ecouter">
+                  class="p-2.5 bg-orange-50 text-orange-500 rounded-xl hover:bg-orange-100 active:scale-95 transition-all" title="Écouter">
             <i data-lucide="volume-2" class="w-5 h-5"></i>
           </button>
           {% endif %}
@@ -349,7 +349,7 @@
               {% endif %}
               {% if p.description %}
               <button onclick="hfSpeak(this,'{{ p.name|escapejs }}{% if p.description %}. {{ p.description|escapejs }}{% endif %}')"
-                      class="p-2 bg-orange-50 text-orange-500 rounded-xl hover:bg-orange-100 active:scale-95 transition-all" title="Ecouter">
+                      class="p-2 bg-orange-50 text-orange-500 rounded-xl hover:bg-orange-100 active:scale-95 transition-all" title="Écouter">
                 <i data-lucide="volume-2" class="w-4 h-4"></i>
               </button>
               {% endif %}
@@ -416,7 +416,7 @@
         <i data-lucide="share-2" class="w-4 h-4"></i>Partager
       </button>
     </div>
-    <p class="text-center text-xs text-gray-300 mt-4 mb-2">Propulse par <strong>HayaFlash</strong> · Mali</p>
+    <p class="text-center text-xs text-gray-300 mt-4 mb-2">Propulsé par <strong>HayaFlash</strong> · Mali</p>
   </div>
 
   <!-- DRAWER COMMANDE -->
@@ -490,7 +490,7 @@
             <span class="text-gray-400 font-normal text-xs">(ou message vocal ci-dessous)</span>
           </label>
           <textarea x-model="address" rows="2"
-                    placeholder="Quartier, rue, point de repere…"
+                    placeholder="Quartier, rue, point de repère…"
                     class="w-full px-4 py-3 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"></textarea>
           <p x-show="!audioUrl" class="text-xs text-gray-400 mt-1">
             Obligatoire, sauf si vous enregistrez un message vocal ci-dessous.
@@ -514,19 +514,19 @@
             <span>Position envoyée <span class="font-normal text-green-600" x-text="geoAccuracy ? '(précision ~' + geoAccuracy + ' m)' : ''"></span></span>
           </div>
           <p x-show="geoStatus === 'denied'" x-cloak class="text-xs text-amber-600 mt-1">
-            Localisation refusee — votre adresse ecrite suffit pour la livraison.
+            Localisation refusée — votre adresse écrite suffit pour la livraison.
           </p>
           <p x-show="geoStatus === 'timeout' || geoStatus === 'error'" x-cloak class="text-xs text-amber-600 mt-1">
-            Localisation indisponible — votre adresse ecrite suffit pour la livraison.
+            Localisation indisponible — votre adresse écrite suffit pour la livraison.
           </p>
           <p x-show="geoStatus === 'unavailable'" x-cloak class="text-xs text-gray-400 mt-1">
-            Geolocalisation non supportee par ce navigateur.
+            Geolocalisation non supportée par ce navigateur.
           </p>
         </div>
         <div>
           <label class="block text-sm font-semibold text-gray-700 mb-1.5">
             Adresse vocale et autres info
-            <span class="text-gray-400 font-normal text-xs">(si vous ne pouvez pas ecrire, ce message suffit)</span>
+            <span class="text-gray-400 font-normal text-xs">(si vous ne pouvez pas écrire, ce message suffit)</span>
           </label>
           <p x-show="address.trim().length >= 10 && !audioUrl" x-cloak class="text-xs text-green-600 mb-2 flex items-center gap-1">
             <i data-lucide="check-circle" class="w-3 h-3"></i>Adresse déjà indiquée — ce message est optionnel.
@@ -560,7 +560,7 @@
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-600 mb-1.5">Note au vendeur <span class="text-gray-400">(optionnel)</span></label>
-          <input type="text" x-model="note" placeholder="Ex: couleur preferee, taille…"
+          <input type="text" x-model="note" placeholder="Ex: couleur préférée, taille…"
                  class="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
         </div>
         <div class="bg-gray-50 rounded-xl p-4 flex items-center justify-between">
@@ -570,7 +570,7 @@
           </div>
           <div class="text-right text-xs text-gray-400">
             <p>Paiement a la livraison</p>
-            <p>Especes ou mobile money</p>
+            <p>Espèces ou mobile money</p>
           </div>
         </div>
         <button type="button" @click="submitOrder()" :disabled="submitting"

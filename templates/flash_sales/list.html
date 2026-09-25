@@ -29,15 +29,15 @@
       <div class="flex-1 min-w-0">
         <p class="font-bold text-gray-900 text-base mb-0.5">Limite du plan {{ quota.plan|capfirst }} atteinte</p>
         <p class="text-sm text-gray-600 mb-3">
-          Vous avez utilise <strong>{{ quota.monthly_count }}/{{ quota.monthly_limit }}</strong> ventes ce mois-ci.
-          Passez au plan <strong>Pro</strong> pour creer des ventes illimitees.
+          Vous avez utilisé <strong>{{ quota.monthly_count }}/{{ quota.monthly_limit }}</strong> ventes ce mois-ci.
+          Passez au plan <strong>Pro</strong> pour créer des ventes illimitées.
         </p>
         <div class="flex flex-wrap gap-3 items-center">
           <button onclick="document.getElementById('upgrade-modal').classList.remove('hidden')"
                   class="inline-flex items-center gap-2 bg-primary text-white font-bold px-4 py-2 rounded-xl text-sm hover:bg-red-700 active:scale-[.98] transition-all shadow-sm">
             <i data-lucide="crown" class="w-4 h-4"></i>Voir les plans
           </button>
-          <span class="text-xs text-gray-400">Quota remis a zero le 1er du mois prochain</span>
+          <span class="text-xs text-gray-400">Quota remis à zéro le 1er du mois prochain</span>
         </div>
       </div>
     </div>
@@ -48,18 +48,21 @@
     <span>Plan {{ quota.plan|capfirst }} &middot; <strong class="text-gray-700">{{ quota.monthly_count }}/{{ quota.monthly_limit }}</strong> ventes ce mois-ci</span>
     {% if quota.monthly_count == quota.monthly_limit|add:"-1" %}
     <span class="ml-auto text-amber-600 font-semibold text-xs flex items-center gap-1">
-      <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>Derniere disponible
+      <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>Dernière disponible
     </span>
     {% endif %}
   </div>
   {% endif %}
 
-  <div x-data="{ tab: 'scheduled' }">
-    <div class="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit">
+  <div x-data="{ tab: '{{ default_tab }}' }">
+    {% comment %}overflow-x-auto : sur mobile (390 px) les 4 onglets debordaient et elargissaient
+       toute la page. max-width/white-space en style : classes absentes du build
+       Tailwind fige (docs/FRONTEND_VENDORING.md).{% endcomment %}
+    <div class="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit overflow-x-auto" style="max-width:100%">
       {% for tab_id, label, count in tab_list %}
       <button @click="tab = '{{ tab_id }}'"
               :class="tab === '{{ tab_id }}' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'"
-              class="px-4 py-2 rounded-lg text-sm font-medium transition-all">
+              class="shrink-0 px-3 py-2 rounded-lg text-sm font-medium transition-all" style="white-space:nowrap">
         {{ label }}
         {% if count %}<span class="ml-1.5 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">{{ count }}</span>{% endif %}
       </button>
@@ -91,7 +94,7 @@
       <i data-lucide="zap" class="w-7 h-7 text-white"></i>
     </div>
     <h2 class="text-xl font-black text-gray-900 text-center mb-1">Choisissez votre plan</h2>
-    <p class="text-center text-gray-500 text-sm mb-5">Debloquez plus de ventes et de fonctionnalites.</p>
+    <p class="text-center text-gray-500 text-sm mb-5">Débloquez plus de ventes et de fonctionnalités.</p>
 
     {% if not quota.is_pro and quota.monthly_limit %}
     <div class="bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 mb-5 text-xs text-center text-gray-500">
@@ -134,9 +137,9 @@
         </div>
       </div>
       <ul class="space-y-1.5 mb-4">
-        <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>Ventes flash <strong>illimitees</strong></li>
-        <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>Statistiques et analyses avancees</li>
-        <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>Tableau de bord LIVE temps reel</li>
+        <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>Ventes flash <strong>illimitées</strong></li>
+        <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>Statistiques et analyses avancées</li>
+        <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>Tableau de bord LIVE temps réel</li>
         <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>Notifications SMS automatiques</li>
         <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>Support prioritaire WhatsApp</li>
       </ul>

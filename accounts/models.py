@@ -119,7 +119,7 @@ class SellerProfile(models.Model):
         choices=SaleCategory.choices,
         blank=True,
         verbose_name="Type de produits",
-        help_text="Categorie par defaut de vos ventes (modifiable vente par vente).",
+        help_text="Catégorie par défaut de vos ventes (modifiable vente par vente).",
     )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -41,7 +41,7 @@ def _get_access_token() -> str:
     )
     if resp.status_code != 200:
         raise OrangeMoneyError(
-            f"Echec obtention token Orange ({resp.status_code}): {resp.text[:200]}"
+            f"Échec obtention token Orange ({resp.status_code}): {resp.text[:200]}"
         )
     return resp.json()["access_token"]
 
@@ -134,14 +134,14 @@ def initiate_payment(
 
     if resp.status_code not in (200, 201):
         raise OrangeMoneyError(
-            f"Initiation paiement echouee ({resp.status_code}): {resp.text[:300]}"
+            f"Initiation paiement échouée ({resp.status_code}): {resp.text[:300]}"
         )
 
     data = resp.json()
     payment_url = data.get("payment_url") or data.get("paymentUrl") or ""
 
     if not payment_url:
-        raise OrangeMoneyError(f"Pas d'URL de paiement dans la reponse: {data}")
+        raise OrangeMoneyError(f"Pas d'URL de paiement dans la réponse: {data}")
 
     return {
         "payment_url": payment_url,

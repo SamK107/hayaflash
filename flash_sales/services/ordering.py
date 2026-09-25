@@ -61,3 +61,55 @@ def upcoming_q(now=None) -> Q:
 
 def is_orderable_now(flash_sale: FlashSale) -> bool:
     return flash_sale.status in ORDERABLE_STATUSES and flash_sale.is_live()
+
+
+# ── Espace vendeur : memes regles, etats de gestion ───────────────────────
+# /seller/flash-sales/ classait par statut brut : une vente SCHEDULED dont
+# l'heure est passee (beat en retard) restait dans "Programmees" alors qu'elle
+# prenait deja des commandes ; une vente LIVE dont la fin est passee restait
+# "En cours / LIVE" indefiniment. Les onglets et badges vendeur suivent donc
+# la meme regle horaire que les pages publiques et la prise de commande.
+
+SELLER_STATE_UPCOMING = "upcoming"
+SELLER_STATE_LIVE = "live"
+SELLER_STATE_ENDED = "ended"  # fenetre passee ou fermee : commandes a traiter
+SELLER_STATE_EXECUTING = "executing"
+SELLER_STATE_COMPLETED = "completed"
+SELLER_STATE_CANCELLED = "cancelled"
+
+PROCESSING_STATUSES = frozenset({FlashSaleStatus.CLOSED, FlashSaleStatus.EXECUTING})
+DONE_STATUSES = frozenset({FlashSaleStatus.COMPLETED, FlashSaleStatus.CANCELLED})
+
+
+def seller_upcoming_q(now=None) -> Q:
+    now = now or timezone.now()
+    return Q(status__in=ORDERABLE_STATUSES, start_time__gt=now)
+
+
+def seller_processing_q(now=None) -> Q:
+    """Fermees/en execution, ou commandables dont l'heure de fin est passee."""
+    now = now or timezone.now()
+    return Q(status__in=PROCESSING_STATUSES) | Q(
+        status__in=ORDERABLE_STATUSES, end_time__lt=now
+    )
+
+
+def seller_done_q() -> Q:
+    return Q(status__in=DONE_STATUSES)
+
+
+def seller_sale_state(flash_sale: FlashSale, now=None) -> str:
+    """Etat affiche au vendeur -- partition exacte des 4 onglets de la liste."""
+    now = now or timezone.now()
+    status = flash_sale.status
+    if status == FlashSaleStatus.CANCELLED:
+        return SELLER_STATE_CANCELLED
+    if status == FlashSaleStatus.COMPLETED:
+        return SELLER_STATE_COMPLETED
+    if status == FlashSaleStatus.EXECUTING:
+        return SELLER_STATE_EXECUTING
+    if status == FlashSaleStatus.CLOSED or flash_sale.end_time < now:
+        return SELLER_STATE_ENDED
+    if flash_sale.start_time > now:
+        return SELLER_STATE_UPCOMING
+    return SELLER_STATE_LIVE

@@ -30,11 +30,11 @@ def _phone_errors(
 ) -> list[str]:
     errs = []
     if not phone:
-        errs.append("Le numero de telephone est obligatoire.")
+        errs.append("Le numéro de téléphone est obligatoire.")
     if not business_name.strip():
         errs.append("Le nom de votre boutique est obligatoire.")
     if len(password) < 6:
-        errs.append("Le mot de passe doit contenir au moins 6 caracteres.")
+        errs.append("Le mot de passe doit contenir au moins 6 caractères.")
     if password != password2:
         errs.append("Les deux mots de passe ne correspondent pas.")
     return errs
@@ -74,7 +74,7 @@ def login_view(request):
         password = request.POST.get("password", "")
 
         if not raw_phone or not password:
-            error = "Veuillez renseigner votre telephone et votre mot de passe."
+            error = "Veuillez renseigner votre téléphone et votre mot de passe."
         else:
             phone = _normalize(raw_phone)
             user = authenticate(request, username=phone, password=password)
@@ -83,7 +83,7 @@ def login_view(request):
                 next_url = request.GET.get("next") or _post_login_redirect_target(user)
                 return redirect(next_url)
             else:
-                error = "Numero de telephone ou mot de passe incorrect."
+                error = "Numéro de téléphone ou mot de passe incorrect."
 
     return render(request, "accounts/login.html", {"error": error})
 
@@ -113,7 +113,7 @@ def register_view(request):
             # verifier unicite du numero
             if get_user_by_phone(phone):
                 errors.append(
-                    "Ce numero est deja utilise. Connectez-vous ou utilisez un autre numero."
+                    "Ce numéro est déjà utilisé. Connectez-vous ou utilisez un autre numéro."
                 )
 
         if not errors:
@@ -136,7 +136,7 @@ def register_view(request):
                 )
                 return redirect("seller_home")
             except Exception as exc:
-                errors.append(f"Erreur lors de la creation du compte : {exc}")
+                errors.append(f"Erreur lors de la création du compte : {exc}")
 
     return render(
         request,
@@ -210,7 +210,8 @@ def platform_admin_dashboard(request):
     from django.db.models import Count, Sum
     from django.utils import timezone
 
-    from flash_sales.models import FlashSale, FlashSaleStatus
+    from flash_sales.models import FlashSale
+    from flash_sales.services.ordering import live_now_q
     from orders.models import Order
     from subscriptions.models import PaymentStatus, Subscription, SubscriptionPayment
     from subscriptions.services.platform_reporting import (
@@ -230,7 +231,7 @@ def platform_admin_dashboard(request):
             .annotate(count=Count("id"))
             .order_by("plan")
         ),
-        "live_sales": FlashSale.objects.filter(status=FlashSaleStatus.LIVE).count(),
+        "live_sales": FlashSale.objects.filter(live_now_q()).count(),
         "total_orders_month": Order.service_objects.filter(
             created_at__gte=month_start
         ).count(),

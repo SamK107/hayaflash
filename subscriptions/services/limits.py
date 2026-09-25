@@ -75,8 +75,8 @@ def get_sale_quota(seller) -> dict:
             "monthly_count": count,
             "monthly_limit": limit,
             "reason": (
-                f"Vous avez utilise {count}/{limit} ventes ce mois-ci. "
-                f"Passez au plan Pro pour des ventes illimitees."
+                f"Vous avez utilisé {count}/{limit} ventes ce mois-ci. "
+                f"Passez au plan Pro pour des ventes illimitées."
             ),
         }
 

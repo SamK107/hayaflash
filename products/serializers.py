@@ -124,4 +124,4 @@ def parse_decimal_or_none(value) -> Decimal | None:
     try:
         return Decimal(str(value))
     except InvalidOperation as exc:
-        raise serializers.ValidationError("Valeur decimale invalide.") from exc
+        raise serializers.ValidationError("Valeur décimale invalide.") from exc

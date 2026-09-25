@@ -40,12 +40,12 @@ PLAN_FEATURES = {
         "Lien de partage WhatsApp",
     ],
     Plan.PRO: [
-        "Ventes flash illimitees",
-        "Statistiques et analyses avancees (historique complet)",
-        "Tableau de bord LIVE temps reel",
+        "Ventes flash illimitées",
+        "Statistiques et analyses avancées (historique complet)",
+        "Tableau de bord LIVE temps réel",
         "Notifications SMS automatiques",
         "Support prioritaire WhatsApp",
-        "Acces aux nouvelles fonctionnalites en avant-premiere",
+        "Accès aux nouvelles fonctionnalités en avant-première",
     ],
 }
 
@@ -68,7 +68,7 @@ class Subscription(models.Model):
         null=True,
         blank=True,
         verbose_name="Expire le",
-        help_text="Null = Free perpetuel ou plan actif sans expiration",
+        help_text="Null = Free perpétuel ou plan actif sans expiration",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -130,10 +130,10 @@ class Subscription(models.Model):
 
 class PaymentStatus(models.TextChoices):
     PENDING = "pending", "En attente"
-    SUCCESS = "success", "Succes"
-    FAILED = "failed", "Echec"
-    CANCELLED = "cancelled", "Annule"
-    EXPIRED = "expired", "Expire"
+    SUCCESS = "success", "Succès"
+    FAILED = "failed", "Échec"
+    CANCELLED = "cancelled", "Annulé"
+    EXPIRED = "expired", "Expiré"
 
 
 class PaymentProvider(models.TextChoices):
@@ -154,7 +154,7 @@ class SubscriptionPayment(models.Model):
     plan = models.CharField(max_length=20, choices=Plan.choices)
     provider = models.CharField(max_length=20, choices=PaymentProvider.choices)
     amount = models.PositiveIntegerField(help_text="Montant en FCFA")
-    phone = models.CharField(max_length=20, help_text="Numero paye")
+    phone = models.CharField(max_length=20, help_text="Numéro payé")
     status = models.CharField(
         max_length=20,
         choices=PaymentStatus.choices,

@@ -43,20 +43,8 @@
               {% endif %}
               {% endwith %}
             </div>
-            <!-- Badge statut -->
-            {% if sale.status == "live" %}
-            <span class="flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-700 rounded-full text-sm font-bold flex-shrink-0">
-              <span class="w-2 h-2 bg-green-500 rounded-full animate-ping"></span>LIVE
-            </span>
-            {% elif sale.status == "scheduled" %}
-            <span class="px-3 py-1.5 bg-blue-100 text-blue-600 rounded-full text-sm font-semibold flex-shrink-0">Programmée</span>
-            {% elif sale.status == "closed" %}
-            <span class="px-3 py-1.5 bg-orange-100 text-orange-600 rounded-full text-sm font-semibold flex-shrink-0">Fermee</span>
-            {% elif sale.status == "completed" %}
-            <span class="px-3 py-1.5 bg-gray-100 text-gray-500 rounded-full text-sm font-medium flex-shrink-0">Terminée</span>
-            {% elif sale.status == "cancelled" %}
-            <span class="px-3 py-1.5 bg-red-100 text-red-500 rounded-full text-sm font-medium flex-shrink-0">Annulée</span>
-            {% endif %}
+            <!-- Badge etat (calcule par l'heure, pas par le statut brut) -->
+            {% include "flash_sales/partials/_seller_state_badge.html" with sale=sale large=True %}
           </div>
 
           <div class="grid grid-cols-2 gap-4 mt-5 pt-5 border-t border-gray-50">
@@ -166,7 +154,8 @@
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
         <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wide">Actions</h3>
 
-        {% if sale.status == "scheduled" %}
+        {% with st=sale.seller_state %}
+        {% if st == "upcoming" %}
         <form method="post" action="{% url 'flash_sales:open' sale.pk %}">
           {% csrf_token %}
           <button type="submit"
@@ -188,7 +177,13 @@
           </button>
         </form>
 
-        {% elif sale.status == "live" %}
+        {% elif st == "live" or st == "ended" and sale.status != "closed" %}
+        {% if st == "ended" %}
+        <p class="text-xs text-orange-600 bg-orange-50 rounded-lg px-3 py-2">
+          L'heure de fin est passée : les commandes ne sont plus acceptées.
+          Clôturez la vente pour passer au traitement des commandes.
+        </p>
+        {% endif %}
         <a href="{% url 'orders:seller_dashboard' %}"
            class="w-full flex items-center justify-center gap-2 bg-primary text-white py-3 rounded-xl font-semibold hover:bg-primary-dark transition-colors">
           <i data-lucide="activity" class="w-5 h-5"></i>Tableau LIVE
@@ -197,8 +192,8 @@
           {% csrf_token %}
           <button type="submit"
                   class="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-600 py-2.5 rounded-xl font-medium hover:bg-gray-50 transition-colors"
-                  onclick="return confirm('Fermer la vente maintenant ?')">
-            <i data-lucide="square" class="w-4 h-4"></i>Fermer la vente
+                  onclick="return confirm('{% if st == "ended" %}Clôturer la vente ?{% else %}Fermer la vente maintenant ?{% endif %}')">
+            <i data-lucide="square" class="w-4 h-4"></i>{% if st == "ended" %}Clôturer la vente{% else %}Fermer la vente{% endif %}
           </button>
         </form>
 
@@ -220,6 +215,7 @@
           <i data-lucide="download" class="w-4 h-4"></i>Exporter CSV
         </a>
         {% endif %}
+        {% endwith %}
       </div>
 
       <!-- Lien de partage -->

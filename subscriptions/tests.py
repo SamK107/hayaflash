@@ -66,7 +66,8 @@ class FreePlanLimitsTest(TestCase):
             _make_sale(self.seller)
         ok, msg = can_create_flash_sale(self.seller)
         self.assertFalse(ok)
-        self.assertIn("limite", msg.lower())
+        # Le message doit afficher le quota consomme (ex. "3/3 ventes ce mois-ci").
+        self.assertIn(f"{FREE_MONTHLY_SALES_LIMIT}/{FREE_MONTHLY_SALES_LIMIT} ventes", msg)
 
     def test_old_month_sales_do_not_count(self):
         for _ in range(FREE_MONTHLY_SALES_LIMIT):
@@ -183,7 +184,8 @@ class CancelledSalesQuotaTest(TestCase):
 
         ok, msg = can_create_flash_sale(self.seller)
         self.assertFalse(ok, "SCHEDULED/LIVE/CLOSED doivent tous compter")
-        self.assertIn("limite", msg.lower())
+        # Le message doit afficher le quota consomme (ex. "3/3 ventes ce mois-ci").
+        self.assertIn(f"{FREE_MONTHLY_SALES_LIMIT}/{FREE_MONTHLY_SALES_LIMIT} ventes", msg)
 
 
 class PaymentActivationIdempotenceTest(TestCase):
@@ -368,3 +370,44 @@ class SubscriptionExpiryTest(TestCase):
             ).exists(),
             "Aucune vente ne doit etre creee : quota FREE (3) deja atteint",
         )
+
+
+class BillingRedirectOwnershipTest(TestCase):
+    """/billing/return/ et /billing/cancel/ n'agissent que sur les paiements du vendeur connecte."""
+
+    def setUp(self):
+        self.owner = _make_seller("+22300000051")
+        self.other = _make_seller("+22300000052")
+        self.payment = SubscriptionPayment.objects.create(
+            seller=self.owner,
+            plan=Plan.PRO,
+            provider=PaymentProvider.ORANGE,
+            amount=5000,
+            phone="+22300000051",
+            status=PaymentStatus.PENDING,
+            order_id="HF-P-a1b2c3d4",
+            notif_token=uuid.uuid4().hex,
+        )
+
+    def test_other_seller_cannot_cancel_payment(self):
+        self.client.force_login(self.other.user)
+        resp = self.client.get("/billing/cancel/", {"order_id": self.payment.order_id})
+        self.assertEqual(resp.status_code, 302)
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, PaymentStatus.PENDING)
+
+    def test_owner_cancel_marks_payment_cancelled(self):
+        self.client.force_login(self.owner.user)
+        self.client.get("/billing/cancel/", {"order_id": self.payment.order_id})
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.status, PaymentStatus.CANCELLED)
+
+    def test_other_seller_cannot_see_pending_payment(self):
+        self.client.force_login(self.other.user)
+        resp = self.client.get("/billing/return/", {"order_id": self.payment.order_id})
+        self.assertRedirects(resp, "/seller/abonnement/", fetch_redirect_response=False)
+
+    def test_owner_sees_pending_page(self):
+        self.client.force_login(self.owner.user)
+        resp = self.client.get("/billing/return/", {"order_id": self.payment.order_id})
+        self.assertEqual(resp.status_code, 200)
