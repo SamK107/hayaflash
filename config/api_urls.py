@@ -48,11 +48,12 @@ def _celery_check() -> str:
         logger.error("Healthcheck: aucun battement Celery (beat ou worker arrete ?)")
         return "missing"
     age = (timezone.now() - beat_at).total_seconds()
-    if age > settings.HEALTH_CELERY_MAX_AGE:
+    max_age = getattr(settings, "HEALTH_CELERY_MAX_AGE", 180)
+    if age > max_age:
         logger.error(
             "Healthcheck: battement Celery perime (%.0f s > %s s) — beat ou worker arrete ?",
             age,
-            settings.HEALTH_CELERY_MAX_AGE,
+            max_age,
         )
         return "stale"
     return "ok"
@@ -103,7 +104,9 @@ def health(_request):
     except Exception:
         logger.exception("Healthcheck: lecture du battement Celery echouee")
         checks["celery"] = "error"
-    if checks["celery"] in ("stale", "missing", "error") and settings.HEALTH_CELERY_REQUIRED:
+    if checks["celery"] in ("stale", "missing", "error") and getattr(
+        settings, "HEALTH_CELERY_REQUIRED", False
+    ):
         healthy = False
 
     status_code = 200 if healthy else 503

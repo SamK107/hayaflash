@@ -50,15 +50,7 @@
     .live-pulse { animation: live-pulse 1.5s ease-in-out infinite; }
   </style>
 
-  <!-- HTMX CSRF header -->
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      const token = document.cookie.match(/csrftoken=([^;]+)/);
-      if (token) {
-        document.body.setAttribute('hx-headers', JSON.stringify({ 'X-CSRFToken': token[1] }));
-      }
-    });
-  </script>
+  <!-- HTMX CSRF header : static/js/hf-base.js -->
 
   {% block extra_head %}{% endblock %}
 </head>
@@ -90,21 +82,10 @@
     </template>
   </div>
 
-  <!-- Django messages -> toasts -->
-  {% if messages %}
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      {% for message in messages %}
-      window.dispatchEvent(new CustomEvent('hf-toast', {
-        detail: {
-          msg: '{{ message|escapejs }}',
-          type: '{% if message.tags == "error" %}error{% elif message.tags == "success" %}success{% elif message.tags == "warning" %}warning{% else %}info{% endif %}'
-        }
-      }));
-      {% endfor %}
-    });
-  </script>
-  {% endif %}
+  <!-- Django messages -> toasts (lus par static/js/hf-base.js) -->
+  {% for message in messages %}
+  <div hidden data-hf-toast="{{ message }}" data-hf-toast-type="{% if message.tags == "error" %}error{% elif message.tags == "success" %}success{% elif message.tags == "warning" %}warning{% else %}info{% endif %}"></div>
+  {% endfor %}
 
   <!-- Nav vendeur (si authentifie) -->
   {% if user.is_authenticated %}
@@ -122,82 +103,12 @@
   <script src="{% static 'js/hf-install.js' %}"></script>
   {% with invite=pwa_install_invite %}{% if invite %}
   {# Invitation demandee par la vue precedente (ex. 1re vente creee) #}
-  <script>document.addEventListener('DOMContentLoaded', function () { window.hfInstallInvite('{{ invite|escapejs }}', { delay: 2500 }); });</script>
+  <div hidden data-hf-install-invite="{{ invite }}"></div>
   {% endif %}{% endwith %}
-
-  <!-- Init Lucide icons -->
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      lucide.createIcons();
-    });
-    document.body.addEventListener('htmx:afterSwap', function () {
-      lucide.createIcons();
-    });
-  </script>
+  <!-- Commun : CSRF HTMX, toasts, Lucide, lightbox, actions data-hf-*, service worker -->
+  <script src="{% static 'js/hf-base.js' %}"></script>
 
   {% block extra_js %}{% endblock %}
 
-  <!-- ── ZOOM LIGHTBOX universel (hfZoom / hfZoomClose) ── -->
-  <script>
-  (function () {
-    var ov = null;
-    function buildOverlay() {
-      if (ov) return;
-      ov = document.createElement('div');
-      ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.92);'
-        + 'display:none;align-items:center;justify-content:center;cursor:zoom-out';
-      var img = document.createElement('img');
-      img.id = 'hf-zoom-ov-img';
-      img.style.cssText = 'width:90vw;height:90vh;object-fit:contain;'
-        + 'border-radius:8px;user-select:none;cursor:default';
-      img.addEventListener('click', function(e){ e.stopPropagation(); });
-      img.addEventListener('dblclick', function(e){ e.stopPropagation(); window.hfZoomClose(); });
-      var btn = document.createElement('button');
-      btn.textContent = '✕';
-      btn.style.cssText = 'position:absolute;top:12px;right:12px;width:38px;height:38px;'
-        + 'background:rgba(255,255,255,.2);border:none;border-radius:50%;color:#fff;'
-        + 'font-size:20px;cursor:pointer;line-height:1';
-      btn.addEventListener('click', function(){ window.hfZoomClose(); });
-      ov.appendChild(img);
-      ov.appendChild(btn);
-      ov.addEventListener('click', function(){ window.hfZoomClose(); });
-      document.body.appendChild(ov);
-    }
-    window.hfZoom = function(imgEl) {
-      buildOverlay();
-      document.getElementById('hf-zoom-ov-img').src = imgEl.src;
-      document.getElementById('hf-zoom-ov-img').alt = imgEl.alt || '';
-      ov.style.display = 'flex';
-      document.body.style.overflow = 'hidden';
-    };
-    window.hfZoomClose = function() {
-      if (ov) ov.style.display = 'none';
-      document.body.style.overflow = '';
-    };
-    document.addEventListener('keydown', function(e){ if(e.key==='Escape') window.hfZoomClose(); });
-    document.addEventListener('DOMContentLoaded', function(){
-      document.querySelectorAll('img[data-zoom]').forEach(function(img){
-        img.style.cursor = 'zoom-in';
-        img.addEventListener('dblclick', function(){ window.hfZoom(img); });
-      });
-    });
-  })();
-  </script>
-
-  <!-- PWA : service worker -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function () {
-        // Ancien SW enregistre sous /static/ (portee inutile) : on le retire.
-        if (navigator.serviceWorker.getRegistrations) {
-          navigator.serviceWorker.getRegistrations().then(function (regs) {
-            regs.forEach(function (r) { if (/\/static\/$/.test(r.scope)) r.unregister(); });
-          });
-        }
-        navigator.serviceWorker.register('/sw.js', { scope: '/' })
-          .catch(function (err) { console.warn('SW registration failed:', err); });
-      });
-    }
-  </script>
 </body>
 </html>

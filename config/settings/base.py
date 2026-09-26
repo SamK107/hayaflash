@@ -339,36 +339,24 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 
 # ── Content-Security-Policy ──────────────────────────────────────────────────
-# Étape 1 du durcissement post-vendoring (13/09) : tout le JS/CSS/police est
-# maintenant self-hosted (static/vendor, static/fonts), donc une vraie CSP est
-# possible — avant, 5 origines externes (unpkg/jsdelivr/cdn.tailwindcss.com/
-# fonts.googleapis.com) l'auraient rendue inutilement permissive.
-#
-# Démarrage volontairement en Report-Only (CSP_REPORT_ONLY = True) : la policy
-# est envoyée et visible dans la console navigateur (onglet Network/Console)
-# mais ne bloque RIEN tant qu'on n'a pas confirmé qu'aucune ressource légitime
-# n'est reportée comme violation. 'unsafe-inline' reste nécessaire pour
-# script-src/style-src tant que les nombreux onclick="" et <script> inline
-# (toasts, zoom lightbox, install PWA, service worker...) n'ont pas été migrés
-# vers des gestionnaires d'événements externes — c'est un chantier à part,
-# volontairement pas fait dans cette passe pour ne rien casser sans pouvoir
-# tester (voir docs/CODEBASE_STATUS.md).
-#
-# Prochaine étape, une fois confirmé sans violation sur staging :
-# CSP_REPORT_ONLY = False (dans prod.py) pour passer en mode bloquant.
-CSP_REPORT_ONLY = True
-CSP_DEFAULT_SRC = ["'self'"]
-CSP_SCRIPT_SRC = ["'self'", "'unsafe-inline'"]
-CSP_STYLE_SRC = ["'self'", "'unsafe-inline'"]
-CSP_IMG_SRC = ["'self'", "data:", "blob:"]
-CSP_FONT_SRC = ["'self'"]
-CSP_CONNECT_SRC = ["'self'"]
-CSP_MEDIA_SRC = ["'self'"]
-CSP_MANIFEST_SRC = ["'self'"]
-CSP_WORKER_SRC = ["'self'"]
-CSP_OBJECT_SRC = ["'none'"]
-CSP_BASE_URI = ["'self'"]
-CSP_FRAME_ANCESTORS = ["'none'"]
+# Policy definie dans config/settings/_csp.py (partagee avec test.py, qui ne
+# charge pas base.py) : voir ce fichier pour le detail et l'historique.
+from ._csp import (  # noqa: E402, F401 -- settings re-exportes
+    CSP_BASE_URI,
+    CSP_CONNECT_SRC,
+    CSP_DEFAULT_SRC,
+    CSP_FONT_SRC,
+    CSP_FRAME_ANCESTORS,
+    CSP_IMG_SRC,
+    CSP_MANIFEST_SRC,
+    CSP_MEDIA_SRC,
+    CSP_OBJECT_SRC,
+    CSP_REPORT_ONLY,
+    CSP_REPORT_URI,
+    CSP_SCRIPT_SRC,
+    CSP_STYLE_SRC,
+    CSP_WORKER_SRC,
+)
 
 DATABASE_ROUTERS = ["config.db_router.DefaultRouter"]
 

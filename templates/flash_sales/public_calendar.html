@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Ventes flash en direct et à venir — HayaFlash{% endblock %}
 {% block meta_description %}Les ventes flash en direct et programmées des boutiques HayaFlash : commandez pendant le live, livraison rapide.{% endblock %}
 
@@ -65,40 +66,5 @@
   </div>
 </div>
 
-<script>
-(function () {
-  // Comptes a rebours de la liste + rafraichissement quand une vente change
-  // de groupe (Bientot -> En direct, fin de vente, passage sous 1 h).
-  var lastRefresh = 0;
-  function refresh() {
-    var now = Date.now();
-    if (now - lastRefresh < 5000) return;
-    lastRefresh = now;
-    document.body.dispatchEvent(new Event('hfc-refresh'));
-  }
-  function fmt(ms) {
-    var m = Math.max(0, Math.ceil(ms / 60000));
-    if (m < 60) return m + ' min';
-    var h = Math.floor(m / 60), r = m % 60;
-    return h + ' h' + (r ? ' ' + (r < 10 ? '0' : '') + r : '');
-  }
-  function tick() {
-    var now = Date.now();
-    document.querySelectorAll('#hfc-sales .hfc-row').forEach(function (row) {
-      var el = row.querySelector('[data-countdown]');
-      if (row.dataset.end) {
-        var left = Date.parse(row.dataset.end) - now;
-        if (left <= 0) { refresh(); return; }
-        if (el) el.textContent = 'finit dans ' + fmt(left);
-      } else if (row.dataset.start) {
-        var until = Date.parse(row.dataset.start) - now;
-        if (until <= 0 || (row.dataset.later && until <= 3600000)) { refresh(); return; }
-        if (el) el.textContent = 'dans ' + fmt(until);
-      }
-    });
-  }
-  tick();
-  setInterval(tick, 1000);
-})();
-</script>
+<script src="{% static 'js/hf-public.js' %}"></script>
 {% endblock %}
