@@ -1,8 +1,10 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Admin Plateforme — HayaFlash{% endblock %}
 
 {% block extra_head %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{% static 'vendor/chartjs/chart-4.4.0.umd.js' %}"></script>
+<script src="{% static 'js/hf-charts.js' %}"></script>
 {% endblock %}
 
 {% block content %}
@@ -95,7 +97,7 @@
     <!-- Graphique CA mensuel -->
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
         <h2 class="text-sm font-bold text-gray-700 mb-4">CA abonnements — 12 derniers mois</h2>
-        <canvas id="chartRevenueMonthly" height="180"></canvas>
+        <canvas id="chartRevenueMonthly" height="180" data-hf-chart="bar" data-hf-chart-data="hf-data-revenue" data-hf-chart-x="month" data-hf-chart-label="CA abonnements (FCFA)" data-hf-chart-color="#FFB800"></canvas>
     </div>
 
     <!-- Vendeurs abonnés -->
@@ -194,30 +196,5 @@
     </div>
 </div>
 
-<script>
-const revenueMonthly = {{ revenue_timeline_json|safe }};
-
-document.addEventListener('DOMContentLoaded', () => {
-    const ctx = document.getElementById('chartRevenueMonthly');
-    if (ctx && revenueMonthly.length) {
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: revenueMonthly.map(d => d.month),
-                datasets: [{
-                    label: 'CA abonnements (FCFA)',
-                    data: revenueMonthly.map(d => d.revenue),
-                    backgroundColor: '#FFB800',
-                    borderRadius: 6,
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true } }
-            }
-        });
-    }
-});
-</script>
+{{ revenue_timeline|json_script:"hf-data-revenue" }}
 {% endblock %}

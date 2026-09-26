@@ -1,8 +1,10 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Statistiques — HayaFlash{% endblock %}
 
 {% block extra_head %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{% static 'vendor/chartjs/chart-4.4.0.umd.js' %}"></script>
+<script src="{% static 'js/hf-charts.js' %}"></script>
 {% endblock %}
 
 {% block content %}
@@ -44,7 +46,7 @@
     <!-- Graphique 30 jours -->
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
         <h2 class="text-sm font-bold text-gray-700 mb-4">CA — 30 derniers jours</h2>
-        <canvas id="chart30d" height="180"></canvas>
+        <canvas id="chart30d" height="180" data-hf-chart="line" data-hf-chart-data="hf-data-30d" data-hf-chart-x="day" data-hf-chart-label="CA (FCFA)" data-hf-chart-color="#E63946"></canvas>
     </div>
 
     <!-- Top produits -->
@@ -75,7 +77,7 @@
             <span class="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-700
                          rounded-full font-bold">PRO</span>
         </div>
-        <canvas id="chartYear" height="180"></canvas>
+        <canvas id="chartYear" height="180" data-hf-chart="bar" data-hf-chart-data="hf-data-year" data-hf-chart-x="month" data-hf-chart-label="CA mensuel (FCFA)" data-hf-chart-color="#FFB800"></canvas>
     </div>
     {% else %}
     <!-- Upgrade PRO -->
@@ -95,59 +97,6 @@
     {% endif %}
 </div>
 
-<script>
-const data30d = {{ timeline_json|safe }};
-{% if is_pro %}
-const dataYear = {{ timeline_year_json|safe }};
-{% endif %}
-
-document.addEventListener('DOMContentLoaded', () => {
-    const ctx30 = document.getElementById('chart30d');
-    if (ctx30 && data30d.length) {
-        new Chart(ctx30, {
-            type: 'line',
-            data: {
-                labels: data30d.map(d => d.day),
-                datasets: [{
-                    label: 'CA (FCFA)',
-                    data: data30d.map(d => d.revenue),
-                    borderColor: '#E63946',
-                    backgroundColor: 'rgba(230,57,70,0.08)',
-                    fill: true,
-                    tension: 0.3,
-                    pointRadius: 3,
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true } }
-            }
-        });
-    }
-
-    {% if is_pro %}
-    const ctxYear = document.getElementById('chartYear');
-    if (ctxYear && dataYear.length) {
-        new Chart(ctxYear, {
-            type: 'bar',
-            data: {
-                labels: dataYear.map(d => d.month),
-                datasets: [{
-                    label: 'CA mensuel (FCFA)',
-                    data: dataYear.map(d => d.revenue),
-                    backgroundColor: '#FFB800',
-                    borderRadius: 6,
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true } }
-            }
-        });
-    }
-    {% endif %}
-});
-</script>
+{{ timeline|json_script:"hf-data-30d" }}
+{% if is_pro %}{{ timeline_year|json_script:"hf-data-year" }}{% endif %}
 {% endblock %}
