@@ -204,7 +204,6 @@ def seller_home_view(request):
 @staff_member_required
 def platform_admin_dashboard(request):
     """Tableau de bord de pilotage HayaFlash (staff only, compte unique proprietaire)."""
-    import json
     from datetime import timedelta
 
     from django.db.models import Count, Sum
@@ -249,9 +248,8 @@ def platform_admin_dashboard(request):
             or 0
         ),
         "revenue_ytd": get_subscription_revenue_ytd(),
-        "revenue_timeline_json": json.dumps(
-            get_subscription_revenue_timeline_monthly()
-        ),
+        # Serialise dans le template via |json_script (CSP : pas de JS inline).
+        "revenue_timeline": get_subscription_revenue_timeline_monthly(),
         "orange": get_orange_remittance_summary(),
         "subscribed_sellers": get_subscribed_sellers(),
         "recent_payments": (

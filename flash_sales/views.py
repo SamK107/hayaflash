@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
@@ -364,13 +362,12 @@ def seller_analytics_view(request):
         "kpis": kpis,
         "sub": sub,
         "is_pro": sub.is_pro,
-        "timeline_json": json.dumps(timeline_30d),
+        # Serialises dans le template via |json_script (CSP : pas de JS inline).
+        "timeline": timeline_30d,
         "top_products": get_top_products(seller.pk),
     }
 
     if sub.is_pro:
-        context["timeline_year_json"] = json.dumps(
-            get_revenue_timeline_monthly(seller.pk)
-        )
+        context["timeline_year"] = get_revenue_timeline_monthly(seller.pk)
 
     return render(request, "flash_sales/analytics_dashboard.html", context)

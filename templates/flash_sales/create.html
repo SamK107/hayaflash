@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}{% if sale %}Modifier{% else %}Programmer{% endif %} une vente — HayaFlash{% endblock %}
 
 {% block extra_head %}
@@ -46,7 +47,7 @@
       <p class="text-sm text-gray-400 mt-0.5">Tout se remplit ici — vos clients recevront un lien direct.</p>
     </div>
 
-    <form method="post" enctype="multipart/form-data" class="px-6 py-6 space-y-6" hx-boost="false">
+    <form method="post" enctype="multipart/form-data" data-hf-file-fallback="cover_image" data-hf-file-var="__hfCapturedFile" class="px-6 py-6 space-y-6" hx-boost="false">
       {% csrf_token %}
 
       {% if form.non_field_errors %}
@@ -359,77 +360,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
-window.__hfCapturedFile = null;
-document.addEventListener('DOMContentLoaded', function () {
-  var form = document.querySelector('form[enctype="multipart/form-data"]');
-  if (!form) return;
-  form.addEventListener('submit', function (e) {
-    var file = window.__hfCapturedFile;
-    if (!file) return;
-    e.preventDefault();
-    var fd = new FormData(form);
-    fd.set('cover_image', file, file.name);
-    fetch(form.action || window.location.pathname, { method: 'POST', body: fd })
-      .then(function (r) {
-        if (r.redirected) { window.location.href = r.url; return null; }
-        return r.text();
-      })
-      .then(function (html) {
-        if (!html) return;
-        document.open(); document.write(html); document.close();
-      });
-  });
-});
-
-/* ── Composant audioRec(fieldName) — enregistreur micro générique ── */
-function audioRec(fieldName) {
-  return {
-    recording: false, hasAudio: false, audioUrl: null,
-    mediaRecorder: null, chunks: [], elapsed: 0, _timer: null,
-    init() { lucide.createIcons(); },
-    formatTime(s) {
-      const m = Math.floor(s/60), sec = s%60;
-      return (m<10?'0':'')+m+':'+(sec<10?'0':'')+sec;
-    },
-    async start() {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        alert("Votre appareil ne supporte pas l'enregistrement audio."); return;
-      }
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        this.chunks = []; this.elapsed = 0;
-        const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
-        this.mediaRecorder = new MediaRecorder(stream, { mimeType: mime });
-        this.mediaRecorder.ondataavailable = e => { if (e.data.size > 0) this.chunks.push(e.data); };
-        this.mediaRecorder.onstop = () => {
-          stream.getTracks().forEach(t => t.stop());
-          const blob = new Blob(this.chunks, { type: mime });
-          this.audioUrl = URL.createObjectURL(blob);
-          this.hasAudio = true;
-          const ext = mime.includes('webm') ? 'webm' : 'ogg';
-          const file = new File([blob], 'vocal-' + Date.now() + '.' + ext, { type: mime });
-          try {
-            const dt = new DataTransfer(); dt.items.add(file);
-            this.$refs.audioInput.files = dt.files;
-          } catch(e) { console.warn('DataTransfer audio non supporté'); }
-          lucide.createIcons();
-        };
-        this.mediaRecorder.start();
-        this.recording = true;
-        this._timer = setInterval(() => this.elapsed++, 1000);
-        lucide.createIcons();
-      } catch(err) { alert('Micro inaccessible : ' + (err.message || err.name)); }
-    },
-    stop() {
-      if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') this.mediaRecorder.stop();
-      clearInterval(this._timer); this.recording = false;
-    },
-    clear() {
-      this.hasAudio = false; this.audioUrl = null; this.chunks = [];
-      this.$refs.audioInput.value = ''; lucide.createIcons();
-    }
-  };
-}
-</script>
+<script src="{% static 'js/hf-seller.js' %}"></script>
 {% endblock %}

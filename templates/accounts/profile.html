@@ -163,7 +163,7 @@
             <span class="truncate" id="shop-link">{{ request.scheme }}://{{ request.get_host }}/s/{{ profile.public_slug }}/</span>
           </div>
           <button type="button"
-                  onclick="navigator.clipboard.writeText(document.getElementById('shop-link').textContent.trim()); this.textContent='✓ Copié'"
+                  data-hf-copy-from="#shop-link"
                   class="flex-shrink-0 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-medium rounded-xl transition-colors">
             Copier
           </button>

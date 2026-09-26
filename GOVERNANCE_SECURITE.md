@@ -4,10 +4,9 @@
 > du monitoring du projet. Pas un vœu pieux — un état vérifié, catégorie par
 > catégorie, avec la preuve (fichier lu, commande lancée) pour chaque ligne.
 >
-> **Dernière vérification : 2026-09-24** (audit direct du code source dans
-> `C:\projets\hayaflash`, branche `main` à `1aa2f1a` + sprint gouvernance A,
-> session Claude/Cowork). Révision précédente : 2026-09-14 — les PR #16, #20
-> et #21 avaient corrigé plusieurs ❌ sans que ce fichier soit mis à jour.
+> **Dernière vérification : 2026-09-26** (sprint gouvernance B, branche
+> `chore/governance-sprint-b` depuis `main` à `0bbab6a` : catégories 2, 4 et 7
+> revues, preuves ci-dessous). Révision précédente : 2026-09-24 (sprint A).
 >
 > À remettre à jour à chaque changement d'infrastructure ou de déploiement
 > majeur. Aucune action destructive ou irréversible ne doit être exécutée sans
@@ -57,10 +56,19 @@ Légende : ✅ Fait · ⚠️ Partiel · ❌ Manquant · 🔍 À vérifier (néc
   (Redis en staging/prod), chaque check isolé dans son `try/except`, **503**
   + `{"status": "degraded", "checks": {...}}` si l'un échoue. Accessible
   anonymement (Docker, Nginx, `smoke_test.sh`).
-- ⚠️ **Celery non couvert par `/health/`** — un worker/beat arrêté n'est pas
-  détecté ici (ventes qui ne s'ouvrent/ferment plus). Couvert partiellement par
-  `CeleryIntegration(monitor_beat_tasks=True)` si Sentry Crons est activé ; à
-  confirmer au déploiement.
+- ✅ **Celery (beat + worker) couvert par `/health/` (26/09, sprint B)** —
+  tâche `core.celery_heartbeat` planifiée toutes les 60 s
+  (`CELERY_BEAT_SCHEDULE`) : exécutée par le worker, elle écrit un timestamp
+  dans le cache (`celery:heartbeat`, 600 s) → un battement récent prouve beat
+  **et** worker. `config/api_urls.py:health` ajoute un check `celery` isolé :
+  `ok` / `stale` (> `HEALTH_CELERY_MAX_AGE`, 180 s) / `missing` / `error` /
+  `skipped` (eager ou sans `REDIS_URL`). `stale`/`missing` → `logger.error`
+  (→ Sentry) mais **reste 200** par défaut : un 503 ferait échouer le
+  HEALTHCHECK Docker et `smoke_test.sh` avant le premier battement → rollback
+  d'une release saine. `HEALTH_CELERY_REQUIRED=true` pour le rendre bloquant.
+  Preuve : `core/tests.py::CeleryHealthCheckTests` (8 tests : ok, stale,
+  missing, required → 503, exception cache isolée, skipped).
+  🔍 Reste à observer le passage `missing → ok` sur le VPS réel (runbook 3.2).
 - 🔍 **Monitoring externe indépendant** (UptimeRobot, Better Uptime, Cloudflare
   Health Checks) — non visible dans le repo, ne peut pas l'être. À confirmer :
   existe-t-il un monitoring externe déjà configuré pour HayaFlash ?
@@ -92,22 +100,35 @@ Légende : ✅ Fait · ⚠️ Partiel · ❌ Manquant · 🔍 À vérifier (néc
 
 ## 4. Sécurité applicative
 
-- ⚠️ **CSP (Content-Security-Policy) — en place, mais Report-Only (PR #16)** —
-  `django-csp==3.8`, `CSPMiddleware`, policy `default-src 'self'` dans
-  `config/settings/base.py`, `CSP_REPORT_ONLY = True` (non surchargé dans
-  `prod.py`) → **ne bloque rien**. Pas de `report-uri` : les violations ne
-  sont visibles que dans la console du navigateur. Freins identifiés au
-  passage en mode bloquant (audit 24/09) :
-  - 36 handlers inline `on*=` et 18 `<script>` inline (12 templates) → exigent
-    `'unsafe-inline'` (déjà présent dans `script-src`, ce qui annule l'essentiel
-    de la protection XSS de la CSP).
-  - **Alpine.js standard (`static/vendor/alpinejs/alpine-3.14.9.min.js`)
-    évalue les expressions via le constructeur `AsyncFunction`** → exige
-    `'unsafe-eval'`, **absent** de la policy. Passer `CSP_REPORT_ONLY = False`
-    en l'état casserait Alpine sur les 18 templates qui l'utilisent.
-    Décision à prendre : ajouter `'unsafe-eval'` (simple, protection réduite)
-    ou migrer vers le build `@alpinejs/csp` (expressions limitées à des
-    propriétés de composants `Alpine.data()` — refactor important).
+- ⚠️ **CSP phase 1 faite (26/09, sprint B) — toujours Report-Only** —
+  policy déplacée dans `config/settings/_csp.py` (partagée base/test) :
+  `script-src 'self' 'unsafe-eval'` **sans `'unsafe-inline'`**,
+  `media-src 'self' blob:` (messages vocaux), `CSP_REPORT_ONLY = True` par
+  défaut (surchargeable par env pour un test local uniquement).
+  - **Décision prise** : `'unsafe-eval'` conservé (exigé par Alpine standard,
+    constructeur `AsyncFunction`) ; migration `@alpinejs/csp` écartée
+    (18 templates Alpine à expressions inline, 0 `Alpine.data()`).
+  - **Inline supprimé** : 44 `on*=` (9 templates) et 15 `<script>` inline
+    migrés vers `static/js/hf-base.js` (commun + actions `data-hf-*` par
+    délégation, liste blanche pour `data-hf-call`), `hf-public.js`,
+    `hf-seller.js`, `hf-charts.js`. Données serveur via `data-*` ou
+    `|json_script`. Chart.js (dernier CDN du projet) vendorisé.
+  - **Mesure** : `CSP_REPORT_URI` par env (endpoint security Sentry), absent
+    si vide. Pas de `report-to` (django-csp 3.8 n'émet pas l'en-tête
+    `Reporting-Endpoints`).
+  - **Garde-fou** : `core/tests_csp.py` échoue si un `on*=` ou un `<script>`
+    sans `src` (hors JSON) réapparaît dans un template, et vérifie l'en-tête.
+  - **Preuve** : parcours rejoués le 26/09 avec `CSP_REPORT_ONLY=false`
+    **forcé localement** (variable d'env, non commitée), sur une copie de la
+    base de dev — accueil, `/ventes/`, `/f/<slug>/` (live : commande + tiroir
+    + zoom ; attente : chrono + alerte ; terminée : tiroir), inscription,
+    tableau de bord, création de vente, Publication rapide, formulaire
+    produit, paramètres/profil (copier), livraisons, modale d'upgrade,
+    paiement en attente, statistiques PRO + admin plateforme (graphiques),
+    `/admin/` Django : **0 violation CSP** dans la console.
+  - Reste : `style-src 'unsafe-inline'` (attributs `style=`, hors périmètre) ;
+    passage en mode bloquant = runbook étape 6, après 0 violation mesurée
+    sur staging via `CSP_REPORT_URI`.
 - ✅ **Headers sécurité prod** — dans `config/settings/prod.py` :
   `SECURE_SSL_REDIRECT`, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`,
   `SESSION_COOKIE_HTTPONLY`, `CSRF_COOKIE_HTTPONLY`, `X_FRAME_OPTIONS=DENY`,
@@ -217,8 +238,11 @@ tant que rien n'a tourné sur le VPS.
 ## 7. Durcissement infrastructure (VPS)
 
 Non vérifiable depuis le code — ce sont des réglages serveur, pas des artefacts
-du repo. Section à compléter avec un accès SSH en lecture seule au(x) VPS de
-staging/prod. Commandes suggérées (aucune n'est destructive) :
+du repo. **Scripté depuis le sprint B (26/09)** : `infra/scripts/vps_audit.sh`
+(lecture seule, sortie Markdown ✅/❌/⚠️ à coller ici, dossier projet via
+`HAYAFLASH_DIR`) couvre toutes les commandes ci-dessous plus les catégories 2
+et 5 ; procédure complète dans `docs/RUNBOOK_JOUR_J.md`. Commandes unitaires
+(aucune n'est destructive) :
 
 ```bash
 # Pare-feu actif, ports ouverts
@@ -313,30 +337,29 @@ stat -c "%a %U:%G" /srv/hayaflash/.env   # attendu : 600, propriétaire du servi
 
 ---
 
-## Synthèse des priorités (révision 2026-09-24)
+## Synthèse des priorités (révision 2026-09-26)
 
-Le code couvre désormais toutes les catégories vérifiables depuis le repo.
-Ce qui reste se divise en une décision et un bloc « jour du déploiement ».
+Le code couvre toutes les catégories vérifiables depuis le repo, et le jour du
+déploiement est scripté : **`docs/RUNBOOK_JOUR_J.md`** (ordre, commandes
+exactes, résultat attendu, retour arrière) et **`infra/scripts/vps_audit.sh`**
+(preuves à coller ici).
 
-**Décision à prendre (code)**
+**Faits au sprint B (26/09)**
 
-1. **CSP en mode bloquant (catégorie 4)** — choisir entre `'unsafe-eval'` et
-   le build `@alpinejs/csp`, puis traiter les 36 `on*=` / 18 `<script>`
-   inline, vérifier 0 violation sur staging, `CSP_REPORT_ONLY = False` dans
-   `prod.py`. Option : ajouter un `report-uri` (Sentry accepte les rapports
-   CSP) pour mesurer avant de basculer.
+- Celery couvert par `/health/` (catégorie 2).
+- CSP phase 1 : plus aucun JS inline, `script-src` sans `'unsafe-inline'`,
+  mesure via `CSP_REPORT_URI` ; reste Report-Only (catégorie 4).
+- Audit VPS scripté + runbook (catégories 5, 6, 7).
 
-**Checklist jour du déploiement VPS (non faisable avant)**
+**Jour du déploiement VPS (runbook, dans l'ordre)**
 
-2. **Durcissement VPS (catégorie 7)** — ufw, fail2ban, SSH clé seule, mises à
-   jour auto, `.env` en 600 (commandes ci-dessus).
-3. **Sauvegardes (catégorie 5)** — installer `age`, clé publique, disque +
-   fichier témoin, `backup_nightly.sh` à la main, `restore_test.sh` sur le
-   dump réel, puis cron `infra/cron/hayaflash-backup` + heartbeat.
-4. **Observabilité (catégories 1-2)** — `SENTRY_DSN` prod (+ staging),
-   règles d'alerte, monitoring externe de `/health/` (UptimeRobot ou
-   équivalent), statut Celery beat.
-5. **Déploiement continu (catégorie 6)** — retirer `if: false` sur
-   `deploy-staging`/`deploy-prod` dans `.github/workflows/deploy.yml`.
-6. Mettre ce fichier à jour le jour même avec les preuves (sorties de
-   commandes) et passer les 🔍 en ✅/❌.
+1. Audit + durcissement (catégorie 7) — étape 1.
+2. `.env` (600) + secrets GitHub — étape 2.
+3. `deploy-staging` seulement (retrait de `if: false`) — étape 3.
+4. Sentry DSN + règles d'alerte (dont battement Celery) + `CSP_REPORT_URI` +
+   UptimeRobot sur `/health/` — étape 4.
+5. Sauvegarde manuelle → `restore_test.sh` → cron + heartbeat — étape 5.
+6. Après N jours stables : `deploy-prod`, puis `CSP_REPORT_ONLY=false` si
+   0 violation mesurée — étape 6.
+
+Le jour même : coller le rapport `vps_audit.sh` ici et passer les 🔍 en ✅/❌.

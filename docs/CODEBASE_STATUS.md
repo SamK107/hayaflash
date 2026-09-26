@@ -182,6 +182,19 @@ hayaflash/
 
 ---
 
+## Sprint gouvernance B (26/09)
+
+| Chantier | Statut |
+|---|---|
+| Sonde Celery dans `/health/` : tâche `core.celery_heartbeat` (beat, 60 s) + check `celery` (ok/stale/missing/skipped), informatif par défaut (`HEALTH_CELERY_REQUIRED`) | ✅ Fait — 8 tests |
+| CSP phase 1 : 44 `on*=` + 15 `<script>` inline → `static/js/hf-base.js` (actions `data-hf-*`), `hf-public.js`, `hf-seller.js`, `hf-charts.js` ; `script-src` sans `'unsafe-inline'` ; `CSP_REPORT_URI` ; garde-fou `core/tests_csp.py` | ✅ Fait — Report-Only conservé, 0 violation en mode bloquant forcé localement |
+| Chart.js 4.4.0 vendorisé (`static/vendor/chartjs/`, tarball npm vérifié sha512) — dernier CDN du projet | ✅ Fait |
+| Toasts (messages Django) jamais affichés : `init()` écrasé par `{ ...toasts(), ...onlineStatus() }` → composant `hfRoot()` | ✅ Corrigé |
+| `infra/scripts/vps_audit.sh` (lecture seule, Markdown, `HAYAFLASH_DIR`) + `docs/RUNBOOK_JOUR_J.md` | ✅ Fait — testé en WSL Ubuntu (mode dégradé) ; pas encore exécuté sur le VPS |
+| Badge « Plan » en HTML brut dans l'admin Abonnements | 🐞 Préexistant, noté hors périmètre |
+
+---
+
 ## Phase 10 — Audit fonctionnel, pages acheteur, PWA multi-boutiques & conversion (à venir)
 
 Cadré le 22/09 avant la configuration du déploiement VPS automatique (voir
@@ -296,11 +309,14 @@ non implémentés. `docs/DEMO_PLAN.md` (qui les décrivait comme facultatifs) a 
 du dépôt (voir § `core/`) — à recréer si un usage showroom partenaires est décidé.
 
 ### 3. Passage de la CSP en mode bloquant
-`CSP_REPORT_ONLY = True` depuis le 14/09 — décision produit à prendre après vérification
-sans violation sur staging et traitement des `onclick=`/`<script>` inline restants
-(36 `on*=`, 18 `<script>` inline, 12 templates au 24/09). **Bloquant découvert le 24/09** :
-Alpine.js standard exige `'unsafe-eval'` (constructeur `AsyncFunction`), absent de la
-policy — basculer en l'état casserait Alpine. Voir `GOVERNANCE_SECURITE.md` catégorie 4.
+**Phase 1 faite au sprint gouvernance B (26/09)** : plus aucun `on*=` ni `<script>`
+inline dans les templates (44 + 15 migrés vers `static/js/hf-base.js`, `hf-public.js`,
+`hf-seller.js`, `hf-charts.js` ; garde-fou `core/tests_csp.py`), policy dans
+`config/settings/_csp.py` : `script-src 'self' 'unsafe-eval'` (Alpine standard,
+`@alpinejs/csp` écarté), `CSP_REPORT_URI` par env. **Toujours `CSP_REPORT_ONLY = True`.**
+Mode bloquant testé localement sans violation (26/09) ; bascule en prod = étape 6 de
+`docs/RUNBOOK_JOUR_J.md`, après 0 violation mesurée sur staging. Voir
+`GOVERNANCE_SECURITE.md` catégorie 4.
 
 ### 4. Sauvegardes — exécution réelle
 Code complet au 24/09 (dump, copie hors-site **chiffrée age**, orchestration
@@ -390,7 +406,7 @@ build front : `docs/FRONTEND_VENDORING.md`.
 | `robots.txt` + `sitemap.xml` (home, `/ventes/`, ventes live/programmées, vendeurs actifs) | ✅ Fait (14/09) — `core/sitemaps.py`, routes dans `config/urls.py` |
 | `<link rel="canonical">` sur `/ventes/<slug>/` vers `/f/<slug>/` (duplication de contenu — voir `CLAUDE.md` point 14) | ✅ Fait (14/09) |
 | Brotli (en plus de gzip) sur WhiteNoise | ✅ Fait (14/09) — `Brotli` dans `requirements.txt`, activation automatique par WhiteNoise |
-| Content-Security-Policy | 🟡 Fait en **Report-Only** (14/09) — `CSP_REPORT_ONLY = True` dans `config/settings/base.py`. Ne bloque rien. Passage en mode bloquant = décision à prendre après vérification sans violation sur staging (console navigateur), et après avoir traité les `onclick=`/`<script>` inline qui nécessitent aujourd'hui `'unsafe-inline'`. |
+| Content-Security-Policy | 🟡 **Report-Only**, phase 1 faite (26/09, sprint B) — `script-src 'self' 'unsafe-eval'` sans `'unsafe-inline'`, JS inline migré vers `static/js/`, `CSP_REPORT_URI` par env, policy dans `config/settings/_csp.py`. Mode bloquant = runbook étape 6. |
 | Tree-shaking Lucide (356 Ko → ~15-20 Ko estimé, ~67 icônes utilisées sur les ~1500 de la lib) | ❌ Pas fait — nécessite de pouvoir tester visuellement en live |
 | Migration `flash_sales/0010_saleinterest_reminded_at` | ✅ Appliquée (confirmé `showmigrations` le 18/09) |
 | Suite de tests relancée | ✅ Relancée le 18/09 — 118 passed, 3 skipped |
@@ -405,7 +421,7 @@ Recoupé avec `GOVERNANCE_SECURITE.md` § Synthèse des priorités (plus détail
 2. ~~Chiffrer les sauvegardes hors-site~~ — fait le 24/09 (age asymétrique, sprint gouvernance A).
 3. **Retirer `if: false`** sur `deploy-staging`/`deploy-prod` (`.github/workflows/deploy.yml`) une fois le VPS prêt.
 4. **Durcissement VPS** (fail2ban, ufw, SSH par clé) — à vérifier par SSH dès qu'un accès est disponible (`GOVERNANCE_SECURITE.md` catégorie 7).
-5. **Décider du passage de la CSP en mode bloquant** (`CSP_REPORT_ONLY = False`) après vérification sans violation sur staging.
+5. **Passage de la CSP en mode bloquant** (`CSP_REPORT_ONLY=false` dans le `.env` prod) : décision prise (`'unsafe-eval'` conservé, JS inline retiré au sprint B) ; reste à mesurer 0 violation sur staging via `CSP_REPORT_URI` (runbook étape 6).
 6. **Clarifier F3 "Sales Drawer"** avec le product owner en montrant le code existant (`orderDrawer` dans `flash_sale_public.html`) : confirme-t-il le label, ou s'agit-il d'autre chose ?
 7. **Décider du sort des items démo** (`seed_demo` à réécrire pour le schéma actuel, `is_demo`, reset auto, badge DÉMO) si un usage showroom partenaires est prévu.
 8. **Audit fonctionnel navigateur** (Phase 10.0, ci-dessus) avant d'activer le
