@@ -299,6 +299,28 @@ stat -c "%a %U:%G" /srv/hayaflash/.env   # attendu : 600, propriétaire du servi
   atomique, `select_for_update()` sur la ligne de paiement, retour anticipé si
   déjà `SUCCESS` ou déjà `FAILED` — un même événement reçu deux fois ne rejoue
   pas la comptabilisation (`append_balanced_entries_for_success`).
+- ✅ **Montant des abonnements décidé côté serveur (26/09)** — tarifs dans
+  `PlanConfig`, lus via `subscriptions/services/plans.py` ; le formulaire de
+  paiement ne transmet aucun montant (un champ `amount` forgé dans le POST est
+  ignoré, testé). Tarif spécial par vendeur (`SellerPriceOverride`) appliqué
+  seulement s'il est actif, non expiré, non épuisé et ≤ prix officiel ;
+  borné à 100 FCFA min / 30 j max ; `uses_count` incrémenté au succès sous
+  `select_for_update()`. Création, modification et désactivation des tarifs
+  (officiels et spéciaux) tracées dans `AuditLog` (valeurs avant/après).
+- ✅ **Contrôle du montant notifié par Orange (26/09)** — les deux webhooks
+  (`/billing/webhook/orange/` et l'historique `/seller/abonnement/callback/`) :
+  si le callback contient un montant différent de `SubscriptionPayment.amount`
+  (ou illisible), `logger.error` → Sentry, **pas d'activation**, paiement
+  laissé en attente, `WebhookLog` `processed=False`. La notification WebPay
+  Orange Mali documentée ne transmet **pas** de montant (status / notif_token /
+  txnid) : le montant fait alors foi côté HayaFlash (fixé à l'initiation).
+  🔍 À confirmer sur le premier paiement réel (runbook test paiement, étape 1.4 :
+  `raw_callback`).
+- ✅ **Paiements de test isolés du chiffre d'affaires (26/09)** — les
+  paiements à tarif spécial de motif `test` sont exclus du MRR, du total et du
+  CA annuel (`platform_reporting.revenue_payments()`), affichés à part sur
+  `/platform-admin/` ; la rétrocession Orange les inclut (argent encaissé).
+  Procédure du test réel à 100 FCFA : `docs/RUNBOOK_TEST_PAIEMENT.md`.
 
 ---
 
