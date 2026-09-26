@@ -104,6 +104,7 @@ docker-compose up
 ## Conventions
 
 - **FBV partout** (pas de CBV). Services dans `app/services/`.
+- **Pages vendeur** : décorateur `accounts.access.seller_required` (au lieu de `login_required`) dès qu'une vue lit `request.user.seller_profile`. Compte sans boutique → `/platform-admin/` (staff) ou `/seller/` (page explicative), jamais de 500 ; fragments HTMX / JSON → 403. Tests : `accounts/testing_helpers.NoSellerProfileMixin`.
 - **Pas de `Model.objects.create()`** pour `Order` — utiliser uniquement `orders.services.create_order.create_order()`.
 - **Migrations data séparées** des migrations schema.
 - **HTMX** pour les mises à jour partielles (dashboard LIVE, livraisons).

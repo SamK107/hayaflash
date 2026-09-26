@@ -182,6 +182,19 @@ hayaflash/
 
 ---
 
+## UX staff / admin (26/09)
+
+| Chantier | Statut |
+|---|---|
+| Compte sans profil vendeur (staff ou autre) : plus de 500 sur les pages vendeur — `accounts.access.seller_required` (flash_sales, products, subscriptions), profil/paramètres, pages complètes orders/delivery → redirection ; fragments HTMX et QR (JSON) → 403 ; `/seller/` affiche une page explicative (l'ancienne redirection vers `/login/` bouclait) | ✅ Fait — tests par app |
+| Lien « Pilotage HayaFlash » (staff) : menu du site + en-tête de l'admin Django (`templates/admin/base_site.html`) | ✅ Fait |
+| Badges Plan en HTML brut (admins Abonnements **et** Seller profiles) → `format_html` | ✅ Corrigé |
+| Boutons désactivés de Publication rapide non grisés (`disabled:opacity-40` absent du build Tailwind) + garde-fou de test | ✅ Corrigé |
+| « Plan actuel : Free » → libellé (« Gratuit ») | ✅ Corrigé |
+| `flash_sales/partials/_quota_warning.html` (inclus nulle part) | 🗑️ Supprimé |
+
+---
+
 ## Tarifs administrables + tarif spécial par vendeur (26/09)
 
 | Chantier | Statut |
