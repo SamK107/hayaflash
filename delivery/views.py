@@ -17,6 +17,7 @@ from django.shortcuts import render
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_GET, require_POST
 
+from accounts.access import redirect_without_seller_profile
 from accounts.models import SellerProfile
 from delivery.services.seller_dashboard import (
     apply_delivery_action_from_form,
@@ -77,7 +78,7 @@ def _rate_limited_partial_html(
 @require_GET
 def seller_deliveries_dashboard(request):
     if not _require_seller(request.user):
-        return HttpResponseForbidden("Seller profile required.")
+        return redirect_without_seller_profile(request)
 
     flash_sale_id = _parse_flash_sale_id(request)
     status_filter = request.GET.get("status") or "all"

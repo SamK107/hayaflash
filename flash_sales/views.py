@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
+from accounts.access import seller_required
 from core.context_processors import request_pwa_install_invite
 
 from .forms import FlashSaleForm
@@ -33,7 +33,7 @@ def _get_seller(request):
     return request.user.seller_profile
 
 
-@login_required
+@seller_required
 def flash_sale_list_view(request):
     seller = _get_seller(request)
     sales = FlashSale.objects.filter(owner=seller).select_related("owner")
@@ -65,7 +65,7 @@ def flash_sale_list_view(request):
     return render(request, "flash_sales/list.html", ctx)
 
 
-@login_required
+@seller_required
 def flash_sale_create_view(request):
     seller = _get_seller(request)
     can_create, reason = can_seller_create_sale(seller)
@@ -130,7 +130,7 @@ def flash_sale_create_view(request):
     return render(request, "flash_sales/create.html", {"form": form})
 
 
-@login_required
+@seller_required
 def flash_sale_detail_view(request, pk: int):
     seller = _get_seller(request)
     sale = get_object_or_404(FlashSale, pk=pk, owner=seller)
@@ -147,7 +147,7 @@ def flash_sale_detail_view(request, pk: int):
     )
 
 
-@login_required
+@seller_required
 def flash_sale_edit_view(request, pk: int):
     seller = _get_seller(request)
     sale = get_object_or_404(FlashSale, pk=pk, owner=seller)
@@ -182,7 +182,7 @@ def flash_sale_edit_view(request, pk: int):
     return render(request, "flash_sales/create.html", {"form": form, "sale": sale})
 
 
-@login_required
+@seller_required
 def flash_sale_open_view(request, pk: int):
     if request.method != "POST":
         return redirect("flash_sales:detail", pk=pk)
@@ -208,7 +208,7 @@ def flash_sale_open_view(request, pk: int):
     return redirect("flash_sales:detail", pk=pk)
 
 
-@login_required
+@seller_required
 def flash_sale_close_view(request, pk: int):
     if request.method != "POST":
         return redirect("flash_sales:detail", pk=pk)
@@ -234,7 +234,7 @@ def flash_sale_close_view(request, pk: int):
     return redirect("flash_sales:detail", pk=pk)
 
 
-@login_required
+@seller_required
 def flash_sale_cancel_view(request, pk: int):
     if request.method != "POST":
         return redirect("flash_sales:detail", pk=pk)
@@ -263,7 +263,7 @@ def flash_sale_cancel_view(request, pk: int):
 # Clone / Reprendre une vente
 
 
-@login_required
+@seller_required
 def flash_sale_clone_view(request, pk: int):
     """Clone une vente et redirige vers l'edition."""
     if request.method != "POST":
@@ -283,7 +283,7 @@ def flash_sale_clone_view(request, pk: int):
 # Reservations d'interet
 
 
-@login_required
+@seller_required
 def sale_interests_view(request):
     """Liste des reservations d'interet pour toutes les ventes du vendeur."""
     seller = _get_seller(request)
@@ -301,7 +301,7 @@ def sale_interests_view(request):
     return render(request, "flash_sales/interests.html", ctx)
 
 
-@login_required
+@seller_required
 def flash_sale_interests_detail_view(request, pk: int):
     """Reservations d'interet pour une vente specifique."""
     seller = _get_seller(request)
@@ -318,7 +318,7 @@ def flash_sale_interests_detail_view(request, pk: int):
     )
 
 
-@login_required
+@seller_required
 def sale_interests_reset_view(request, pk: int):
     """Supprime toutes les reservations d'une vente (POST uniquement)."""
     if request.method != "POST":
@@ -333,7 +333,7 @@ def sale_interests_reset_view(request, pk: int):
 # Reporting / Analytics (MEDIUM / PRO)
 
 
-@login_required
+@seller_required
 def seller_analytics_view(request):
     """Dashboard analytics — MEDIUM (30j) et PRO (annuel + par vente)."""
     from analytics.services.reporting import (

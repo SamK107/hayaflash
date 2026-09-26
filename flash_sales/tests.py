@@ -18,6 +18,7 @@ from orders.services.create_order import create_order
 from orders.tests import valid_delivery_payload
 from products.models import FlashSaleProduct, Product
 from subscriptions.models import Plan, Subscription
+from accounts.testing_helpers import NoSellerProfileMixin
 
 
 User = get_user_model()
@@ -735,3 +736,27 @@ class SellerListByTimeTest(TestCase):
         FlashSale.objects.filter(pk__in=[self.live.pk, self.late_open.pk]).delete()
         resp = self.client.get(reverse("flash_sales:list"))
         self.assertEqual(resp.context["default_tab"], "scheduled")
+
+
+class NoSellerProfileFlashSalesTests(NoSellerProfileMixin, TestCase):
+    """Pages vendeur ventes flash : compte sans boutique -> redirection, jamais 500."""
+
+    def test_pages(self):
+        for name, args in [
+            ("flash_sales:list", []),
+            ("flash_sales:create", []),
+            ("flash_sales:analytics", []),
+            ("flash_sales:interests", []),
+            ("flash_sales:detail", [1]),
+            ("flash_sales:edit", [1]),
+            ("flash_sales:interests_detail", [1]),
+        ]:
+            with self.subTest(name=name):
+                self.assert_no_profile_redirects(reverse(name, args=args))
+
+    def test_post_actions(self):
+        for name in ("open", "close", "cancel", "clone", "interests_reset"):
+            with self.subTest(name=name):
+                self.assert_no_profile_redirects(
+                    reverse(f"flash_sales:{name}", args=[1]), method="post"
+                )

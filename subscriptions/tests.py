@@ -21,6 +21,8 @@ from subscriptions.models import (
 )
 from subscriptions.services.limits import can_create_flash_sale
 from subscriptions.services.plans import DEFAULT_MONTHLY_LIMITS
+from accounts.testing_helpers import NoSellerProfileMixin
+from django.urls import reverse
 
 # Valeur seedee par la migration 0008 (= valeur de secours du service).
 FREE_MONTHLY_SALES_LIMIT = DEFAULT_MONTHLY_LIMITS[Plan.FREE]
@@ -475,3 +477,49 @@ class OrangeMoneyAmountIsWholeFcfaTest(TestCase):
         self.assertEqual(payload["amount"], 2000)
         self.assertIsInstance(payload["amount"], int)
         self.assertEqual(payload["currency"], "XOF")
+
+
+class NoSellerProfileSubscriptionsTests(NoSellerProfileMixin, TestCase):
+    def test_pages(self):
+        for name, args in [
+            ("subscriptions:subscription", []),
+            ("subscriptions:checkout", ["medium"]),
+            ("subscriptions:payment_return", ["00000000-0000-0000-0000-000000000000"]),
+            ("subscriptions:payment_cancel", ["00000000-0000-0000-0000-000000000000"]),
+        ]:
+            with self.subTest(name=name):
+                self.assert_no_profile_redirects(reverse(name, args=args))
+
+    def test_billing_return_without_profile_is_not_500(self):
+        for user in (self.staff, self.plain):
+            self.client.force_login(user)
+            resp = self.client.get("/billing/return/?order_id=HF-M-00000000")
+            self.assertEqual(resp.status_code, 302)
+
+
+class AdminPlanBadgeTests(TestCase):
+    """Badge Plan des admins Abonnements et Seller profiles : HTML rendu, pas echappe."""
+
+    def test_badges_render_as_html(self):
+        admin_user = User.objects.create_superuser(phone="+22390000009", password="x")
+        seller = _make_seller("+22390000010")
+        Subscription.objects.create(seller=seller, plan=Plan.PRO)
+        self.client.force_login(admin_user)
+        for url in (
+            "/admin/subscriptions/subscription/",
+            "/admin/accounts/sellerprofile/",
+        ):
+            with self.subTest(url=url):
+                resp = self.client.get(url)
+                self.assertContains(resp, '<span style="background:#FF4D2E;')
+                self.assertNotContains(resp, "&lt;span")
+
+
+class QuotaPlanLabelTests(TestCase):
+    def test_free_plan_shown_as_gratuit_not_code(self):
+        seller = _make_seller("+22390000011")
+        Subscription.objects.create(seller=seller, plan=Plan.FREE)
+        self.client.force_login(seller.user)
+        resp = self.client.get(reverse("flash_sales:list"))
+        self.assertContains(resp, "Plan actuel : <strong class=\"text-gray-800\">Gratuit</strong>")
+        self.assertNotContains(resp, ">Free<")

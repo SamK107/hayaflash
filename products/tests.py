@@ -10,6 +10,8 @@ from django.utils import timezone
 from accounts.models import SellerProfile
 from flash_sales.models import FlashSale, FlashSaleStatus
 from products.models import Product, ProductMedia, ProductVariant, StockMovement
+from accounts.testing_helpers import NoSellerProfileMixin
+from django.urls import reverse
 
 User = get_user_model()
 
@@ -130,3 +132,34 @@ class MontantsFcfaEntiersTest(TestCase):
         for model, name in champs:
             with self.subTest(f"{model.__name__}.{name}"):
                 self.assertEqual(model._meta.get_field(name).decimal_places, 0)
+
+
+class NoSellerProfileProductsTests(NoSellerProfileMixin, TestCase):
+    def test_pages(self):
+        for name, args in [
+            ("products:create", [1]),
+            ("products:edit", [1, 1]),
+            ("products:quick_publish", [1]),
+        ]:
+            with self.subTest(name=name):
+                self.assert_no_profile_redirects(reverse(name, args=args))
+
+
+class TailwindDisabledVariantsExistTests(TestCase):
+    """Le CSS Tailwind est un build statique (docs/FRONTEND_VENDORING.md) : une
+    classe disabled:* absente du build ne s'applique pas (ex. bouton « Publier »
+    desactive qui n'etait pas grise avec disabled:opacity-40)."""
+
+    def test_every_disabled_variant_used_in_templates_is_in_build(self):
+        import re
+        from pathlib import Path
+
+        from django.conf import settings
+
+        base = Path(settings.BASE_DIR)
+        css = (base / "static/vendor/tailwind/tailwind-hayaflash.css").read_text(encoding="utf-8")
+        used = set()
+        for path in (base / "templates").rglob("*.html"):
+            used.update(re.findall(r"\bdisabled:[a-z0-9-]+", path.read_text(encoding="utf-8")))
+        missing = sorted(c for c in used if f".{c.replace(':', chr(92) + ':')}:disabled" not in css)
+        self.assertEqual(missing, [], "Classes absentes du build Tailwind statique")

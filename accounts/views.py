@@ -60,15 +60,15 @@ class MeView(APIView):
 def seller_profile_edit(request):
     """GET/POST /seller/profil/ — édition du profil public vendeur."""
     from accounts.forms import SellerProfileForm
-    from accounts.models import SellerProfile
     from orders.services.dashboard import get_dashboard_kpis_cached
     from flash_sales.models import FlashSaleStatus
     from flash_sales.services.ordering import live_now_q
 
-    try:
-        profile = request.user.seller_profile
-    except SellerProfile.DoesNotExist:
-        return redirect("seller_home")
+    from accounts.access import get_seller_or_none, redirect_without_seller_profile
+
+    profile = get_seller_or_none(request.user)
+    if profile is None:
+        return redirect_without_seller_profile(request)
 
     if request.method == "POST":
         form = SellerProfileForm(
@@ -115,10 +115,11 @@ def seller_settings(request):
         get_sale_quota,
     )
 
-    try:
-        profile = request.user.seller_profile
-    except Exception:
-        return redirect("seller_home")
+    from accounts.access import get_seller_or_none, redirect_without_seller_profile
+
+    profile = get_seller_or_none(request.user)
+    if profile is None:
+        return redirect_without_seller_profile(request)
 
     sub = get_or_create_subscription(profile)
     # Meme comptage et meme limite que le blocage reel (plan effectif,

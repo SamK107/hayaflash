@@ -28,7 +28,7 @@
         <i data-lucide="zap" class="w-5 h-5 text-amber-600"></i>
       </div>
       <div class="flex-1 min-w-0">
-        <p class="font-bold text-gray-900 text-base mb-0.5">Limite du plan {{ quota.plan|capfirst }} atteinte</p>
+        <p class="font-bold text-gray-900 text-base mb-0.5">Limite du plan {{ quota.plan_label }} atteinte</p>
         <p class="text-sm text-gray-600 mb-3">
           Vous avez utilisé <strong>{{ quota.monthly_count }}/{{ quota.monthly_limit }}</strong> ventes ce mois-ci.
           Plan <strong>Pro</strong> : {% plan_quota_label "pro" as pro_quota %}{{ pro_quota|lower }}.
@@ -46,7 +46,7 @@
   {% elif not quota.is_pro and quota.monthly_limit %}
   <div class="mb-5 flex items-center gap-3 text-sm text-gray-500 bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5">
     <i data-lucide="bar-chart-2" class="w-4 h-4 text-gray-400 shrink-0"></i>
-    <span>Plan {{ quota.plan|capfirst }} &middot; <strong class="text-gray-700">{{ quota.monthly_count }}/{{ quota.monthly_limit }}</strong> ventes ce mois-ci</span>
+    <span>Plan {{ quota.plan_label }} &middot; <strong class="text-gray-700">{{ quota.monthly_count }}/{{ quota.monthly_limit }}</strong> ventes ce mois-ci</span>
     {% if quota.monthly_count == quota.monthly_limit|add:"-1" %}
     <span class="ml-auto text-amber-600 font-semibold text-xs flex items-center gap-1">
       <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>Dernière disponible
@@ -99,7 +99,7 @@
 
     {% if not quota.is_pro and quota.monthly_limit %}
     <div class="bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 mb-5 text-xs text-center text-gray-500">
-      Plan actuel : <strong class="text-gray-800">{{ quota.plan|capfirst }}</strong> &middot; {{ quota.monthly_count }}/{{ quota.monthly_limit }} ventes ce mois
+      Plan actuel : <strong class="text-gray-800">{{ quota.plan_label }}</strong> &middot; {{ quota.monthly_count }}/{{ quota.monthly_limit }} ventes ce mois
     </div>
     {% endif %}
 

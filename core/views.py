@@ -163,15 +163,15 @@ def seller_home_view(request):
     from orders.models import Order
 
     # Garde-fou : un compte sans SellerProfile (staff createsuperuser, lien
-    # /seller/ favori/partage par erreur) plantait ici en 500. Le cas normal
-    # est deja evite en amont par _post_login_redirect_target(), ceci couvre
-    # les acces directs a l'URL.
+    # /seller/ favori/partage par erreur) plantait ici en 500. Staff ->
+    # /platform-admin/. Autres comptes : page explicative -- l'ancienne
+    # redirection vers /login/ bouclait (login renvoie un compte connecte vers
+    # /seller/). Cible des redirections de accounts.access.seller_required.
     seller = getattr(request.user, "seller_profile", None)
     if seller is None:
         if request.user.is_staff:
             return redirect("platform_admin")
-        messages.error(request, "Ce compte n'a pas de profil vendeur.")
-        return redirect("login")
+        return render(request, "seller/no_profile.html")
 
     # Par l'heure (comme les pages publiques) : une vente dont l'heure de fin
     # est passee n'est plus "a venir / en cours", meme si Celery ne l'a pas

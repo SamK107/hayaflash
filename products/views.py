@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 
+from accounts.access import seller_required
 from flash_sales.models import FlashSale
 
 from .forms import ProductForm
@@ -21,7 +21,7 @@ def _get_seller(request):
     return request.user.seller_profile
 
 
-@login_required
+@seller_required
 def product_create_view(request, sale_pk: int):
     seller = _get_seller(request)
     sale = get_object_or_404(FlashSale, pk=sale_pk, owner=seller)
@@ -51,7 +51,7 @@ def product_create_view(request, sale_pk: int):
     return render(request, "products/product_form.html", {"form": form, "sale": sale})
 
 
-@login_required
+@seller_required
 def product_edit_view(request, sale_pk: int, pk: int):
     seller = _get_seller(request)
     sale = get_object_or_404(FlashSale, pk=sale_pk, owner=seller)
@@ -95,7 +95,7 @@ def product_edit_view(request, sale_pk: int, pk: int):
     )
 
 
-@login_required
+@seller_required
 def quick_publish_view(request, flash_sale_pk: int):
     """Page "Publication rapide" : grille editable pour gerer 20+ produits
     en une fois (catalogue reutilisable + upload d'images groupe). Les

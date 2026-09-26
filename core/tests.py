@@ -9,6 +9,8 @@ from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
 from core.tasks import CELERY_HEARTBEAT_CACHE_KEY, celery_heartbeat
+from accounts.testing_helpers import NoSellerProfileMixin
+from django.contrib.auth import get_user_model
 
 
 @override_settings(
@@ -145,3 +147,49 @@ class RootHealthEndpointTests(TestCase):
             resp = Client().get("/health/")
         self.assertIn(resp.status_code, (200, 503))
         self.assertNotEqual(resp.status_code, 403)
+
+
+class NoSellerProfileSellerHomeTests(NoSellerProfileMixin, TestCase):
+    """/seller/ et /login/ : plus de 500 ni de boucle pour un compte sans boutique."""
+
+    def test_staff_goes_to_platform_admin(self):
+        self.client.force_login(self.staff)
+        self.assertRedirects(self.client.get("/seller/"), "/platform-admin/", fetch_redirect_response=False)
+
+    def test_plain_account_gets_explanation_page_no_loop(self):
+        self.client.force_login(self.plain)
+        resp = self.client.get("/seller/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Ce compte n'a pas de boutique")
+        # /login/ (deja connecte) -> /seller/ -> page : la chaine s'arrete.
+        resp = self.client.get("/login/", follow=True)
+        self.assertEqual(resp.status_code, 200)
+        self.assertLessEqual(len(resp.redirect_chain), 1)
+
+
+class StaffPilotageLinkTests(NoSellerProfileMixin, TestCase):
+    """Lien « Pilotage HayaFlash » : staff uniquement, menu du site + admin Django."""
+
+    def test_link_in_site_menu_for_staff_only(self):
+        from accounts.models import SellerProfile
+
+        seller_user = get_user_model().objects.create_user(
+            phone="+22390000003", password="x", display_name="Vendeuse"
+        )
+        SellerProfile.objects.create(user=seller_user)
+        self.client.force_login(seller_user)
+        self.assertNotContains(self.client.get("/seller/"), "Pilotage HayaFlash")
+
+        seller_user.is_staff = True
+        seller_user.save()
+        resp = self.client.get("/seller/")
+        self.assertContains(resp, "Pilotage HayaFlash")
+        self.assertContains(resp, 'href="/platform-admin/"')
+
+    def test_link_in_django_admin_header(self):
+        self.staff.is_superuser = True
+        self.staff.save()
+        self.client.force_login(self.staff)
+        resp = self.client.get("/admin/")
+        self.assertContains(resp, "Pilotage HayaFlash")
+        self.assertContains(resp, 'href="/platform-admin/"')

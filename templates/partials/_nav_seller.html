@@ -51,6 +51,16 @@
           <span class="ml-1 bg-primary text-white text-xs font-bold px-1.5 py-0.5 rounded-full leading-none">{{ interests_count }}</span>
           {% endif %}
         </a>
+        {# Pilotage plateforme : staff uniquement (vue @staff_member_required) #}
+        {% if user.is_staff %}
+        <a href="{% url 'platform_admin' %}"
+           class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium
+                  {% if request.resolver_match.url_name == 'platform_admin' %}bg-amber-50 text-amber-700{% else %}text-amber-700 hover:bg-gray-50{% endif %}
+                  transition-colors">
+          <i data-lucide="gauge" class="w-4 h-4"></i>
+          Pilotage HayaFlash
+        </a>
+        {% endif %}
       </div>
 
       {# Actions droite #}
@@ -135,6 +145,13 @@
         <span class="bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full">{{ interests_count }}</span>
         {% endif %}
       </a>
+
+      {% if user.is_staff %}
+      <a href="{% url 'platform_admin' %}"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-amber-700 hover:bg-gray-50 transition-colors">
+        <i data-lucide="gauge" class="w-5 h-5"></i>Pilotage HayaFlash
+      </a>
+      {% endif %}
 
       {# Mon compte (mobile) #}
       <div x-data="{ accountOpen: false }">

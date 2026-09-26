@@ -12,6 +12,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
+from accounts.access import seller_required
+
 from .models import (
     Plan,
     PaymentProvider,
@@ -37,7 +39,7 @@ def _get_seller(request):
 # ── Page abonnement principal ──────────────────────────────────────────────────
 
 
-@login_required
+@seller_required
 def subscription_view(request):
     seller = _get_seller(request)
     sub = get_or_create_subscription(seller)
@@ -64,7 +66,7 @@ def subscription_view(request):
 # ── Checkout ───────────────────────────────────────────────────────────────────
 
 
-@login_required
+@seller_required
 def checkout_view(request, plan: str):
     """Affiche le formulaire de paiement pour un plan donne.
 
@@ -133,7 +135,7 @@ def checkout_view(request, plan: str):
 # ── Retour apres paiement ──────────────────────────────────────────────────────
 
 
-@login_required
+@seller_required
 def payment_return_view(request, payment_id):
     """Orange Money redirige ici apres que le client a paye (ou essaye)."""
     seller = _get_seller(request)
@@ -156,7 +158,7 @@ def payment_return_view(request, payment_id):
     )
 
 
-@login_required
+@seller_required
 def payment_cancel_view(request, payment_id):
     """Le client a annule sur la page Orange Money."""
     seller = _get_seller(request)

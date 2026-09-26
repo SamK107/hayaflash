@@ -5,6 +5,7 @@ from datetime import timedelta
 from django.contrib import admin, messages
 from django.db.models import F
 from django.utils import timezone
+from django.utils.html import format_html
 
 from core.models import audit
 
@@ -58,12 +59,14 @@ class SubscriptionAdmin(admin.ModelAdmin):
         colors = {Plan.FREE: "#6B7280", Plan.MEDIUM: "#5B2EFF", Plan.PRO: "#FF4D2E"}
         color = colors.get(obj.plan, "#6B7280")
         label = obj.get_plan_display().upper()
-        return (
-            '<span style="background:%s;color:#fff;padding:2px 10px;'
-            'border-radius:9999px;font-size:.75rem;font-weight:700;">%s</span>'
-            % (color, label)
+        # format_html : l'ancien `allow_tags` n'existe plus depuis Django 2.0, la
+        # chaine brute etait echappee et le HTML s'affichait en texte.
+        return format_html(
+            '<span style="background:{};color:#fff;padding:2px 10px;'
+            'border-radius:9999px;font-size:.75rem;font-weight:700;">{}</span>',
+            color,
+            label,
         )
-    plan_badge.allow_tags = True
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("seller__user")

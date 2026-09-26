@@ -58,6 +58,9 @@ def get_sale_quota(seller) -> dict:
         "is_medium": sub.is_medium,
         "is_paid": sub.is_paid,
         "plan": effective_plan,
+        # Libelle affichable (« Gratuit », « Medium », « Pro ») : ne jamais
+        # afficher le code du plan (« Free ») a l'utilisateur.
+        "plan_label": Plan(effective_plan).label,
         "monthly_count": count,
         "monthly_limit": limit,
     }
