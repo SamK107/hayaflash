@@ -165,6 +165,12 @@ def verify_callback(callback_data: dict) -> dict[str, Any]:
         - status (str) — Statut du paiement
         - txn_id (str) — ID transaction Orange Money
         - phone (str) — Numéro du payeur
+        - amount (int | None) — Montant notifié, si le payload en contient un.
+          La notification WebPay Orange Money Mali documentée ne transmet que
+          status / notif_token / txnid : amount vaut alors None et le montant
+          fait foi côté HayaFlash (SubscriptionPayment.amount, fixé à
+          l'initiation). S'il est présent, il DOIT égaler payment.amount
+          (voir callback_amount_mismatch).
     """
     status = (callback_data.get("status") or "").upper()
     notif_token = (
@@ -173,6 +179,7 @@ def verify_callback(callback_data: dict) -> dict[str, Any]:
     order_id = callback_data.get("orderId") or callback_data.get("order_id") or ""
     txn_id = callback_data.get("txnid") or callback_data.get("txnId") or ""
     phone = callback_data.get("subscribernumber") or callback_data.get("phone") or ""
+    raw_amount = callback_data.get("amount")
 
     logger.info(
         "Orange Money callback — notif_token=%s status=%s txn_id=%s",
@@ -188,5 +195,23 @@ def verify_callback(callback_data: dict) -> dict[str, Any]:
         "status": status,
         "txn_id": txn_id,
         "phone": phone,
+        "amount": raw_amount,
         "raw": callback_data,
     }
+
+
+def callback_amount_mismatch(result: dict, expected_amount: int) -> bool:
+    """True si le callback annonce un montant different de celui du paiement.
+
+    Absent -> False (rien a comparer, cf. verify_callback). Present mais
+    illisible -> True (fail-closed : pas d'activation). FCFA entiers : aucune
+    conversion x100 / /100.
+    """
+    raw = result.get("amount")
+    if raw is None or raw == "":
+        return False
+    try:
+        notified = float(str(raw).replace(" ", "").replace(",", "."))
+    except (TypeError, ValueError):
+        return True
+    return notified != float(expected_amount)

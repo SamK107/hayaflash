@@ -112,10 +112,8 @@ def seller_settings(request):
     from accounts.forms import ChangePasswordForm
     from subscriptions.services.limits import (
         get_or_create_subscription,
-        FREE_MONTHLY_SALES_LIMIT,
+        get_sale_quota,
     )
-    from django.utils import timezone
-    from flash_sales.models import FlashSale
 
     try:
         profile = request.user.seller_profile
@@ -123,13 +121,9 @@ def seller_settings(request):
         return redirect("seller_home")
 
     sub = get_or_create_subscription(profile)
-
-    # Compteur ventes ce mois (plan Free)
-    now = timezone.now()
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    sales_this_month = FlashSale.objects.filter(
-        owner=profile, created_at__gte=month_start
-    ).count()
+    # Meme comptage et meme limite que le blocage reel (plan effectif,
+    # ventes annulees exclues, limites lues dans PlanConfig).
+    quota = get_sale_quota(profile)
 
     if request.method == "POST":
         action = request.POST.get("action")
@@ -148,8 +142,7 @@ def seller_settings(request):
                     "pwd_form": form,
                     "sub": sub,
                     "profile": profile,
-                    "sales_this_month": sales_this_month,
-                    "free_limit": FREE_MONTHLY_SALES_LIMIT,
+                    "quota": quota,
                 },
             )
 
@@ -161,7 +154,6 @@ def seller_settings(request):
             "pwd_form": pwd_form,
             "sub": sub,
             "profile": profile,
-            "sales_this_month": sales_this_month,
-            "free_limit": FREE_MONTHLY_SALES_LIMIT,
+            "quota": quota,
         },
     )

@@ -113,7 +113,7 @@ def billing_callback_view(request):
 
             data = {k: v[0] for k, v in parse_qs(raw_body.decode()).items()}
 
-        from .services.orange_money import verify_callback
+        from .services.orange_money import callback_amount_mismatch, verify_callback
 
         result = verify_callback(data)
 
@@ -153,6 +153,29 @@ def billing_callback_view(request):
                 raw_payload=data,
                 processed=False,  # Pas de re-traitement
                 error_message="Payment already successfully processed (idempotent)",
+            )
+            return HttpResponse("OK")
+
+        # Montant notifie different du montant du paiement : aucune activation
+        # (paiement laisse en attente pour verification manuelle).
+        if result["success"] and callback_amount_mismatch(result, payment.amount):
+            logger.error(
+                "billing_callback: montant incoherent — notif_token=%s attendu=%s recu=%r",
+                notif_token[:16] + "...",
+                payment.amount,
+                result.get("amount"),
+            )
+            WebhookLog.objects.create(
+                payment=payment,
+                notif_token=notif_token,
+                status=status,
+                txn_id=txn_id,
+                raw_payload=data,
+                processed=False,
+                error_message=(
+                    f"Montant incohérent : attendu {payment.amount} FCFA, "
+                    f"reçu {result.get('amount')!r} — pas d'activation"
+                ),
             )
             return HttpResponse("OK")
 

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load plan_tags %}
 {% block title %}Mes ventes flash — HayaFlash{% endblock %}
 {% block navbar %}{% include "partials/_nav_seller.html" %}{% endblock %}
 
@@ -30,7 +31,7 @@
         <p class="font-bold text-gray-900 text-base mb-0.5">Limite du plan {{ quota.plan|capfirst }} atteinte</p>
         <p class="text-sm text-gray-600 mb-3">
           Vous avez utilisé <strong>{{ quota.monthly_count }}/{{ quota.monthly_limit }}</strong> ventes ce mois-ci.
-          Passez au plan <strong>Pro</strong> pour créer des ventes illimitées.
+          Plan <strong>Pro</strong> : {% plan_quota_label "pro" as pro_quota %}{{ pro_quota|lower }}.
         </p>
         <div class="flex flex-wrap gap-3 items-center">
           <button data-hf-show="#upgrade-modal"
@@ -102,52 +103,48 @@
     </div>
     {% endif %}
 
-    <!-- MEDIUM -->
-    <div class="border-2 border-gray-100 rounded-2xl p-4 mb-3 hover:border-blue-200 transition-colors">
-      <div class="flex items-start justify-between mb-3">
-        <div>
-          <p class="font-black text-gray-900 text-base">Medium</p>
-          <p class="text-2xl font-black text-gray-900 mt-0.5">2 000 <span class="text-sm font-semibold text-gray-400">FCFA/mois</span></p>
-        </div>
-        <div class="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
-          <i data-lucide="star" class="w-5 h-5 text-blue-600"></i>
-        </div>
-      </div>
-      <ul class="space-y-1.5 mb-4">
-        <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>3 ventes flash par mois</li>
-        <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>Statistiques (30 derniers jours)</li>
-        <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>Historique commandes complet</li>
-      </ul>
-      <a href="{% url 'subscriptions:checkout' 'medium' %}"
-         class="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-sm transition-all active:scale-[.98]">
-        Choisir Medium — 2 000 FCFA/mois
-      </a>
-    </div>
-
-    <!-- PRO -->
+    {# Prix et fonctionnalites : PlanConfig (subscriptions/services/plans.py), jamais en dur. #}
+    {% for offer in plan_offers %}
+    {% if offer.highlight %}
     <div class="border-2 border-primary rounded-2xl p-4 mb-4 relative">
       <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-black px-3 py-1 rounded-full">Recommande</span>
       <div class="flex items-start justify-between mb-3 mt-1">
+    {% else %}
+    <div class="border-2 border-gray-100 rounded-2xl p-4 mb-3 hover:border-blue-200 transition-colors">
+      <div class="flex items-start justify-between mb-3">
+    {% endif %}
         <div>
-          <p class="font-black text-gray-900 text-base">Pro</p>
-          <p class="text-2xl font-black text-gray-900 mt-0.5">5 000 <span class="text-sm font-semibold text-gray-400">FCFA/mois</span></p>
+          <p class="font-black text-gray-900 text-base">{{ offer.label }}</p>
+          <p class="text-2xl font-black text-gray-900 mt-0.5">{{ offer.price|floatformat:"0g" }} <span class="text-sm font-semibold text-gray-400">FCFA/mois</span></p>
         </div>
+        {% if offer.highlight %}
         <div class="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
           <i data-lucide="crown" class="w-5 h-5 text-amber-600"></i>
         </div>
+        {% else %}
+        <div class="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
+          <i data-lucide="star" class="w-5 h-5 text-blue-600"></i>
+        </div>
+        {% endif %}
       </div>
       <ul class="space-y-1.5 mb-4">
-        <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>Ventes flash <strong>illimitées</strong></li>
-        <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>Statistiques et analyses avancées</li>
-        <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>Tableau de bord LIVE temps réel</li>
-        <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>Notifications SMS automatiques</li>
-        <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>Support prioritaire WhatsApp</li>
+        {% for feat in offer.features %}
+        <li class="flex items-center gap-2 text-sm text-gray-600"><i data-lucide="check" class="w-3.5 h-3.5 text-green-500 shrink-0"></i>{{ feat }}</li>
+        {% endfor %}
       </ul>
-      <a href="{% url 'subscriptions:checkout' 'pro' %}"
+      {% if offer.highlight %}
+      <a href="{% url 'subscriptions:checkout' offer.plan %}"
          class="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black py-3 rounded-xl text-sm transition-all active:scale-[.98] shadow-sm">
-        <i data-lucide="zap" class="w-4 h-4"></i>Choisir Pro — 5 000 FCFA/mois
+        <i data-lucide="zap" class="w-4 h-4"></i>Choisir {{ offer.label }} — {{ offer.price|floatformat:"0g" }} FCFA/mois
       </a>
+      {% else %}
+      <a href="{% url 'subscriptions:checkout' offer.plan %}"
+         class="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-sm transition-all active:scale-[.98]">
+        Choisir {{ offer.label }} — {{ offer.price|floatformat:"0g" }} FCFA/mois
+      </a>
+      {% endif %}
     </div>
+    {% endfor %}
 
     <p class="text-xs text-center text-gray-400 mb-3">Paiement via Orange Money &middot; Sans engagement</p>
     <button data-hf-hide="#upgrade-modal"

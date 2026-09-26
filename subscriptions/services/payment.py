@@ -6,6 +6,8 @@ Règles critiques:
   - notif_token est généré et stocké AVANT redirection (sécurité webhook)
   - Webhooks font un lookup par notif_token UNIQUEMENT (pas par order_id)
   - order_id limité à 24 caractères (contrainte Orange Money)
+  - Montant calcule COTE SERVEUR (services/plans.py) : prix officiel du plan,
+    ou tarif special actif du vendeur. Jamais un montant venu du formulaire.
 """
 
 from __future__ import annotations
@@ -23,14 +25,21 @@ from subscriptions.models import (
     Plan,
     PaymentProvider,
     PaymentStatus,
+    SellerPriceOverride,
     Subscription,
     SubscriptionPayment,
-    PLAN_PRICES,
+)
+from subscriptions.services.plans import (
+    get_duration_days,
+    get_price_quote,
+    is_plan_active,
 )
 
 logger = logging.getLogger(__name__)
 
-SUBSCRIPTION_DURATION_DAYS = 31  # ~1 mois
+
+class PaymentNotAllowed(ValueError):
+    """Initiation refusee pour une raison metier (message affichable)."""
 
 
 def _generate_order_id(plan: str, max_length: int = 24) -> str:
@@ -114,8 +123,19 @@ def create_orange_payment(
 
     if plan not in (Plan.MEDIUM, Plan.PRO):
         raise ValueError(f"Plan invalide : {plan}")
+    if not is_plan_active(plan):
+        raise PaymentNotAllowed("Ce plan n'est pas proposé pour le moment.")
 
-    amount = PLAN_PRICES[plan]
+    # Montant decide ici, cote serveur : prix officiel ou tarif special actif.
+    amount, override = get_price_quote(plan, seller)
+    if override is not None:
+        sub = Subscription.objects.filter(seller=seller).first()
+        if sub is not None and sub.is_paid:
+            # Un tarif special ne prolonge jamais un abonnement payant actif.
+            raise PaymentNotAllowed(
+                "Tarif spécial non applicable : vous avez déjà un abonnement payant "
+                "actif. Utilisez un compte vendeur de test, ou contactez le support."
+            )
     # Générer un order_id ≤ 24 caractères (contrainte Orange Money)
     order_id = _generate_order_id(plan, max_length=24)
     # Générer un notif_token avant la création du paiement
@@ -131,7 +151,13 @@ def create_orange_payment(
         order_id=order_id,
         notif_token=notif_token,  # Stocké avant redirection (sécurité)
         status=PaymentStatus.PENDING,
+        price_override=override,
+        is_special_price=override is not None,
     )
+    reference = f"HayaFlash {plan.capitalize()} {seller.business_name or str(seller.pk)}"
+    if override is not None:
+        # Reperable dans les releves Orange Money.
+        reference = f"SPECIAL {reference}"
 
     return_url, cancel_url, notif_url = _om_urls(request, payment)
 
@@ -143,17 +169,20 @@ def create_orange_payment(
             return_url=return_url,
             cancel_url=cancel_url,
             notif_url=notif_url,
-            reference=f"HayaFlash {plan.capitalize()} {seller.business_name or str(seller.pk)}",
+            reference=reference,
         )
         payment.payment_url = result["payment_url"]
         payment.raw_response = result["raw"]
         payment.save()
 
         logger.info(
-            "Orange Money payment initiated — order_id=%s plan=%s seller=%s",
+            "Orange Money payment initiated — order_id=%s plan=%s seller=%s "
+            "amount=%s special=%s",
             order_id,
             plan,
             seller.id,
+            amount,
+            override.pk if override is not None else "-",
         )
     except OrangeMoneyError as exc:
         payment.status = PaymentStatus.FAILED
@@ -174,6 +203,12 @@ def activate_subscription_from_payment(payment: SubscriptionPayment) -> Subscrip
     """
     Active ou prolonge l'abonnement du vendeur apres paiement confirme.
     Idempotent : si deja success, retourne sans modifier.
+
+    Tarif special : duree = override.duration_days si defini (sinon duree du
+    plan), uses_count +1 ici seulement (paiement reussi), sous
+    select_for_update. Un paiement special ne prolonge jamais un abonnement
+    payant deja actif (refuse a l'initiation ; ici, par securite, la date de
+    fin n'est jamais repoussee au-dela de l'existant).
     """
     if payment.status == PaymentStatus.SUCCESS:
         return payment.seller.subscription
@@ -182,25 +217,60 @@ def activate_subscription_from_payment(payment: SubscriptionPayment) -> Subscrip
     payment.paid_at = timezone.now()
     payment.save()
 
-    sub, _ = Subscription.objects.get_or_create(seller=payment.seller)
+    duration_days = get_duration_days(payment.plan)
+    override = None
+    if payment.price_override_id:
+        override = SellerPriceOverride.objects.select_for_update().get(
+            pk=payment.price_override_id
+        )
+        if override.uses_count >= override.max_uses:
+            # Deux paiements inities en parallele sur un tarif max_uses=1 : le
+            # second a quand meme ete paye, on l'active mais on le signale.
+            logger.error(
+                "Tarif special %s deja epuise (%s/%s) — paiement %s active quand meme",
+                override.pk,
+                override.uses_count,
+                override.max_uses,
+                payment.pk,
+            )
+        override.uses_count += 1
+        override.save(update_fields=["uses_count", "updated_at"])
+        if override.duration_days:
+            duration_days = override.duration_days
+
+    sub, _ = Subscription.objects.select_for_update().get_or_create(
+        seller=payment.seller
+    )
 
     now = timezone.now()
-    # Si le plan actuel est superieur ou egal, prolonger a partir de l'expiration
-    if sub.plan == payment.plan and sub.expires_at and sub.expires_at > now:
-        new_expires = sub.expires_at + timedelta(days=SUBSCRIPTION_DURATION_DAYS)
+    if override is not None and sub.is_paid:
+        # Refuse a l'initiation ; ne peut arriver que par une course (abonnement
+        # paye entre l'initiation et le webhook). On ne touche ni au plan ni a
+        # l'echeance de l'abonnement officiel.
+        logger.error(
+            "Paiement special %s sur abonnement payant actif : abonnement inchangé",
+            payment.pk,
+        )
+        return sub
+    if override is not None:
+        new_expires = now + timedelta(days=duration_days)
+    elif sub.plan == payment.plan and sub.expires_at and sub.expires_at > now:
+        # Meme plan encore actif : on prolonge a partir de l'expiration.
+        new_expires = sub.expires_at + timedelta(days=duration_days)
     else:
-        new_expires = now + timedelta(days=SUBSCRIPTION_DURATION_DAYS)
+        new_expires = now + timedelta(days=duration_days)
 
     sub.plan = payment.plan
     sub.expires_at = new_expires
     sub.save()
 
     logger.info(
-        "Subscription activated — seller=%s plan=%s expires=%s payment=%s",
+        "Subscription activated — seller=%s plan=%s expires=%s payment=%s special=%s",
         payment.seller_id,
         payment.plan,
         new_expires,
         payment.pk,
+        payment.price_override_id or "-",
     )
     return sub
 

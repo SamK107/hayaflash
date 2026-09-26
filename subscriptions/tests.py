@@ -19,10 +19,11 @@ from subscriptions.models import (
     Subscription,
     SubscriptionPayment,
 )
-from subscriptions.services.limits import (
-    can_create_flash_sale,
-    FREE_MONTHLY_SALES_LIMIT,
-)
+from subscriptions.services.limits import can_create_flash_sale
+from subscriptions.services.plans import DEFAULT_MONTHLY_LIMITS
+
+# Valeur seedee par la migration 0008 (= valeur de secours du service).
+FREE_MONTHLY_SALES_LIMIT = DEFAULT_MONTHLY_LIMITS[Plan.FREE]
 
 User = get_user_model()
 
@@ -427,11 +428,11 @@ class MediumPlanLimitsTest(TestCase):
         )
 
     def test_medium_limit_is_ten(self):
-        from subscriptions.models import PLAN_MONTHLY_SALES_LIMIT
+        from subscriptions.services.plans import get_monthly_limit
 
-        self.assertEqual(PLAN_MONTHLY_SALES_LIMIT[Plan.FREE], 3)
-        self.assertEqual(PLAN_MONTHLY_SALES_LIMIT[Plan.MEDIUM], 10)
-        self.assertIsNone(PLAN_MONTHLY_SALES_LIMIT[Plan.PRO])
+        self.assertEqual(get_monthly_limit(Plan.FREE), 3)
+        self.assertEqual(get_monthly_limit(Plan.MEDIUM), 10)
+        self.assertIsNone(get_monthly_limit(Plan.PRO))
 
     def test_medium_allows_beyond_free_limit_and_blocks_at_ten(self):
         for _ in range(9):
@@ -452,8 +453,8 @@ class OrangeMoneyAmountIsWholeFcfaTest(TestCase):
     def test_plan_price_sent_as_is(self, mock_post, _tok):
         from django.test import override_settings
 
-        from subscriptions.models import PLAN_PRICES
         from subscriptions.services.orange_money import initiate_payment
+        from subscriptions.services.plans import get_official_price
 
         mock_post.return_value.status_code = 201
         mock_post.return_value.json.return_value = {
@@ -463,7 +464,7 @@ class OrangeMoneyAmountIsWholeFcfaTest(TestCase):
         }
         with override_settings(ORANGE_MONEY_MERCHANT_KEY="mk"):
             initiate_payment(
-                amount=PLAN_PRICES[Plan.MEDIUM],
+                amount=get_official_price(Plan.MEDIUM),
                 order_id="HF-TEST-1",
                 notif_token="n",
                 return_url="https://x/r",

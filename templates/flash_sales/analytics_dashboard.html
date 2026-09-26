@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load plan_tags %}
 {% load static %}
 {% block title %}Statistiques — HayaFlash{% endblock %}
 
@@ -91,7 +92,7 @@
         <a href="{% url 'subscriptions:subscription' %}"
            class="inline-block px-5 py-2.5 bg-primary text-white font-bold
                   rounded-xl text-sm hover:bg-red-700 transition-colors">
-            Passer au PRO — 5 000 FCFA/mois
+            {% plan_price "pro" as pro_price %}Passer au PRO — {{ pro_price|floatformat:"0g" }} FCFA/mois
         </a>
     </div>
     {% endif %}

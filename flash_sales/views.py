@@ -24,8 +24,9 @@ from .services.crud import (
     save_sale_audio,
     update_flash_sale,
 )
-from subscriptions.models import Plan, PLAN_FEATURES, PLAN_PRICES
+from subscriptions.models import Plan
 from subscriptions.services.limits import get_or_create_subscription, get_sale_quota
+from subscriptions.services.plans import get_features, get_official_price, plan_offers
 
 
 def _get_seller(request):
@@ -56,13 +57,8 @@ def flash_sale_list_view(request):
             ("closed", "Traitement", sales_closed.count()),
             ("done", "Terminées", sales_done.count()),
         ],
-        "pro_features": [
-            "Ventes flash illimitées chaque mois",
-            "Statistiques et analyses avancées",
-            "Priorité dans les résultats de recherche",
-            "Support vendeur prioritaire",
-            "Accès aux fonctionnalités bêta en avant-première",
-        ],
+        # Modale d'upgrade : prix et fonctionnalites depuis PlanConfig.
+        "plan_offers": plan_offers(get_or_create_subscription(seller)),
     }
     # Onglet ouvert par defaut : "En cours" s'il y a une vente live.
     ctx["default_tab"] = "live" if ctx["tab_list"][1][2] else "scheduled"
@@ -84,8 +80,8 @@ def flash_sale_create_view(request):
             plan_info = {
                 "key": plan_key,
                 "label": dict(Plan.choices)[plan_key],
-                "price": PLAN_PRICES[plan_key],
-                "features": PLAN_FEATURES[plan_key],
+                "price": get_official_price(plan_key),
+                "features": get_features(plan_key),
                 "is_current": sub.plan == plan_key and not sub.is_expired,
             }
             # Mark MEDIUM/PRO as recommended

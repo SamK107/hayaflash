@@ -212,12 +212,14 @@ def platform_admin_dashboard(request):
     from flash_sales.models import FlashSale
     from flash_sales.services.ordering import live_now_q
     from orders.models import Order
-    from subscriptions.models import PaymentStatus, Subscription, SubscriptionPayment
+    from subscriptions.models import Subscription, SubscriptionPayment
     from subscriptions.services.platform_reporting import (
         get_orange_remittance_summary,
+        get_revenue_breakdown,
         get_subscribed_sellers,
         get_subscription_revenue_timeline_monthly,
         get_subscription_revenue_ytd,
+        revenue_payments,
     )
 
     now = timezone.now()
@@ -234,19 +236,18 @@ def platform_admin_dashboard(request):
         "total_orders_month": Order.service_objects.filter(
             created_at__gte=month_start
         ).count(),
+        # CA = paiements reussis hors tests de paiement (tarif special "test").
         "mrr": (
-            SubscriptionPayment.objects.filter(
-                status=PaymentStatus.SUCCESS,
-                paid_at__gte=month_start,
-            ).aggregate(total=Sum("amount"))["total"]
+            revenue_payments()
+            .filter(paid_at__gte=month_start)
+            .aggregate(total=Sum("amount"))["total"]
             or 0
         ),
         "total_revenue": (
-            SubscriptionPayment.objects.filter(
-                status=PaymentStatus.SUCCESS,
-            ).aggregate(total=Sum("amount"))["total"]
-            or 0
+            revenue_payments().aggregate(total=Sum("amount"))["total"] or 0
         ),
+        "revenue_breakdown_30d": get_revenue_breakdown(since=month_start),
+        "revenue_breakdown_all": get_revenue_breakdown(),
         "revenue_ytd": get_subscription_revenue_ytd(),
         # Serialise dans le template via |json_script (CSP : pas de JS inline).
         "revenue_timeline": get_subscription_revenue_timeline_monthly(),
