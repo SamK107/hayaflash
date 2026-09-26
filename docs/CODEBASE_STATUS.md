@@ -236,9 +236,9 @@ déploiement continu.
 
 | Piste identifiée | Statut |
 |---|---|
-| Stock restant plus visible (compte à rebours, jauge) | 📋 À faire — attend les constats de 10.0 |
-| Preuve sociale live (`SaleInterest` déjà en base — "X personnes intéressées") | 📋 À faire |
-| Tunnel de commande raccourci (friction minimale avant nom/téléphone) | 📋 À faire |
+| Stock restant plus visible (compte à rebours, jauge) | ✅ Fait (26/09) — le stock affiché sur `/f/<slug>/` baisse **en direct** quand d'autres acheteurs commandent : `GET /f/<slug>/pulse/` (`analytics/services/live_pulse.py`, JSON public sans donnée personnelle, cache serveur 5 s par vente, `no-store`) interrogé par `static/js/hf-live-pulse.js` toutes les 15 s (60 s en attente, pause onglet caché, espacement si réseau instable, jamais de remontée du stock côté client). Le tiroir de commande ouvert réduit la quantité max / signale « vient d'être épuisé ». Compte à rebours existant conservé. **Jauge écartée** : le stock est porté par le produit catalogue, partagé entre ventes (phase 9) — un % du `stock_initial` serait trompeur. |
+| Preuve sociale live (`SaleInterest` déjà en base — "X personnes intéressées") | ✅ Fait (26/09) — vraies données uniquement : « N commandes · X ces 10 dernières min », « Dernière commande il y a N min », « N personnes attendent l'ouverture » (numéros distincts). Masquée sous les seuils (`PROOF_MIN_INTERESTED` = 3, `PROOF_MIN_ORDERS` = 1), commandes annulées exclues. Rendu serveur initial (`social_proof` dans le contexte) + mise à jour par le pouls. |
+| Tunnel de commande raccourci (friction minimale avant nom/téléphone) | ✅ Fait (26/09) — après une 1re commande réussie, nom/téléphone/adresse écrite sont mémorisés **sur l'appareil uniquement** (`localStorage` `hf_buyer_v1`, rien d'envoyé) et pré-remplis ensuite (tiroir de commande + formulaires « M'alerter »), avec bouton « Pas vous ? » qui efface tout (téléphone partagé). |
 
 ### 10.2 — PWA acheteur multi-boutiques + notifications (à venir)
 
@@ -265,7 +265,7 @@ une **option activée par le vendeur**.
 
 | Fonctionnalité | Activation | Statut |
 |---|---|---|
-| Rareté temporelle (compte à rebours), stock réel affiché, preuve sociale live | Par défaut, pour tous — pas d'option | 📋 À faire — voir 10.1 |
+| Rareté temporelle (compte à rebours), stock réel affiché, preuve sociale live | Par défaut, pour tous — pas d'option | ✅ Fait (26/09) — voir 10.1. Tests : `analytics/tests.py::LivePulseTests` (9) + parcours navigateur Playwright (stock qui baisse sans rechargement, preuve sociale, pré-remplissage, « Pas vous ? », 390 px sans débordement). |
 | Quota de places strict (pertinent billetterie/événementiel) | **Option vendeur**, désactivée par défaut | 📋 À faire (post-audit) |
 
 ### 10.4 — Billetterie & confirmation de livraison par QR (optionnel, post-lancement)

@@ -580,3 +580,96 @@ class CalendarListAndEndedPageTests(ViralGrowthFixture):
         self.assertContains(resp, "vendu")
         # Plus de prix ni de bouton Commander sur une vente terminee.
         self.assertNotContains(resp, "15 000")
+
+
+class LivePulseTests(ViralGrowthFixture):
+    """GET /f/<slug>/pulse/ : stock reel + preuve sociale (Phase 10.1/10.3)."""
+
+    def _pulse(self, slug=None):
+        cache.clear()
+        return self.client.get(
+            reverse("flash_sale_pulse", kwargs={"slug": slug or self.sale.public_slug})
+        )
+
+    def _interest(self, phone, sale=None):
+        from flash_sales.models import SaleInterest
+
+        SaleInterest.objects.create(flash_sale=sale or self.sale, phone=phone)
+
+    def test_live_pulse_reports_real_stock_and_orders(self) -> None:
+        create_order(self._payload())
+        resp = self._pulse()
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Cache-Control"], "no-store")
+        data = resp.json()
+        self.assertEqual(data["state"], "live")
+        self.assertEqual(data["stock"], {str(self.product.pk): 4})
+        self.assertEqual(data["orders"], 1)
+        self.assertEqual(data["items_sold"], 1)
+        self.assertEqual(data["recent_orders"], 1)
+        self.assertIsNotNone(data["last_order_seconds_ago"])
+
+    def test_pulse_exposes_no_buyer_personal_data(self) -> None:
+        create_order(self._payload())
+        self._interest("+22370009999")
+        body = self._pulse().content.decode()
+        for secret in ("+15559991234", "+22370009999", "Client", "Hamdallaye"):
+            self.assertNotIn(secret, body)
+
+    def test_interested_counts_distinct_phones(self) -> None:
+        for phone in ("+22370000001", "+22370000001", "+22370000002"):
+            self._interest(phone)
+        self.assertEqual(self._pulse().json()["interested"], 2)
+
+    def test_cancelled_orders_are_not_counted(self) -> None:
+        from orders.models import OrderStatus
+
+        order = create_order(self._payload())
+        Order.service_objects.filter(pk=order.pk).update(status=OrderStatus.CANCELLED)
+        self.assertEqual(self._pulse().json()["orders"], 0)
+
+    def test_ended_sale_has_no_stock(self) -> None:
+        now = timezone.now()
+        self.sale.start_time = now - timedelta(hours=3)
+        self.sale.end_time = now - timedelta(hours=1)
+        self.sale.save()
+        data = self._pulse().json()
+        self.assertEqual(data["state"], "ended")
+        self.assertEqual(data["stock"], {})
+
+    def test_unknown_slug_404(self) -> None:
+        self.assertEqual(self._pulse("nexiste-pas").status_code, 404)
+
+    def test_pulse_is_cached_per_sale(self) -> None:
+        cache.clear()
+        url = reverse("flash_sale_pulse", kwargs={"slug": self.sale.public_slug})
+        self.assertEqual(self.client.get(url).json()["orders"], 0)
+        create_order(self._payload())
+        # Meme fenetre de cache (5 s) : pas de recalcul par visiteur.
+        self.assertEqual(self.client.get(url).json()["orders"], 0)
+
+    def test_social_proof_thresholds(self) -> None:
+        from analytics.services.live_pulse import compute_live_pulse, social_proof_lines
+
+        lines = social_proof_lines(compute_live_pulse(self.sale))
+        self.assertEqual(lines, {"live": "", "live_sub": "", "waiting": ""})
+        self._interest("+22370000001")
+        self._interest("+22370000002")
+        # 2 inscrits < seuil de 3 : rien d'affiche ("2 personnes" dessert la vente).
+        self.assertEqual(social_proof_lines(compute_live_pulse(self.sale))["live"], "")
+        self._interest("+22370000003")
+        self.assertIn("3 personnes", social_proof_lines(compute_live_pulse(self.sale))["live"])
+        create_order(self._payload())
+        lines = social_proof_lines(compute_live_pulse(self.sale))
+        self.assertEqual(lines["live"], "1 commande")
+        self.assertEqual(lines["live_sub"], "Dernière commande à l'instant")
+
+    def test_public_page_renders_initial_social_proof(self) -> None:
+        create_order(self._payload())
+        cache.clear()
+        resp = self.client.get(reverse("public_flash_sale", kwargs={"slug": self.sale.public_slug}))
+        self.assertEqual(resp.context["social_proof"]["live"], "1 commande")
+        self.assertContains(resp, 'id="hf-pulse"')
+        self.assertContains(resp, "hf-live-pulse.js")
+        self.assertContains(resp, 'data-stock="4"')
+
