@@ -23,7 +23,7 @@
         <img src="{{ sale.cover_image.url }}" alt="{{ sale.title }}"
              class="w-full h-40 object-cover cursor-zoom-in"
              loading="lazy" decoding="async"
-             ondblclick="hfZoom(this)" title="Double-clic pour agrandir">
+             data-zoom title="Double-clic pour agrandir">
         {% endif %}
         <div class="p-6">
           <div class="flex items-start justify-between gap-4">
@@ -101,7 +101,7 @@
             <img src="{{ product.media.all.0.file.url }}" alt="{{ product.name }}"
                  class="w-12 h-12 rounded-xl object-cover flex-shrink-0 cursor-zoom-in"
                  loading="lazy" decoding="async"
-                 ondblclick="hfZoom(this)" title="Double-clic pour agrandir">
+                 data-zoom title="Double-clic pour agrandir">
             {% else %}
             <div class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
               <i data-lucide="package" class="w-6 h-6 text-gray-300"></i>
@@ -160,7 +160,7 @@
           {% csrf_token %}
           <button type="submit"
                   class="w-full flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-semibold transition-colors"
-                  onclick="return confirm('Ouvrir la vente maintenant ?')">
+                  data-hf-confirm="Ouvrir la vente maintenant ?">
             <i data-lucide="play" class="w-5 h-5"></i>Ouvrir la vente
           </button>
         </form>
@@ -172,7 +172,7 @@
           {% csrf_token %}
           <button type="submit"
                   class="w-full flex items-center justify-center gap-2 text-red-500 border border-red-100 py-2.5 rounded-xl font-medium hover:bg-red-50 transition-colors text-sm"
-                  onclick="return confirm('Annuler cette vente ?')">
+                  data-hf-confirm="Annuler cette vente ?">
             <i data-lucide="x-circle" class="w-4 h-4"></i>Annuler la vente
           </button>
         </form>
@@ -192,7 +192,7 @@
           {% csrf_token %}
           <button type="submit"
                   class="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-600 py-2.5 rounded-xl font-medium hover:bg-gray-50 transition-colors"
-                  onclick="return confirm('{% if st == "ended" %}Clôturer la vente ?{% else %}Fermer la vente maintenant ?{% endif %}')">
+                  data-hf-confirm="{% if st == "ended" %}Clôturer la vente ?{% else %}Fermer la vente maintenant ?{% endif %}">
             <i data-lucide="square" class="w-4 h-4"></i>{% if st == "ended" %}Clôturer la vente{% else %}Fermer la vente{% endif %}
           </button>
         </form>
@@ -202,7 +202,7 @@
           {% csrf_token %}
           <button type="submit"
                   class="w-full flex items-center justify-center gap-2 bg-primary text-white py-3 rounded-xl font-semibold hover:bg-red-700 transition-colors"
-                  onclick="return confirm('Reprendre cette vente ? Une copie sera créée avec les mêmes produits.')">
+                  data-hf-confirm="Reprendre cette vente ? Une copie sera créée avec les mêmes produits.">
             <i data-lucide="copy-plus" class="w-5 h-5"></i>Reprendre cette vente
           </button>
         </form>

@@ -39,6 +39,13 @@ from products.models import FlashSaleProduct, Product
 User = get_user_model()
 
 
+
+def _static_text(path: str) -> str:
+    # config/settings/test.py a STATICFILES_DIRS vide : lecture directe.
+    from django.conf import settings
+
+    return (settings.BASE_DIR / "static" / path).read_text(encoding="utf-8")
+
 class ViralGrowthFixture(TestCase):
     def setUp(self) -> None:
         cache.clear()
@@ -216,11 +223,13 @@ class PublicPageTests(ViralGrowthFixture):
             reverse("public_flash_sale", kwargs={"slug": self.sale.public_slug})
         )
         self.assertContains(resp, "js/hf-install.js")
-        self.assertContains(resp, "hfInstallInvite('buyer'")
+        # Declencheur acheteur : dans static/js/hf-public.js (plus de JS inline, CSP).
+        self.assertContains(resp, "js/hf-public.js")
+        self.assertIn("hfInstallInvite('buyer'", _static_text("js/hf-public.js"))
         self.client.force_login(self.seller_user)
         resp = self.client.get(reverse("seller_home"))
         self.assertEqual(resp.status_code, 200)
-        self.assertNotContains(resp, "hfInstallInvite('seller'")
+        self.assertNotContains(resp, "data-hf-install-invite")
 
     def test_buyer_manifest_chosen_by_url_prefix(self) -> None:
         # Toute page sous un prefixe acheteur recoit le manifest acheteur, sans
@@ -259,7 +268,9 @@ class PublicPageTests(ViralGrowthFixture):
         page = self.client.get(
             reverse("public_flash_sale", kwargs={"slug": self.sale.public_slug})
         )
-        self.assertContains(page, "register('/sw.js'")
+        # Enregistrement du SW : static/js/hf-base.js, charge par base.html.
+        self.assertContains(page, "js/hf-base.js")
+        self.assertIn("register('/sw.js'", _static_text("js/hf-base.js"))
 
     def test_seller_pages_keep_seller_pwa_manifest(self) -> None:
         resp = self.client.get(reverse("login"))

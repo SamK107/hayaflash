@@ -8,6 +8,9 @@
 <link rel="stylesheet" href="{% static 'fonts/poppins/poppins.css' %}">
 
 <style>
+/* Liens du pied de page (ex-onmouseover/onmouseout, retires pour la CSP) */
+.hf-foot-link { color: rgba(255,255,255,.3); }
+.hf-foot-link:hover { color: #F9F871; }
 /* ─────────────────────────────────────────────────
    Tokens HayaFlash (charte graphique)
 ───────────────────────────────────────────────── */
@@ -981,10 +984,8 @@
       </p>
     </div>
     <nav style="display:flex; flex-wrap:wrap; gap:1.25rem; align-items:center;">
-      <a href="{% url 'flash_sale_calendar' %}" style="color:rgba(255,255,255,.3); font-size:.8rem; text-decoration:none;"
-         onmouseover="this.style.color='#F9F871'" onmouseout="this.style.color='rgba(255,255,255,.3)'">Ventes en cours</a>
-      <a href="{% url 'login' %}" style="color:rgba(255,255,255,.3); font-size:.8rem; text-decoration:none;"
-         onmouseover="this.style.color='#F9F871'" onmouseout="this.style.color='rgba(255,255,255,.3)'">Connexion</a>
+      <a href="{% url 'flash_sale_calendar' %}" class="hf-foot-link" style="font-size:.8rem; text-decoration:none;">Ventes en cours</a>
+      <a href="{% url 'login' %}" class="hf-foot-link" style="font-size:.8rem; text-decoration:none;">Connexion</a>
       <a href="{% url 'register' %}" style="color:#FF4D2E; font-size:.8rem; font-weight:700; text-decoration:none;">
         S'inscrire gratuitement →
       </a>
@@ -993,63 +994,4 @@
 </footer>
 
 </div>
-{% endblock %}
-
-{% block extra_scripts %}
-<script>
-// ── Scroll reveal — robuste ──
-(function () {
-  // 1. Active les animations seulement si JS tourne
-  document.body.classList.add('js-anim');
-
-  var els = Array.prototype.slice.call(document.querySelectorAll('[da]'));
-
-  // 2. Timeout de sécurité : révèle tout au bout de 800ms quoi qu'il arrive
-  var safetyTimer = setTimeout(function() {
-    els.forEach(function(el) { el.classList.add('on'); });
-  }, 800);
-
-  if (!('IntersectionObserver' in window)) {
-    // Pas d'IO : tout révèle immédiatement
-    clearTimeout(safetyTimer);
-    els.forEach(function(el) { el.classList.add('on'); });
-    return;
-  }
-
-  var revealed = 0;
-  var obs = new IntersectionObserver(function(entries) {
-    entries.forEach(function(e) {
-      if (e.isIntersecting) {
-        e.target.classList.add('on');
-        obs.unobserve(e.target);
-        revealed++;
-        if (revealed >= els.length) clearTimeout(safetyTimer);
-      }
-    });
-  }, { threshold: 0.05, rootMargin: '0px 0px -20px 0px' });
-
-  els.forEach(function(el, i) {
-    // Délai cascade doux par groupe de 3 (max 0.2s)
-    el.style.transitionDelay = (i % 3 * 0.07) + 's';
-    obs.observe(el);
-  });
-}());
-
-// ── Countdown démo (ticker live) ──
-(function() {
-  var h = document.getElementById('cd-h');
-  var m = document.getElementById('cd-m');
-  var s = document.getElementById('cd-s');
-  if (!h) return;
-  var total = 1*3600 + 47*60 + 33;
-  function pad(n){ return n < 10 ? '0'+n : ''+n; }
-  setInterval(function() {
-    if (total <= 0) { total = 3600; return; }
-    total--;
-    h.textContent = pad(Math.floor(total / 3600));
-    m.textContent = pad(Math.floor((total % 3600) / 60));
-    s.textContent = pad(total % 60);
-  }, 1000);
-}());
-</script>
 {% endblock %}

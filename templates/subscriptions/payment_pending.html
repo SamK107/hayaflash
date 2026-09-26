@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Paiement en attente — HayaFlash{% endblock %}
 {% block navbar %}{% include "partials/_nav_seller.html" %}{% endblock %}
 
@@ -50,8 +51,7 @@
 
 </div>
 </div>
-<script>
-// Auto-refresh toutes les 10s si paiement en attente
-setTimeout(() => location.reload(), 10000);
-</script>
+{# Auto-refresh toutes les 10 s tant que le paiement est en attente (hf-seller.js) #}
+<div hidden data-hf-autoreload="10000"></div>
+<script src="{% static 'js/hf-seller.js' %}"></script>
 {% endblock %}

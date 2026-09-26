@@ -613,7 +613,7 @@ class SellerInstallInviteTest(TestCase):
         self.client.force_login(self.seller_user)
 
     def test_invite_after_first_sale_then_consumed(self) -> None:
-        self.assertNotContains(self.client.get(reverse("seller_home")), "hfInstallInvite(")
+        self.assertNotContains(self.client.get(reverse("seller_home")), "data-hf-install-invite")
         start = timezone.now() + timedelta(days=1)
         resp = self.client.post(
             reverse("flash_sales:create"),
@@ -628,9 +628,9 @@ class SellerInstallInviteTest(TestCase):
             follow=True,
         )
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "hfInstallInvite('seller'")
+        self.assertContains(resp, 'data-hf-install-invite="seller"')
         # Consomme : pas de nouvelle invitation sur la page suivante.
-        self.assertNotContains(self.client.get(reverse("seller_home")), "hfInstallInvite(")
+        self.assertNotContains(self.client.get(reverse("seller_home")), "data-hf-install-invite")
 
     def test_htmx_fragment_does_not_consume_invite(self) -> None:
         from core.context_processors import PWA_INSTALL_INVITE_SESSION_KEY

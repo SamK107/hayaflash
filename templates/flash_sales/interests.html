@@ -61,7 +61,7 @@
           </span>
           <!-- Bouton reset -->
           <form method="post" action="{% url 'flash_sales:interests_reset' pk=sale.pk %}"
-                onsubmit="return confirm('Supprimer les {{ count }} réservation{{ count|pluralize }} de cette vente ?')">
+                data-hf-confirm="Supprimer les {{ count }} réservation{{ count|pluralize }} de cette vente ?">
             {% csrf_token %}
             <button type="submit"
                     class="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"

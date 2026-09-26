@@ -125,6 +125,14 @@ LANGUAGE_CODE = "fr-fr"
 
 LOGGING = {"version": 1, "disable_existing_loggers": True}
 
+# Meme policy CSP que base.py (le middleware n'est pas dans MIDDLEWARE ici :
+# core/tests_csp.py l'ajoute avec modify_settings).
+from ._csp import *  # noqa: E402,F401,F403
+
+# Healthcheck Celery (valeurs de base.py ; check "skipped" en eager)
+HEALTH_CELERY_MAX_AGE = 180
+HEALTH_CELERY_REQUIRED = False
+
 # HayaFlash
 HAYAFLASH_PUBLIC_BASE_URL = "http://testserver"
 VIRAL_STATS_CACHE_SECONDS = 0

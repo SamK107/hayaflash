@@ -64,6 +64,26 @@ function toasts() {
 }
 
 // ---------------------------------------------------------------------------
+// hfRoot() -- composant racine de base.html (<html x-data="hfRoot()">).
+// Fusionne toasts() + onlineStatus() en appelant LES DEUX init() : l'ancien
+// x-data="{ ...toasts(), ...onlineStatus() }" gardait seulement le init() du
+// dernier objet etale -> l'ecouteur hf-toast n'etait jamais pose et aucun
+// message Django ne s'affichait (constate le 26/09, sprint gouvernance B).
+// ---------------------------------------------------------------------------
+function hfRoot() {
+  const t = toasts();
+  const o = onlineStatus();
+  return {
+    ...t,
+    ...o,
+    init() {
+      t.init.call(this);
+      o.init.call(this);
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // quantityPicker(initial, max)
 // ---------------------------------------------------------------------------
 function quantityPicker(initial = 1, max = 99) {

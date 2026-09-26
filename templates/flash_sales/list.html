@@ -13,7 +13,7 @@
         <i data-lucide="plus" class="w-5 h-5"></i>Nouvelle vente
       </a>
     {% else %}
-      <button onclick="document.getElementById('upgrade-modal').classList.remove('hidden')"
+      <button data-hf-show="#upgrade-modal"
               class="flex items-center gap-2 bg-gray-200 text-gray-500 px-5 py-2.5 rounded-xl font-semibold hover:bg-gray-300 transition-colors">
         <i data-lucide="lock" class="w-4 h-4"></i>Nouvelle vente
       </button>
@@ -33,7 +33,7 @@
           Passez au plan <strong>Pro</strong> pour créer des ventes illimitées.
         </p>
         <div class="flex flex-wrap gap-3 items-center">
-          <button onclick="document.getElementById('upgrade-modal').classList.remove('hidden')"
+          <button data-hf-show="#upgrade-modal"
                   class="inline-flex items-center gap-2 bg-primary text-white font-bold px-4 py-2 rounded-xl text-sm hover:bg-red-700 active:scale-[.98] transition-all shadow-sm">
             <i data-lucide="crown" class="w-4 h-4"></i>Voir les plans
           </button>
@@ -87,8 +87,8 @@
 <!-- MODAL UPGRADE -->
 <div id="upgrade-modal"
      class="hidden fixed inset-0 z-[9999] bg-black/50 flex items-end sm:items-center justify-center p-4"
-     onclick="if(event.target===this)this.classList.add('hidden')">
-  <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 sm:p-8 max-h-[95vh] overflow-y-auto" onclick="event.stopPropagation()">
+     data-hf-backdrop>
+  <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 sm:p-8 max-h-[95vh] overflow-y-auto">
 
     <div class="w-14 h-14 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
       <i data-lucide="zap" class="w-7 h-7 text-white"></i>
@@ -150,7 +150,7 @@
     </div>
 
     <p class="text-xs text-center text-gray-400 mb-3">Paiement via Orange Money &middot; Sans engagement</p>
-    <button onclick="document.getElementById('upgrade-modal').classList.add('hidden')"
+    <button data-hf-hide="#upgrade-modal"
             class="w-full text-sm text-gray-400 hover:text-gray-600 font-medium py-2 transition-colors">
       Continuer avec le plan Gratuit
     </button>

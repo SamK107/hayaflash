@@ -1,8 +1,9 @@
 /* HayaFlash Service Worker — cache assets statiques, offline gracieux */
-const CACHE = 'hayaflash-v9'; // v9 (24/09) : icones acheteur + vendeur regenerees (1024 px, nettes)
+const CACHE = 'hayaflash-v10'; // v10 (26/09) : JS inline -> static/js/hf-base.js (CSP), pre-cache hors ligne
 const STATIC_ASSETS = [
   '/static/manifest.json',
   '/static/js/hf-components.js',
+  '/static/js/hf-base.js',
   '/static/js/hf-install.js',
   '/static/img/icon-192.png',
   '/static/img/icon-512.png',
