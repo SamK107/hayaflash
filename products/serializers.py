@@ -55,7 +55,7 @@ class FlashSaleProductSerializer(serializers.ModelSerializer):
 
     product = ProductCatalogSerializer(read_only=True)
     effective_price = serializers.DecimalField(
-        max_digits=12, decimal_places=2, read_only=True
+        max_digits=12, decimal_places=0, read_only=True
     )
 
     class Meta:
@@ -77,7 +77,7 @@ class NewProductPayloadSerializer(serializers.Serializer):
 
     name = serializers.CharField(max_length=255)
     description = serializers.CharField(required=False, allow_blank=True, default="")
-    price = serializers.DecimalField(max_digits=12, decimal_places=2)
+    price = serializers.DecimalField(max_digits=12, decimal_places=0, min_value=0)
     stock = serializers.IntegerField(min_value=0)
     unit = serializers.CharField(max_length=50, required=False, default="piece")
 
@@ -90,7 +90,7 @@ class FlashSaleProductMutationSerializer(serializers.Serializer):
     product_id = serializers.IntegerField(required=False, min_value=1)
     product_new = NewProductPayloadSerializer(required=False)
     promo_price = serializers.DecimalField(
-        max_digits=12, decimal_places=2, required=False, allow_null=True
+        max_digits=12, decimal_places=0, min_value=0, required=False, allow_null=True
     )
     stock = serializers.IntegerField(required=False, min_value=0, allow_null=True)
     display_order = serializers.IntegerField(required=False, default=0)

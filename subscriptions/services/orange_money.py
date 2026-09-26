@@ -73,7 +73,8 @@ def initiate_payment(
     Lance un paiement Orange Money.
 
     Args:
-        amount: Montant en XOF (centimes, ex: 2000 = 20 XOF)
+        amount: Montant en FCFA (XOF), en unités entières — le FCFA n'a pas
+            de centimes : 2000 = 2 000 FCFA, envoyé tel quel à Orange Money
         order_id: Identifiant commande unique (max 24 chars)
         notif_token: Token pour lookup webhook (généré côté app, stocké AVANT appel)
         return_url: URL où rediriger après paiement

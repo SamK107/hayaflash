@@ -91,3 +91,42 @@ class ProductModelTest(TestCase):
             movement_type=StockMovement.MovementType.INITIAL,
         )
         self.assertIn("+5", str(movement_in))
+
+
+class MontantsFcfaEntiersTest(TestCase):
+    """Le FCFA n'a pas de centimes : aucun prix fractionnaire accepte."""
+
+    def test_serializer_refuse_prix_fractionnaire(self):
+        from products.serializers import NewProductPayloadSerializer
+
+        s = NewProductPayloadSerializer(data={"name": "Sac", "price": "1500.50", "stock": 1})
+        self.assertFalse(s.is_valid())
+        self.assertIn("price", s.errors)
+
+    def test_serializer_accepte_prix_entier(self):
+        from products.serializers import NewProductPayloadSerializer
+
+        s = NewProductPayloadSerializer(data={"name": "Sac", "price": "1500", "stock": 1})
+        self.assertTrue(s.is_valid(), s.errors)
+
+    def test_serializer_refuse_prix_negatif(self):
+        from products.serializers import FlashSaleProductMutationSerializer
+
+        s = FlashSaleProductMutationSerializer(data={"product_id": 1, "promo_price": "-100"})
+        self.assertFalse(s.is_valid())
+
+    def test_champs_monetaires_sans_decimales(self):
+        from delivery.models import Delivery
+        from orders.models import Order, OrderItem
+        from payments.models import LedgerEntry, PaymentTransaction
+        from products.models import FlashSaleProduct, Product, ProductVariant
+
+        champs = [
+            (Product, "price"), (ProductVariant, "price_delta"),
+            (FlashSaleProduct, "promo_price"), (Order, "total_amount"),
+            (OrderItem, "price_snapshot"), (PaymentTransaction, "amount"),
+            (LedgerEntry, "amount"), (Delivery, "cod_amount"),
+        ]
+        for model, name in champs:
+            with self.subTest(f"{model.__name__}.{name}"):
+                self.assertEqual(model._meta.get_field(name).decimal_places, 0)

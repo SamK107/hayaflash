@@ -36,7 +36,7 @@ class PaymentTransaction(models.Model):
         on_delete=models.PROTECT,
         related_name="payment_transactions",
     )
-    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    amount = models.DecimalField(max_digits=14, decimal_places=0)  # FCFA entiers
     currency = models.CharField(max_length=8, default="XOF")
     provider = models.CharField(max_length=32, choices=PaymentProvider.choices)
     status = models.CharField(
@@ -71,7 +71,7 @@ class LedgerEntry(models.Model):
         related_name="ledger_entries",
     )
     entry_type = models.CharField(max_length=16, choices=LedgerEntryType.choices)
-    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    amount = models.DecimalField(max_digits=14, decimal_places=0)  # FCFA entiers
     account = models.CharField(max_length=64, choices=LedgerAccount.choices)
     created_at = models.DateTimeField(auto_now_add=True)
 

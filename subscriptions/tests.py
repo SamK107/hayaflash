@@ -411,3 +411,66 @@ class BillingRedirectOwnershipTest(TestCase):
         self.client.force_login(self.owner.user)
         resp = self.client.get("/billing/return/", {"order_id": self.payment.order_id})
         self.assertEqual(resp.status_code, 200)
+
+
+class MediumPlanLimitsTest(TestCase):
+    """MEDIUM = 10 ventes/mois (FREE = 3, PRO = illimite)."""
+
+    def setUp(self):
+        self.seller = _make_seller("+22300000030")
+        Subscription.objects.get_or_create(
+            seller=self.seller,
+            defaults={
+                "plan": Plan.MEDIUM,
+                "expires_at": timezone.now() + timedelta(days=30),
+            },
+        )
+
+    def test_medium_limit_is_ten(self):
+        from subscriptions.models import PLAN_MONTHLY_SALES_LIMIT
+
+        self.assertEqual(PLAN_MONTHLY_SALES_LIMIT[Plan.FREE], 3)
+        self.assertEqual(PLAN_MONTHLY_SALES_LIMIT[Plan.MEDIUM], 10)
+        self.assertIsNone(PLAN_MONTHLY_SALES_LIMIT[Plan.PRO])
+
+    def test_medium_allows_beyond_free_limit_and_blocks_at_ten(self):
+        for _ in range(9):
+            _make_sale(self.seller)
+        ok, _ = can_create_flash_sale(self.seller)
+        self.assertTrue(ok, "La 10e vente doit etre autorisee en MEDIUM")
+        _make_sale(self.seller)
+        ok, msg = can_create_flash_sale(self.seller)
+        self.assertFalse(ok)
+        self.assertIn("10/10 ventes", msg)
+
+
+class OrangeMoneyAmountIsWholeFcfaTest(TestCase):
+    """Le montant part chez Orange Money en FCFA entiers : 2000 = 2 000 FCFA."""
+
+    @patch("subscriptions.services.orange_money._get_access_token", return_value="tok")
+    @patch("subscriptions.services.orange_money.requests.post")
+    def test_plan_price_sent_as_is(self, mock_post, _tok):
+        from django.test import override_settings
+
+        from subscriptions.models import PLAN_PRICES
+        from subscriptions.services.orange_money import initiate_payment
+
+        mock_post.return_value.status_code = 201
+        mock_post.return_value.json.return_value = {
+            "payment_url": "https://pay.example/x",
+            "pay_token": "p",
+            "notif_token": "n",
+        }
+        with override_settings(ORANGE_MONEY_MERCHANT_KEY="mk"):
+            initiate_payment(
+                amount=PLAN_PRICES[Plan.MEDIUM],
+                order_id="HF-TEST-1",
+                notif_token="n",
+                return_url="https://x/r",
+                cancel_url="https://x/c",
+                notif_url="https://x/n",
+            )
+        payload = mock_post.call_args.kwargs["json"]
+        self.assertEqual(payload["amount"], 2000)
+        self.assertIsInstance(payload["amount"], int)
+        self.assertEqual(payload["currency"], "XOF")

@@ -26,11 +26,11 @@ def compute_order_total(order: Order) -> Decimal:
     agg = order.items.aggregate(
         total=Coalesce(
             Sum(F("price_snapshot") * F("quantity")),
-            Value(Decimal("0.00")),
-            output_field=DecimalField(max_digits=14, decimal_places=2),
+            Value(Decimal("0")),
+            output_field=DecimalField(max_digits=14, decimal_places=0),
         )
     )
-    return agg["total"] or Decimal("0.00")
+    return agg["total"] or Decimal("0")
 
 
 def _attach_audio_note(delivery: Delivery, audio_base64: str, order_id: int) -> None:
@@ -158,13 +158,13 @@ def list_seller_deliveries(
     cod_agg = all_for_sale.aggregate(
         collected=Coalesce(
             Sum("cod_amount", filter=Q(cod_collected=True)),
-            Value(Decimal("0.00")),
-            output_field=DecimalField(max_digits=14, decimal_places=2),
+            Value(Decimal("0")),
+            output_field=DecimalField(max_digits=14, decimal_places=0),
         ),
         pending_total=Coalesce(
             Sum("cod_amount", filter=Q(cod_collected=False)),
-            Value(Decimal("0.00")),
-            output_field=DecimalField(max_digits=14, decimal_places=2),
+            Value(Decimal("0")),
+            output_field=DecimalField(max_digits=14, decimal_places=0),
         ),
     )
 
@@ -175,8 +175,8 @@ def list_seller_deliveries(
             "pending": pending,
             "in_transit": in_transit,
             "delivered": delivered,
-            "total_cod_collected": str(cod_agg["collected"] or Decimal("0.00")),
-            "total_cod_pending": str(cod_agg["pending_total"] or Decimal("0.00")),
+            "total_cod_collected": str(cod_agg["collected"] or Decimal("0")),
+            "total_cod_pending": str(cod_agg["pending_total"] or Decimal("0")),
         },
         "results": results,
     }

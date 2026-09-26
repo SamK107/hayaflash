@@ -30,8 +30,8 @@ class Product(models.Model):
     description = models.TextField(blank=True, verbose_name="Description")
     price = models.DecimalField(
         max_digits=12,
-        decimal_places=2,
-        default=Decimal("0.00"),
+        decimal_places=0,  # FCFA : unités entières, jamais de centimes
+        default=Decimal("0"),
         verbose_name="Prix (FCFA)",
     )
     stock_initial = models.IntegerField(default=0, verbose_name="Stock initial")
@@ -146,7 +146,7 @@ class ProductVariant(models.Model):
     stock = models.IntegerField(default=0, verbose_name="Stock variante")
     price_delta = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,  # FCFA entiers
         default=0,
         verbose_name="Différence de prix",
     )
@@ -233,7 +233,7 @@ class FlashSaleProduct(models.Model):
     )
     promo_price = models.DecimalField(
         max_digits=12,
-        decimal_places=2,
+        decimal_places=0,  # FCFA entiers
         null=True,
         blank=True,
         verbose_name="Prix promo",

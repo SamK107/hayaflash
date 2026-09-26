@@ -97,7 +97,7 @@ hayaflash/
 ### `subscriptions/`
 - `Plan` (TextChoices) : `free / medium / pro`
 - Prix : FREE=0 FCFA, MEDIUM=2 000 FCFA, PRO=5 000 FCFA
-- Limites ventes/mois : FREE=3, MEDIUM=3, PRO=None (illimité)
+- Limites ventes/mois : FREE=3, MEDIUM=10, PRO=None (illimité) — MEDIUM corrigé de 3 à 10 le 26/09
 - `Subscription` : seller (OneToOne), plan, expires_at
 - `SubscriptionPayment` : UUID PK, seller, plan, provider, amount, phone, status, order_id (≤24 chars), `notif_token` (unique, indexé — remplace `pay_token` depuis PR #15), txn_id, payment_url, raw_response, raw_callback, paid_at — **enregistré dans l'admin Django** (`SubscriptionPaymentAdmin`, filtres status/plan/provider)
 - `WebhookLog` : audit trail des webhooks Orange Money reçus (notif_token, status, raw_payload, processed) — voir `docs/decisions/ADR-0001-strategie-sauvegardes.md` pour le contexte plus large sauvegardes

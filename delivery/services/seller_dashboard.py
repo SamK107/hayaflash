@@ -133,13 +133,13 @@ def get_delivery_summary(*, user, flash_sale_id: int) -> dict[str, Any]:
     cod_agg = qs.aggregate(
         collected=Coalesce(
             Sum("cod_amount", filter=Q(cod_collected=True)),
-            Value(Decimal("0.00")),
-            output_field=DecimalField(max_digits=14, decimal_places=2),
+            Value(Decimal("0")),
+            output_field=DecimalField(max_digits=14, decimal_places=0),
         ),
         pending_total=Coalesce(
             Sum("cod_amount", filter=Q(cod_collected=False)),
-            Value(Decimal("0.00")),
-            output_field=DecimalField(max_digits=14, decimal_places=2),
+            Value(Decimal("0")),
+            output_field=DecimalField(max_digits=14, decimal_places=0),
         ),
     )
 
@@ -149,8 +149,8 @@ def get_delivery_summary(*, user, flash_sale_id: int) -> dict[str, Any]:
         "in_transit": in_transit,
         "delivered": delivered,
         "failed": failed,
-        "total_cod_pending": cod_agg["pending_total"] or Decimal("0.00"),
-        "total_cod_collected": cod_agg["collected"] or Decimal("0.00"),
+        "total_cod_pending": cod_agg["pending_total"] or Decimal("0"),
+        "total_cod_collected": cod_agg["collected"] or Decimal("0"),
     }
 
 

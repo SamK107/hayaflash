@@ -88,8 +88,9 @@ class SellerDeliveriesDashboardTests(DeliveryTestFixture):
         )
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "3")
-        self.assertContains(resp, ">80<")
-        self.assertContains(resp, ">40<")
+        # 2 x 3 998 FCFA a collecter, 1 x 3 998 collecte (separateur de milliers insecable)
+        self.assertContains(resp, ">7\u00a0996<")
+        self.assertContains(resp, ">3\u00a0998<")
 
     def test_list_filter_in_transit(self) -> None:
         order = self._create_order(client_request_id="filt-a")

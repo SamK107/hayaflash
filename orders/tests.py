@@ -62,7 +62,7 @@ class LiveFlashSaleProductFixture(TestCase):
             name="Widget",
             stock_available=10,
             stock_initial=10,
-            price=Decimal("19.99"),
+            price=Decimal("1999"),
         )
         FlashSaleProduct.objects.create(flash_sale=self.sale, product=self.product)
 
@@ -120,7 +120,7 @@ class CreateOrderServiceTests(LiveFlashSaleProductFixture):
         order = create_order(self._payload(client_request_id="req-4"))
         item = order.items.get()
         self.assertEqual(item.product_name_snapshot, "Widget")
-        self.assertEqual(item.price_snapshot, Decimal("19.99"))
+        self.assertEqual(item.price_snapshot, Decimal("1999"))
 
     def test_create_order_duplicate_lines_aggregate_stock(self) -> None:
         create_order(

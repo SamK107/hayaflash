@@ -55,7 +55,7 @@ def get_dashboard_kpis(user) -> dict[str, Any]:
 
     revenue_expr = ExpressionWrapper(
         F("price_snapshot") * F("quantity"),
-        output_field=DecimalField(max_digits=14, decimal_places=2),
+        output_field=DecimalField(max_digits=14, decimal_places=0),
     )
 
     # CA réel : seulement "Livré et payé"
@@ -68,7 +68,7 @@ def get_dashboard_kpis(user) -> dict[str, Any]:
             Sum(revenue_expr),
             Value(
                 Decimal("0.00"),
-                output_field=DecimalField(max_digits=14, decimal_places=2),
+                output_field=DecimalField(max_digits=14, decimal_places=0),
             ),
         ),
     )
@@ -82,7 +82,7 @@ def get_dashboard_kpis(user) -> dict[str, Any]:
             Sum(revenue_expr),
             Value(
                 Decimal("0.00"),
-                output_field=DecimalField(max_digits=14, decimal_places=2),
+                output_field=DecimalField(max_digits=14, decimal_places=0),
             ),
         )
     )

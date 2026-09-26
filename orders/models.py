@@ -65,8 +65,8 @@ class Order(models.Model):
     )
     total_amount = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
-        default=Decimal("0.00"),
+        decimal_places=0,  # FCFA : unités entières, jamais de centimes
+        default=Decimal("0"),
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -95,7 +95,7 @@ class OrderItem(models.Model):
         related_name="order_items",
     )
     product_name_snapshot = models.CharField(max_length=255)
-    price_snapshot = models.DecimalField(max_digits=12, decimal_places=2)
+    price_snapshot = models.DecimalField(max_digits=12, decimal_places=0)  # FCFA entiers
     quantity = models.PositiveIntegerField()
 
     class Meta:
