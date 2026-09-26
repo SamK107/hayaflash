@@ -4,6 +4,7 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 
 from accounts.models import SellerProfile
+from accounts.testing_helpers import NoSellerProfileMixin
 
 User = get_user_model()
 
@@ -63,3 +64,10 @@ class AuthenticationApiTests(TestCase):
 
         logout_response = self.client.post(reverse("accounts:logout"))
         self.assertEqual(logout_response.status_code, 204)
+
+
+class NoSellerProfileAccountsTests(NoSellerProfileMixin, TestCase):
+    def test_profile_and_settings(self):
+        for name in ("seller_profile", "seller_settings"):
+            with self.subTest(name=name):
+                self.assert_no_profile_redirects(reverse(name))

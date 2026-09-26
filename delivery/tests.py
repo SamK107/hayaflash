@@ -13,6 +13,8 @@ from accounts.models import SellerProfile
 from delivery.models import Delivery
 from flash_sales.models import FlashSale, FlashSaleStatus
 from orders.models import Order, OrderStatus
+from accounts.testing_helpers import NoSellerProfileMixin
+from django.urls import reverse
 
 User = get_user_model()
 
@@ -273,3 +275,10 @@ class SellerDeliveryActionFormCsrfTests(DeliveryTestFixture):
             f"/orders/seller/deliveries/partials/list/?flash_sale_id={self.sale.pk}"
         )
         self.assertIn(b'name="assigned_to"', resp.content)
+
+
+class NoSellerProfileDeliveryTests(NoSellerProfileMixin, TestCase):
+    def test_dashboard_redirects_fragments_403(self):
+        self.assert_no_profile_redirects(reverse("orders:seller_deliveries_dashboard"))
+        self.assert_forbidden_not_500(reverse("orders:seller_deliveries_summary"))
+        self.assert_forbidden_not_500(reverse("orders:seller_deliveries_list"))

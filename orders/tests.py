@@ -17,6 +17,7 @@ from flash_sales.models import FlashSale, FlashSaleStatus
 from orders.models import Order, OrderItem
 from orders.services.create_order import create_order
 from products.models import FlashSaleProduct, Product
+from accounts.testing_helpers import NoSellerProfileMixin
 
 User = get_user_model()
 
@@ -377,3 +378,16 @@ class PublicOrderAPIConcurrencyTests(TransactionTestCase):
         self.assertEqual(Order.service_objects.count(), 1)
         self.product.refresh_from_db()
         self.assertEqual(self.product.stock_available, 0)
+
+
+class NoSellerProfileOrdersTests(NoSellerProfileMixin, TestCase):
+    def test_full_pages_redirect(self):
+        self.assert_no_profile_redirects(reverse("orders:seller_dashboard"))
+        self.assert_no_profile_redirects(reverse("orders:export_orders_csv", args=[1]))
+        self.assert_no_profile_redirects(reverse("orders:seller_deliveries_dashboard"))
+
+    def test_htmx_fragments_and_actions_are_403_not_500(self):
+        self.assert_forbidden_not_500(reverse("orders:seller_dashboard_kpi"))
+        self.assert_forbidden_not_500(reverse("orders:seller_dashboard_orders"))
+        self.assert_forbidden_not_500(reverse("orders:bulk_confirm_orders"), method="post")
+        self.assert_forbidden_not_500(reverse("orders:bulk_mark_delivered"), method="post")

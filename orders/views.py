@@ -12,6 +12,7 @@ from django.shortcuts import get_object_or_404, render
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_GET, require_POST
 
+from accounts.access import redirect_without_seller_profile
 from accounts.models import SellerProfile
 from orders.services.client_order import resolve_client_order_page
 from orders.services.dashboard import (
@@ -61,7 +62,7 @@ def _rate_limited_partial_html(
 @login_required
 def seller_dashboard(request):
     if not _require_seller(request.user):
-        return HttpResponseForbidden("Seller profile required.")
+        return redirect_without_seller_profile(request)
     from flash_sales.models import FlashSale
     from flash_sales.services.ordering import live_now_q, seller_upcoming_q
 
@@ -124,7 +125,7 @@ def seller_dashboard_orders_partial(request):
 def export_orders_csv(request, pk: int):
     """GET /seller/flash-sales/<pk>/export.csv — téléchargement CSV commandes."""
     if not _require_seller(request.user):
-        return HttpResponseForbidden("Seller profile required.")
+        return redirect_without_seller_profile(request)
 
     from flash_sales.models import FlashSale
     from orders.models import Order

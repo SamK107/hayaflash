@@ -5,6 +5,7 @@ from datetime import timedelta
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.utils import timezone
+from django.utils.html import format_html
 
 from .models import SellerProfile, User
 
@@ -130,12 +131,14 @@ class SellerProfileAdmin(admin.ModelAdmin):
             return "—"
         colors = {"free": "#6B7280", "medium": "#5B2EFF", "pro": "#FF4D2E"}
         color = colors.get(sub.plan, "#6B7280")
-        return (
-            f'<span style="background:{color};color:#fff;padding:2px 8px;'
-            f'border-radius:9999px;font-size:.72rem;font-weight:700;">'
-            f'{sub.get_plan_display().upper()}</span>'
+        # format_html (allow_tags n'existe plus depuis Django 2.0 : le HTML
+        # s'affichait en texte brut).
+        return format_html(
+            '<span style="background:{};color:#fff;padding:2px 8px;'
+            'border-radius:9999px;font-size:.72rem;font-weight:700;">{}</span>',
+            color,
+            sub.get_plan_display().upper(),
         )
-    current_plan.allow_tags = True
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("user").prefetch_related("subscription")

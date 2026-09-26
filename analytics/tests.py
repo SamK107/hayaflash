@@ -35,6 +35,7 @@ from flash_sales.services.slugs import generate_unique_flash_sale_public_slug
 from orders.models import Order
 from orders.services.create_order import create_order
 from products.models import FlashSaleProduct, Product
+from accounts.testing_helpers import NoSellerProfileMixin
 
 User = get_user_model()
 
@@ -684,3 +685,12 @@ class LivePulseTests(ViralGrowthFixture):
         self.assertContains(resp, "hf-live-pulse.js")
         self.assertContains(resp, 'data-stock="4"')
 
+
+class NoSellerProfileAnalyticsTests(NoSellerProfileMixin, TestCase):
+    def test_qrcode_json_is_403_not_500(self):
+        url = reverse("flash_sale_qrcode", kwargs={"slug": "inconnue"})
+        for user in (self.staff, self.plain):
+            self.client.force_login(user)
+            resp = self.client.get(url)
+            self.assertEqual(resp.status_code, 403)
+            self.assertEqual(resp.json(), {"error": "Profil vendeur requis."})

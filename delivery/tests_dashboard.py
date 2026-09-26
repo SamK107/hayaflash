@@ -34,7 +34,9 @@ class SellerDeliveriesDashboardTests(DeliveryTestFixture):
         )
         self.client.force_login(buyer)
         resp = self.client.get(self.dashboard_url)
-        self.assertEqual(resp.status_code, 403)
+        # Page complete : redirection vers /seller/ (page explicative), plus
+        # un 403 brut (accounts/access.py). Les fragments HTMX restent en 403.
+        self.assertRedirects(resp, "/seller/", fetch_redirect_response=False)
 
     def test_deliveries_dashboard_scoped_to_seller_flash_sale(self) -> None:
         self.client.force_login(self.seller_user)

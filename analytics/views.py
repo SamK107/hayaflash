@@ -185,10 +185,11 @@ def flash_sale_qr_view(request, slug: str):
     from analytics.services.qrcode import generate_flash_sale_qr_b64
     from flash_sales.models import FlashSale
 
-    flash_sale = get_object_or_404(
-        FlashSale,
-        public_slug=slug,
-        owner=request.user.seller_profile,
-    )
+    from accounts.access import get_seller_or_none
+
+    seller = get_seller_or_none(request.user)
+    if seller is None:
+        return JsonResponse({"error": "Profil vendeur requis."}, status=403)
+    flash_sale = get_object_or_404(FlashSale, public_slug=slug, owner=seller)
     qr_b64 = generate_flash_sale_qr_b64(flash_sale, request)
     return JsonResponse({"qr": qr_b64, "slug": slug})
