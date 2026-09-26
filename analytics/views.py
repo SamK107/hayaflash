@@ -94,6 +94,30 @@ def flash_sale_public_page(request, slug: str):
 
 
 @require_GET
+def flash_sale_pulse(request, slug: str):
+    """
+    GET /f/<slug>/pulse/ -- stock en temps reel + preuve sociale (JSON).
+
+    Interroge par /f/<slug>/ toutes les ~15 s pendant la vente. Public et
+    anonyme ; resultat mis en cache 5 s par vente cote serveur
+    (analytics.services.live_pulse), jamais cote navigateur/SW (no-store).
+    Ne contient aucune donnee personnelle d'acheteur.
+    """
+    from analytics.services.live_pulse import get_live_pulse
+    from flash_sales.models import FlashSale
+
+    flash_sale = get_object_or_404(
+        FlashSale.objects.only(
+            "id", "public_slug", "status", "start_time", "end_time", "owner_id"
+        ),
+        public_slug=(slug or "").strip().lower(),
+    )
+    response = JsonResponse(get_live_pulse(flash_sale))
+    response["Cache-Control"] = "no-store"
+    return response
+
+
+@require_GET
 def track_whatsapp_share(request):
     """Secure tracked redirect to WhatsApp (mobile + desktop targets)."""
     token = (request.GET.get("ref") or "").strip()

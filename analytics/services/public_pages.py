@@ -235,6 +235,15 @@ def resolve_flash_sale_public_page(request: HttpRequest, slug: str) -> dict[str,
     ]
     open_ts_ms = int(flash_sale.start_time.timestamp() * 1000)
     ended = _ended_sale_context(flash_sale) if page_state == "ended" else {}
+    # Preuve sociale (Phase 10.1) : rendu initial, puis mise a jour par
+    # static/js/hf-live-pulse.js. Pouls mis en cache 5 s (live_pulse) : pas de
+    # requete supplementaire par visiteur. Volontairement hors ETag -- un 304
+    # un peu ancien est corrige par le premier appel au pouls (1,5 s).
+    social_proof = {}
+    if page_state in ("live", "waiting"):
+        from analytics.services.live_pulse import get_live_pulse, social_proof_lines
+
+        social_proof = social_proof_lines(get_live_pulse(flash_sale))
     next_sale = ended.get("next_sale")
     etag = compute_page_etag(
         slug=cleaned,
@@ -252,6 +261,7 @@ def resolve_flash_sale_public_page(request: HttpRequest, slug: str) -> dict[str,
         "seller_id": flash_sale.owner_id,
         "is_live": is_live,
         "page_state": page_state,
+        "social_proof": social_proof,
         "open_ts_ms": open_ts_ms,
         "teasers_list": teasers_list,
         "product_count": len(products),
