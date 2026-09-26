@@ -12,42 +12,9 @@ class Plan(models.TextChoices):
     PRO = "pro", "Pro"
 
 
-PLAN_PRICES = {
-    Plan.FREE: 0,
-    Plan.MEDIUM: 2000,
-    Plan.PRO: 5000,
-}
-
-PLAN_MONTHLY_SALES_LIMIT = {
-    Plan.FREE: 3,
-    Plan.MEDIUM: 10,
-    Plan.PRO: None,  # illimite
-}
-
-PLAN_FEATURES = {
-    Plan.FREE: [
-        "3 ventes flash par mois",
-        "Page publique vendeur",
-        "Commandes en ligne",
-        "Lien de partage WhatsApp",
-    ],
-    Plan.MEDIUM: [
-        "10 ventes flash par mois",
-        "Statistiques de ventes (30 derniers jours)",
-        "Historique des commandes complet",
-        "Page publique vendeur",
-        "Commandes en ligne",
-        "Lien de partage WhatsApp",
-    ],
-    Plan.PRO: [
-        "Ventes flash illimitées",
-        "Statistiques et analyses avancées (historique complet)",
-        "Tableau de bord LIVE temps réel",
-        "Notifications SMS automatiques",
-        "Support prioritaire WhatsApp",
-        "Accès aux nouvelles fonctionnalités en avant-première",
-    ],
-}
+# Tarifs, quotas, durees et fonctionnalites : en base (PlanConfig), lus
+# UNIQUEMENT via subscriptions/services/plans.py. Les valeurs de secours
+# (DEFAULT_*) vivent dans ce service, pas ici.
 
 
 class Subscription(models.Model):
@@ -107,7 +74,9 @@ class Subscription(models.Model):
 
     @property
     def monthly_sales_limit(self):
-        return PLAN_MONTHLY_SALES_LIMIT.get(self.plan)
+        from subscriptions.services.plans import get_monthly_limit
+
+        return get_monthly_limit(self.plan)
 
     @property
     def plan_label(self) -> str:
@@ -115,11 +84,15 @@ class Subscription(models.Model):
 
     @property
     def plan_price(self) -> int:
-        return PLAN_PRICES.get(self.plan, 0)
+        from subscriptions.services.plans import get_official_price
+
+        return get_official_price(self.plan)
 
     @property
     def features(self) -> list[str]:
-        return PLAN_FEATURES.get(self.plan, [])
+        from subscriptions.services.plans import get_features
+
+        return get_features(self.plan)
 
     def __str__(self) -> str:
         status = self.plan_label
@@ -181,6 +154,20 @@ class SubscriptionPayment(models.Model):
         help_text="Token de notification Orange Money (lookup webhook)",
     )
     txn_id = models.CharField(max_length=200, blank=True, default="")
+    # Tarif special par vendeur (SellerPriceOverride) : null = prix officiel.
+    # PROTECT : un tarif special deja utilise ne peut plus etre supprime
+    # (historique des paiements).
+    price_override = models.ForeignKey(
+        "subscriptions.SellerPriceOverride",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="payments",
+        verbose_name="Tarif spécial",
+    )
+    is_special_price = models.BooleanField(
+        default=False, db_index=True, verbose_name="Tarif spécial"
+    )
     payment_url = models.URLField(blank=True, default="")
     raw_response = models.JSONField(default=dict, blank=True)
     raw_callback = models.JSONField(default=dict, blank=True)
@@ -272,4 +259,241 @@ class WebhookLog(models.Model):
         return (
             f"Webhook {self.notif_token[:16]}... — "
             f"{self.status} — {self.created_at:%d/%m/%Y %H:%M:%S}"
+        )
+
+
+class PlanConfig(models.Model):
+    """Valeurs administrables d'un plan (une ligne par plan, 3 lignes fixes).
+
+    Les codes FREE / MEDIUM / PRO restent dans le code (Plan). Un changement
+    ici s'applique aux NOUVEAUX paiements uniquement : SubscriptionPayment.amount
+    fige le montant de chaque paiement. Lecture via services/plans.py.
+    """
+
+    plan = models.CharField(
+        max_length=20, choices=Plan.choices, unique=True, verbose_name="Plan"
+    )
+    price = models.PositiveIntegerField(
+        verbose_name="Prix (FCFA)",
+        help_text="FCFA entiers, envoyé tel quel à Orange Money (2000 = 2 000 FCFA).",
+    )
+    monthly_sales_limit = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Ventes par mois",
+        help_text="Vide = illimité.",
+    )
+    duration_days = models.PositiveIntegerField(
+        default=31, verbose_name="Durée (jours)"
+    )
+    features = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Fonctionnalités",
+        help_text=(
+            'Liste de textes, ex. ["Page publique vendeur", "Commandes en ligne"]. '
+            "La ligne du quota (« 10 ventes flash par mois ») est ajoutée "
+            "automatiquement : ne pas la saisir."
+        ),
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Actif",
+        help_text="Inactif = plan non proposé à la souscription (Medium/Pro).",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="Modifié par",
+    )
+
+    class Meta:
+        verbose_name = "Configuration de plan"
+        verbose_name_plural = "Configuration des plans"
+        ordering = ["price"]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        errors = {}
+        if self.plan == Plan.FREE:
+            if self.price != 0:
+                errors["price"] = "Le plan Gratuit doit rester à 0 FCFA."
+            if not self.is_active:
+                errors["is_active"] = "Le plan Gratuit ne peut pas être désactivé."
+        elif (self.price or 0) < 100:
+            errors["price"] = "Minimum 100 FCFA pour un plan payant."
+        if not isinstance(self.features, list) or not all(
+            isinstance(f, str) for f in self.features
+        ):
+            errors["features"] = "Doit être une liste de textes."
+        if not self.duration_days:
+            errors["duration_days"] = "Durée minimale : 1 jour."
+        other = {Plan.MEDIUM: Plan.PRO, Plan.PRO: Plan.MEDIUM}.get(self.plan)
+        if other is not None:
+            other_limit = (
+                PlanConfig.objects.filter(plan=other)
+                .values_list("monthly_sales_limit", flat=True)
+                .first()
+            )
+            medium = self.monthly_sales_limit if self.plan == Plan.MEDIUM else other_limit
+            pro = self.monthly_sales_limit if self.plan == Plan.PRO else other_limit
+            # Limite MEDIUM <= limite PRO ; PRO vide = illimite (toujours ok).
+            if pro is not None and (medium is None or medium > pro):
+                errors["monthly_sales_limit"] = (
+                    "La limite Medium doit rester inférieure ou égale à la limite Pro "
+                    f"(Medium : {medium if medium is not None else 'illimité'}, "
+                    f"Pro : {pro})."
+                )
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        from subscriptions.services.plans import invalidate_plan_cache
+
+        invalidate_plan_cache()
+
+    def __str__(self) -> str:
+        return f"{self.get_plan_display()} — {self.price} FCFA"
+
+
+class OverrideReason(models.TextChoices):
+    TEST = "test", "Test de paiement"
+    PILOT = "pilote", "Vendeur pilote"
+    PARTNER = "partenaire", "Partenaire"
+    PROMO = "promo", "Promotion"
+
+
+SPECIAL_PRICE_MIN = 100
+SPECIAL_PRICE_MAX_DAYS = 30
+
+
+class SellerPriceOverride(models.Model):
+    """Tarif special temporaire pour UN vendeur (test de paiement, pilote, promo).
+
+    Ne modifie jamais le prix des autres vendeurs. Le montant est choisi cote
+    serveur a l'initiation du paiement (services/plans.py:get_price_quote),
+    jamais lu depuis le formulaire.
+    """
+
+    seller = models.ForeignKey(
+        "accounts.SellerProfile",
+        on_delete=models.CASCADE,
+        related_name="price_overrides",
+        verbose_name="Vendeur",
+    )
+    plan = models.CharField(
+        max_length=20,
+        choices=[(Plan.MEDIUM.value, "Medium"), (Plan.PRO.value, "Pro")],
+        verbose_name="Plan",
+    )
+    price = models.PositiveIntegerField(
+        verbose_name="Prix spécial (FCFA)",
+        help_text=f"Entre {SPECIAL_PRICE_MIN} FCFA et le prix officiel du plan.",
+    )
+    duration_days = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Durée (jours)",
+        help_text="Vide = durée du plan. Ex. 1 pour un test de paiement.",
+    )
+    reason = models.CharField(
+        max_length=20, choices=OverrideReason.choices, verbose_name="Motif"
+    )
+    reason_detail = models.CharField(
+        max_length=200, blank=True, verbose_name="Précision"
+    )
+    starts_at = models.DateTimeField(default=timezone.now, verbose_name="Début")
+    expires_at = models.DateTimeField(
+        verbose_name="Fin",
+        help_text=f"Obligatoire, au plus {SPECIAL_PRICE_MAX_DAYS} jours après le début.",
+    )
+    max_uses = models.PositiveIntegerField(default=1, verbose_name="Utilisations max")
+    uses_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Utilisations",
+        help_text="Incrémenté uniquement quand un paiement réussit (webhook).",
+    )
+    is_active = models.BooleanField(default=True, verbose_name="Actif")
+    created_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="Créé par",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Tarif spécial vendeur"
+        verbose_name_plural = "Tarifs spéciaux vendeurs"
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["seller", "plan", "is_active"])]
+
+    def clean(self):
+        from datetime import timedelta
+
+        from django.core.exceptions import ValidationError
+
+        from subscriptions.services.plans import get_official_price
+
+        errors = {}
+        if self.plan not in (Plan.MEDIUM, Plan.PRO):
+            errors["plan"] = "Tarif spécial possible sur Medium ou Pro uniquement."
+        elif self.price is not None:
+            official = get_official_price(self.plan)
+            if self.price < SPECIAL_PRICE_MIN:
+                errors["price"] = f"Minimum {SPECIAL_PRICE_MIN} FCFA."
+            elif self.price > official:
+                errors["price"] = (
+                    f"Ne peut pas dépasser le prix officiel ({official} FCFA)."
+                )
+        if self.starts_at and self.expires_at:
+            if self.expires_at <= self.starts_at:
+                errors["expires_at"] = "Doit être postérieure au début."
+            elif self.expires_at > self.starts_at + timedelta(
+                days=SPECIAL_PRICE_MAX_DAYS
+            ):
+                errors["expires_at"] = (
+                    f"Au plus {SPECIAL_PRICE_MAX_DAYS} jours après le début."
+                )
+        if self.max_uses is not None and self.max_uses < 1:
+            errors["max_uses"] = "Au moins 1."
+        if self.duration_days is not None and self.duration_days < 1:
+            errors["duration_days"] = "Au moins 1 jour (ou vide)."
+        if errors:
+            raise ValidationError(errors)
+
+    def is_usable(self, now=None) -> bool:
+        now = now or timezone.now()
+        return (
+            self.is_active
+            and self.starts_at <= now < self.expires_at
+            and self.uses_count < self.max_uses
+        )
+
+    @property
+    def status_label(self) -> str:
+        now = timezone.now()
+        if not self.is_active:
+            return "Désactivé"
+        if self.uses_count >= self.max_uses:
+            return "Épuisé"
+        if now >= self.expires_at:
+            return "Expiré"
+        if now < self.starts_at:
+            return "À venir"
+        return "Actif"
+
+    def __str__(self) -> str:
+        return (
+            f"{self.seller} — {self.get_plan_display()} à {self.price} FCFA "
+            f"({self.get_reason_display()})"
         )

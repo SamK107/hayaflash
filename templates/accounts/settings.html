@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load plan_tags %}
 {% block title %}Paramètres — HayaFlash{% endblock %}
 {% block navbar %}{% include "partials/_nav_seller.html" %}{% endblock %}
 
@@ -53,8 +54,8 @@
               <i data-lucide="package" class="w-5 h-5 text-gray-500"></i>
             </div>
             <div>
-              <p class="font-bold text-gray-900">Plan Gratuit</p>
-              <p class="text-xs text-gray-400">Limité à {{ free_limit }} ventes par mois</p>
+              <p class="font-bold text-gray-900">{% if sub.is_medium %}Plan Medium{% else %}Plan Gratuit{% endif %}</p>
+              <p class="text-xs text-gray-400">{% plan_quota_label quota.plan %}</p>
             </div>
             {% endif %}
           </div>
@@ -67,21 +68,21 @@
           {% endif %}
         </div>
 
-        {# Compteur mensuel pour plan Free #}
-        {% if not sub.is_pro %}
+        {# Compteur mensuel (plan effectif, limites lues dans PlanConfig) #}
+        {% if quota.monthly_limit is not None %}
         <div class="mt-4 pt-4 border-t border-gray-100">
           <div class="flex items-center justify-between mb-2">
             <p class="text-sm text-gray-600">Ventes ce mois</p>
-            <p class="text-sm font-semibold {% if sales_this_month >= free_limit %}text-red-600{% else %}text-gray-900{% endif %}">
-              {{ sales_this_month }} / {{ free_limit }}
+            <p class="text-sm font-semibold {% if quota.monthly_count >= quota.monthly_limit %}text-red-600{% else %}text-gray-900{% endif %}">
+              {{ quota.monthly_count }} / {{ quota.monthly_limit }}
             </p>
           </div>
           <div class="w-full bg-gray-100 rounded-full h-2">
             <div class="h-2 rounded-full transition-all
-              {% if sales_this_month >= free_limit %}bg-red-500{% elif sales_this_month >= 2 %}bg-amber-500{% else %}bg-primary{% endif %}"
-              style="width: {% widthratio sales_this_month free_limit 100 %}%"></div>
+              {% if quota.monthly_count >= quota.monthly_limit %}bg-red-500{% elif quota.monthly_count >= quota.monthly_limit|add:"-1" %}bg-amber-500{% else %}bg-primary{% endif %}"
+              style="width: {% widthratio quota.monthly_count quota.monthly_limit 100 %}%"></div>
           </div>
-          {% if sales_this_month >= free_limit %}
+          {% if quota.monthly_count >= quota.monthly_limit %}
           <p class="text-xs text-red-500 mt-1.5">Limite atteinte — passez Pro pour continuer à vendre</p>
           {% endif %}
         </div>
@@ -93,7 +94,7 @@
         <div class="bg-primary/5 rounded-xl p-4 border border-primary/10">
           <p class="text-sm font-semibold text-gray-800 mb-2">🚀 Débloquez le Plan Pro</p>
           <div class="grid grid-cols-2 gap-1.5 text-xs text-gray-600">
-            <span class="flex items-center gap-1"><i data-lucide="check" class="w-3 h-3 text-primary"></i>Ventes illimitées</span>
+            <span class="flex items-center gap-1"><i data-lucide="check" class="w-3 h-3 text-primary"></i>{% plan_quota_label "pro" %}</span>
             <span class="flex items-center gap-1"><i data-lucide="check" class="w-3 h-3 text-primary"></i>Analytics avancés</span>
             <span class="flex items-center gap-1"><i data-lucide="check" class="w-3 h-3 text-primary"></i>SMS clients auto</span>
             <span class="flex items-center gap-1"><i data-lucide="check" class="w-3 h-3 text-primary"></i>Support prioritaire</span>

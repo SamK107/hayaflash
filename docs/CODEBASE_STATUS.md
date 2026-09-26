@@ -96,8 +96,8 @@ hayaflash/
 
 ### `subscriptions/`
 - `Plan` (TextChoices) : `free / medium / pro`
-- Prix : FREE=0 FCFA, MEDIUM=2 000 FCFA, PRO=5 000 FCFA
-- Limites ventes/mois : FREE=3, MEDIUM=10, PRO=None (illimité) — MEDIUM corrigé de 3 à 10 le 26/09
+- **Tarifs administrables (26/09)** : `PlanConfig` (1 ligne par plan : prix FCFA entiers, limite mensuelle, durée, fonctionnalités, actif), admin « Configuration des plans » (édition seule, audit), lu via `services/plans.py` (cache 60 s, secours `DEFAULT_*`). Valeurs initiales (migration 0008) : FREE=0 / 3 ventes, MEDIUM=2 000 / 10, PRO=5 000 / illimité, 31 jours.
+- **Tarif spécial par vendeur (26/09)** : `SellerPriceOverride` (admin « Tarifs spéciaux vendeurs », statut, « Désactiver maintenant », audit) ; `SubscriptionPayment.price_override` + `is_special_price`. Procédure du test réel : `docs/RUNBOOK_TEST_PAIEMENT.md`.
 - `Subscription` : seller (OneToOne), plan, expires_at
 - `SubscriptionPayment` : UUID PK, seller, plan, provider, amount, phone, status, order_id (≤24 chars), `notif_token` (unique, indexé — remplace `pay_token` depuis PR #15), txn_id, payment_url, raw_response, raw_callback, paid_at — **enregistré dans l'admin Django** (`SubscriptionPaymentAdmin`, filtres status/plan/provider)
 - `WebhookLog` : audit trail des webhooks Orange Money reçus (notif_token, status, raw_payload, processed) — voir `docs/decisions/ADR-0001-strategie-sauvegardes.md` pour le contexte plus large sauvegardes
@@ -179,6 +179,19 @@ hayaflash/
 | Non-régression checkout : `price_snapshot` utilise `FlashSaleProduct.effective_price` (prix promo), pas le prix catalogue brut | ✅ Fait — testé |
 | `flash_sales.services.crud.clone_flash_sale` : réutilise le catalogue existant au lieu de dupliquer `Product`/`ProductMedia` | ✅ Fait |
 | Grille responsive (26/09) : l'ancienne `<table>` 8 colonnes écrasait le champ Nom à ~50px sur mobile. < 900px : une carte par produit (nom pleine largeur, libellés visibles, prix/stock/ordre 2 par ligne puis 4 dès 480px, suffixe FCFA, `inputmode="numeric"`, cibles 40–44px, bouton Publier collé en bas d'écran) ; ≥ 900px : grille alignée sur l'en-tête comme avant. Styles `.qp-*` dans la page (pas de nouvelle classe Tailwind → pas de rebuild). Aussi : champs `.hf-input` à 16px sur mobile (plus de zoom iOS au focus) ici, dans `product_form.html` et `_hf_form_styles.html` ; survol photo et fond des produits masqués réparés (classes absentes du build Tailwind statique) | ✅ Fait — vérifié en navigateur à 360/600/768/900/1280px |
+
+---
+
+## Tarifs administrables + tarif spécial par vendeur (26/09)
+
+| Chantier | Statut |
+|---|---|
+| `PlanConfig` + migration de données (3 lignes) + service `subscriptions/services/plans.py` ; constantes `PLAN_*` / `SUBSCRIPTION_DURATION_DAYS` / `FREE_MONTHLY_SALES_LIMIT` supprimées | ✅ Fait |
+| Templates sans prix ni quota en dur (modale d'upgrade, stats, abonnement, paramètres) ; garde-fou de test | ✅ Fait — la modale annonçait 3 ventes/mois pour Medium (10 réels) |
+| `SellerPriceOverride` : montant serveur, référence `SPECIAL`, `uses_count` au succès, durée spéciale, refus si plan payant actif | ✅ Fait |
+| `/platform-admin/` : revenus officiels / spéciaux / tests séparés, tests exclus du CA | ✅ Fait |
+| Webhooks : montant notifié ≠ `payment.amount` → pas d'activation | ✅ Fait (Orange ne transmet pas de montant d'après la doc — à confirmer au 1er paiement réel) |
+| Test de paiement réel à 100 FCFA | ⏳ À faire — `docs/RUNBOOK_TEST_PAIEMENT.md` |
 
 ---
 

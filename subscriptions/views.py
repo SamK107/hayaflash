@@ -9,20 +9,23 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from flash_sales.models import FlashSale
 from .models import (
     Plan,
     PaymentProvider,
     PaymentStatus,
     SubscriptionPayment,
-    PLAN_PRICES,
-    PLAN_FEATURES,
 )
-from .services.limits import get_or_create_subscription, FREE_MONTHLY_SALES_LIMIT
+from .services.limits import get_or_create_subscription, get_sale_quota
+from .services.plans import (
+    get_features,
+    get_official_price,
+    get_price_quote,
+    is_plan_active,
+    plan_offers,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,13 +41,9 @@ def _get_seller(request):
 def subscription_view(request):
     seller = _get_seller(request)
     sub = get_or_create_subscription(seller)
-
-    now = timezone.now()
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    sales_this_month = FlashSale.objects.filter(
-        owner=seller,
-        created_at__gte=month_start,
-    ).count()
+    # Meme comptage et meme limite que le blocage reel (limits.py) : plan
+    # effectif du vendeur, ventes annulees exclues.
+    quota = get_sale_quota(seller)
 
     recent_payments = SubscriptionPayment.objects.filter(seller=seller).order_by(
         "-created_at"
@@ -55,34 +54,11 @@ def subscription_view(request):
         "subscriptions/subscription.html",
         {
             "sub": sub,
-            "sales_this_month": sales_this_month,
-            "free_limit": FREE_MONTHLY_SALES_LIMIT,
-            "plans": _plan_cards(sub),
+            "quota": quota,
+            "plans": plan_offers(sub),
             "recent_payments": recent_payments,
         },
     )
-
-
-def _plan_cards(current_sub) -> list[dict]:
-    return [
-        {
-            "plan": Plan.MEDIUM,
-            "label": "Medium",
-            "price": PLAN_PRICES[Plan.MEDIUM],
-            "features": PLAN_FEATURES[Plan.MEDIUM],
-            "is_current": current_sub.plan == Plan.MEDIUM
-            and not current_sub.is_expired,
-            "highlight": False,
-        },
-        {
-            "plan": Plan.PRO,
-            "label": "Pro",
-            "price": PLAN_PRICES[Plan.PRO],
-            "features": PLAN_FEATURES[Plan.PRO],
-            "is_current": current_sub.plan == Plan.PRO and not current_sub.is_expired,
-            "highlight": True,
-        },
-    ]
 
 
 # ── Checkout ───────────────────────────────────────────────────────────────────
@@ -90,14 +66,28 @@ def _plan_cards(current_sub) -> list[dict]:
 
 @login_required
 def checkout_view(request, plan: str):
-    """Affiche le formulaire de paiement pour un plan donne."""
-    if plan not in (Plan.MEDIUM, Plan.PRO):
+    """Affiche le formulaire de paiement pour un plan donne.
+
+    Le montant affiche vient du serveur (prix officiel ou tarif special du
+    vendeur) ; le formulaire ne transmet aucun montant, et un champ amount
+    force dans le POST est ignore (create_orange_payment recalcule).
+    """
+    if plan not in (Plan.MEDIUM, Plan.PRO) or not is_plan_active(plan):
         return redirect("subscriptions:subscription")
 
     seller = _get_seller(request)
     sub = get_or_create_subscription(seller)
-    amount = PLAN_PRICES[plan]
+    amount, override = get_price_quote(plan, seller)
     expires = sub.expires_at
+    base_ctx = {
+        "plan": plan,
+        "amount": amount,
+        "official_amount": get_official_price(plan),
+        "override": override,
+        "special_blocked": override is not None and sub.is_paid,
+        "expires": expires,
+        "features": get_features(plan),
+    }
 
     if request.method == "POST":
         provider = request.POST.get("provider", PaymentProvider.ORANGE)
@@ -105,20 +95,12 @@ def checkout_view(request, plan: str):
 
         if not phone:
             messages.error(request, "Le numéro de téléphone est obligatoire.")
-            return render(
-                request,
-                "subscriptions/checkout.html",
-                {
-                    "plan": plan,
-                    "amount": amount,
-                    "expires": expires,
-                },
-            )
+            return render(request, "subscriptions/checkout.html", base_ctx)
 
         if provider == PaymentProvider.ORANGE:
-            try:
-                from .services.payment import create_orange_payment
+            from .services.payment import PaymentNotAllowed, create_orange_payment
 
+            try:
                 payment = create_orange_payment(
                     seller=seller,
                     plan=plan,
@@ -126,6 +108,8 @@ def checkout_view(request, plan: str):
                     request=request,
                 )
                 return redirect(payment.payment_url)
+            except PaymentNotAllowed as exc:
+                messages.error(request, str(exc))
             except Exception as exc:
                 logger.exception("Orange Money initiation failed: %s", exc)
                 from django.conf import settings as _s
@@ -143,16 +127,7 @@ def checkout_view(request, plan: str):
                 "Utilisez Orange Money pour le moment.",
             )
 
-    return render(
-        request,
-        "subscriptions/checkout.html",
-        {
-            "plan": plan,
-            "amount": amount,
-            "expires": expires,
-            "features": PLAN_FEATURES.get(plan, []),
-        },
-    )
+    return render(request, "subscriptions/checkout.html", base_ctx)
 
 
 # ── Retour apres paiement ──────────────────────────────────────────────────────
@@ -221,7 +196,7 @@ def payment_callback_view(request):
 
             data = {k: v[0] for k, v in parse_qs(raw_body.decode()).items()}
 
-        from .services.orange_money import verify_callback
+        from .services.orange_money import callback_amount_mismatch, verify_callback
         from django.db import transaction
 
         result = verify_callback(data)
@@ -245,6 +220,16 @@ def payment_callback_view(request):
             logger.info(
                 "Webhook already processed — notif_token=%s (idempotent skip)",
                 notif_token[:16] + "...",
+            )
+            return HttpResponse("OK")
+
+        # Montant notifie different du montant du paiement : pas d'activation.
+        if result["success"] and callback_amount_mismatch(result, payment.amount):
+            logger.error(
+                "Orange callback: montant incoherent — notif_token=%s attendu=%s recu=%r",
+                notif_token[:16] + "...",
+                payment.amount,
+                result.get("amount"),
             )
             return HttpResponse("OK")
 
