@@ -9,6 +9,79 @@
   .hf-input:focus { outline: none; border-color: #FF4D2E; box-shadow: 0 0 0 3px rgba(255,77,46,0.12); }
   .qp-drop { transition: background-color .15s, border-color .15s; }
   [x-cloak] { display: none !important; }
+
+  /* Grille produits responsive -- styles ecrits ici plutot qu'en classes
+     Tailwind : le CSS Tailwind est un build statique (docs/FRONTEND_VENDORING.md),
+     une nouvelle classe responsive n'existerait pas sans rebuild.
+     Mobile/tablette (< 900px) : une carte par produit, nom sur toute la largeur,
+     champs chiffres 2 par ligne (4 par ligne des 480px).
+     >= 900px : grille tabulaire alignee sur l'en-tete, comme l'ancienne table
+     (en dessous, les colonnes fixes ecraseraient le nom, cf. tablette 768px). */
+  .qp-row {
+    display: grid; gap: 0.5rem 0.75rem; align-items: start;
+    grid-template-columns: auto 3.5rem minmax(0, 1fr);
+    grid-template-areas: "sel photo name" "nums nums nums";
+    padding: 0.875rem 1rem; border-bottom: 1px solid #f3f4f6; position: relative;
+  }
+  .qp-sel { grid-area: sel; padding-top: 3.25rem; }
+  .qp-photo { grid-area: photo; padding-top: 2.125rem; }
+  .qp-name { grid-area: name; min-width: 0; }
+  /* Actions en haut a droite de la carte, sur la ligne du libelle « Nom » :
+     le champ nom garde toute la largeur disponible. */
+  .qp-name .qp-lbl { line-height: 2.5rem; margin-bottom: 0; padding-right: 5.5rem; }
+  .qp-act { position: absolute; top: 0.875rem; right: 0.5rem; }
+  .qp-nums { grid-area: nums; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem 0.75rem; }
+  .qp-lbl { display: block; font-size: 0.75rem; font-weight: 600; color: #6b7280; margin-bottom: 0.25rem; }
+  .qp-suffix { position: relative; }
+  .qp-suffix .hf-input { padding-right: 3.25rem; }
+  .qp-suffix span { position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%);
+    font-size: 0.75rem; color: #9ca3af; pointer-events: none; }
+  .qp-check { width: 1.25rem; height: 1.25rem; accent-color: #FF4D2E; }
+  .qp-thumb { width: 3.5rem; height: 3.5rem; }
+  .qp-iconbtn { display: inline-flex; align-items: center; justify-content: center;
+    width: 2.5rem; height: 2.5rem; border-radius: 0.6rem; }
+  .qp-iconbtn:hover { background: #f9fafb; }
+  .qp-act-inner { display: flex; }
+  .qp-head { display: none; }
+  .qp-archived { background: rgba(255,251,235,0.6); }
+  .qp-overlay { background: transparent; opacity: 0; transition: opacity .15s, background-color .15s; }
+  .qp-thumb:hover .qp-overlay { background: rgba(0,0,0,0.3); opacity: 1; }
+  .qp-bar { position: sticky; bottom: 0; z-index: 20; margin: 1.5rem -1rem 0;
+    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+    background: rgba(255,255,255,0.96); border-top: 1px solid #f3f4f6;
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.06); }
+  .qp-bar .qp-publish { flex: 1; justify-content: center; }
+
+  @media (max-width: 899px) {
+    /* 16px mini : en dessous, iOS zoome la page a chaque focus */
+    .hf-input { font-size: 16px; min-height: 2.75rem; }
+  }
+  @media (min-width: 480px) {
+    .qp-nums { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
+  @media (min-width: 900px) {
+    .qp-head, .qp-row {
+      grid-template-columns: 2rem 3rem minmax(0, 1fr) 8rem 8rem 6rem 5rem 4.5rem;
+      grid-template-areas: none; align-items: center; gap: 0 0.5rem;
+    }
+    .qp-head { display: grid; padding: 0.5rem 1rem; border-bottom: 1px solid #f9fafb;
+      font-size: 0.75rem; color: #9ca3af; }
+    .qp-row { padding: 0.5rem 1rem; }
+    .qp-row:hover { background: rgba(249,250,251,0.4); }
+    .qp-sel, .qp-photo, .qp-name { grid-area: auto; padding-top: 0; }
+    .qp-act { position: static; }
+    .qp-nums { display: contents; }
+    .qp-lbl, .qp-suffix span, .qp-mob-only { display: none; }
+    .qp-suffix .hf-input { padding-right: 0.85rem; }
+    .qp-row .hf-input { padding-top: 0.375rem; padding-bottom: 0.375rem; }
+    .qp-check { width: 1rem; height: 1rem; }
+    .qp-thumb { width: 2.5rem; height: 2.5rem; }
+    .qp-iconbtn { width: 2rem; height: 2rem; }
+    .qp-act-inner { justify-content: center; }
+    .qp-bar { position: static; margin: 1.5rem 0 0; padding: 0; background: none;
+      border: 0; box-shadow: none; }
+    .qp-bar .qp-publish { flex: none; }
+  }
 </style>
 {% endblock %}
 
@@ -123,113 +196,137 @@
     </div>
 
     <!-- Mini-formulaires remise / stock groupés -->
-    <div x-show="showDiscount" x-cloak class="px-5 py-3 bg-blue-50/50 border-b border-blue-100 flex items-center gap-2">
+    <div x-show="showDiscount" x-cloak class="px-5 py-3 bg-blue-50/50 border-b border-blue-100 flex flex-wrap items-center gap-2">
       <span class="text-xs text-blue-800">Appliquer une remise de</span>
-      <input type="number" x-model.number="discountPercent" min="0" max="90" class="hf-input w-20 py-1.5">
+      <input type="number" x-model.number="discountPercent" min="0" max="90" inputmode="numeric" class="hf-input w-20 py-1.5">
       <span class="text-xs text-blue-800">% sur le prix catalogue des lignes cochées</span>
       <button type="button" @click="applyDiscount()" class="ml-auto px-3 py-1 text-xs font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700">Appliquer</button>
       <button type="button" @click="showDiscount = false" class="text-blue-400 hover:text-blue-600"><i data-lucide="x" class="w-4 h-4"></i></button>
     </div>
-    <div x-show="showStock" x-cloak class="px-5 py-3 bg-green-50/50 border-b border-green-100 flex items-center gap-2">
+    <div x-show="showStock" x-cloak class="px-5 py-3 bg-green-50/50 border-b border-green-100 flex flex-wrap items-center gap-2">
       <span class="text-xs text-green-800">Fixer le stock à</span>
-      <input type="number" x-model.number="defaultStock" min="0" class="hf-input w-24 py-1.5">
+      <input type="number" x-model.number="defaultStock" min="0" inputmode="numeric" class="hf-input w-24 py-1.5">
       <span class="text-xs text-green-800">pour les lignes cochées</span>
       <button type="button" @click="applyDefaultStock()" class="ml-auto px-3 py-1 text-xs font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700">Appliquer</button>
       <button type="button" @click="showStock = false" class="text-green-400 hover:text-green-600"><i data-lucide="x" class="w-4 h-4"></i></button>
     </div>
 
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="text-left text-xs text-gray-400 border-b border-gray-50">
-            <th class="px-4 py-2 w-8"><input type="checkbox" @change="toggleAll($event.target.checked)"></th>
-            <th class="px-2 py-2 w-14">Photo</th>
-            <th class="px-2 py-2">Nom</th>
-            <th class="px-2 py-2 w-28">Prix catalogue</th>
-            <th class="px-2 py-2 w-28">Prix promo</th>
-            <th class="px-2 py-2 w-24">Stock</th>
-            <th class="px-2 py-2 w-20">Ordre</th>
-            <th class="px-2 py-2 w-10"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <template x-for="(row, idx) in rows" :key="row.key">
-            <tr class="border-b border-gray-50 hover:bg-gray-50/40" :class="{ 'opacity-40': !row.selected, 'bg-amber-50/40': row.isActive === false }">
-              <td class="px-4 py-2 align-middle">
-                <input type="checkbox" x-model="row.selected">
-              </td>
-              <td class="px-2 py-2 align-middle">
-                <button type="button" class="relative block w-10 h-10 group"
-                        title="Changer la photo"
-                        @click="openRowFilePicker(row)">
-                  <template x-if="row.image_url">
-                    <img :src="row.image_url" class="w-10 h-10 rounded-lg object-cover">
-                  </template>
-                  <template x-if="!row.image_url">
-                    <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
-                      <i data-lucide="package" class="w-5 h-5 text-gray-300"></i>
-                    </div>
-                  </template>
-                  <div class="absolute inset-0 rounded-lg bg-black/0 group-hover:bg-black/30 flex items-center justify-center transition-colors">
-                    <i data-lucide="camera" class="w-4 h-4 text-white opacity-0 group-hover:opacity-100"></i>
-                  </div>
-                </button>
-              </td>
-              <td class="px-2 py-2 align-middle">
-                <input type="text" x-model="row.name" :disabled="!row.isNew" class="hf-input py-1.5"
-                       :class="!row.isNew && 'bg-gray-50 text-gray-500'" placeholder="Nom du produit">
-              </td>
-              <td class="px-2 py-2 align-middle">
-                <input type="number" x-model.number="row.price" :disabled="!row.isNew" min="0" class="hf-input py-1.5"
-                       :class="!row.isNew && 'bg-gray-50 text-gray-500'">
-              </td>
-              <td class="px-2 py-2 align-middle">
-                <input type="number" x-model.number="row.promo_price" min="0" class="hf-input py-1.5" placeholder="=prix">
-              </td>
-              <td class="px-2 py-2 align-middle">
-                <input type="number" x-model.number="row.stock" min="0" class="hf-input py-1.5">
-              </td>
-              <td class="px-2 py-2 align-middle">
-                <input type="number" x-model.number="row.display_order" min="0" class="hf-input py-1.5">
-              </td>
-              <td class="px-2 py-2 align-middle text-center">
-                <div class="flex items-center justify-center gap-1">
-                  <template x-if="!row.isNew && row.isActive === false">
-                    <button type="button" @click="reactivateRow(idx)" title="Réafficher ce produit"
-                            class="text-amber-500 hover:text-amber-600">
-                      <i data-lucide="eye" class="w-4 h-4"></i>
-                    </button>
-                  </template>
-                  <template x-if="!(!row.isNew && row.isActive === false)">
-                    <button type="button" @click="archiveRow(idx)"
-                            :title="row.isNew ? 'Retirer cette ligne' : 'Masquer (sans supprimer)'"
-                            class="text-gray-300 hover:text-amber-500">
-                      <i data-lucide="eye-off" class="w-4 h-4"></i>
-                    </button>
-                  </template>
-                  <button type="button" @click="deleteRow(idx)"
-                          :title="row.isNew ? 'Retirer cette ligne' : 'Supprimer définitivement'"
-                          class="text-gray-300 hover:text-red-500">
-                    <i data-lucide="trash-2" class="w-4 h-4"></i>
-                  </button>
+    <!-- Mobile/tablette : cartes empilees ; >= 900px : grille alignee sur l'en-tete
+         (voir styles .qp-* en tete de page). -->
+    <label class="qp-mob-only flex items-center gap-2 px-4 py-3 border-b border-gray-50 text-sm text-gray-600">
+      <input type="checkbox" class="qp-check" :checked="rows.length > 0 && selectedCount === rows.length"
+             @change="toggleAll($event.target.checked)">
+      Tout sélectionner
+    </label>
+    <div class="text-sm">
+      <div class="qp-head text-left">
+        <span><input type="checkbox" class="qp-check" aria-label="Tout sélectionner"
+                     :checked="rows.length > 0 && selectedCount === rows.length"
+                     @change="toggleAll($event.target.checked)"></span>
+        <span>Photo</span>
+        <span>Nom</span>
+        <span>Prix catalogue</span>
+        <span>Prix promo</span>
+        <span>Stock</span>
+        <span>Ordre</span>
+        <span></span>
+      </div>
+      <template x-for="(row, idx) in rows" :key="row.key">
+        <div class="qp-row" :class="{ 'opacity-40': !row.selected, 'qp-archived': row.isActive === false }">
+          <div class="qp-sel">
+            <input type="checkbox" class="qp-check" x-model="row.selected" aria-label="Inclure ce produit">
+          </div>
+          <div class="qp-photo">
+            <button type="button" class="qp-thumb relative block"
+                    title="Changer la photo"
+                    @click="openRowFilePicker(row)">
+              <template x-if="row.image_url">
+                <img :src="row.image_url" alt="" class="w-full h-full rounded-lg object-cover">
+              </template>
+              <template x-if="!row.image_url">
+                <div class="w-full h-full rounded-lg bg-gray-100 flex items-center justify-center">
+                  <i data-lucide="camera" class="w-5 h-5 text-gray-300"></i>
                 </div>
-              </td>
-            </tr>
-          </template>
-          <template x-if="rows.length === 0">
-            <tr><td colspan="8" class="px-4 py-10 text-center text-gray-400 text-sm">
-              Catalogue vide. Utilisez « Nouveau produit » ou l'upload de photos ci-dessus.
-            </td></tr>
-          </template>
-        </tbody>
-      </table>
+              </template>
+              <div class="qp-overlay absolute inset-0 rounded-lg flex items-center justify-center">
+                <i data-lucide="camera" class="w-4 h-4 text-white"></i>
+              </div>
+            </button>
+          </div>
+          <div class="qp-name">
+            <label class="qp-lbl" :for="'qp-name-' + row.key">Nom</label>
+            <input type="text" :id="'qp-name-' + row.key" x-model="row.name" :disabled="!row.isNew" class="hf-input"
+                   :class="!row.isNew && 'bg-gray-50 text-gray-500'" placeholder="Nom du produit">
+          </div>
+          <div class="qp-nums">
+            <div>
+              <label class="qp-lbl" :for="'qp-price-' + row.key">Prix catalogue</label>
+              <div class="qp-suffix">
+                <input type="number" :id="'qp-price-' + row.key" inputmode="numeric" x-model.number="row.price"
+                       :disabled="!row.isNew" min="0" class="hf-input" :class="!row.isNew && 'bg-gray-50 text-gray-500'">
+                <span>FCFA</span>
+              </div>
+            </div>
+            <div>
+              <label class="qp-lbl" :for="'qp-promo-' + row.key">Prix promo</label>
+              <div class="qp-suffix">
+                <input type="number" :id="'qp-promo-' + row.key" inputmode="numeric" x-model.number="row.promo_price"
+                       min="0" class="hf-input" placeholder="=prix">
+                <span>FCFA</span>
+              </div>
+            </div>
+            <div>
+              <label class="qp-lbl" :for="'qp-stock-' + row.key">Stock</label>
+              <input type="number" :id="'qp-stock-' + row.key" inputmode="numeric" x-model.number="row.stock"
+                     min="0" class="hf-input">
+            </div>
+            <div>
+              <label class="qp-lbl" :for="'qp-order-' + row.key">Ordre</label>
+              <input type="number" :id="'qp-order-' + row.key" inputmode="numeric" x-model.number="row.display_order"
+                     min="0" class="hf-input">
+            </div>
+          </div>
+          <div class="qp-act">
+            <div class="qp-act-inner">
+              <template x-if="!row.isNew && row.isActive === false">
+                <button type="button" @click="reactivateRow(idx)" title="Réafficher ce produit"
+                        aria-label="Réafficher ce produit"
+                        class="qp-iconbtn text-amber-500 hover:text-amber-600">
+                  <i data-lucide="eye" class="w-4 h-4"></i>
+                </button>
+              </template>
+              <template x-if="!(!row.isNew && row.isActive === false)">
+                <button type="button" @click="archiveRow(idx)"
+                        :title="row.isNew ? 'Retirer cette ligne' : 'Masquer (sans supprimer)'"
+                        :aria-label="row.isNew ? 'Retirer cette ligne' : 'Masquer (sans supprimer)'"
+                        class="qp-iconbtn text-gray-400 hover:text-amber-500">
+                  <i data-lucide="eye-off" class="w-4 h-4"></i>
+                </button>
+              </template>
+              <button type="button" @click="deleteRow(idx)"
+                      :title="row.isNew ? 'Retirer cette ligne' : 'Supprimer définitivement'"
+                      :aria-label="row.isNew ? 'Retirer cette ligne' : 'Supprimer définitivement'"
+                      class="qp-iconbtn text-gray-400 hover:text-red-500">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </template>
+      <template x-if="rows.length === 0">
+        <div class="px-4 py-10 text-center text-gray-400 text-sm">
+          Catalogue vide. Utilisez « Nouveau produit » ou l'upload de photos ci-dessus.
+        </div>
+      </template>
     </div>
   </div>
 
-  <div class="flex items-center justify-end gap-3 mt-6">
-    <a href="{% url 'flash_sales:detail' flash_sale.pk %}" class="px-5 py-2.5 text-sm font-semibold text-gray-500 hover:text-gray-700">Annuler</a>
+  <!-- Mobile : barre collee en bas d'ecran (plus besoin de defiler tout le
+       catalogue pour publier) ; >= 900px : alignee a droite comme avant. -->
+  <div class="qp-bar flex items-center justify-end gap-3">
+    <a href="{% url 'flash_sales:detail' flash_sale.pk %}" class="px-4 py-2.5 text-sm font-semibold text-gray-500 hover:text-gray-700">Annuler</a>
     <button type="button" @click="publish()" :disabled="loading || selectedCount === 0"
-            class="px-6 py-2.5 text-sm font-bold text-white bg-primary rounded-xl hover:bg-primary/90 disabled:opacity-40 flex items-center gap-2">
+            class="qp-publish px-6 py-3 text-sm font-bold text-white bg-primary rounded-xl hover:bg-primary/90 disabled:opacity-40 flex items-center gap-2">
       <i data-lucide="rocket" class="w-4 h-4"></i>
       <span x-text="loading ? 'Publication...' : `Publier ${selectedCount} produit(s)`"></span>
     </button>

@@ -10,6 +10,8 @@
     background: white; color: #111827;
   }
   .hf-input:focus { outline: none; border-color: #FF4D2E; box-shadow: 0 0 0 3px rgba(255,77,46,0.12); }
+  /* 16px mini sur mobile : en dessous, iOS zoome la page a chaque focus. */
+  @media (max-width: 767px) { .hf-input { font-size: 16px; } }
   .hf-label { display:block; font-size:.875rem; font-weight:600; color:#374151; margin-bottom:.375rem; }
   .hf-hint  { font-size:.8125rem; color:#6B7280; margin-top:.25rem; }
   @keyframes rec-pulse { 0%,100%{opacity:1} 50%{opacity:.4} }

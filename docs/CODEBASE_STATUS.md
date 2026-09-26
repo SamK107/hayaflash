@@ -178,6 +178,7 @@ hayaflash/
 | Mode support (`/admin/sellers/<seller_id>/<flash_sale_pk>/quick-publish/`, staff only, `?seller_id=` impersonation) | ✅ Fait |
 | Non-régression checkout : `price_snapshot` utilise `FlashSaleProduct.effective_price` (prix promo), pas le prix catalogue brut | ✅ Fait — testé |
 | `flash_sales.services.crud.clone_flash_sale` : réutilise le catalogue existant au lieu de dupliquer `Product`/`ProductMedia` | ✅ Fait |
+| Grille responsive (26/09) : l'ancienne `<table>` 8 colonnes écrasait le champ Nom à ~50px sur mobile. < 900px : une carte par produit (nom pleine largeur, libellés visibles, prix/stock/ordre 2 par ligne puis 4 dès 480px, suffixe FCFA, `inputmode="numeric"`, cibles 40–44px, bouton Publier collé en bas d'écran) ; ≥ 900px : grille alignée sur l'en-tête comme avant. Styles `.qp-*` dans la page (pas de nouvelle classe Tailwind → pas de rebuild). Aussi : champs `.hf-input` à 16px sur mobile (plus de zoom iOS au focus) ici, dans `product_form.html` et `_hf_form_styles.html` ; survol photo et fond des produits masqués réparés (classes absentes du build Tailwind statique) | ✅ Fait — vérifié en navigateur à 360/600/768/900/1280px |
 
 ---
 
