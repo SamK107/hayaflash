@@ -8,14 +8,18 @@ from __future__ import annotations
 
 import logging
 
+from django.conf import settings
 from django.core.cache import cache
 from django.db import connections
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.urls import include, path
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.routers import DefaultRouter
 
+from core.tasks import CELERY_HEARTBEAT_CACHE_KEY
 from orders.api import api_v1_orders_create
 from flash_sales.api import flash_sale_list_api, flash_sale_detail_api
 from products.api import FlashSaleProductViewSet
@@ -23,6 +27,35 @@ from products.api import FlashSaleProductViewSet
 router = DefaultRouter()
 
 logger = logging.getLogger(__name__)
+
+
+def _celery_check() -> str:
+    """Etat de beat + worker d'apres le battement core.celery_heartbeat.
+
+    "skipped" sans Celery reel (tests/dev eager, ou pas de REDIS_URL : le
+    cache LocMem n'est pas partage entre le worker et le web, le battement y
+    serait invisible). Sinon "ok" / "stale" (battement plus vieux que
+    HEALTH_CELERY_MAX_AGE) / "missing" (aucun battement depuis 600 s, ou
+    jamais recu).
+    """
+    if getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False) or not getattr(
+        settings, "REDIS_URL", ""
+    ):
+        return "skipped"
+    raw = cache.get(CELERY_HEARTBEAT_CACHE_KEY)
+    beat_at = parse_datetime(raw) if raw else None
+    if beat_at is None:
+        logger.error("Healthcheck: aucun battement Celery (beat ou worker arrete ?)")
+        return "missing"
+    age = (timezone.now() - beat_at).total_seconds()
+    if age > settings.HEALTH_CELERY_MAX_AGE:
+        logger.error(
+            "Healthcheck: battement Celery perime (%.0f s > %s s) — beat ou worker arrete ?",
+            age,
+            settings.HEALTH_CELERY_MAX_AGE,
+        )
+        return "stale"
+    return "ok"
 
 
 @api_view(["GET"])
@@ -39,6 +72,9 @@ def health(_request):
     # GOVERNANCE_SECURITE.md categorie 2). Chaque check est isole dans son
     # propre try/except — une exception de driver (psycopg2, redis) ne doit
     # jamais faire planter le healthcheck lui-meme en 500.
+    #
+    # Celery (beat + worker) : informatif par defaut, voir
+    # HEALTH_CELERY_REQUIRED dans config/settings/base.py pour le pourquoi.
     checks = {}
     healthy = True
 
@@ -60,6 +96,14 @@ def health(_request):
     except Exception:
         logger.exception("Healthcheck: connexion cache echouee")
         checks["cache"] = "error"
+        healthy = False
+
+    try:
+        checks["celery"] = _celery_check()
+    except Exception:
+        logger.exception("Healthcheck: lecture du battement Celery echouee")
+        checks["celery"] = "error"
+    if checks["celery"] in ("stale", "missing", "error") and settings.HEALTH_CELERY_REQUIRED:
         healthy = False
 
     status_code = 200 if healthy else 503

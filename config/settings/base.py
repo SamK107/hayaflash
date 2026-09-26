@@ -398,7 +398,24 @@ CELERY_BEAT_SCHEDULE = {
         "task": "flash_sales.send_pending_sale_reminders",
         "schedule": 300.0,
     },
+    # Sonde de /health/ (check "celery") : ecrit un timestamp dans le cache.
+    "celery-heartbeat": {
+        "task": "core.celery_heartbeat",
+        "schedule": 60.0,
+    },
 }
+
+# ── Healthcheck Celery (config/api_urls.py:health) ────────────────────────────
+# Age max (s) du dernier battement core.celery_heartbeat avant "stale".
+# 180 s = 3 battements manques (planifies toutes les 60 s).
+HEALTH_CELERY_MAX_AGE = int(os.environ.get("HEALTH_CELERY_MAX_AGE", "180"))
+# False par defaut : un Celery "stale"/"missing" est signale dans le JSON et
+# loggue en ERROR (-> Sentry), mais /health/ reste 200. En 503, le HEALTHCHECK
+# Docker et infra/scripts/smoke_test.sh echoueraient juste apres un deploiement,
+# avant le premier battement du worker -> rollback automatique de deploy.sh sur
+# une release saine. A passer a True seulement si un monitoring externe doit
+# alerter sur Celery via le code HTTP.
+HEALTH_CELERY_REQUIRED = _env_bool("HEALTH_CELERY_REQUIRED")
 
 # ── Django REST Framework ─────────────────────────────────────────────────────
 # ── Django REST Framework ─────────────────────────────────────────────────────
