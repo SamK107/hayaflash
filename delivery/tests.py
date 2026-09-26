@@ -55,7 +55,7 @@ class DeliveryTestFixture(TestCase):
             name="Widget",
             stock_available=10,
             stock_initial=10,
-            price=Decimal("19.99"),
+            price=Decimal("1999"),
         )
         FlashSaleProduct.objects.create(flash_sale=self.sale, product=self.product)
         self.api = APIClient()
@@ -80,9 +80,9 @@ class CreateOrderDeliveryIntegrationTests(DeliveryTestFixture):
         self.assertEqual(resp.status_code, 201, resp.content)
         order_id = resp.data["id"]
         order = Order.service_objects.get(pk=order_id)
-        self.assertEqual(order.total_amount, Decimal("39.98"))
+        self.assertEqual(order.total_amount, Decimal("3998"))
         delivery = Delivery.objects.get(order_id=order_id)
-        self.assertEqual(delivery.cod_amount, Decimal("39.98"))
+        self.assertEqual(delivery.cod_amount, Decimal("3998"))
         self.assertEqual(delivery.address_text, _valid_delivery()["address_text"])
         self.assertIn("delivery_id", resp.data["delivery"])
 

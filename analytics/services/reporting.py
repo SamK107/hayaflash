@@ -12,7 +12,7 @@ from orders.models import OrderItem, OrderStatus
 def _revenue_expr() -> ExpressionWrapper:
     return ExpressionWrapper(
         F("price_snapshot") * F("quantity"),
-        output_field=DecimalField(max_digits=14, decimal_places=2),
+        output_field=DecimalField(max_digits=14, decimal_places=0),
     )
 
 

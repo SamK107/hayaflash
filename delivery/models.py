@@ -65,7 +65,7 @@ class Delivery(models.Model):
     scheduled_at = models.DateTimeField(null=True, blank=True)
     delivered_at = models.DateTimeField(null=True, blank=True)
 
-    cod_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    cod_amount = models.DecimalField(max_digits=10, decimal_places=0)  # FCFA entiers
     cod_collected = models.BooleanField(default=False)
     cod_collected_at = models.DateTimeField(null=True, blank=True)
     cod_confirmed_by = models.ForeignKey(

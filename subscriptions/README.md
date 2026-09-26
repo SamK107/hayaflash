@@ -148,7 +148,7 @@ Vérification des quotas.
 ```python
 def get_sale_quota(seller) -> dict:
     """Retourne l'etat du quota (can_create, monthly_count, monthly_limit, reason)."""
-    # FREE/MEDIUM: 3 ventes/mois (hors CANCELLED)
+    # FREE: 3 ventes/mois, MEDIUM: 10 ventes/mois (hors CANCELLED)
     # PRO: illimité tant que non expiré
 
 def can_create_flash_sale(seller) -> tuple[bool, str]:

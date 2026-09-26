@@ -20,7 +20,7 @@ PLAN_PRICES = {
 
 PLAN_MONTHLY_SALES_LIMIT = {
     Plan.FREE: 3,
-    Plan.MEDIUM: 3,
+    Plan.MEDIUM: 10,
     Plan.PRO: None,  # illimite
 }
 
@@ -32,7 +32,7 @@ PLAN_FEATURES = {
         "Lien de partage WhatsApp",
     ],
     Plan.MEDIUM: [
-        "3 ventes flash par mois",
+        "10 ventes flash par mois",
         "Statistiques de ventes (30 derniers jours)",
         "Historique des commandes complet",
         "Page publique vendeur",

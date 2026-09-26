@@ -25,7 +25,7 @@ class ProductForm(forms.ModelForm):
             ),
             "description": forms.Textarea(attrs={"rows": 2, "class": "hf-input"}),
             "price": forms.NumberInput(
-                attrs={"placeholder": "5000", "min": 0, "class": "hf-input"}
+                attrs={"placeholder": "5000", "min": 0, "step": 1, "class": "hf-input"}
             ),
             "stock_initial": forms.NumberInput(
                 attrs={"placeholder": "10", "min": 0, "class": "hf-input"}
