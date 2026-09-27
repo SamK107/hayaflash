@@ -39,6 +39,7 @@ class AuthenticationApiTests(TestCase):
                 "password": "strong-pass-123",
                 "create_seller_profile": True,
                 "business_name": "Shop Two",
+                "accept_terms": True,
             },
             format="json",
         )

@@ -5,18 +5,23 @@ from django.db import transaction
 from rest_framework.exceptions import AuthenticationFailed
 
 from accounts.models import SellerProfile, User
+from core.legal import record_legal_acceptances
 
 
 @transaction.atomic
-def register_user(validated_data: dict) -> User:
+def register_user(validated_data: dict, request=None) -> User:
     create_seller_profile = validated_data.pop("create_seller_profile", False)
     business_name = validated_data.pop("business_name", "")
     password = validated_data.pop("password")
+    # Deja verifiee a True par RegisterSerializer ; pas un champ du modele.
+    validated_data.pop("accept_terms", None)
 
     user = User.objects.create_user(password=password, **validated_data)
 
     if create_seller_profile:
         SellerProfile.objects.create(user=user, business_name=business_name)
+
+    record_legal_acceptances(user, request)
 
     return user
 

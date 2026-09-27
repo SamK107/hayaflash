@@ -173,3 +173,56 @@ class AcceptanceIpTests(TestCase):
 
         request = RequestFactory().get("/", HTTP_X_FORWARDED_FOR="41.73.1.1, 10.0.0.1")
         self.assertEqual(acceptance_ip(request), "41.73.1.1")
+
+
+class ApiRegisterLegalAcceptanceTests(TestCase):
+    def setUp(self) -> None:
+        from rest_framework.test import APIClient
+
+        self.client = APIClient()
+        self.url = reverse("accounts:register")
+
+    def payload(self, **extra):
+        data = {
+            "phone": "+22370000010",
+            "display_name": "Awa",
+            "password": "strong-pass-123",
+            "create_seller_profile": True,
+            "business_name": "Boutique Awa",
+        }
+        data.update(extra)
+        return data
+
+    def test_missing_accept_terms_is_400_and_creates_nothing(self):
+        from core.legal import LEGAL_ACCEPTANCE_REQUIRED_MESSAGE
+
+        response = self.client.post(self.url, self.payload(), format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["accept_terms"], [LEGAL_ACCEPTANCE_REQUIRED_MESSAGE])
+        self.assertEqual(User.objects.count(), 0)
+        self.assertEqual(LegalAcceptance.objects.count(), 0)
+
+    def test_accept_terms_false_is_400(self):
+        from core.legal import LEGAL_ACCEPTANCE_REQUIRED_MESSAGE
+
+        response = self.client.post(self.url, self.payload(accept_terms=False), format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["accept_terms"], [LEGAL_ACCEPTANCE_REQUIRED_MESSAGE])
+        self.assertEqual(User.objects.count(), 0)
+
+    def test_accept_terms_true_is_201_with_two_acceptances(self):
+        from core.legal import LEGAL_CGU_VERSION, LEGAL_PRIVACY_VERSION
+
+        response = self.client.post(
+            self.url, self.payload(accept_terms=True), format="json", REMOTE_ADDR="196.200.1.3"
+        )
+        self.assertEqual(response.status_code, 201)
+        user = User.objects.get()
+        versions = dict(user.legal_acceptances.values_list("document", "version"))
+        self.assertEqual(
+            versions,
+            {LegalDocument.CGU: LEGAL_CGU_VERSION, LegalDocument.PRIVACY: LEGAL_PRIVACY_VERSION},
+        )
+        self.assertEqual(
+            set(user.legal_acceptances.values_list("ip_address", flat=True)), {"196.200.1.3"}
+        )
