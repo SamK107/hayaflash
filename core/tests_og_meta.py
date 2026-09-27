@@ -11,6 +11,7 @@ from __future__ import annotations
 from datetime import timedelta
 from decimal import Decimal
 from html.parser import HTMLParser
+from urllib.parse import urlparse
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -151,6 +152,21 @@ class OgMetaTests(TestCase):
         self.assertIn("Awa Boutique", head.values("og:title")[0])
         self.assertTrue(head.values("og:url")[0].endswith(self.seller_url))
         self.assertGreaterEqual(head.json_ld, 1)
+
+    def test_share_image_file_really_exists(self) -> None:
+        # config/settings/test.py a STATICFILES_DIRS vide : on pointe sur static/.
+        from django.conf import settings
+        from django.contrib.staticfiles import finders
+        from django.test import override_settings
+
+        with override_settings(STATICFILES_DIRS=[settings.BASE_DIR / "static"]):
+            for url in ("/", self.sale_url, self.seller_url):
+                with self.subTest(url=url):
+                    image = self._get(url).values("og:image")[0]
+                    path = urlparse(image).path
+                    self.assertTrue(path.startswith(settings.STATIC_URL), image)
+                    relative = path[len(settings.STATIC_URL):]
+                    self.assertIsNotNone(finders.find(relative), image)
 
     def test_error_page_has_no_share_tags_nor_canonical(self) -> None:
         response = self.client.get("/cette-url-n-existe-pas/")
