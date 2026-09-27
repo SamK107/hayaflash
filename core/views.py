@@ -8,6 +8,7 @@ from django.shortcuts import redirect, render
 
 from accounts.models import SellerProfile
 from accounts.services.users import get_user_by_phone
+from core.legal import LEGAL_CGU_VERSION, LEGAL_LAST_UPDATED, LEGAL_PRIVACY_VERSION
 
 
 # ── helpers ────────────────────────────────────────────────────────────────
@@ -260,6 +261,32 @@ def platform_admin_dashboard(request):
         ),
     }
     return render(request, "core/platform_admin.html", context)
+
+
+def _legal_context() -> dict:
+    return {
+        "cgu_version": LEGAL_CGU_VERSION,
+        "privacy_version": LEGAL_PRIVACY_VERSION,
+        "legal_last_updated": LEGAL_LAST_UPDATED,
+    }
+
+
+def legal_privacy(request):
+    return render(request, "core/legal/privacy.html", _legal_context())
+
+
+def legal_terms(request):
+    from subscriptions.services.plans import get_duration_days
+
+    context = _legal_context()
+    context["plan_durations"] = {
+        plan: get_duration_days(plan) for plan in ("medium", "pro")
+    }
+    return render(request, "core/legal/terms.html", context)
+
+
+def legal_notice(request):
+    return render(request, "core/legal/notice.html", _legal_context())
 
 
 def service_worker(request):

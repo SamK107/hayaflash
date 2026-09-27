@@ -5,7 +5,8 @@ from __future__ import annotations
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, modify_settings
+from django.urls import reverse
 from django.utils import timezone
 
 from core.models import LegalAcceptance, LegalDocument
@@ -49,3 +50,39 @@ class LegalAcceptanceModelTests(TestCase):
             user=self.user, document=LegalDocument.CGU, version="2026-09", accepted_at=now
         )
         self.assertEqual(list(LegalAcceptance.objects.all()), [new, old])
+
+
+class LegalPagesTests(TestCase):
+    PAGES = {
+        "legal_privacy": ("/confidentialite/", "Politique de confidentialité — HayaFlash"),
+        "legal_terms": ("/cgu/", "Conditions générales d'utilisation — HayaFlash"),
+        "legal_notice": ("/mentions-legales/", "Mentions légales — HayaFlash"),
+    }
+
+    def test_pages_ok_for_anonymous_with_title(self):
+        for name, (path, title) in self.PAGES.items():
+            with self.subTest(name=name):
+                self.assertEqual(reverse(name), path)
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, f"<title>{title}</title>", html=False)
+
+    def test_versions_come_from_constants(self):
+        from core.legal import LEGAL_CGU_VERSION, LEGAL_PRIVACY_VERSION
+
+        self.assertContains(
+            self.client.get(reverse("legal_terms")), f"Version {LEGAL_CGU_VERSION}"
+        )
+        self.assertContains(
+            self.client.get(reverse("legal_privacy")), f"Version {LEGAL_PRIVACY_VERSION}"
+        )
+
+    # config.settings.test n'installe pas django.contrib.sitemaps (template
+    # sitemap.xml introuvable) : ajoute pour ce test seulement.
+    @modify_settings(INSTALLED_APPS={"append": "django.contrib.sitemaps"})
+    def test_pages_listed_in_sitemap(self):
+        response = self.client.get("/sitemap.xml")
+        self.assertEqual(response.status_code, 200)
+        for path, _title in self.PAGES.values():
+            with self.subTest(path=path):
+                self.assertContains(response, f"{path}</loc>")

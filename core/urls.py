@@ -19,4 +19,7 @@ urlpatterns = [
     path("logout/", views.logout_view, name="logout"),
     path("register/", views.register_view, name="register"),
     path("platform-admin/", views.platform_admin_dashboard, name="platform_admin"),
+    path("confidentialite/", views.legal_privacy, name="legal_privacy"),
+    path("cgu/", views.legal_terms, name="legal_terms"),
+    path("mentions-legales/", views.legal_notice, name="legal_notice"),
 ]
