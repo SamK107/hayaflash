@@ -141,4 +141,9 @@ class SellerProfile(models.Model):
 
             self.public_slug = generate_unique_seller_public_slug(self)
 
+        from core.services.image_optimize import is_pending_upload, resize_uploaded_image
+
+        if is_pending_upload(self.avatar):
+            resize_uploaded_image(self.avatar)
+
         super().save(*args, **kwargs)
