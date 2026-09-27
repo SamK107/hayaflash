@@ -28,6 +28,15 @@ LOGIN_MAX_ATTEMPTS_PER_IP = 20  # toutes tentatives POST
 LOGIN_MAX_FAILURES_PER_PHONE = 5  # echecs seulement, remis a zero au succes
 LOGIN_RATE_LIMIT_MESSAGE = "Trop de tentatives. Réessayez dans quelques minutes."
 
+# Inscription : limite par IP (toutes tentatives POST) + champ piege "website".
+REGISTER_WINDOW_SECONDS = 60 * 60
+REGISTER_MAX_ATTEMPTS_PER_IP = 5
+REGISTER_RATE_LIMIT_MESSAGE = "Trop d'inscriptions depuis ce réseau. Réessayez plus tard."
+REGISTER_HONEYPOT_FIELD = "website"
+# Erreur generique (et non faux succes) : un humain qui aurait rempli le champ
+# par autocompletion peut reessayer au lieu de croire son compte cree.
+REGISTER_GENERIC_ERROR = "Impossible de créer le compte pour le moment. Vérifiez vos informations et réessayez."
+
 
 # ── helpers ────────────────────────────────────────────────────────────────
 
@@ -150,6 +159,27 @@ def register_view(request):
             "business_name": business_name,
             "accept_terms": accept_terms,
         }
+
+        ip = rate_limit.client_ip(request)
+        if rate_limit.hit(
+            f"register:ip:{ip}",
+            limit=REGISTER_MAX_ATTEMPTS_PER_IP,
+            window_seconds=REGISTER_WINDOW_SECONDS,
+        ):
+            return render(
+                request,
+                "accounts/register.html",
+                {"errors": [REGISTER_RATE_LIMIT_MESSAGE], "form_data": form_data},
+                status=429,
+            )
+
+        if request.POST.get(REGISTER_HONEYPOT_FIELD, "").strip():
+            logger.info("Inscription bloquee par le honeypot (ip=%s).", ip)
+            return render(
+                request,
+                "accounts/register.html",
+                {"errors": [REGISTER_GENERIC_ERROR], "form_data": form_data},
+            )
 
         phone = _normalize(raw_phone)
         errors = _phone_errors(phone, password, password2, business_name)
