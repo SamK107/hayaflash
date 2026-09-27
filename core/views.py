@@ -4,11 +4,18 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
+from django.db import transaction
 from django.shortcuts import redirect, render
 
 from accounts.models import SellerProfile
 from accounts.services.users import get_user_by_phone
-from core.legal import LEGAL_CGU_VERSION, LEGAL_LAST_UPDATED, LEGAL_PRIVACY_VERSION
+from core.legal import (
+    LEGAL_ACCEPTANCE_REQUIRED_MESSAGE,
+    LEGAL_CGU_VERSION,
+    LEGAL_LAST_UPDATED,
+    LEGAL_PRIVACY_VERSION,
+    record_legal_acceptances,
+)
 
 
 # ── helpers ────────────────────────────────────────────────────────────────
@@ -101,14 +108,18 @@ def register_view(request):
         password = request.POST.get("password", "")
         password2 = request.POST.get("password2", "")
         business_name = request.POST.get("business_name", "").strip()
+        accept_terms = bool(request.POST.get("accept_terms"))
 
         form_data = {
             "phone": raw_phone,
             "business_name": business_name,
+            "accept_terms": accept_terms,
         }
 
         phone = _normalize(raw_phone)
         errors = _phone_errors(phone, password, password2, business_name)
+        if not accept_terms:
+            errors.append(LEGAL_ACCEPTANCE_REQUIRED_MESSAGE)
 
         if not errors:
             # verifier unicite du numero
@@ -122,15 +133,17 @@ def register_view(request):
 
             User = get_user_model()
             try:
-                user = User.objects.create_user(
-                    phone=phone,
-                    password=password,
-                    display_name=business_name,
-                )
-                SellerProfile.objects.create(
-                    user=user,
-                    business_name=business_name,
-                )
+                with transaction.atomic():
+                    user = User.objects.create_user(
+                        phone=phone,
+                        password=password,
+                        display_name=business_name,
+                    )
+                    SellerProfile.objects.create(
+                        user=user,
+                        business_name=business_name,
+                    )
+                    record_legal_acceptances(user, request)
                 login(request, user, backend="accounts.backends.PhoneAuthBackend")
                 messages.success(
                     request, f"Bienvenue ! Votre boutique '{business_name}' est prete."

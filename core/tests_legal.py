@@ -102,3 +102,74 @@ class LegalFooterLinksTests(TestCase):
 
     def test_register_page_has_legal_links(self):
         self.assert_legal_links(self.client.get(reverse("register")))
+
+
+class RegisterLegalAcceptanceTests(TestCase):
+    def payload(self, **extra):
+        data = {
+            "business_name": "Boutique Awa",
+            "phone": "+22370000009",
+            "password": "pass-123456",
+            "password2": "pass-123456",
+        }
+        data.update(extra)
+        return data
+
+    def test_register_without_checkbox_creates_nothing(self):
+        from core.legal import LEGAL_ACCEPTANCE_REQUIRED_MESSAGE
+
+        response = self.client.post(reverse("register"), self.payload())
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, LEGAL_ACCEPTANCE_REQUIRED_MESSAGE)
+        self.assertEqual(User.objects.count(), 0)
+        self.assertEqual(LegalAcceptance.objects.count(), 0)
+
+    def test_register_with_checkbox_records_both_acceptances(self):
+        from core.legal import LEGAL_CGU_VERSION, LEGAL_PRIVACY_VERSION
+
+        response = self.client.post(
+            reverse("register"),
+            self.payload(accept_terms="1"),
+            REMOTE_ADDR="196.200.1.2",
+        )
+        self.assertRedirects(response, reverse("seller_home"), fetch_redirect_response=False)
+        user = User.objects.get()
+        self.assertTrue(hasattr(user, "seller_profile"))
+        versions = dict(user.legal_acceptances.values_list("document", "version"))
+        self.assertEqual(
+            versions,
+            {LegalDocument.CGU: LEGAL_CGU_VERSION, LegalDocument.PRIVACY: LEGAL_PRIVACY_VERSION},
+        )
+        self.assertEqual(
+            set(user.legal_acceptances.values_list("ip_address", flat=True)), {"196.200.1.2"}
+        )
+
+    def test_register_form_has_required_checkbox(self):
+        response = self.client.get(reverse("register"))
+        self.assertContains(response, 'name="accept_terms"')
+        self.assertContains(response, 'rel="noopener"')
+
+    def test_failure_after_user_creation_rolls_back(self):
+        from unittest.mock import patch
+
+        with patch("core.views.record_legal_acceptances", side_effect=RuntimeError("boom")):
+            self.client.post(reverse("register"), self.payload(accept_terms="1"))
+        self.assertEqual(User.objects.count(), 0)
+
+
+class AcceptanceIpTests(TestCase):
+    def test_invalid_ip_is_stored_as_none(self):
+        from django.test import RequestFactory
+
+        from core.legal import acceptance_ip
+
+        request = RequestFactory().get("/", REMOTE_ADDR="")
+        self.assertIsNone(acceptance_ip(request))
+
+    def test_forwarded_for_first_ip(self):
+        from django.test import RequestFactory
+
+        from core.legal import acceptance_ip
+
+        request = RequestFactory().get("/", HTTP_X_FORWARDED_FOR="41.73.1.1, 10.0.0.1")
+        self.assertEqual(acceptance_ip(request), "41.73.1.1")
