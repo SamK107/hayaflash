@@ -154,10 +154,14 @@ def create_orange_payment(
         price_override=override,
         is_special_price=override is not None,
     )
-    reference = f"HayaFlash {plan.capitalize()} {seller.business_name or str(seller.pk)}"
+    # Reference courte et fixe : Orange Money rejette une reference trop longue
+    # (HTTP 400 code 24 "reference ... bad syntax", constate le 27/09 avec
+    # 38 caracteres). Le vendeur est identifie par order_id / notif_token,
+    # inutile de mettre le nom de boutique ici.
+    reference = f"HayaFlash {plan.capitalize()}"
     if override is not None:
         # Reperable dans les releves Orange Money.
-        reference = f"SPECIAL {reference}"
+        reference = f"{reference} SPECIAL"
 
     return_url, cancel_url, notif_url = _om_urls(request, payment)
 
@@ -173,6 +177,15 @@ def create_orange_payment(
         )
         payment.payment_url = result["payment_url"]
         payment.raw_response = result["raw"]
+        # Orange Money genere SON PROPRE notif_token et le renvoie dans la
+        # reponse d'initiation ; c'est celui-la (et non le notre) qu'il
+        # renvoie dans le webhook. Sans cette ligne, le webhook tombe sur
+        # « notif_token inconnu » et l'abonnement n'est jamais active
+        # (constate au test reel du 27/09, paiement HF-M-D4F26BC7).
+        # Le token reste secret (echange serveur a serveur en TLS).
+        orange_token = (result.get("raw") or {}).get("notif_token")
+        if orange_token:
+            payment.notif_token = str(orange_token).strip()
         payment.save()
 
         logger.info(
@@ -210,8 +223,14 @@ def activate_subscription_from_payment(payment: SubscriptionPayment) -> Subscrip
     payant deja actif (refuse a l'initiation ; ici, par securite, la date de
     fin n'est jamais repoussee au-dela de l'existant).
     """
-    if payment.status == PaymentStatus.SUCCESS:
-        return payment.seller.subscription
+    # Verrou sur la ligne du paiement : le webhook et la verification active
+    # (retour navigateur, tache Celery) peuvent arriver en meme temps. Sans
+    # verrou, les deux verraient « pending » et prolongeraient l'abonnement
+    # deux fois. Le second attend ici, puis voit SUCCESS et sort.
+    locked = SubscriptionPayment.objects.select_for_update().get(pk=payment.pk)
+    if locked.status == PaymentStatus.SUCCESS:
+        payment.status = PaymentStatus.SUCCESS
+        return Subscription.objects.get(seller_id=payment.seller_id)
 
     payment.status = PaymentStatus.SUCCESS
     payment.paid_at = timezone.now()
@@ -273,6 +292,100 @@ def activate_subscription_from_payment(payment: SubscriptionPayment) -> Subscrip
         payment.price_override_id or "-",
     )
     return sub
+
+
+# ── Verification active aupres d'Orange Money (transactionstatus) ────────────
+
+# Statuts Orange definitifs d'echec -> statut local.
+_ORANGE_FINAL_FAILURES = {
+    "FAILED": PaymentStatus.FAILED,
+    "EXPIRED": PaymentStatus.EXPIRED,
+}
+
+
+def sync_orange_payment_status(payment: SubscriptionPayment, *, source: str) -> str:
+    """Demande a Orange l'etat d'un paiement en attente et l'applique.
+
+    Complement du webhook, meme activation idempotente
+    (activate_subscription_from_payment, verrouillee). Appelee au retour
+    navigateur (/billing/return/) et par la tache Celery
+    subscriptions.check_pending_orange_payments.
+
+    Retourne le statut Orange (SUCCESS, PENDING, ...) ou "" si la
+    verification n'a pas pu avoir lieu (paiement non concerne, pas de
+    pay_token, erreur reseau). Ne leve jamais : un echec ici ne doit ni
+    bloquer la page de retour ni arreter la tache.
+    """
+    if payment.status != PaymentStatus.PENDING or payment.provider != PaymentProvider.ORANGE:
+        return ""
+    pay_token = (payment.raw_response or {}).get("pay_token")
+    if not pay_token:
+        logger.warning(
+            "Verification Orange impossible : pas de pay_token — order_id=%s",
+            payment.order_id,
+        )
+        return ""
+
+    from core.models import audit
+    from subscriptions.services.orange_money import (
+        callback_amount_mismatch,
+        get_transaction_status,
+    )
+
+    try:
+        result = get_transaction_status(
+            order_id=payment.order_id, amount=payment.amount, pay_token=pay_token
+        )
+    except Exception as exc:  # OrangeMoneyError, reseau, JSON, token OAuth...
+        logger.warning(
+            "Verification Orange echouee — order_id=%s source=%s : %s",
+            payment.order_id,
+            source,
+            exc,
+        )
+        return ""
+
+    status = result["status"]
+    if status == "SUCCESS":
+        if callback_amount_mismatch(result, payment.amount):
+            logger.error(
+                "Verification Orange : montant incoherent — order_id=%s attendu=%s recu=%r",
+                payment.order_id,
+                payment.amount,
+                result.get("amount"),
+            )
+            return "AMOUNT_MISMATCH"
+        with transaction.atomic():
+            if result.get("txn_id") and not payment.txn_id:
+                payment.txn_id = result["txn_id"]
+            activate_subscription_from_payment(payment)
+        audit(
+            "subscription_payment.confirmed_by_status_check",
+            entity_type="SellerProfile",
+            entity_id=payment.seller_id,
+            order_id=payment.order_id,
+            txn_id=payment.txn_id,
+            source=source,
+        )
+        logger.info(
+            "Paiement confirme par verification active — order_id=%s source=%s",
+            payment.order_id,
+            source,
+        )
+    elif status in _ORANGE_FINAL_FAILURES:
+        with transaction.atomic():
+            locked = SubscriptionPayment.objects.select_for_update().get(pk=payment.pk)
+            if locked.status == PaymentStatus.PENDING:
+                locked.status = _ORANGE_FINAL_FAILURES[status]
+                locked.save(update_fields=["status", "updated_at"])
+                payment.status = locked.status
+        logger.info(
+            "Paiement %s selon Orange — order_id=%s source=%s",
+            status,
+            payment.order_id,
+            source,
+        )
+    return status
 
 
 def cancel_payment(payment: SubscriptionPayment) -> None:

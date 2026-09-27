@@ -105,6 +105,32 @@ Vérification en shell si besoin :
 python manage.py shell --settings=config.settings.dev -c "from subscriptions.models import SubscriptionPayment as P; p=P.objects.filter(is_special_price=True).latest('created_at'); print(p.amount, p.status, p.price_override_id, p.webhook_logs.count())"
 ```
 
+### 1.4 bis Le webhook n'est pas arrivé ?
+
+Depuis le 27/09, deux filets de sécurité existent :
+
+- **Retour sur `/billing/return/`** : HayaFlash interroge Orange (API
+  `transactionstatus`) et active tout de suite si le paiement est réussi.
+  La page « Paiement en attente » se recharge toutes les 10 s et refait la
+  vérification à chaque fois.
+- **Tâche Celery** `subscriptions.check_pending_orange_payments` (toutes les
+  5 min, paiements en attente de moins de 24 h). Il faut que worker et beat
+  tournent : en local, deux terminaux `celery -A config worker -l info` et
+  `celery -A config beat -l info`.
+
+Paiement **initié avant le correctif du 27/09** (webhook « notif_token
+inconnu » dans les Logs webhooks, avec `payment` vide) : Orange a utilisé son
+propre token. Régulariser, puis rejouer le webhook :
+
+```powershell
+python manage.py regularize_orange_notif_token --settings=config.settings.dev                              # simulation
+python manage.py regularize_orange_notif_token --order-id HF-M-XXXXXXXX --apply --settings=config.settings.dev
+```
+
+La commande n'active rien et est idempotente : relancée, elle répond
+« Aucun paiement en attente à régulariser ». Chaque correction est tracée dans
+le journal d'audit.
+
 ### 1.5 Dérouler aussi l'annulation et l'échec
 
 Pour chaque cas, créer un **nouveau** tarif spécial (le précédent est épuisé),

@@ -216,7 +216,9 @@ class WebhookLog(models.Model):
         SubscriptionPayment,
         on_delete=models.CASCADE,
         related_name="webhook_logs",
-        help_text="Paiement associé (si trouvé)",
+        null=True,
+        blank=True,
+        help_text="Paiement associé (si trouvé) — vide pour un webhook orphelin",
     )
     # Le token du webhook (même si le paiement n'a pas été trouvé)
     notif_token = models.CharField(max_length=128, db_index=True)

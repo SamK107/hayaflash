@@ -184,13 +184,13 @@ HayaFlash intègre Orange Money (WebPay) pour permettre aux vendeurs de passer d
 5. Redirection vers URL de paiement Orange
 6. Paiement complété → redirection vers `/billing/return/`
 7. Webhook asynchrone reçu sur `/billing/webhook/orange/` → activation subscription
-8. User voit page de confirmation via polling
+8. User voit page de confirmation via polling ; **vérification active** en parallèle (API `transactionstatus`) au retour sur `/billing/return/` et par la tâche Celery `subscriptions.check_pending_orange_payments` (toutes les 5 min, paiements pending < 24 h) — même activation idempotente, verrouillée (`select_for_update`)
 
 ### Règles critiques (non-négociables)
 
 **1. Authentification webhook par notif_token**
 - Les webhooks font un lookup par `notif_token` UNIQUEMENT (jamais par `order_id`)
-- `notif_token` est généré et stocké **AVANT** la redirection vers Orange Money (sécurité)
+- `notif_token` est généré et stocké **AVANT** la redirection vers Orange Money (sécurité), **puis remplacé par celui qu'Orange renvoie dans la réponse d'initiation** : Orange génère SON token (32 car.) et c'est lui qui revient dans le webhook (constaté au test réel du 27/09, HF-M-D4F26BC7). Paiements antérieurs au correctif : `python manage.py regularize_orange_notif_token` (simulation par défaut, `--apply`)
 - Pas d'HMAC-SHA256 ou autre vérification cryptographique requise
 - Lookup SQL: `SubscriptionPayment.objects.get(notif_token=notif_token)`
 
@@ -199,9 +199,12 @@ HayaFlash intègre Orange Money (WebPay) pour permettre aux vendeurs de passer d
 - Prévient les ré-activations si Orange Money renvoie le même webhook 2 fois
 - Logging dans `WebhookLog` même pour les skips (audit trail)
 
-**3. Stockage notif_token AVANT redirection**
+**3. Stockage notif_token AVANT redirection, puis token d'Orange**
 - `notif_token` doit être sauvegardé dans la DB **avant** d'appeler l'API Orange Money
 - Garantit que les webhooks ultérieurs peuvent faire un lookup sécurisé
+- Si la réponse d'initiation contient un `notif_token`, il remplace le nôtre (c'est celui du webhook)
+- Webhook orphelin (token inconnu) : `WebhookLog` avec `payment=None`, `processed=False` (migration 0009)
+- Le webhook Orange ne contient **pas de montant** (`status`, `notif_token`, `txnid` seulement, confirmé le 27/09)
 - Voir `subscriptions/services/payment.py:create_orange_payment()`
 
 **4. Longueur order_id ≤ 24 caractères**

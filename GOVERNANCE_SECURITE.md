@@ -312,10 +312,20 @@ stat -c "%a %U:%G" /srv/hayaflash/.env   # attendu : 600, propriétaire du servi
   si le callback contient un montant différent de `SubscriptionPayment.amount`
   (ou illisible), `logger.error` → Sentry, **pas d'activation**, paiement
   laissé en attente, `WebhookLog` `processed=False`. La notification WebPay
-  Orange Mali documentée ne transmet **pas** de montant (status / notif_token /
-  txnid) : le montant fait alors foi côté HayaFlash (fixé à l'initiation).
-  🔍 À confirmer sur le premier paiement réel (runbook test paiement, étape 1.4 :
-  `raw_callback`).
+  Orange Mali ne transmet **pas** de montant — **confirmé au paiement réel du
+  27/09** (HF-M-D4F26BC7 : `{"status", "notif_token", "txnid"}` seulement) : le
+  montant fait foi côté HayaFlash (fixé à l'initiation). Le contrôle reste actif
+  si Orange en ajoute un un jour.
+- ✅ **Webhook : token d'Orange + vérification active (27/09)** — Orange génère
+  son propre `notif_token` à l'initiation et l'utilise dans le webhook : il est
+  désormais stocké (sinon « notif_token inconnu », abonnement jamais activé —
+  bug constaté au test réel). Webhook orphelin tracé (`WebhookLog`,
+  `payment=None`) au lieu d'un plantage avalé. Filet de sécurité : API
+  `transactionstatus` (order_id, amount, pay_token, TLS vérifié) au retour
+  `/billing/return/` et toutes les 5 min (Celery, pending < 24 h) ; activation
+  idempotente sous `select_for_update()` (webhook et vérification simultanés →
+  une seule prolongation, testé). Régularisation des paiements antérieurs :
+  commande `regularize_orange_notif_token` (simulation par défaut, audit).
 - ✅ **Paiements de test isolés du chiffre d'affaires (26/09)** — les
   paiements à tarif spécial de motif `test` sont exclus du MRR, du total et du
   CA annuel (`platform_reporting.revenue_payments()`), affichés à part sur

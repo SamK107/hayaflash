@@ -386,6 +386,12 @@ CELERY_BEAT_SCHEDULE = {
         "task": "flash_sales.send_pending_sale_reminders",
         "schedule": 300.0,
     },
+    # Filet de securite du webhook Orange Money : verifie les paiements en
+    # attente (< 24 h) via l'API transactionstatus et active ceux reussis.
+    "check-pending-orange-payments": {
+        "task": "subscriptions.check_pending_orange_payments",
+        "schedule": 300.0,
+    },
     # Sonde de /health/ (check "celery") : ecrit un timestamp dans le cache.
     "celery-heartbeat": {
         "task": "core.celery_heartbeat",

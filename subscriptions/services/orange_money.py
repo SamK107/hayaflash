@@ -46,7 +46,11 @@ def _get_access_token() -> str:
     return resp.json()["access_token"]
 
 
-def _safe_reference(ref: str, max_len: int = 50) -> str:
+# Orange Money WebPay rejette les references trop longues (400, code 24).
+OM_REFERENCE_MAX_LEN = 30
+
+
+def _safe_reference(ref: str, max_len: int = OM_REFERENCE_MAX_LEN) -> str:
     """Nettoie la reference : ASCII alphanumerique + espaces + tirets simples uniquement."""
     import unicodedata
 
@@ -215,3 +219,51 @@ def callback_amount_mismatch(result: dict, expected_amount: int) -> bool:
     except (TypeError, ValueError):
         return True
     return notified != float(expected_amount)
+
+
+OM_STATUS_URL = "https://api.orange.com/orange-money-webpay/ml/v1/transactionstatus"
+
+
+def get_transaction_status(*, order_id: str, amount: int, pay_token: str) -> dict[str, Any]:
+    """Interroge Orange Money sur l'etat d'un paiement (verification active).
+
+    Complement du webhook (qui peut ne jamais arriver : notif_token inconnu,
+    panne reseau, URL de notification mal configuree). Parametres exiges par
+    l'API transactionstatus : order_id, amount (FCFA entiers, tel quel) et le
+    pay_token renvoye a l'initiation (stocke dans payment.raw_response).
+
+    Retourne :
+        - status (str) : SUCCESS / INITIATED / PENDING / EXPIRED / FAILED (majuscules)
+        - txn_id (str), notif_token (str), amount (valeur brute ou None)
+        - raw (dict) : reponse complete
+    Leve OrangeMoneyError si l'appel echoue (reseau, HTTP != 200/201).
+    """
+    token = _get_access_token()
+    resp = requests.post(
+        OM_STATUS_URL,
+        json={"order_id": order_id, "amount": amount, "pay_token": pay_token},
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        timeout=15,
+        verify=True,  # jamais desactive (CLAUDE.md, Orange Money regle 6)
+    )
+    if resp.status_code not in (200, 201):
+        raise OrangeMoneyError(
+            f"transactionstatus échoué ({resp.status_code}): {resp.text[:300]}"
+        )
+    data = resp.json()
+    logger.info(
+        "Orange Money transactionstatus — order_id=%s status=%s",
+        order_id,
+        data.get("status"),
+    )
+    return {
+        "status": str(data.get("status") or "").upper(),
+        "txn_id": data.get("txnid") or data.get("txnId") or "",
+        "notif_token": data.get("notif_token") or "",
+        "amount": data.get("amount"),
+        "raw": data,
+    }
