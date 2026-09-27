@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -16,6 +18,15 @@ from core.legal import (
     LEGAL_PRIVACY_VERSION,
     record_legal_acceptances,
 )
+from core.services import rate_limit
+
+logger = logging.getLogger(__name__)
+
+# Limites de debit connexion (core/services/rate_limit.py, fail-open).
+LOGIN_WINDOW_SECONDS = 15 * 60
+LOGIN_MAX_ATTEMPTS_PER_IP = 20  # toutes tentatives POST
+LOGIN_MAX_FAILURES_PER_PHONE = 5  # echecs seulement, remis a zero au succes
+LOGIN_RATE_LIMIT_MESSAGE = "Trop de tentatives. Réessayez dans quelques minutes."
 
 
 # ── helpers ────────────────────────────────────────────────────────────────
@@ -81,16 +92,40 @@ def login_view(request):
         raw_phone = request.POST.get("phone", "").strip()
         password = request.POST.get("password", "")
 
+        ip_limited = rate_limit.hit(
+            f"login:ip:{rate_limit.client_ip(request)}",
+            limit=LOGIN_MAX_ATTEMPTS_PER_IP,
+            window_seconds=LOGIN_WINDOW_SECONDS,
+        )
+        phone_key = rate_limit.phone_key("login", _normalize(raw_phone)) if raw_phone else None
+
+        if ip_limited or (
+            phone_key and rate_limit.is_limited(phone_key, limit=LOGIN_MAX_FAILURES_PER_PHONE)
+        ):
+            # Meme message que le numero existe ou non : pas d'enumeration.
+            return render(
+                request,
+                "accounts/login.html",
+                {"error": LOGIN_RATE_LIMIT_MESSAGE},
+                status=429,
+            )
+
         if not raw_phone or not password:
             error = "Veuillez renseigner votre téléphone et votre mot de passe."
         else:
             phone = _normalize(raw_phone)
             user = authenticate(request, username=phone, password=password)
             if user is not None:
+                rate_limit.reset(phone_key)
                 login(request, user)
                 next_url = request.GET.get("next") or _post_login_redirect_target(user)
                 return redirect(next_url)
             else:
+                rate_limit.hit(
+                    phone_key,
+                    limit=LOGIN_MAX_FAILURES_PER_PHONE,
+                    window_seconds=LOGIN_WINDOW_SECONDS,
+                )
                 error = "Numéro de téléphone ou mot de passe incorrect."
 
     return render(request, "accounts/login.html", {"error": error})
