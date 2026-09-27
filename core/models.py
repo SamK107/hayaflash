@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class AuditLog(models.Model):
@@ -72,3 +73,36 @@ def audit(
         metadata=metadata,
         ip_address=ip,
     )
+
+
+class LegalDocument(models.TextChoices):
+    CGU = "cgu", "Conditions générales d'utilisation"
+    PRIVACY = "privacy", "Politique de confidentialité"
+
+
+class LegalAcceptance(models.Model):
+    """Preuve d'acceptation d'un document légal : qui, quelle version, quand."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="legal_acceptances",
+        verbose_name="Utilisateur",
+    )
+    document = models.CharField(
+        max_length=20, choices=LegalDocument.choices, verbose_name="Document"
+    )
+    version = models.CharField(max_length=20, verbose_name="Version")
+    accepted_at = models.DateTimeField(default=timezone.now, verbose_name="Accepté le")
+    ip_address = models.GenericIPAddressField(
+        null=True, blank=True, verbose_name="Adresse IP"
+    )
+
+    class Meta:
+        ordering = ["-accepted_at"]
+        verbose_name = "Acceptation légale"
+        verbose_name_plural = "Acceptations légales"
+        indexes = [models.Index(fields=["user", "document"])]
+
+    def __str__(self) -> str:
+        return f"{self.user_id} a accepté {self.document} v{self.version} le {self.accepted_at:%Y-%m-%d %H:%M}"
