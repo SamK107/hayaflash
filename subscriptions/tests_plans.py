@@ -325,7 +325,9 @@ class SellerPriceOverrideTests(PlanCacheIsolation):
         self.assertTrue(payment.is_special_price)
         self.assertEqual(payment.price_override, o)
         self.assertEqual(init.call_args.kwargs["amount"], 100)
-        self.assertTrue(init.call_args.kwargs["reference"].startswith("SPECIAL "))
+        reference = init.call_args.kwargs["reference"]
+        self.assertEqual(reference, "HayaFlash Medium SPECIAL")
+        self.assertLessEqual(len(reference), 30)
         o.refresh_from_db()
         self.assertEqual(o.uses_count, 0)  # pas encore paye
 
@@ -551,3 +553,54 @@ class NoHardcodedPricesInTemplatesTest(TestCase):
             "Tarif/quota en dur : lire depuis le contexte ou {% plan_price %} / "
             "{% plan_quota_label %} (subscriptions/templatetags/plan_tags.py).",
         )
+
+
+class OrangeNotifTokenTests(PlanCacheIsolation):
+    """Orange genere son propre notif_token : c'est lui qui revient dans le webhook
+    (bug constate au test reel du 27/09 : abonnement jamais active)."""
+
+    def setUp(self):
+        super().setUp()  # vide le cache des tarifs (PlanCacheIsolation)
+        self.seller = _seller("+22370009901")
+
+    def _initiate_with_orange_token(self, token="orangeTok32charsXXXXXXXXXXXXXXXX"):
+        fake = {
+            "payment_url": "https://pay.example/om",
+            "raw": {"status": 201, "message": "OK", "pay_token": "p", "notif_token": token},
+        }
+        request = RequestFactory().post("/")
+        request.user = self.seller.user
+        from subscriptions.services.payment import create_orange_payment
+
+        with patch(INIT_PATH, return_value=fake):
+            return create_orange_payment(
+                seller=self.seller, plan=Plan.MEDIUM, phone="+22370000000", request=request
+            )
+
+    def test_notif_token_orange_stocke(self):
+        payment = self._initiate_with_orange_token()
+        self.assertEqual(payment.notif_token, "orangeTok32charsXXXXXXXXXXXXXXXX")
+
+    def test_webhook_avec_token_orange_active_abonnement(self):
+        payment = self._initiate_with_orange_token()
+        resp = _webhook(payment)
+        self.assertEqual(resp.status_code, 200)
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, PaymentStatus.SUCCESS)
+        self.seller.subscription.refresh_from_db()
+        self.assertEqual(self.seller.subscription.plan, Plan.MEDIUM)
+        self.assertTrue(WebhookLog.objects.filter(payment=payment, processed=True).exists())
+
+    def test_webhook_token_inconnu_trace_sans_activation(self):
+        payment = self._initiate_with_orange_token()
+        resp = Client().post(
+            reverse("billing_callback_orange"),
+            data=json.dumps({"status": "SUCCESS", "notif_token": "inconnu", "txnid": "T"}),
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        log = WebhookLog.objects.get(notif_token="inconnu")
+        self.assertIsNone(log.payment)
+        self.assertFalse(log.processed)
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, PaymentStatus.PENDING)

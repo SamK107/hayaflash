@@ -64,6 +64,13 @@ def billing_return_view(request):
         logger.warning("billing_return: order_id inconnu ou d'un autre vendeur: %s", order_id)
         return redirect("subscriptions:subscription")
 
+    if payment.status == PaymentStatus.PENDING:
+        # Verification active : le webhook peut tarder ou ne jamais arriver.
+        # Meme activation idempotente que le webhook ; ne leve jamais.
+        from .services.payment import sync_orange_payment_status
+
+        sync_orange_payment_status(payment, source="billing_return")
+
     if payment.status == PaymentStatus.SUCCESS:
         messages.success(
             request,
@@ -130,7 +137,16 @@ def billing_callback_view(request):
                 notif_token=notif_token
             )
         except SubscriptionPayment.DoesNotExist:
-            logger.warning("billing_callback: notif_token inconnu: %s", notif_token)
+            logger.error("billing_callback: notif_token inconnu: %s", notif_token[:16] + "...")
+            WebhookLog.objects.create(
+                payment=None,
+                notif_token=notif_token[:128],
+                status=result.get("status", ""),
+                txn_id=result.get("txn_id", ""),
+                raw_payload=data,
+                processed=False,
+                error_message="notif_token inconnu — aucun paiement correspondant",
+            )
             return HttpResponse("OK")
 
         # Log du webhook dans WebhookLog pour audit

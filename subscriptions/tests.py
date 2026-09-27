@@ -523,3 +523,14 @@ class QuotaPlanLabelTests(TestCase):
         resp = self.client.get(reverse("flash_sales:list"))
         self.assertContains(resp, "Plan actuel : <strong class=\"text-gray-800\">Gratuit</strong>")
         self.assertNotContains(resp, ">Free<")
+
+
+class OrangeReferenceLengthTest(TestCase):
+    """Orange Money rejette une reference trop longue (400 code 24)."""
+
+    def test_safe_reference_tronque_a_30(self):
+        from subscriptions.services.orange_money import _safe_reference
+
+        ref = _safe_reference("SPECIAL HayaFlash Medium LALA BOUTIQUE très longue")
+        self.assertLessEqual(len(ref), 30)
+        self.assertTrue(ref.isascii())

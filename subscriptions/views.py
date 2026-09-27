@@ -141,6 +141,12 @@ def payment_return_view(request, payment_id):
     seller = _get_seller(request)
     payment = get_object_or_404(SubscriptionPayment, pk=payment_id, seller=seller)
 
+    if payment.status == PaymentStatus.PENDING:
+        # Verification active (meme logique que /billing/return/).
+        from .services.payment import sync_orange_payment_status
+
+        sync_orange_payment_status(payment, source="payment_return")
+
     if payment.status == PaymentStatus.SUCCESS:
         messages.success(
             request,
@@ -214,7 +220,18 @@ def payment_callback_view(request):
                 notif_token=notif_token
             )
         except SubscriptionPayment.DoesNotExist:
-            logger.warning("Orange callback — notif_token inconnu: %s", notif_token)
+            logger.error("Orange callback — notif_token inconnu: %s", notif_token[:16] + "...")
+            from .models import WebhookLog
+
+            WebhookLog.objects.create(
+                payment=None,
+                notif_token=notif_token[:128],
+                status=result.get("status", ""),
+                txn_id=result.get("txn_id", ""),
+                raw_payload=data,
+                processed=False,
+                error_message="notif_token inconnu — aucun paiement correspondant",
+            )
             return HttpResponse("OK")
 
         # IDEMPOTENCE: Si déjà success, pas de re-traitement
