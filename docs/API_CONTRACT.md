@@ -58,9 +58,12 @@ Inscription d'un nouveau utilisateur (vendeur ou client).
   "password": "motdepasse123",
   "display_name": "Fatoumata Diallo",
   "is_seller": true,
-  "business_name": "Boutique Fati Mode"
+  "business_name": "Boutique Fati Mode",
+  "accept_terms": true
 }
 ```
+
+`accept_terms` (booléen, **obligatoire**) : l'utilisateur accepte les CGU (`/cgu/`) et la politique de confidentialité (`/confidentialite/`). Doit valoir `true`. À la création du compte, deux preuves d'acceptation sont enregistrées (versions courantes, date, IP), dans la même transaction que l'utilisateur et le profil vendeur.
 
 **Response 201**
 ```json
@@ -76,6 +79,10 @@ Inscription d'un nouveau utilisateur (vendeur ou client).
 
 **Erreurs**
 - `400` — phone déjà utilisé, password trop court
+- `400` — `accept_terms` absent ou différent de `true` ; aucun compte n'est créé :
+  ```json
+  { "accept_terms": ["Vous devez accepter les CGU et la politique de confidentialité."] }
+  ```
 - `429` — rate limit
 
 ---

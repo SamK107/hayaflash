@@ -1,0 +1,50 @@
+{% extends "core/legal/_layout.html" %}
+{# Texte à faire valider par un juriste avant mise en production #}
+
+{% block title %}Mentions légales — HayaFlash{% endblock %}
+{% block meta_description %}Mentions légales de HayaFlash : éditeur (ABEXPERTISES SUARL), directeur de la publication, contact et hébergeur.{% endblock %}
+
+{% block legal_body %}
+<h1>Mentions légales</h1>
+<p class="hf-legal-meta">Dernière mise à jour : {{ legal_last_updated|date:"j F Y" }}</p>
+
+<nav class="hf-legal-toc" aria-label="Sommaire">
+  <p>Sommaire</p>
+  <ol>
+    <li><a href="#editeur">Éditeur du site</a></li>
+    <li><a href="#publication">Directeur de la publication</a></li>
+    <li><a href="#contact">Contact</a></li>
+    <li><a href="#hebergeur">Hébergeur</a></li>
+    <li><a href="#documents">Autres documents</a></li>
+  </ol>
+</nav>
+
+<h2 id="editeur">1. Éditeur du site</h2>
+<dl>
+  <dt>Dénomination</dt>
+  <dd>ABEXPERTISES SUARL</dd>
+  <dt>Forme juridique</dt>
+  <dd>Société unipersonnelle à responsabilité limitée (SUARL)</dd>
+  <dt>Siège social</dt>
+  <dd><span class="hf-legal-todo">[À COMPLÉTER : adresse du siège social]</span></dd>
+  <dt>RCCM</dt>
+  <dd><span class="hf-legal-todo">[À COMPLÉTER : numéro RCCM]</span></dd>
+  <dt>NIF</dt>
+  <dd><span class="hf-legal-todo">[À COMPLÉTER : numéro NIF]</span></dd>
+</dl>
+
+<h2 id="publication">2. Directeur de la publication</h2>
+<p><span class="hf-legal-todo">[À COMPLÉTER : nom et qualité du directeur de la publication]</span></p>
+
+<h2 id="contact">3. Contact</h2>
+<p><span class="hf-legal-todo">[À COMPLÉTER : adresse e-mail et/ou téléphone de contact]</span></p>
+
+<h2 id="hebergeur">4. Hébergeur</h2>
+<p><span class="hf-legal-todo">[À COMPLÉTER : nom, adresse et contact de l'hébergeur]</span></p>
+
+<h2 id="documents">5. Autres documents</h2>
+<ul>
+  <li><a href="{% url 'legal_terms' %}">Conditions générales d'utilisation</a></li>
+  <li><a href="{% url 'legal_privacy' %}">Politique de confidentialité</a></li>
+</ul>
+{% endblock %}

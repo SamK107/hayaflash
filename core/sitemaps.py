@@ -6,6 +6,7 @@ Ne couvre que les URLs vraiment publiques et destinées à l'indexation :
 - calendrier public des ventes (/ventes/)
 - pages publiques vente flash (/f/<slug>/ — canonique, cf. templates/analytics/flash_sale_public.html)
 - pages publiques vendeur (/s/<slug>/)
+- pages légales (confidentialité, CGU, mentions légales)
 
 Ne référence PAS /ventes/<slug>/ : ancien doublon de /f/<slug>/, désormais
 une simple redirection 301 vers /f/<slug>/ (flash_sales.public_views).
@@ -21,15 +22,21 @@ from flash_sales.models import FlashSale
 from flash_sales.services.ordering import live_now_q, upcoming_q
 
 
-class StaticViewSitemap(Sitemap):
-    priority = 0.8
-    changefreq = "daily"
+LEGAL_PAGES = ("legal_privacy", "legal_terms", "legal_notice")
 
+
+class StaticViewSitemap(Sitemap):
     def items(self):
-        return ["home", "flash_sale_calendar"]
+        return ["home", "flash_sale_calendar", *LEGAL_PAGES]
 
     def location(self, item):
         return reverse(item)
+
+    def priority(self, item):
+        return 0.3 if item in LEGAL_PAGES else 0.8
+
+    def changefreq(self, item):
+        return "yearly" if item in LEGAL_PAGES else "daily"
 
 
 class FlashSaleSitemap(Sitemap):

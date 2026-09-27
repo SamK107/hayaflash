@@ -1,0 +1,126 @@
+{% extends "core/legal/_layout.html" %}
+{# Texte à faire valider par un juriste avant mise en production #}
+
+{% block title %}Politique de confidentialité — HayaFlash{% endblock %}
+{% block meta_description %}Politique de confidentialité de HayaFlash : données collectées, finalités, destinataires, durées de conservation, vos droits et stockage dans le navigateur.{% endblock %}
+
+{% block legal_body %}
+<h1>Politique de confidentialité</h1>
+<p class="hf-legal-meta">Version {{ privacy_version }} · Dernière mise à jour : {{ legal_last_updated|date:"j F Y" }}</p>
+
+<p>Cette politique explique quelles données personnelles HayaFlash traite, pourquoi, avec qui elles sont partagées et quels sont vos droits. Elle concerne les vendeurs qui ont un compte HayaFlash et les acheteurs qui commandent sur les pages publiques des ventes.</p>
+
+<nav class="hf-legal-toc" aria-label="Sommaire">
+  <p>Sommaire</p>
+  <ol>
+    <li><a href="#responsable">Responsable du traitement</a></li>
+    <li><a href="#donnees">Données collectées</a></li>
+    <li><a href="#finalites">Pourquoi nous utilisons ces données</a></li>
+    <li><a href="#base-legale">Base légale</a></li>
+    <li><a href="#destinataires">Qui reçoit ces données</a></li>
+    <li><a href="#conservation">Durées de conservation</a></li>
+    <li><a href="#droits">Vos droits</a></li>
+    <li><a href="#cookies">Cookies et stockage dans le navigateur</a></li>
+    <li><a href="#securite">Sécurité</a></li>
+    <li><a href="#cadre">Cadre légal</a></li>
+    <li><a href="#modifications">Modifications</a></li>
+  </ol>
+</nav>
+
+<h2 id="responsable">1. Responsable du traitement</h2>
+<p>Le responsable du traitement est ABEXPERTISES SUARL, éditrice de HayaFlash (voir les <a href="{% url 'legal_notice' %}">mentions légales</a>). Contact pour toute question sur vos données : <span class="hf-legal-todo">[À COMPLÉTER : e-mail de contact données personnelles]</span>.</p>
+<p>Pour les commandes, chaque vendeur utilise aussi les données de ses propres clients (livraison, contact). Il en est responsable pour l'usage qu'il en fait en dehors de HayaFlash.</p>
+
+<h2 id="donnees">2. Données collectées</h2>
+
+<h3>Vendeurs (compte HayaFlash)</h3>
+<ul>
+  <li>Numéro de téléphone (identifiant de connexion) et mot de passe (conservé sous forme chiffrée, jamais en clair).</li>
+  <li>Nom affiché et nom de la boutique ; adresse e-mail si vous la renseignez.</li>
+  <li>Informations de boutique que vous choisissez de publier : biographie, photo (avatar), zones de livraison, catégorie.</li>
+  <li>Contenus publiés : ventes flash, produits, photos, descriptions écrites ou audio.</li>
+  <li>Abonnement : plan choisi, dates de validité et, pour les paiements Orange Money, le numéro de téléphone qui paie, le montant, les références de transaction et les réponses techniques renvoyées par Orange.</li>
+  <li>Acceptation des CGU et de la présente politique : version acceptée, date et adresse IP.</li>
+</ul>
+
+<h3>Acheteurs (commande sur une page de vente)</h3>
+<ul>
+  <li>Nom et numéro de téléphone.</li>
+  <li>Adresse de livraison saisie ou dictée, et, si vous l'autorisez, votre position GPS (latitude, longitude, précision).</li>
+  <li>Note vocale de livraison si vous en enregistrez une, et instructions de livraison.</li>
+  <li>Contenu de la commande (produits, quantités, montant à payer à la livraison) et suivi de la livraison.</li>
+  <li>Si vous demandez à être prévenu d'une prochaine vente : nom et numéro de téléphone.</li>
+</ul>
+
+<h3>Données techniques</h3>
+<ul>
+  <li>Adresse IP enregistrée dans le journal de sécurité pour certaines actions sensibles.</li>
+  <li>Pour limiter les abus (envois répétés, faux clics sur les liens de partage) : adresse IP et une empreinte technique (adresse IP + type de navigateur), gardées seulement en mémoire temporaire, de l'ordre d'une minute, et jamais dans la base de données.</li>
+  <li>Statistiques de partage des ventes (clics, partages, commandes issues d'un lien), sans adresse IP.</li>
+</ul>
+<p>HayaFlash ne collecte pas de numéro de carte bancaire. Le paiement des commandes se fait à la livraison, directement auprès du vendeur.</p>
+
+<h2 id="finalites">3. Pourquoi nous utilisons ces données</h2>
+<ul>
+  <li>Créer et gérer votre compte vendeur et votre boutique publique.</li>
+  <li>Permettre les ventes flash, la prise de commandes et leur transmission au vendeur.</li>
+  <li>Organiser la livraison et l'encaissement à la livraison.</li>
+  <li>Gérer les abonnements et leur paiement par Orange Money.</li>
+  <li>Envoyer les notifications liées au service (par exemple le rappel d'une vente à laquelle vous vous êtes inscrit).</li>
+  <li>Assurer la sécurité du service et lutter contre la fraude et les abus.</li>
+  <li>Conserver la preuve de votre acceptation des CGU et de cette politique.</li>
+</ul>
+
+<h2 id="base-legale">4. Base légale</h2>
+<p>Nous traitons vos données parce qu'elles sont nécessaires au service que vous demandez (compte, commande, livraison, abonnement), sur la base de votre consentement lorsque vous le donnez (position GPS, note vocale, inscription aux rappels), pour notre intérêt légitime à sécuriser le service, et pour respecter nos obligations légales, par exemple sur les paiements. <span class="hf-legal-todo">[À COMPLÉTER : bases légales à valider par un juriste]</span></p>
+
+<h2 id="destinataires">5. Qui reçoit ces données</h2>
+<ul>
+  <li><strong>Le vendeur</strong> reçoit les données des commandes passées dans ses ventes (nom, téléphone, adresse, position, note vocale) pour préparer et livrer la commande, ainsi que les contacts des personnes inscrites à ses prochaines ventes.</li>
+  <li><strong>Les personnes qui livrent</strong> pour le compte du vendeur, dans la mesure nécessaire à la livraison.</li>
+  <li><strong>Orange Money</strong>, pour le paiement des abonnements des vendeurs.</li>
+  <li><strong>Orange (passerelle SMS)</strong>, pour l'envoi de SMS de notification lorsque ce service est activé.</li>
+  <li><strong>Nos prestataires techniques</strong>, notamment l'hébergeur : <span class="hf-legal-todo">[À COMPLÉTER : hébergeur]</span>.</li>
+</ul>
+<p>Les informations de boutique que le vendeur publie (nom, biographie, photo, ventes, produits) sont visibles par tous sur ses pages publiques.</p>
+<p>Nous ne vendons pas vos données et ne les utilisons pas à des fins publicitaires.</p>
+
+<h2 id="conservation">6. Durées de conservation</h2>
+<ul>
+  <li>Compte vendeur et contenus publiés : <span class="hf-legal-todo">[À COMPLÉTER : durée de conservation après fermeture du compte]</span>.</li>
+  <li>Commandes, livraisons et notes vocales : <span class="hf-legal-todo">[À COMPLÉTER : durée de conservation]</span>.</li>
+  <li>Paiements d'abonnement : <span class="hf-legal-todo">[À COMPLÉTER : durée de conservation (obligations comptables)]</span>.</li>
+  <li>Journal de sécurité et preuves d'acceptation : <span class="hf-legal-todo">[À COMPLÉTER : durée de conservation]</span>.</li>
+  <li>Données anti-abus en mémoire temporaire : de l'ordre d'une minute, puis effacement automatique.</li>
+</ul>
+
+<h2 id="droits">7. Vos droits</h2>
+<p>Vous pouvez demander à accéder à vos données, les faire corriger, les faire supprimer ou vous opposer à leur traitement. Un vendeur peut aussi modifier directement ses informations de boutique depuis son espace.</p>
+<p>Pour exercer vos droits, écrivez à <span class="hf-legal-todo">[À COMPLÉTER : e-mail de contact données personnelles]</span>. Si vous êtes acheteur, vous pouvez aussi vous adresser au vendeur chez qui vous avez commandé.</p>
+<p>Vous pouvez également saisir l'Autorité de Protection des Données à caractère Personnel (APDP) du Mali.</p>
+
+<h2 id="cookies">8. Cookies et stockage dans le navigateur</h2>
+<p>HayaFlash n'utilise <strong>aucun cookie publicitaire ni outil de suivi tiers</strong> (pas de Google Analytics, pas de pixel de réseau social). C'est pourquoi aucun bandeau de consentement n'est affiché.</p>
+<p>Seuls des éléments nécessaires ou pratiques sont utilisés :</p>
+<ul>
+  <li><strong>Cookie de session</strong> (<code>sessionid</code>) : vous garder connecté à votre compte.</li>
+  <li><strong>Cookie de sécurité</strong> (<code>csrftoken</code>) : protéger les formulaires contre les envois frauduleux.</li>
+  <li><strong>Mémoire de votre téléphone ou navigateur</strong> (stockage local, qui ne nous est pas envoyé automatiquement) :
+    <ul>
+      <li>vos nom, téléphone et adresse de livraison, pour pré-remplir votre prochaine commande ;</li>
+      <li>l'état d'installation de l'application HayaFlash sur votre écran d'accueil, et le nombre de fois où l'installation vous a été proposée ;</li>
+      <li>des fichiers de l'application gardés en cache pour qu'elle s'ouvre plus vite et fonctionne en partie hors connexion.</li>
+    </ul>
+  </li>
+</ul>
+<p>Vous pouvez effacer ces données à tout moment depuis les réglages de votre navigateur (données de site).</p>
+
+<h2 id="securite">9. Sécurité</h2>
+<p>Les échanges avec HayaFlash sont chiffrés (HTTPS). Les mots de passe sont conservés sous forme chiffrée. L'accès aux données est limité : chaque vendeur ne voit que les commandes de ses propres ventes, et l'administration de la plateforme est réservée à un personnel habilité. Les actions sensibles sont enregistrées dans un journal de sécurité.</p>
+
+<h2 id="cadre">10. Cadre légal</h2>
+<p>Ce traitement est soumis à la loi malienne n°2013-015 du 21 mai 2013 portant protection des données à caractère personnel en République du Mali, dont l'Autorité de Protection des Données à caractère Personnel (APDP) contrôle l'application.</p>
+
+<h2 id="modifications">11. Modifications</h2>
+<p>Cette politique peut évoluer. La version en vigueur et sa date de mise à jour sont indiquées en haut de cette page. En cas de changement important, une nouvelle acceptation pourra vous être demandée.</p>
+{% endblock %}

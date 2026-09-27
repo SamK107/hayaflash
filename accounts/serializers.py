@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
+from core.legal import LEGAL_ACCEPTANCE_REQUIRED_MESSAGE
+
 from .models import SellerProfile, User
 
 
@@ -32,6 +34,20 @@ class RegisterSerializer(serializers.Serializer):
     business_name = serializers.CharField(
         max_length=160, required=False, allow_blank=True
     )
+    # Acceptation des CGU + politique de confidentialite : obligatoire, doit
+    # valoir true (meme regle et meme message que le formulaire web).
+    accept_terms = serializers.BooleanField(
+        required=True,
+        error_messages={
+            "required": LEGAL_ACCEPTANCE_REQUIRED_MESSAGE,
+            "null": LEGAL_ACCEPTANCE_REQUIRED_MESSAGE,
+        },
+    )
+
+    def validate_accept_terms(self, value: bool) -> bool:
+        if value is not True:
+            raise serializers.ValidationError(LEGAL_ACCEPTANCE_REQUIRED_MESSAGE)
+        return value
 
     def validate_phone(self, value: str) -> str:
         phone = User.objects.normalize_phone(value)

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{# Mise en page commune des pages légales (confidentialité, CGU, mentions légales). #}
+
+{% block extra_head %}
+<style>
+  .hf-legal { max-width: 65ch; margin: 0 auto; padding: 1.5rem 1rem 3rem; color: #1A1A2E; line-height: 1.65; font-size: 1rem; }
+  .hf-legal-back { font-size: .85rem; margin-bottom: 1.25rem; }
+  .hf-legal-back a { color: #E63946; text-decoration: none; font-weight: 600; }
+  .hf-legal h1 { font-size: 1.6rem; font-weight: 800; line-height: 1.25; margin: 0 0 .35rem; }
+  .hf-legal h2 { font-size: 1.2rem; font-weight: 800; margin: 2rem 0 .6rem; padding-top: .25rem; }
+  .hf-legal h3 { font-size: 1.02rem; font-weight: 700; margin: 1.35rem 0 .4rem; }
+  .hf-legal p, .hf-legal ul { margin: 0 0 .85rem; }
+  .hf-legal ul { padding-left: 1.25rem; list-style: disc; }
+  .hf-legal li { margin-bottom: .3rem; }
+  .hf-legal a { color: #E63946; }
+  .hf-legal-meta { font-size: .82rem; color: #6B7280; margin-bottom: 1.25rem; }
+  .hf-legal-toc { background: #fff; border: 1px solid #E5E7EB; border-radius: .75rem; padding: .9rem 1.1rem; margin-bottom: 1.5rem; font-size: .92rem; }
+  .hf-legal-toc p { font-weight: 700; margin-bottom: .4rem; }
+  .hf-legal-toc ol { margin: 0; padding-left: 1.2rem; list-style: decimal; }
+  .hf-legal-toc a { text-decoration: none; }
+  .hf-legal-todo { background: #FEF3C7; color: #92400E; padding: 0 .25rem; border-radius: .25rem; font-weight: 600; }
+  .hf-legal dl { margin: 0 0 1rem; }
+  .hf-legal dt { font-weight: 700; margin-top: .75rem; }
+  .hf-legal dd { margin: 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<article class="hf-legal">
+  <p class="hf-legal-back"><a href="{% url 'home' %}">← HayaFlash</a></p>
+  {% block legal_body %}{% endblock %}
+</article>
+{% include "partials/_legal_links.html" %}
+{% endblock %}

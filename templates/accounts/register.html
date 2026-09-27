@@ -99,6 +99,25 @@
           >
         </div>
 
+        <!-- Acceptation CGU + politique de confidentialite (verifiee aussi cote serveur) -->
+        <div class="flex items-start gap-2">
+          <input
+            type="checkbox"
+            id="accept_terms"
+            name="accept_terms"
+            value="1"
+            required
+            {% if form_data.accept_terms %}checked{% endif %}
+            class="mt-1 w-4 h-4 shrink-0"
+          >
+          <label for="accept_terms" class="text-sm text-gray-600">
+            J'accepte les
+            <a href="{% url 'legal_terms' %}" target="_blank" rel="noopener" class="text-primary font-semibold hover:underline">CGU</a>
+            et la
+            <a href="{% url 'legal_privacy' %}" target="_blank" rel="noopener" class="text-primary font-semibold hover:underline">Politique de confidentialité</a>
+          </label>
+        </div>
+
         <!-- Submit -->
         <button
           type="submit"
@@ -124,6 +143,7 @@
 
   <div class="py-4 text-center">
     <p class="text-xs text-gray-400">HayaFlash · Bamako, Mali</p>
+    {% include "partials/_legal_links.html" %}
   </div>
 </div>
 {% endblock %}

@@ -1,0 +1,92 @@
+{% extends "core/legal/_layout.html" %}
+{% load plan_tags %}
+{# Texte à faire valider par un juriste avant mise en production #}
+
+{% block title %}Conditions générales d'utilisation — HayaFlash{% endblock %}
+{% block meta_description %}Conditions générales d'utilisation de HayaFlash pour les vendeurs (compte, abonnements, responsabilités) et pour les acheteurs (commandes, paiement à la livraison).{% endblock %}
+
+{% block legal_body %}
+<h1>Conditions générales d'utilisation</h1>
+<p class="hf-legal-meta">Version {{ cgu_version }} · Dernière mise à jour : {{ legal_last_updated|date:"j F Y" }}</p>
+
+<p>HayaFlash est un service édité par ABEXPERTISES SUARL (voir les <a href="{% url 'legal_notice' %}">mentions légales</a>). Il permet à des vendeurs d'organiser des ventes flash, limitées dans le temps, et à des acheteurs de commander depuis une page publique partagée, par exemple sur WhatsApp. Ces conditions comportent une partie pour les vendeurs, une partie pour les acheteurs et des dispositions communes.</p>
+
+<nav class="hf-legal-toc" aria-label="Sommaire">
+  <p>Sommaire</p>
+  <ol>
+    <li><a href="#vendeurs">Partie 1 — Vendeurs</a></li>
+    <li><a href="#acheteurs">Partie 2 — Acheteurs</a></li>
+    <li><a href="#communes">Dispositions communes</a></li>
+  </ol>
+</nav>
+
+<h2 id="vendeurs">Partie 1 — Vendeurs</h2>
+
+<h3>1.1 Objet</h3>
+<p>HayaFlash fournit aux vendeurs des outils pour créer une boutique publique, publier des ventes flash et des produits, recevoir et suivre les commandes et les livraisons.</p>
+
+<h3>1.2 Inscription</h3>
+<p>L'inscription se fait avec un numéro de téléphone, un mot de passe et le nom de la boutique. Le vendeur s'engage à fournir des informations exactes et à garder son mot de passe confidentiel. Il est responsable de l'utilisation de son compte. Créer un compte implique d'accepter ces conditions et la <a href="{% url 'legal_privacy' %}">politique de confidentialité</a>.</p>
+
+<h3>1.3 Plans et limites</h3>
+<p>Trois plans sont proposés. Les tarifs et limites en vigueur sont les suivants :</p>
+<ul>
+  <li><strong>Gratuit (FREE)</strong> : sans frais ; {% plan_quota_label "free" as free_quota %}{{ free_quota|lower }}.</li>
+  <li><strong>Medium (MEDIUM)</strong> : {% plan_price "medium" as medium_price %}{{ medium_price|floatformat:"0g" }} FCFA pour {{ plan_durations.medium }} jours ; {% plan_quota_label "medium" as medium_quota %}{{ medium_quota|lower }}.</li>
+  <li><strong>Pro (PRO)</strong> : {% plan_price "pro" as pro_price %}{{ pro_price|floatformat:"0g" }} FCFA pour {{ plan_durations.pro }} jours ; {% plan_quota_label "pro" as pro_quota %}{{ pro_quota|lower }}.</li>
+</ul>
+<p>Les plans payants donnent aussi accès à des fonctionnalités supplémentaires, décrites sur la page d'abonnement de l'espace vendeur. Une vente annulée ne compte pas dans la limite. À la fin de la période payée, sans nouveau paiement, le compte revient aux limites du plan Gratuit.</p>
+<p>HayaFlash peut modifier les tarifs et les limites. Un changement de tarif ne s'applique qu'aux nouveaux paiements, jamais à une période déjà payée.</p>
+
+<h3>1.4 Paiement de l'abonnement</h3>
+<p>Les abonnements se paient par Orange Money. L'abonnement est activé après confirmation du paiement par Orange. Il n'est pas renouvelé automatiquement : chaque nouvelle période fait l'objet d'un nouveau paiement.</p>
+
+<h3>1.5 Responsabilité du vendeur</h3>
+<p>Le vendeur est seul responsable :</p>
+<ul>
+  <li>des produits qu'il propose, de leur conformité, de leur description et des photos ou enregistrements qu'il publie ;</li>
+  <li>des prix affichés et de la disponibilité du stock ;</li>
+  <li>de la préparation, de la livraison et de l'encaissement des commandes ;</li>
+  <li>du traitement des réclamations de ses clients ;</li>
+  <li>de l'usage qu'il fait des données de ses clients, qu'il ne peut utiliser que pour traiter leurs commandes et les informer de ses ventes ;</li>
+  <li>du respect des lois applicables à son activité.</li>
+</ul>
+<p>Sont interdits notamment : les produits illicites, contrefaits ou dangereux, les contenus trompeurs, et toute utilisation du service pour tromper ou démarcher abusivement les acheteurs.</p>
+
+<h3>1.6 Suspension du compte</h3>
+<p>HayaFlash peut suspendre ou désactiver un compte ou une boutique, sans préavis en cas d'urgence, en cas de manquement à ces conditions, de fraude, de plainte sérieuse d'acheteurs ou de risque pour la sécurité du service. Le vendeur en est informé par tout moyen.</p>
+
+<h3>1.7 Résiliation</h3>
+<p>Le vendeur peut cesser d'utiliser HayaFlash à tout moment et demander la fermeture de son compte en écrivant à <span class="hf-legal-todo">[À COMPLÉTER : e-mail de contact]</span>. Une période d'abonnement déjà payée n'est pas remboursée, sauf <span class="hf-legal-todo">[À COMPLÉTER : politique de remboursement à définir]</span>.</p>
+
+<h2 id="acheteurs">Partie 2 — Acheteurs</h2>
+
+<h3>2.1 Rôle de HayaFlash</h3>
+<p>HayaFlash met en relation les acheteurs et les vendeurs. HayaFlash n'est pas le vendeur : la vente est conclue directement entre l'acheteur et le vendeur, qui est seul responsable des produits, des prix, du stock et de la livraison.</p>
+
+<h3>2.2 Commande</h3>
+<p>Une commande peut être passée uniquement pendant la durée de la vente flash et dans la limite du stock disponible. L'acheteur indique son nom, son numéro de téléphone et son adresse de livraison ; il peut ajouter sa position GPS ou une note vocale. Le vendeur peut contacter l'acheteur pour confirmer la commande.</p>
+
+<h3>2.3 Paiement à la livraison</h3>
+<p>Le paiement se fait à la livraison, directement auprès du vendeur ou de la personne qui livre pour lui. HayaFlash n'encaisse pas le prix des commandes.</p>
+
+<h3>2.4 Réclamations</h3>
+<p>Toute réclamation concernant un produit, un prix, un retard ou une livraison doit être adressée au vendeur. HayaFlash peut être informé d'un comportement abusif d'un vendeur à <span class="hf-legal-todo">[À COMPLÉTER : e-mail de contact]</span>.</p>
+
+<h2 id="communes">Dispositions communes</h2>
+
+<h3>Propriété intellectuelle</h3>
+<p>La marque HayaFlash, le site, l'application et leurs contenus propres appartiennent à ABEXPERTISES SUARL. Le vendeur reste propriétaire des contenus qu'il publie (textes, photos, enregistrements) et autorise HayaFlash à les afficher et à les diffuser pour les besoins du service. Il garantit disposer des droits nécessaires sur ces contenus.</p>
+
+<h3>Limitation de responsabilité</h3>
+<p>HayaFlash fait ses meilleurs efforts pour que le service soit disponible et fiable, sans pouvoir garantir une disponibilité sans interruption, notamment en cas de maintenance ou de panne des réseaux. HayaFlash n'est pas partie aux ventes entre vendeurs et acheteurs et ne peut être tenu responsable de leur exécution.</p>
+
+<h3>Données personnelles</h3>
+<p>Le traitement des données personnelles est décrit dans la <a href="{% url 'legal_privacy' %}">politique de confidentialité</a>.</p>
+
+<h3>Modification des conditions</h3>
+<p>Ces conditions peuvent être modifiées. La version en vigueur et sa date sont indiquées en haut de cette page. En cas de modification importante, les vendeurs pourront être invités à accepter la nouvelle version.</p>
+
+<h3>Droit applicable</h3>
+<p><span class="hf-legal-todo">[À COMPLÉTER : droit applicable et juridiction compétente — à valider par un juriste]</span></p>
+{% endblock %}
