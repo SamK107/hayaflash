@@ -1,4 +1,4 @@
-{% load static %}
+{% load static hf_seo %}
 <!DOCTYPE html>
 <html lang="fr" x-data="hfRoot()" x-cloak>{# init() appele automatiquement par Alpine (hf-components.js) #}
 <head>
@@ -7,6 +7,21 @@
   <meta name="theme-color" content="#FF4D2E" />
   <title>{% block title %}HayaFlash{% endblock %}</title>
   <meta name="description" content="{% block meta_description %}HayaFlash — Ventes flash a Bamako{% endblock %}">
+  {# Open Graph / Twitter + canonical par defaut. Les pages qui ont leurs propres #}
+  {# balises (/f/<slug>/, /s/<slug>/) surchargent ce bloc ; les pages d'erreur le vident. #}
+  {% block og_meta %}{% if request %}{% hf_block_text "title" as og_title %}{% hf_block_text "meta_description" as og_description %}{% hf_page_url as og_url %}
+  <link rel="canonical" href="{{ og_url }}">
+  <meta property="og:site_name" content="HayaFlash">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ og_title|default:"HayaFlash" }}">
+  <meta property="og:description" content="{{ og_description }}">
+  <meta property="og:url" content="{{ og_url }}">
+  <meta property="og:image" content="{% hf_absolute_static 'img/og-default.png' %}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:locale" content="fr_FR">
+  <meta name="twitter:card" content="summary_large_image">
+  {% endif %}{% endblock %}
   <!-- PWA -->
   {# Manifest acheteur ou vendeur choisi selon l'URL (core.context_processors.pwa_install). #}
   {% block pwa_manifest %}{% if pwa_app == "buyer" %}<link rel="manifest" href="/static/manifest-buyer.json" />

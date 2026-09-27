@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ seo.title|default:seller_name }} -- HayaFlash{% endblock %}
 {% block meta_description %}Boutique {{ seller_name }} sur HayaFlash -- Ventes flash a Bamako{% endblock %}
+{% block og_meta %}{% include "analytics/partials/_og_specific.html" %}{% endblock %}
 
 {% block extra_head %}
 {% if seo.canonical_url %}<link rel="canonical" href="{{ seo.canonical_url }}">{% endif %}

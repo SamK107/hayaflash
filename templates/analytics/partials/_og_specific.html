@@ -1,0 +1,18 @@
+{% load hf_seo %}
+{# Balises OG/Twitter specifiques de /f/<slug>/ et /s/<slug>/ (bloc og_meta de base.html). #}
+{# Valeurs calculees par analytics/services/seo.py ; canonical et JSON-LD restent dans extra_head. #}
+{# Repli : image og-default.png et URL absolue de la page si une valeur manque. #}
+{% hf_absolute_static 'img/og-default.png' as og_default_image %}{% hf_page_url as og_page_url %}
+{% with og_image=seo.og.image|default:og_default_image og_url=seo.og.url|default:og_page_url %}
+  <meta property="og:site_name" content="{{ seo.og.site_name|default:"HayaFlash" }}">
+  <meta property="og:type" content="{{ seo.og.type|default:"website" }}">
+  <meta property="og:title" content="{{ seo.og.title }}">
+  <meta property="og:description" content="{{ seo.og.description }}">
+  <meta property="og:url" content="{{ og_url }}">
+  <meta property="og:image" content="{{ og_image }}">
+  <meta property="og:locale" content="fr_FR">
+  <meta name="twitter:card" content="{{ seo.twitter.card|default:"summary_large_image" }}">
+  <meta name="twitter:title" content="{{ seo.twitter.title|default:seo.og.title }}">
+  <meta name="twitter:description" content="{{ seo.twitter.description|default:seo.og.description }}">
+  <meta name="twitter:image" content="{{ seo.twitter.image|default:og_image }}">
+{% endwith %}
