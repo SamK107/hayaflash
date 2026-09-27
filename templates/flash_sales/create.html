@@ -262,7 +262,7 @@
         <!-- Prévisualisation -->
         <div class="relative rounded-2xl overflow-hidden bg-gray-100 mb-3"
              style="aspect-ratio:16/9" x-show="preview && !camOpen">
-          <img :src="preview" class="w-full h-full object-cover">
+          <img :src="preview" alt="" class="w-full h-full object-cover">
           <button type="button" @click="preview = null; $refs.galleryInput.value = ''"
                   class="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors">
             <i data-lucide="x" class="w-4 h-4"></i>
