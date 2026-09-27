@@ -86,3 +86,19 @@ class LegalPagesTests(TestCase):
         for path, _title in self.PAGES.values():
             with self.subTest(path=path):
                 self.assertContains(response, f"{path}</loc>")
+
+
+class LegalFooterLinksTests(TestCase):
+    def assert_legal_links(self, response):
+        self.assertEqual(response.status_code, 200)
+        for name in ("legal_privacy", "legal_terms", "legal_notice"):
+            self.assertContains(response, f'href="{reverse(name)}"')
+
+    def test_home_has_legal_links(self):
+        self.assert_legal_links(self.client.get(reverse("home")))
+
+    def test_public_calendar_has_legal_links(self):
+        self.assert_legal_links(self.client.get(reverse("flash_sale_calendar")))
+
+    def test_register_page_has_legal_links(self):
+        self.assert_legal_links(self.client.get(reverse("register")))
