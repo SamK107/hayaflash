@@ -7,6 +7,7 @@ import time
 from typing import Any
 
 from django.http import HttpRequest
+from django.templatetags.static import static
 
 from analytics.services.share_links import absolute_url
 
@@ -18,7 +19,7 @@ def build_seller_seo(request: HttpRequest, context: dict[str, Any]) -> dict[str,
         f"{context['total_orders']} commandes · ventes flash en direct."
     )
     canonical = context["seller_url"]
-    og_image = absolute_url(request, "/static/orders/img/hayaflash-og.png")
+    og_image = absolute_url(request, static("img/og-default.png"))
     json_ld = {
         "@context": "https://schema.org",
         "@type": "Store",
@@ -46,7 +47,7 @@ def build_flash_sale_seo(
         "Commandez en direct sur HayaFlash."
     )
     canonical = context["flash_sale_url"]
-    og_image = absolute_url(request, "/static/orders/img/hayaflash-og.png")
+    og_image = absolute_url(request, static("img/og-default.png"))
     offers = []
     for product in context.get("products", []):
         offers.append(

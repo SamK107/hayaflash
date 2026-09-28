@@ -3,6 +3,7 @@
 {% load hf_filters %}
 {% block title %}{{ flash_sale.title }} — HayaFlash{% endblock %}
 {% block meta_description %}{{ flash_sale.description|default:flash_sale.title|truncatewords:20 }}{% endblock %}
+{% block og_meta %}{% include "analytics/partials/_og_specific.html" %}{% endblock %}
 {% block extra_head %}
 {% if seo.canonical_url %}<link rel="canonical" href="{{ seo.canonical_url }}">{% endif %}
 {% if seo.json_ld %}<script type="application/ld+json">{{ seo.json_ld }}</script>{% endif %}

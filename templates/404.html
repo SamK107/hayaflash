@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{# Rendu par django.views.defaults.page_not_found (DEBUG=False), avec request. #}
+
+{% block title %}Page introuvable — HayaFlash{% endblock %}
+{% block meta_description %}Cette page n'existe pas ou la vente est terminée.{% endblock %}
+
+{% block og_meta %}{% endblock %}
+{% block extra_head %}
+<meta name="robots" content="noindex">
+{% endblock %}
+
+{% block content %}
+<section style="min-height:80vh; display:flex; align-items:center; justify-content:center; padding:2.5rem 1rem;">
+  <div style="max-width:28rem; width:100%; text-align:center; background:#fff; border:1.5px solid #EEEEF0; border-radius:1.25rem; padding:2rem 1.5rem;">
+    <p style="font-size:2.75rem; font-weight:900; color:#FF4D2E; line-height:1; margin:0 0 .75rem;">404</p>
+    <h1 style="font-size:1.25rem; font-weight:800; color:#1A1A2E; margin:0 0 .5rem;">
+      Cette page n'existe pas ou la vente est terminée
+    </h1>
+    <p style="color:#6B7280; font-size:.9rem; line-height:1.6; margin:0 0 1.5rem;">
+      Le lien est peut-être ancien ou mal copié. D'autres ventes flash sont peut-être en cours en ce moment.
+    </p>
+    <div style="display:flex; flex-direction:column; gap:.75rem;">
+      <a href="{% url 'flash_sale_calendar' %}"
+         style="display:block; background:#FF4D2E; color:#fff; font-weight:700; text-decoration:none; border-radius:.875rem; padding:.9rem 1rem;">
+        Voir les ventes en cours
+      </a>
+      <a href="{% url 'home' %}"
+         style="display:block; color:#1A1A2E; font-weight:600; text-decoration:none; border:1.5px solid #E5E7EB; border-radius:.875rem; padding:.85rem 1rem;">
+        Accueil
+      </a>
+    </div>
+  </div>
+</section>
+{% endblock %}
