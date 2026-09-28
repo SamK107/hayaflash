@@ -283,8 +283,12 @@ class WebhookConcurrencyTests(TransactionTestCase):
         self.api = APIClient()
         self.raw_client = Client(enforce_csrf_checks=True)
 
-        _buyer = User.objects.create_user(phone="+15558000001", password="x")
-        seller_user = User.objects.create_user(phone="+15558000002", password="x")
+        _buyer = User.objects.create_user(
+            phone="+15558000001", password="x", display_name="Acheteur test"
+        )
+        seller_user = User.objects.create_user(
+            phone="+15558000002", password="x", display_name="Vendeur test"
+        )
         seller = SellerProfile.objects.create(user=seller_user)
         now = timezone.now()
         sale = FlashSale.objects.create(

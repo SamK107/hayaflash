@@ -197,7 +197,7 @@ def advance_delivery(
 
     with transaction.atomic():
         delivery = (
-            Delivery.objects.select_for_update()
+            Delivery.objects.select_for_update(of=("self",))
             .select_related("order__flash_sale__owner__user")
             .filter(pk=delivery_id)
             .first()
