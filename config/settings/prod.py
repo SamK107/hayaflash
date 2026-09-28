@@ -46,7 +46,13 @@ SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "true").lower() in (
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_HTTPONLY = True
-CSRF_COOKIE_HTTPONLY = True
+# False (defaut Django) : le JS lit csrftoken dans document.cookie pour
+# l'en-tete X-CSRFToken (static/js/hf-base.js pour HTMX, hf-seller.js,
+# hf-public.js). HttpOnly n'apporte pas de protection reelle ici : un script
+# injecte pourrait lire le jeton dans le DOM. Voir la doc Django :
+# https://docs.djangoproject.com/en/5.2/ref/settings/#csrf-cookie-httponly
+# Garde-fou : core/tests_security_settings.py.
+CSRF_COOKIE_HTTPONLY = False
 SESSION_COOKIE_SAMESITE = "Lax"
 
 # HSTS — 1 an, sous-domaines inclus, preload
