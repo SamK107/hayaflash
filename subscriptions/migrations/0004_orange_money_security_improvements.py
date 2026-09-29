@@ -42,7 +42,7 @@ class Migration(migrations.Migration):
             model_name="subscriptionpayment",
             name="notif_token",
             field=models.CharField(
-                db_index=True,
+                db_index=False,
                 default="",
                 help_text="Token de notification Orange Money (lookup webhook)",
                 max_length=128,

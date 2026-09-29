@@ -23,6 +23,13 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: hayaflash_test
+        ports: ["55432:5432"]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 10
       redis:
         image: redis:7-alpine
         ports: ["6379:6379"]
@@ -44,7 +51,7 @@ jobs:
 
       - run: |
           pip install pytest-django pytest-cov
-          pytest --ds=config.settings.test --cov=. --cov-report=term-missing --cov-fail-under=60
+          pytest --ds=config.settings.test_pg -rs --cov=. --cov-report=term-missing --cov-fail-under=60
 
   # ── Build + push l'image taguee au SHA exact ─────────────────────────────────
   build:
