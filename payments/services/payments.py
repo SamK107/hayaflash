@@ -64,7 +64,8 @@ def initiate_payment_for_order(
 
     Idempotent on ``client_reference`` (unique): same key returns the same row.
     """
-    if not isinstance(order_id, int) or order_id < 1:
+    # bool est une sous-classe de int : `true` (JSON) ciblait sinon la commande n° 1.
+    if isinstance(order_id, bool) or not isinstance(order_id, int) or order_id < 1:
         raise ValidationError({"order_id": "Must be a positive integer."})
     if not isinstance(phone, str) or not phone.strip():
         raise ValidationError({"phone": "Must be a non-empty string."})

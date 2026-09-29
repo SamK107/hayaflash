@@ -215,6 +215,28 @@ class InitiatePaymentTests(PaymentsBase):
                 initiate_payment_for_order(**kwargs)
         self.assertFalse(PaymentTransaction.objects.exists())
 
+    def test_boolean_order_id_is_rejected_by_type_validation(self):
+        """F-50 : `true` (JSON) est un int en Python et ciblait la commande n° 1."""
+        self.make_order()
+        for value in (True, False):
+            with self.subTest(value=value), self.assertRaises(ValidationError) as cm:
+                initiate_payment_for_order(order_id=value, phone=PHONE, provider="mtn")
+            # refuse par la validation de type, pas par un « Order not found »
+            self.assertEqual(
+                cm.exception.message_dict["order_id"], ["Must be a positive integer."]
+            )
+        self.assertFalse(PaymentTransaction.objects.exists())
+
+    def test_boolean_order_id_is_rejected_via_api(self):
+        self.make_order()
+        resp = APIClient().post(
+            "/api/v1/payments/initiate/",
+            {"order_id": True, "phone": PHONE, "provider": "mtn"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 400, resp.content)
+        self.assertIn("Must be a positive integer", json.dumps(resp.json()))
+
     def test_client_reference_accepts_uuid_object_and_replays(self):
         order = self.make_order()
         ref = uuid4()
