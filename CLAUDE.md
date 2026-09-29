@@ -11,6 +11,27 @@
 
 ---
 
+## Release readiness (mise en production)
+
+Tant qu'une release est en préparation (suivi ouvert dans `docs/releases/`) :
+
+- **Au début de chaque session** : lire `GOVERNANCE_RELEASE.md`, puis le suivi
+  en cours (`docs/releases/v1.0.0-rc1.md`, ou la version la plus récente de
+  `docs/releases/`).
+- **À chaque item traité** : mettre à jour son statut (⬜ 🔄 ✅ ❌) **et** sa
+  preuve dans le suivi (fichier:ligne, nom de test, n° de PR, rapport dans
+  `docs/releases/reports/`).
+- **Jamais ✅ sans preuve.**
+- **Tout écart constaté** (code ≠ doc, exigence non tenue, test manquant) →
+  nouvelle ligne dans le « Registre des findings » du suivi, avec sa
+  référence fichier:ligne ; pas de correction « au passage ».
+- **Aucune action sur le VPS** (SSH, Docker, Nginx / HestiaCP, cron, pare-feu,
+  base de données, fichiers) sans validation explicite du mainteneur pour
+  cette action précise. services.symain.africa, sur le même VPS, ne doit
+  jamais être impacté.
+
+---
+
 ## Projet
 
 Application Django de ventes flash mobiles (Mali). Les vendeurs créent des ventes limitées dans le temps ; les clients commandent depuis une page publique partageable via WhatsApp.
