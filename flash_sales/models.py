@@ -7,6 +7,14 @@ from django.utils import timezone
 from core.choices import SaleCategory
 
 
+class SaleOpeningRefused(ValueError):
+    """L'ouverture est refusee par une regle metier (quota, 3/jour, duree).
+
+    Sous-classe de ValueError : les vues qui attrapent deja ValueError affichent
+    le message au vendeur.
+    """
+
+
 class FlashSaleStatus(models.TextChoices):
     SCHEDULED = "scheduled", "Programmée"
     LIVE = "live", "En cours"
@@ -178,11 +186,22 @@ class FlashSale(models.Model):
         # n'etait jamais acceptee malgre le message de succes (voir Phase
         # 10.0). On avance la fenetre a "maintenant" en conservant la duree
         # prevue par le vendeur.
+        new_start, new_end = self.start_time, self.end_time
         if now < self.start_time:
-            duration = self.end_time - self.start_time
-            self.start_time = now
-            self.end_time = now + duration
+            new_start = now
+            new_end = now + (self.end_time - self.start_time)
             update_fields.extend(["start_time", "end_time"])
+        # Defense en profondeur (F-29) : quota mensuel, 3 ventes/jour et duree
+        # sont revérifies au passage a LIVE, pour l'ouverture manuelle comme
+        # pour l'auto-open Celery. Refus : la vente garde son statut (rien n'est
+        # modifie ni sauvegarde).
+        from flash_sales.services.rules import SaleRuleError, enforce_opening_rules
+
+        try:
+            enforce_opening_rules(self, new_start, new_end)
+        except SaleRuleError as exc:
+            raise SaleOpeningRefused(" ".join(exc.messages)) from exc
+        self.start_time, self.end_time = new_start, new_end
         self.status = FlashSaleStatus.LIVE
         self.save(update_fields=update_fields)
 

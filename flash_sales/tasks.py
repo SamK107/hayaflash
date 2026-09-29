@@ -11,10 +11,30 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
+def _record_open_refusal(sale, reason: str) -> None:
+    """Journalise (une seule fois) le refus d'ouverture automatique d'une vente."""
+    from core.models import AuditLog, audit
+
+    action = "flashsale.open_refused"
+    already = AuditLog.objects.filter(
+        action=action, entity_type="FlashSale", entity_id=sale.pk
+    ).exists()
+    if already:
+        return
+    logger.warning(
+        "FlashSale %s [%s] ouverture auto REFUSEE (vendeur %s) : %s",
+        sale.pk,
+        sale.title,
+        sale.owner_id,
+        reason,
+    )
+    audit(action, entity_type="FlashSale", entity_id=sale.pk, reason=reason)
+
+
 @shared_task(name="flash_sales.auto_open_scheduled_sales", ignore_result=True)
 def auto_open_scheduled_sales() -> None:
     """Ouvre automatiquement les ventes dont start_time est atteint."""
-    from flash_sales.models import FlashSale, FlashSaleStatus
+    from flash_sales.models import FlashSale, FlashSaleStatus, SaleOpeningRefused
 
     now = timezone.now()
     to_open = FlashSale.objects.filter(
@@ -30,6 +50,10 @@ def auto_open_scheduled_sales() -> None:
             logger.info(
                 "FlashSale %s [%s] SCHEDULED -> LIVE (auto)", sale.pk, sale.title
             )
+        except SaleOpeningRefused as exc:
+            # Regle metier (quota, 3/jour, duree) : la vente reste SCHEDULED.
+            # Beat repasse chaque minute : on ne trace qu'une fois par vente.
+            _record_open_refusal(sale, str(exc))
         except Exception as exc:
             logger.error("Erreur ouverture auto FlashSale %s : %s", sale.pk, exc)
 

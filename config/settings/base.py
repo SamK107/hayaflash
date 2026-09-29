@@ -216,6 +216,9 @@ INSTALLED_APPS = [
     "sslserver",
     "notifications",
     "delivery",
+    # Requis par `celery beat --scheduler django_celery_beat.schedulers:DatabaseScheduler`
+    # (docker-compose.production.yml) : sans lui, beat ne demarre pas (F-20).
+    "django_celery_beat",
 ]
 
 PAYMENTS_WEBHOOK_SECRET = (os.environ.get("PAYMENTS_WEBHOOK_SECRET") or "").strip()

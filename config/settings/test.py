@@ -24,6 +24,7 @@ THIRD_PARTY_APPS = [
     "rest_framework",
     "corsheaders",
     "django_htmx",
+    "django_celery_beat",  # F-20 : parite avec base.py (DatabaseScheduler)
 ]
 LOCAL_APPS = [
     "core",
