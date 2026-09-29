@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-import logging
 from datetime import timedelta
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.utils import timezone
 
 from flash_sales.models import FlashSale, FlashSaleStatus
-
-logger = logging.getLogger(__name__)
+from flash_sales.services.rules import (  # noqa: F401  (re-export : API historique)
+    can_seller_create_sale,
+    enforce_creation_rules,
+)
 
 
 def create_flash_sale(
@@ -30,6 +31,7 @@ def create_flash_sale(
         raise ValidationError("La date de fin doit être après la date de début.")
     if start_time < timezone.now():
         raise ValidationError("La date de début ne peut pas être dans le passé.")
+    enforce_creation_rules(owner, start_time, end_time)
 
     sale = FlashSale(
         owner=owner,
@@ -75,6 +77,13 @@ def update_flash_sale(*, sale: FlashSale, seller, **kwargs) -> FlashSale:
         "cover_image",
         "max_orders",
     }
+    new_start = kwargs.get("start_time", sale.start_time)
+    new_end = kwargs.get("end_time", sale.end_time)
+    # La vente est deja comptee dans le quota mensuel : duree + limite du jour.
+    enforce_creation_rules(
+        seller, new_start, new_end, exclude_pk=sale.pk, quota=False
+    )
+
     for key, value in kwargs.items():
         if key in allowed:
             setattr(sale, key, value)
@@ -87,8 +96,9 @@ def update_flash_sale(*, sale: FlashSale, seller, **kwargs) -> FlashSale:
 def clone_flash_sale(*, sale: FlashSale, seller) -> FlashSale:
     """Clone une vente et ses produits (sans commandes ni stock consomme).
 
-    La nouvelle vente est SCHEDULED avec des dates provisoires (J+1).
-    Le vendeur doit editer les dates avant d'ouvrir.
+    La nouvelle vente est SCHEDULED avec des dates provisoires (J+1). Elle est
+    soumise aux memes regles qu'une creation (quota mensuel, 3 ventes/jour,
+    duree), et revérifiées a l'ouverture (FlashSale.open_sale).
     """
     if sale.owner != seller:
         raise PermissionDenied("Cette vente ne vous appartient pas.")
@@ -96,6 +106,7 @@ def clone_flash_sale(*, sale: FlashSale, seller) -> FlashSale:
     now = timezone.now()
     new_start = now + timedelta(days=1)
     new_end = now + timedelta(days=1, hours=2)
+    enforce_creation_rules(seller, new_start, new_end)
 
     new_sale = FlashSale(
         owner=seller,
@@ -136,18 +147,3 @@ def clone_flash_sale(*, sale: FlashSale, seller) -> FlashSale:
         )
 
     return new_sale
-
-
-def can_seller_create_sale(seller) -> tuple[bool, str]:
-    """Verifie les limites du plan abonnement du vendeur."""
-    try:
-        from subscriptions.services.limits import can_create_flash_sale
-
-        return can_create_flash_sale(seller)
-    except Exception:
-        # Fail-closed : une panne cote subscriptions (DB, bug futur, migration
-        # cassee) ne doit jamais desactiver silencieusement le quota. On refuse
-        # la creation plutot que de laisser un vendeur FREE creer des ventes
-        # illimitees sans controle.
-        logger.exception("Quota check failed for seller %s", getattr(seller, "pk", seller))
-        return False, "Impossible de vérifier votre quota. Réessayez."

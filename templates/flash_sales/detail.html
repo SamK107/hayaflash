@@ -156,6 +156,11 @@
 
         {% with st=sale.seller_state %}
         {% if st == "upcoming" %}
+        {% if open_blocked_reason %}
+        <p class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3">
+          Cette vente ne peut pas s'ouvrir : {{ open_blocked_reason }}
+        </p>
+        {% endif %}
         <form method="post" action="{% url 'flash_sales:open' sale.pk %}">
           {% csrf_token %}
           <button type="submit"

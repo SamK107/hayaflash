@@ -10,7 +10,7 @@ from accounts.access import seller_required
 from core.context_processors import request_pwa_install_invite
 
 from .forms import FlashSaleForm
-from .models import FlashSale, SaleInterest
+from .models import FlashSale, FlashSaleStatus, SaleInterest
 from .services.ordering import (
     live_now_q,
     seller_done_q,
@@ -63,6 +63,15 @@ def flash_sale_list_view(request):
     # Onglet ouvert par defaut : "En cours" s'il y a une vente live.
     ctx["default_tab"] = "live" if ctx["tab_list"][1][2] else "scheduled"
     return render(request, "flash_sales/list.html", ctx)
+
+
+def _error_text(exc: Exception) -> str:
+    """Message lisible : un ValidationError s'affiche sans ses crochets Python."""
+    from django.core.exceptions import ValidationError
+
+    if isinstance(exc, ValidationError):
+        return " ".join(exc.messages)
+    return str(exc)
 
 
 @seller_required
@@ -125,7 +134,7 @@ def flash_sale_create_view(request):
             request_pwa_install_invite(request, "seller")
             return redirect("flash_sales:detail", pk=sale.pk)
         except Exception as e:
-            messages.error(request, str(e))
+            messages.error(request, _error_text(e))
 
     return render(request, "flash_sales/create.html", {"form": form})
 
@@ -137,12 +146,23 @@ def flash_sale_detail_view(request, pk: int):
     from products.services.crud import products_for_sale
 
     products = products_for_sale(sale, only_active=False)
+    open_blocked_reason = ""
+    if sale.status == FlashSaleStatus.SCHEDULED:
+        # Explique au vendeur pourquoi sa vente ne s'ouvre pas (regles revérifiees
+        # a l'ouverture, cf. FlashSale.open_sale), sans SMS.
+        from flash_sales.services.rules import SaleRuleError, enforce_opening_rules
+
+        try:
+            enforce_opening_rules(sale)
+        except SaleRuleError as exc:
+            open_blocked_reason = " ".join(exc.messages)
     return render(
         request,
         "flash_sales/detail.html",
         {
             "sale": sale,
             "products": products,
+            "open_blocked_reason": open_blocked_reason,
         },
     )
 
@@ -177,7 +197,7 @@ def flash_sale_edit_view(request, pk: int):
             messages.success(request, "Vente mise à jour.")
             return redirect("flash_sales:detail", pk=sale.pk)
         except Exception as e:
-            messages.error(request, str(e))
+            messages.error(request, _error_text(e))
 
     return render(request, "flash_sales/create.html", {"form": form, "sale": sale})
 
@@ -276,7 +296,7 @@ def flash_sale_clone_view(request, pk: int):
         request_pwa_install_invite(request, "seller")
         return redirect("flash_sales:edit", pk=new_sale.pk)
     except Exception as e:
-        messages.error(request, str(e))
+        messages.error(request, _error_text(e))
         return redirect("flash_sales:detail", pk=pk)
 
 

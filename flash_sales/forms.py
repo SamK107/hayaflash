@@ -5,10 +5,12 @@ from datetime import timedelta
 from django import forms
 from django.utils import timezone
 
-from .models import FlashSale, FlashSaleStatus
-
-MAX_DURATION_MINUTES = 120  # 2 heures — maximum autorise par l'app
-MAX_DAILY_OTHER = 3  # max 3 ventes par jour
+from .models import FlashSale
+from .services.rules import (  # source unique des regles metier
+    MAX_DURATION_MINUTES,
+    SaleRuleError,
+    check_daily_limit,
+)
 
 DURATION_CHOICES = [
     ("60", "1 heure"),
@@ -188,29 +190,13 @@ class FlashSaleForm(forms.ModelForm):
         # voie le bon end_time et n'échoue pas sur FlashSale.clean()
         self.instance.end_time = end_time
 
-        # Validation des regles journalieres
+        # Regle des 3 ventes/jour : source unique dans services/rules.py
         if self._seller:
-            day = start.date()
-            qs = FlashSale.objects.filter(
-                owner=self._seller,
-                start_time__date=day,
-                status__in=[
-                    FlashSaleStatus.SCHEDULED,
-                    FlashSaleStatus.LIVE,
-                    FlashSaleStatus.CLOSED,
-                    FlashSaleStatus.EXECUTING,
-                ],
-            )
-            if self._existing_sale_pk:
-                qs = qs.exclude(pk=self._existing_sale_pk)
-
-            sales_that_day = list(qs)
-
-            if len(sales_that_day) >= MAX_DAILY_OTHER:
-                self.add_error(
-                    "start_time",
-                    f"Vous avez déjà {MAX_DAILY_OTHER} ventes ce jour-là. "
-                    "Maximum 3 ventes flash par jour.",
+            try:
+                check_daily_limit(
+                    self._seller, start, exclude_pk=self._existing_sale_pk
                 )
+            except SaleRuleError as exc:
+                self.add_error("start_time", " ".join(exc.messages))
 
         return cleaned
