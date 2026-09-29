@@ -29,7 +29,9 @@ cd "$PROJECT_DIR"
 COMPOSE="docker compose -p hayaflash -f docker-compose.production.yml"
 CURRENT_TAG_FILE="$PROJECT_DIR/.deploy_current_tag"
 LAST_GOOD_TAG_FILE="$PROJECT_DIR/.deploy_last_good_tag"
-BASE_URL="${1:-http://localhost:8000}"
+# Nginx du conteneur, publie en loopback (docker-compose.production.yml, F-21).
+# Port 8010 PROVISOIRE : a confirmer contre `ss -tlnp` sur le VPS reel (P4-2).
+BASE_URL="${1:-http://127.0.0.1:8010}"
 
 : "${HAYAFLASH_TAG:?HAYAFLASH_TAG requis (SHA de l'image a deployer)}"
 : "${DOCKER_IMAGE:?DOCKER_IMAGE requis (ex: ghcr.io/<org>/hayaflash)}"

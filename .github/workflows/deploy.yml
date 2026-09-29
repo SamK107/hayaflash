@@ -120,7 +120,7 @@ jobs:
             cd /srv/hayaflash
             git pull origin main
             DOCKER_IMAGE="${{ needs.build.outputs.image }}" HAYAFLASH_TAG="${{ github.sha }}" \
-              bash infra/scripts/deploy.sh http://localhost:8000
+              bash infra/scripts/deploy.sh http://127.0.0.1:8010
 
   # ── Deploy prod : seulement si staging + son healthcheck sont passes ────────
   # PAUSE VOLONTAIRE (13/09) : meme raison que deploy-staging. Cascaderait de

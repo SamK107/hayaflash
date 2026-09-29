@@ -120,14 +120,18 @@ services:
     # démarre avec un ${PROD_DOMAIN} littéral dans le chemin du certificat
     # et plante au boot.
     env_file: /srv/hayaflash/.env
+    # VPS partage avec services.symain.africa : le Nginx de l'HOTE (HestiaCP)
+    # garde 80/443 et termine TLS. Ce conteneur n'ecoute qu'en HTTP et n'est
+    # joignable que depuis l'hote, sur un port dedie en loopback (F-21).
+    # PORT PROVISOIRE : 8010 — a confirmer contre `ss -tlnp` sur le VPS reel
+    # en Phase 4 (P4-2). Le vhost HestiaCP fait proxy_pass vers ce port ;
+    # infra/scripts/deploy.sh (BASE_URL par defaut) doit rester coherent.
     ports:
-      - "80:80"
-      - "443:443"
+      - "127.0.0.1:8010:80"
     volumes:
       - ./infra/nginx/prod.conf:/etc/nginx/templates/default.conf.template:ro
       - static_data:/srv/static:ro
       - media_data:/srv/media:ro
-      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - web
     restart: always

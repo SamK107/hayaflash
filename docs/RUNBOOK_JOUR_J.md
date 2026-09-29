@@ -130,7 +130,7 @@ diffère, l'adapter partout, y compris `HAYAFLASH_DIR` pour le script d'audit.
   ```bash
   cd /srv/hayaflash
   DOCKER_IMAGE=ghcr.io/<org>/hayaflash HAYAFLASH_TAG=$(cat .deploy_last_good_tag) \
-    bash infra/scripts/deploy.sh http://localhost:8000
+    bash infra/scripts/deploy.sh http://127.0.0.1:8010
   ```
   ⚠️ Les migrations sont forward-only : un retour d'image ne défait pas une
   migration.
