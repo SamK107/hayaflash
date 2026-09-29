@@ -20,6 +20,10 @@ diffère, l'adapter partout, y compris `HAYAFLASH_DIR` pour le script d'audit.
 
 ## Étape 1 — Audit initial + durcissement (catégorie 7)
 
+> ⚠️ **NE PAS EXÉCUTER EN L'ÉTAT — VPS partagé avec services.symain.africa
+> (ufw/sshd communs), à réécrire en Phase 4.** Voir `GOVERNANCE_RELEASE.md`
+> et le suivi `docs/releases/v1.0.0-rc1.md` (finding F-39).
+
 - [ ] **1.1 Audit de départ (lecture seule)**
   ```bash
   cd /srv/hayaflash
