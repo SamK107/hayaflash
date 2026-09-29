@@ -134,6 +134,10 @@ def clean_env(extra: dict[str, str] | None = None) -> dict[str, str]:
     env.update(_pg_params())
     env.update(CI_ENV)
     env["PYTHON_DOTENV_DISABLED"] = "1"
+    # Les sous-processus ecrivent en UTF-8 (run_cmd decode en UTF-8) : sinon
+    # pip-audit plante sous Windows (cp1252) sur la fleche Unicode de son rapport.
+    env["PYTHONUTF8"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
     if extra:
         env.update(extra)
     return env
