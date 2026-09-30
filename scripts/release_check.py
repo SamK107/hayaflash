@@ -413,6 +413,8 @@ def step_check_deploy() -> StepResult:
         # Seulement parsee par dj-database-url : check --deploy n'ouvre aucune
         # connexion a la base.
         "DATABASE_URL": "postgres://factice:factice@127.0.0.1:5432/factice",
+        # Obligatoire en prod (garde dans prod.py) ; aucune connexion n'est ouverte.
+        "REDIS_URL": "redis://127.0.0.1:6379/1",
     }
     result = command_step(
         "deploy", "manage.py check --deploy (settings prod, valeurs factices)",

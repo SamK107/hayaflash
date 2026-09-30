@@ -17,7 +17,8 @@ PROD_ENV = {
     "DEBUG": "false",
     # Definies (meme vides) pour que load_dotenv(override=False) de base.py
     # n'y injecte pas les valeurs d'un .env local.
-    "REDIS_URL": "",
+    # Obligatoire en prod (garde dans prod.py) ; seulement parsee, aucune connexion.
+    "REDIS_URL": "redis://localhost:6379/1",
     "SENTRY_DSN": "",
 }
 
@@ -51,3 +52,31 @@ def test_prod_csrf_cookie_is_readable_by_js(prod_settings):
     assert prod_settings.ENVIRONMENT == "prod"
     assert prod_settings.CSRF_COOKIE_HTTPONLY is False
     assert prod_settings.CSRF_COOKIE_SECURE is True
+
+
+@pytest.mark.parametrize("module", ["prod", "staging"])
+def test_prod_and_staging_refuse_to_start_without_redis(monkeypatch, module):
+    """Sans REDIS_URL : caches LocMem par worker -> axes / rate limit inefficaces en silence."""
+    from django.core.exceptions import ImproperlyConfigured
+
+    saved_environ = dict(os.environ)
+    saved_modules = {
+        name: mod for name, mod in sys.modules.items() if name.startswith("config.settings.")
+    }
+    env = {**PROD_ENV, "REDIS_URL": ""}
+    if module == "staging":
+        env["ENVIRONMENT"] = "staging"
+    for key, value in env.items():
+        monkeypatch.setenv(key, value)
+    for name in (f"config.settings.{module}", "config.settings.base"):
+        sys.modules.pop(name, None)
+    try:
+        with pytest.raises(ImproperlyConfigured, match="REDIS_URL"):
+            importlib.import_module(f"config.settings.{module}")
+    finally:
+        for name in [n for n in sys.modules if n.startswith("config.settings.")]:
+            if name not in saved_modules:
+                del sys.modules[name]
+        sys.modules.update(saved_modules)
+        os.environ.clear()
+        os.environ.update(saved_environ)

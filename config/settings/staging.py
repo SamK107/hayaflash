@@ -8,7 +8,7 @@ from django.core.exceptions import ImproperlyConfigured
 from .base import *  # noqa: F403
 from .base import REST_FRAMEWORK as BASE_REST_FRAMEWORK
 from ._sentry import init_sentry
-from .base import ENVIRONMENT, SECRET_KEY, SENTRY_DSN, _csv  # noqa: F401
+from .base import ENVIRONMENT, REDIS_URL, SECRET_KEY, SENTRY_DSN, _csv  # noqa: F401
 
 # Proxy de confiance pour l'IP client (F-26) : meme chaine qu'en prod (Nginx hote
 # -> Nginx du conteneur -> Gunicorn), voir prod.py.
@@ -22,6 +22,15 @@ TRUSTED_PROXY_NETWORKS = _csv(
 init_sentry(SENTRY_DSN, environment="staging")
 
 DEBUG = False
+
+# Sans Redis, les caches seraient LocMem PAR PROCESSUS (3 workers Gunicorn) :
+# verrous axes, limites de debit et honeypot perdraient leur efficacite sans
+# aucune erreur visible. On refuse donc de demarrer (F anti-bot, decision 8).
+if not REDIS_URL:
+    raise ImproperlyConfigured(
+        "REDIS_URL must be set in the environment for staging (shared cache: "
+        "axes lockouts and rate limits need it across Gunicorn workers)."
+    )
 
 if ENVIRONMENT == "prod":
     raise ImproperlyConfigured(

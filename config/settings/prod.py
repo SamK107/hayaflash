@@ -9,12 +9,21 @@ from django.core.exceptions import ImproperlyConfigured
 from .base import *  # noqa: F403
 from .base import REST_FRAMEWORK as BASE_REST_FRAMEWORK
 from ._sentry import init_sentry
-from .base import SECRET_KEY, SENTRY_DSN, _csv  # noqa: F401
+from .base import REDIS_URL, SECRET_KEY, SENTRY_DSN, _csv  # noqa: F401
 
 # ── Sentry ────────────────────────────────────────────────────────────────────
 init_sentry(SENTRY_DSN, environment="prod")
 
 DEBUG = False
+
+# Sans Redis, les caches seraient LocMem PAR PROCESSUS (3 workers Gunicorn) :
+# verrous axes, limites de debit et honeypot perdraient leur efficacite sans
+# aucune erreur visible. On refuse donc de demarrer (F anti-bot, decision 8).
+if not REDIS_URL:
+    raise ImproperlyConfigured(
+        "REDIS_URL must be set in the environment for production (shared cache: "
+        "axes lockouts and rate limits need it across Gunicorn workers)."
+    )
 
 if not SECRET_KEY:
     raise ImproperlyConfigured(
