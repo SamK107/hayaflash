@@ -58,12 +58,9 @@ def audit(
     ip = None
     if request is not None:
         actor = actor or (request.user if request.user.is_authenticated else None)
-        x_forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
-        ip = (
-            x_forwarded.split(",")[0].strip()
-            if x_forwarded
-            else request.META.get("REMOTE_ADDR")
-        )
+        from core.services.client_ip import get_client_ip_or_none
+
+        ip = get_client_ip_or_none(request)
 
     return AuditLog.objects.create(
         actor=actor,

@@ -19,6 +19,7 @@ from delivery.services.validation import validate_delivery_input
 from flash_sales.models import FlashSale
 from flash_sales.services.ordering import assert_flash_sale_accepts_orders
 from orders.models import Order
+from core.services.client_ip import get_client_ip
 from orders.services.create_order import create_order
 from products.models import FlashSaleProduct, Product
 
@@ -27,16 +28,9 @@ ORDER_SUBMIT_RATE_MAX_PER_WINDOW = 30
 MAX_AUDIO_BASE64_LENGTH = 2_000_000  # ~1.5 MB decoded, generous for a short voice note
 
 
-def _client_ip(request: HttpRequest) -> str:
-    xff = request.META.get("HTTP_X_FORWARDED_FOR")
-    if xff:
-        return xff.split(",")[0].strip()[:45]
-    return (request.META.get("REMOTE_ADDR") or "unknown")[:45]
-
-
 def enforce_public_order_rate_limit(request: HttpRequest) -> None:
     """Soft per-IP limit on order submissions (shared cache: LocMem or Redis)."""
-    ip = _client_ip(request)
+    ip = get_client_ip(request)
     key = f"order_submit_ip:{ip}"
     try:
         n = cache.incr(key)

@@ -16,30 +16,10 @@ import hashlib
 import logging
 
 from django.core.cache import cache
-from django.http import HttpRequest
 
 logger = logging.getLogger(__name__)
 
 KEY_PREFIX = "rl:"
-
-
-def client_ip(request: HttpRequest) -> str:
-    """IP du client, tronquee a 45 caracteres.
-
-    Ordre : X-Real-IP, puis 1re IP de X-Forwarded-For, puis REMOTE_ADDR.
-    En prod, infra/nginx/prod.conf ECRASE X-Real-IP avec $remote_addr, mais
-    AJOUTE a X-Forwarded-For ($proxy_add_x_forwarded_for) : le 1er element de
-    X-Forwarded-For est donc choisi par le client. Le lire en premier
-    permettrait a un attaquant de contourner la limite, ou de faire bloquer
-    l'IP d'un vrai vendeur en l'y ecrivant.
-    """
-    real_ip = (request.META.get("HTTP_X_REAL_IP") or "").strip()
-    if real_ip:
-        return real_ip[:45]
-    xff = request.META.get("HTTP_X_FORWARDED_FOR")
-    if xff:
-        return xff.split(",")[0].strip()[:45]
-    return (request.META.get("REMOTE_ADDR") or "unknown")[:45]
 
 
 def phone_key(scope: str, normalized_phone: str) -> str:

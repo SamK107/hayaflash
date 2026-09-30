@@ -38,6 +38,15 @@ if not ALLOWED_HOSTS:
 CORS_ALLOW_ALL_ORIGINS = False
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Proxy de confiance pour l'IP client (F-26) : Gunicorn n'est joignable que par
+# le Nginx du conteneur (`expose`, jamais publie), sur le reseau Docker. Valeur
+# par defaut = plages privees RFC 1918 (reseau bridge Docker, 172.16.0.0/12
+# par defaut) ; a resserrer sur le sous-reseau reel du compose en Phase 4
+# (`docker network inspect`), ou a surcharger par TRUSTED_PROXY_NETWORKS.
+TRUSTED_PROXY_NETWORKS = _csv(
+    "TRUSTED_PROXY_NETWORKS", "172.16.0.0/12,10.0.0.0/8,192.168.0.0/16"
+)
 SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "true").lower() in (
     "1",
     "true",

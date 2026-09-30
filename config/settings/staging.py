@@ -10,6 +10,12 @@ from .base import REST_FRAMEWORK as BASE_REST_FRAMEWORK
 from ._sentry import init_sentry
 from .base import ENVIRONMENT, SECRET_KEY, SENTRY_DSN, _csv  # noqa: F401
 
+# Proxy de confiance pour l'IP client (F-26) : meme chaine qu'en prod (Nginx hote
+# -> Nginx du conteneur -> Gunicorn), voir prod.py.
+TRUSTED_PROXY_NETWORKS = _csv(
+    "TRUSTED_PROXY_NETWORKS", "172.16.0.0/12,10.0.0.0/8,192.168.0.0/16"
+)
+
 # ── Sentry ────────────────────────────────────────────────────────────────────
 # Opt-in : actif seulement si SENTRY_DSN est defini dans le .env de staging.
 # Meme projet Sentry que la prod possible, separe par environment="staging".
