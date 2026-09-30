@@ -118,7 +118,10 @@ jobs:
           script: |
             set -e
             cd /srv/hayaflash
-            git pull origin main
+            # Deploie le SHA EXACT de l'image (F-09), pas la pointe de main : main a
+            # pu avancer depuis ce build (scripts / compose differents de l'image).
+            git fetch --prune origin
+            git checkout --detach "${{ github.sha }}"
             DOCKER_IMAGE="${{ needs.build.outputs.image }}" HAYAFLASH_TAG="${{ github.sha }}" \
               bash infra/scripts/deploy.sh http://127.0.0.1:8010
 
@@ -143,6 +146,9 @@ jobs:
           script: |
             set -e
             cd /srv/hayaflash
-            git pull origin main
+            # Deploie le SHA EXACT de l'image (F-09), pas la pointe de main : main a
+            # pu avancer depuis ce build (scripts / compose differents de l'image).
+            git fetch --prune origin
+            git checkout --detach "${{ github.sha }}"
             DOCKER_IMAGE="${{ needs.build.outputs.image }}" HAYAFLASH_TAG="${{ github.sha }}" \
               bash infra/scripts/deploy.sh https://${{ secrets.PROD_DOMAIN }}

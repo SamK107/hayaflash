@@ -2,7 +2,8 @@
 # infra/scripts/deploy.sh — deploiement HayaFlash avec healthcheck + rollback auto
 #
 # Tourne SUR LE VPS (pas en CI), invoque via SSH par .github/workflows/deploy.yml
-# apres un `git pull` qui a deja rapatrie cette version du script.
+# apres un `git fetch` + `git checkout --detach <SHA>` (le SHA de l'image, F-09)
+# qui a deja rapatrie cette version du script.
 #
 # Usage :
 #   DOCKER_IMAGE=ghcr.io/<org>/hayaflash HAYAFLASH_TAG=<sha> \
