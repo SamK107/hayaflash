@@ -18,26 +18,19 @@ from core.legal import (
     LEGAL_PRIVACY_VERSION,
     record_legal_acceptances,
 )
-from core.services import rate_limit
+from core.services import honeypot, rate_limit
+from core.services.rate_limit import LOGIN_RATE_LIMIT_MESSAGE, REGISTER_RATE_LIMIT_MESSAGE
 from core.services.client_ip import get_client_ip
 
 logger = logging.getLogger(__name__)
 
-# Limites de debit connexion (core/services/rate_limit.py, fail-open).
-LOGIN_WINDOW_SECONDS = 15 * 60
-LOGIN_MAX_ATTEMPTS_PER_IP = 20  # toutes tentatives POST
-LOGIN_MAX_FAILURES_PER_PHONE = 5  # echecs seulement, remis a zero au succes
-LOGIN_RATE_LIMIT_MESSAGE = "Trop de tentatives. Réessayez dans quelques minutes."
+# Limites de debit (valeurs : settings.RATELIMIT_*, core/services/rate_limit.py, fail-open).
+# Le verrou par telephone + IP (5 echecs / 30 min) est gere par django-axes
+# (config/settings/base.py, AXES_*) : pas de verrou "telephone seul" ici, sinon
+# n'importe qui bloquerait un vendeur en pleine vente.
 
-# Inscription : limite par IP (toutes tentatives POST) + champ piege "website".
-REGISTER_WINDOW_SECONDS = 60 * 60
-REGISTER_MAX_ATTEMPTS_PER_IP = 5
-REGISTER_RATE_LIMIT_MESSAGE = "Trop d'inscriptions depuis ce réseau. Réessayez plus tard."
-REGISTER_HONEYPOT_FIELD = "website"
-# Erreur generique (et non faux succes) : un humain qui aurait rempli le champ
-# par autocompletion peut reessayer au lieu de croire son compte cree.
-REGISTER_GENERIC_ERROR = "Impossible de créer le compte pour le moment. Vérifiez vos informations et réessayez."
-
+# Inscription : limite par IP (settings.RATELIMIT_REGISTER_IP) + honeypot signe
+# (core/services/honeypot.py : champ piege + horodatage signe, erreur generique).
 
 # ── helpers ────────────────────────────────────────────────────────────────
 
@@ -102,17 +95,7 @@ def login_view(request):
         raw_phone = request.POST.get("phone", "").strip()
         password = request.POST.get("password", "")
 
-        ip_limited = rate_limit.hit(
-            f"login:ip:{get_client_ip(request)}",
-            limit=LOGIN_MAX_ATTEMPTS_PER_IP,
-            window_seconds=LOGIN_WINDOW_SECONDS,
-        )
-        phone_key = rate_limit.phone_key("login", _normalize(raw_phone)) if raw_phone else None
-
-        if ip_limited or (
-            phone_key and rate_limit.is_limited(phone_key, limit=LOGIN_MAX_FAILURES_PER_PHONE)
-        ):
-            # Meme message que le numero existe ou non : pas d'enumeration.
+        if rate_limit.login_ip_limited(request):
             return render(
                 request,
                 "accounts/login.html",
@@ -126,16 +109,10 @@ def login_view(request):
             phone = _normalize(raw_phone)
             user = authenticate(request, username=phone, password=password)
             if user is not None:
-                rate_limit.reset(phone_key)
                 login(request, user)
                 next_url = request.GET.get("next") or _post_login_redirect_target(user)
                 return redirect(next_url)
             else:
-                rate_limit.hit(
-                    phone_key,
-                    limit=LOGIN_MAX_FAILURES_PER_PHONE,
-                    window_seconds=LOGIN_WINDOW_SECONDS,
-                )
                 error = "Numéro de téléphone ou mot de passe incorrect."
 
     return render(request, "accounts/login.html", {"error": error})
@@ -162,11 +139,7 @@ def register_view(request):
         }
 
         ip = get_client_ip(request)
-        if rate_limit.hit(
-            f"register:ip:{ip}",
-            limit=REGISTER_MAX_ATTEMPTS_PER_IP,
-            window_seconds=REGISTER_WINDOW_SECONDS,
-        ):
+        if rate_limit.register_ip_limited(request):
             return render(
                 request,
                 "accounts/register.html",
@@ -174,12 +147,13 @@ def register_view(request):
                 status=429,
             )
 
-        if request.POST.get(REGISTER_HONEYPOT_FIELD, "").strip():
-            logger.info("Inscription bloquee par le honeypot (ip=%s).", ip)
+        reason = honeypot.rejection_reason(request.POST)
+        if reason:
+            logger.info("Inscription bloquee par le honeypot (%s, ip=%s).", reason, ip)
             return render(
                 request,
                 "accounts/register.html",
-                {"errors": [REGISTER_GENERIC_ERROR], "form_data": form_data},
+                {"errors": [honeypot.GENERIC_ERROR], "form_data": form_data},
             )
 
         phone = _normalize(raw_phone)

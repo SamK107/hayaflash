@@ -28,8 +28,11 @@ def register_user(validated_data: dict, request=None) -> User:
 
 def login_user(request, validated_data: dict) -> User:
     phone = User.objects.normalize_phone(validated_data["phone"])
+    # HttpRequest sous-jacent : django-axes pose `axes_locked_out` sur la requete
+    # recue par authenticate(), et son middleware ne lit que l'HttpRequest, pas
+    # le wrapper DRF (sinon le verrou n'aboutit jamais a la reponse 429).
     user = authenticate(
-        request,
+        getattr(request, "_request", request),
         phone=phone,
         password=validated_data["password"],
     )

@@ -14,12 +14,21 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 
+from django.conf import settings
 from django.core.cache import cache
+from django.http import HttpRequest
+
+from core.services.client_ip import get_client_ip
 
 logger = logging.getLogger(__name__)
 
 KEY_PREFIX = "rl:"
+
+LOGIN_RATE_LIMIT_MESSAGE = "Trop de tentatives. Réessayez dans quelques minutes."
+REGISTER_RATE_LIMIT_MESSAGE = "Trop d'inscriptions depuis ce réseau. Réessayez plus tard."
+ORDER_RATE_LIMIT_MESSAGE = "Trop de commandes avec ce numéro. Réessayez dans quelques minutes."
 
 
 def phone_key(scope: str, normalized_phone: str) -> str:
@@ -65,3 +74,31 @@ def reset(key: str) -> None:
         cache.delete(KEY_PREFIX + key)
     except Exception:
         logger.warning("Rate limit indisponible (cache) : reset ignore.", exc_info=True)
+
+
+# ── Limites applicatives (valeurs : settings.RATELIMIT_*) ─────────────────────
+# Desactivables globalement par settings.RATELIMIT_ENABLE (tests). Les cles
+# login/register sont partagees entre le formulaire HTML et l'API DRF : changer
+# de route ne donne pas un second quota.
+
+
+def _limited(key: str, setting: str) -> bool:
+    if not settings.RATELIMIT_ENABLE:
+        return False
+    limit, window = getattr(settings, setting)
+    return hit(key, limit=limit, window_seconds=window)
+
+
+def login_ip_limited(request: HttpRequest) -> bool:
+    return _limited(f"login:ip:{get_client_ip(request)}", "RATELIMIT_LOGIN_IP")
+
+
+def register_ip_limited(request: HttpRequest) -> bool:
+    return _limited(f"register:ip:{get_client_ip(request)}", "RATELIMIT_REGISTER_IP")
+
+
+def order_phone_limited(phone: str) -> bool:
+    """Limite par acheteur. Cle = 8 derniers chiffres (numero malien local) :
+    ``+22370000001``, ``70 00 00 01`` et ``0022370000001`` partagent un quota."""
+    digits = re.sub(r"\D", "", phone)[-8:] or phone
+    return _limited(phone_key("order", digits), "RATELIMIT_ORDER_PHONE")

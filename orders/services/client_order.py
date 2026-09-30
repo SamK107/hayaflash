@@ -19,13 +19,21 @@ from delivery.services.validation import validate_delivery_input
 from flash_sales.models import FlashSale
 from flash_sales.services.ordering import assert_flash_sale_accepts_orders
 from orders.models import Order
+from core.services import rate_limit
 from core.services.client_ip import get_client_ip
 from orders.services.create_order import create_order
 from products.models import FlashSaleProduct, Product
 
 ORDER_SUBMIT_RATE_WINDOW_SECONDS = 60
-ORDER_SUBMIT_RATE_MAX_PER_WINDOW = 30
+# 120/min/IP (et non 30) : les operateurs mobiles maliens sont en CGNAT, une IP
+# est partagee par beaucoup d'acheteurs. Aligne sur Nginx `api_orders` (120 r/min) ;
+# la finesse vient de la limite par numero (settings.RATELIMIT_ORDER_PHONE).
+ORDER_SUBMIT_RATE_MAX_PER_WINDOW = 120
 MAX_AUDIO_BASE64_LENGTH = 2_000_000  # ~1.5 MB decoded, generous for a short voice note
+
+
+class OrderRateLimited(ValidationError):
+    """Trop de commandes pour ce numero acheteur (-> HTTP 429, voir orders/api.py)."""
 
 
 def enforce_public_order_rate_limit(request: HttpRequest) -> None:
@@ -299,6 +307,10 @@ def submit_public_order_api(
     created_new = not Order.service_objects.filter(
         client_request_id=payload["client_request_id"]
     ).exists()
+    # Par numero acheteur, et seulement pour une NOUVELLE commande : un rejeu
+    # idempotent (meme client_request_id) ne consomme pas le quota.
+    if created_new and rate_limit.order_phone_limited(payload["customer_phone"]):
+        raise OrderRateLimited({"detail": [rate_limit.ORDER_RATE_LIMIT_MESSAGE]})
     order = create_order(payload)
     if created_new:
         share_token = data.get("share_ref") or data.get("ref")
