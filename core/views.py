@@ -18,7 +18,7 @@ from core.legal import (
     LEGAL_PRIVACY_VERSION,
     record_legal_acceptances,
 )
-from core.services import rate_limit
+from core.services import honeypot, rate_limit
 from core.services.rate_limit import LOGIN_RATE_LIMIT_MESSAGE, REGISTER_RATE_LIMIT_MESSAGE
 from core.services.client_ip import get_client_ip
 
@@ -29,12 +29,8 @@ logger = logging.getLogger(__name__)
 # (config/settings/base.py, AXES_*) : pas de verrou "telephone seul" ici, sinon
 # n'importe qui bloquerait un vendeur en pleine vente.
 
-# Inscription : limite par IP (toutes tentatives POST) + champ piege "website".
-REGISTER_HONEYPOT_FIELD = "website"
-# Erreur generique (et non faux succes) : un humain qui aurait rempli le champ
-# par autocompletion peut reessayer au lieu de croire son compte cree.
-REGISTER_GENERIC_ERROR = "Impossible de créer le compte pour le moment. Vérifiez vos informations et réessayez."
-
+# Inscription : limite par IP (settings.RATELIMIT_REGISTER_IP) + honeypot signe
+# (core/services/honeypot.py : champ piege + horodatage signe, erreur generique).
 
 # ── helpers ────────────────────────────────────────────────────────────────
 
@@ -151,12 +147,13 @@ def register_view(request):
                 status=429,
             )
 
-        if request.POST.get(REGISTER_HONEYPOT_FIELD, "").strip():
-            logger.info("Inscription bloquee par le honeypot (ip=%s).", ip)
+        reason = honeypot.rejection_reason(request.POST)
+        if reason:
+            logger.info("Inscription bloquee par le honeypot (%s, ip=%s).", reason, ip)
             return render(
                 request,
                 "accounts/register.html",
-                {"errors": [REGISTER_GENERIC_ERROR], "form_data": form_data},
+                {"errors": [honeypot.GENERIC_ERROR], "form_data": form_data},
             )
 
         phone = _normalize(raw_phone)

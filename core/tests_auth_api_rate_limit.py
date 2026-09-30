@@ -8,6 +8,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from core.services import rate_limit
+from core.testing_helpers import honeypot_ok
 
 User = get_user_model()
 LOGIN = "/api/v1/accounts/auth/login/"
@@ -54,7 +55,7 @@ class ApiAuthRateLimitTests(TestCase):
             self.client.post(
                 reverse("register"),
                 {"business_name": "B", "phone": f"+2237100{n:04d}", "password": "pass-123456",
-                 "password2": "pass-123456", "accept_terms": "1"},
+                 "password2": "pass-123456", "accept_terms": "1", **honeypot_ok()},
                 REMOTE_ADDR="196.200.1.1",
             )
             self.client.logout()

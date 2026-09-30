@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load hf_honeypot %}
 {% block title %}Créer mon compte — HayaFlash{% endblock %}
 
 {% block content %}
@@ -118,11 +119,7 @@
           </label>
         </div>
 
-        <!-- Champ piege anti-bot (core/views.py REGISTER_HONEYPOT_FIELD) : hors ecran, pas type=hidden -->
-        <div aria-hidden="true" style="position:absolute; left:-10000px; top:auto; width:1px; height:1px; overflow:hidden;">
-          <label for="website">Site web (laisser vide)</label>
-          <input type="text" id="website" name="website" value="" tabindex="-1" autocomplete="off" aria-hidden="true">
-        </div>
+        {% honeypot_fields %}
 
         <!-- Submit -->
         <button

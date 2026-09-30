@@ -10,6 +10,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from core.models import LegalAcceptance, LegalDocument
+from core.testing_helpers import honeypot_ok
 
 User = get_user_model()
 
@@ -111,6 +112,7 @@ class RegisterLegalAcceptanceTests(TestCase):
             "phone": "+22370000009",
             "password": "pass-123456",
             "password2": "pass-123456",
+            **honeypot_ok(),
         }
         data.update(extra)
         return data

@@ -9,7 +9,8 @@ from django.urls import reverse
 from django.utils.html import escape
 
 from core import views
-from core.services import rate_limit
+from core.services import honeypot, rate_limit
+from core.testing_helpers import honeypot_ok
 
 User = get_user_model()
 
@@ -61,6 +62,7 @@ class RegisterRateLimitAndHoneypotTests(TestCase):
             "password": "pass-123456",
             "password2": "pass-123456",
             "accept_terms": "1",
+            **honeypot_ok(),
         }
         data.update(extra)
         return data
@@ -77,6 +79,7 @@ class RegisterRateLimitAndHoneypotTests(TestCase):
     def test_form_has_offscreen_honeypot(self) -> None:
         response = self.client.get(self.url)
         self.assertContains(response, 'name="website"')
+        self.assertContains(response, 'name="form_ts"')
         self.assertContains(response, 'tabindex="-1"')
         self.assertNotContains(response, 'type="hidden" id="website"')
 
@@ -88,7 +91,7 @@ class RegisterRateLimitAndHoneypotTests(TestCase):
                 self.url, self.payload(website="http://spam.example"), REMOTE_ADDR="196.200.4.4"
             )
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, views.REGISTER_GENERIC_ERROR)
+        self.assertContains(response, honeypot.GENERIC_ERROR)
         self.assertEqual(User.objects.count(), 0)
         self.assertEqual(LegalAcceptance.objects.count(), 0)
         self.assertIn("196.200.4.4", "\n".join(logs.output))
