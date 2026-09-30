@@ -99,7 +99,9 @@ services:
     expose:
       - "8000"
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health/ || exit 1"]
+      # X-Forwarded-Proto: sans lui, SECURE_SSL_REDIRECT repond 301 (accepte par
+      # curl -f) et la vue /health/ ne s'execute jamais (F-56). Pas de -L (voir Dockerfile).
+      test: ["CMD-SHELL", "curl -sf -H 'X-Forwarded-Proto: https' http://localhost:8000/health/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
