@@ -19,22 +19,17 @@ from core.legal import (
     record_legal_acceptances,
 )
 from core.services import rate_limit
+from core.services.rate_limit import LOGIN_RATE_LIMIT_MESSAGE, REGISTER_RATE_LIMIT_MESSAGE
 from core.services.client_ip import get_client_ip
 
 logger = logging.getLogger(__name__)
 
-# Limites de debit connexion (core/services/rate_limit.py, fail-open).
-LOGIN_WINDOW_SECONDS = 15 * 60
-LOGIN_MAX_ATTEMPTS_PER_IP = 20  # toutes tentatives POST
+# Limites de debit (valeurs : settings.RATELIMIT_*, core/services/rate_limit.py, fail-open).
 # Le verrou par telephone + IP (5 echecs / 30 min) est gere par django-axes
 # (config/settings/base.py, AXES_*) : pas de verrou "telephone seul" ici, sinon
 # n'importe qui bloquerait un vendeur en pleine vente.
-LOGIN_RATE_LIMIT_MESSAGE = "Trop de tentatives. Réessayez dans quelques minutes."
 
 # Inscription : limite par IP (toutes tentatives POST) + champ piege "website".
-REGISTER_WINDOW_SECONDS = 60 * 60
-REGISTER_MAX_ATTEMPTS_PER_IP = 5
-REGISTER_RATE_LIMIT_MESSAGE = "Trop d'inscriptions depuis ce réseau. Réessayez plus tard."
 REGISTER_HONEYPOT_FIELD = "website"
 # Erreur generique (et non faux succes) : un humain qui aurait rempli le champ
 # par autocompletion peut reessayer au lieu de croire son compte cree.
@@ -104,13 +99,7 @@ def login_view(request):
         raw_phone = request.POST.get("phone", "").strip()
         password = request.POST.get("password", "")
 
-        ip_limited = rate_limit.hit(
-            f"login:ip:{get_client_ip(request)}",
-            limit=LOGIN_MAX_ATTEMPTS_PER_IP,
-            window_seconds=LOGIN_WINDOW_SECONDS,
-        )
-
-        if ip_limited:
+        if rate_limit.login_ip_limited(request):
             return render(
                 request,
                 "accounts/login.html",
@@ -154,11 +143,7 @@ def register_view(request):
         }
 
         ip = get_client_ip(request)
-        if rate_limit.hit(
-            f"register:ip:{ip}",
-            limit=REGISTER_MAX_ATTEMPTS_PER_IP,
-            window_seconds=REGISTER_WINDOW_SECONDS,
-        ):
+        if rate_limit.register_ip_limited(request):
             return render(
                 request,
                 "accounts/register.html",

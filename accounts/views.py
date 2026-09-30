@@ -8,6 +8,9 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from core.services import rate_limit
+from core.services.rate_limit import LOGIN_RATE_LIMIT_MESSAGE, REGISTER_RATE_LIMIT_MESSAGE
+
 from .serializers import LoginSerializer, RegisterSerializer, UserSerializer
 from .services.auth import login_user, register_user
 
@@ -16,6 +19,11 @@ class RegisterView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
+        if rate_limit.register_ip_limited(request):
+            return Response(
+                {"detail": [REGISTER_RATE_LIMIT_MESSAGE]},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = register_user(serializer.validated_data, request=request)
@@ -29,6 +37,11 @@ class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
+        if rate_limit.login_ip_limited(request):
+            return Response(
+                {"detail": [LOGIN_RATE_LIMIT_MESSAGE]},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = login_user(request, serializer.validated_data)

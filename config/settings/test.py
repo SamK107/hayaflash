@@ -138,6 +138,16 @@ AXES_LOCKOUT_MESSAGE = (
     "WhatsApp depuis votre numéro inscrit."
 )
 
+# ── Anti-bot : limites de debit Django (core/services/rate_limit.py) ──────────
+# (maximum, fenetre en secondes). Par IP sur login/inscription ; par NUMERO de
+# telephone acheteur sur les commandes (CGNAT : une IP mobile malienne est
+# partagee par beaucoup d'acheteurs, donc pas de limite fine par IP la-bas).
+# Coupe en test (les tests dedies l'activent via override_settings).
+RATELIMIT_ENABLE = False
+RATELIMIT_LOGIN_IP = (10, 60)
+RATELIMIT_REGISTER_IP = (5, 60 * 60)
+RATELIMIT_ORDER_PHONE = (10, 10 * 60)
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 USE_TZ = True
 TIME_ZONE = "Africa/Bamako"

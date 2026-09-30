@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.conf import settings
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils.html import escape
 
 from core import views
+from core.services import rate_limit
 
 User = get_user_model()
 
@@ -15,6 +17,7 @@ PHONE = "+22370000001"
 PASSWORD = "bonmotdepasse"
 
 
+@override_settings(RATELIMIT_ENABLE=True)
 class LoginRateLimitTests(TestCase):
     def setUp(self) -> None:
         self.user = User.objects.create_user(phone=PHONE, password=PASSWORD, display_name="Awa")
@@ -34,18 +37,19 @@ class LoginRateLimitTests(TestCase):
         self.assertEqual(self._post(password=PASSWORD, ip="196.200.8.8").status_code, 302)
 
     def test_ip_limit(self) -> None:
-        for i in range(views.LOGIN_MAX_ATTEMPTS_PER_IP):
+        for i in range(settings.RATELIMIT_LOGIN_IP[0]):
             response = self._post(phone=f"+2237000{i:04d}", ip="196.200.9.9")
             self.assertEqual(response.status_code, 200)
         response = self._post(phone="+22371111111", ip="196.200.9.9")
         self.assertEqual(response.status_code, 429)
 
     def test_get_is_not_counted(self) -> None:
-        for _ in range(views.LOGIN_MAX_ATTEMPTS_PER_IP + 5):
+        for _ in range(settings.RATELIMIT_LOGIN_IP[0] + 5):
             self.assertEqual(self.client.get(self.url).status_code, 200)
         self.assertEqual(self._post(password=PASSWORD).status_code, 302)
 
 
+@override_settings(RATELIMIT_ENABLE=True)
 class RegisterRateLimitAndHoneypotTests(TestCase):
     def setUp(self) -> None:
         self.url = reverse("register")
@@ -90,17 +94,17 @@ class RegisterRateLimitAndHoneypotTests(TestCase):
         self.assertIn("196.200.4.4", "\n".join(logs.output))
 
     def test_sixth_registration_from_same_ip_is_429(self) -> None:
-        for n in range(views.REGISTER_MAX_ATTEMPTS_PER_IP):
+        for n in range(settings.RATELIMIT_REGISTER_IP[0]):
             self.client.post(self.url, self.payload(n), REMOTE_ADDR="196.200.5.5")
             self.client.logout()
         response = self.client.post(self.url, self.payload(99), REMOTE_ADDR="196.200.5.5")
         self.assertEqual(response.status_code, 429)
-        self.assertContains(response, escape(views.REGISTER_RATE_LIMIT_MESSAGE), status_code=429)
+        self.assertContains(response, escape(rate_limit.REGISTER_RATE_LIMIT_MESSAGE), status_code=429)
         self.assertFalse(User.objects.filter(phone="+22371000099").exists())
-        self.assertEqual(User.objects.count(), views.REGISTER_MAX_ATTEMPTS_PER_IP)
+        self.assertEqual(User.objects.count(), settings.RATELIMIT_REGISTER_IP[0])
 
     def test_other_ip_can_still_register(self) -> None:
-        for n in range(views.REGISTER_MAX_ATTEMPTS_PER_IP + 1):
+        for n in range(settings.RATELIMIT_REGISTER_IP[0] + 1):
             self.client.post(self.url, self.payload(n), REMOTE_ADDR="196.200.5.5")
             self.client.logout()
         response = self.client.post(self.url, self.payload(50), REMOTE_ADDR="196.200.6.6")

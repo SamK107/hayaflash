@@ -12,7 +12,7 @@ from rest_framework.response import Response
 
 from delivery.services.delivery import delivery_public_snapshot
 from orders.models import Order
-from orders.services.client_order import submit_public_order_api
+from orders.services.client_order import OrderRateLimited, submit_public_order_api
 from analytics.services.public_pages import build_referral_loop_context
 
 
@@ -32,7 +32,7 @@ def _validation_response(exc: ValidationError) -> tuple[dict, int]:
         msgs = list(getattr(exc, "messages", [str(exc)]))
         detail = {"detail": msgs}
     flat = _flatten_validation_messages(detail)
-    if "Too many order attempts" in flat:
+    if isinstance(exc, OrderRateLimited) or "Too many order attempts" in flat:
         return detail, status.HTTP_429_TOO_MANY_REQUESTS
     return detail, status.HTTP_400_BAD_REQUEST
 
