@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from pathlib import Path
 
 # Base minimale sans charger .env
@@ -24,6 +25,7 @@ THIRD_PARTY_APPS = [
     "rest_framework",
     "corsheaders",
     "django_htmx",
+    "axes",  # desactive globalement ci-dessous (AXES_ENABLED), actif dans core/tests_axes.py
     "django_celery_beat",  # F-20 : parite avec base.py (DatabaseScheduler)
 ]
 LOCAL_APPS = [
@@ -48,6 +50,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
+    "axes.middleware.AxesMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -115,9 +118,25 @@ STATICFILES_DIRS = []
 
 AUTH_USER_MODEL = "accounts.User"
 AUTHENTICATION_BACKENDS = [
+    "axes.backends.AxesStandaloneBackend",
     "accounts.backends.PhoneAuthBackend",
     "django.contrib.auth.backends.ModelBackend",
 ]
+
+# Anti-bot : memes reglages que base.py, mais coupes par defaut (les tests qui
+# enchainent des echecs de connexion ne doivent pas se verrouiller entre eux).
+AXES_ENABLED = False
+AXES_FAILURE_LIMIT = 5
+AXES_COOLOFF_TIME = timedelta(minutes=30)
+AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
+AXES_RESET_ON_SUCCESS = True
+AXES_USERNAME_CALLABLE = "core.services.axes_hooks.lockout_username"
+AXES_CLIENT_IP_CALLABLE = "core.services.client_ip.get_client_ip"
+AXES_LOCKOUT_CALLABLE = "core.services.axes_hooks.lockout_response"
+AXES_LOCKOUT_MESSAGE = (
+    "Trop de tentatives. Réessayez dans 30 minutes ou contactez le support "
+    "WhatsApp depuis votre numéro inscrit."
+)
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 USE_TZ = True

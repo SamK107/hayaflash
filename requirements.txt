@@ -35,6 +35,9 @@ python-dotenv==1.2.2
 # Server
 gunicorn==25.3.0
 
+# Security — verrouillage anti brute-force du login (telephone + IP)
+django-axes==8.3.1
+
 # Security — Argon2 password hasher
 argon2-cffi==23.1.0
 

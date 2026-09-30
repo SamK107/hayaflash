@@ -26,7 +26,9 @@ logger = logging.getLogger(__name__)
 # Limites de debit connexion (core/services/rate_limit.py, fail-open).
 LOGIN_WINDOW_SECONDS = 15 * 60
 LOGIN_MAX_ATTEMPTS_PER_IP = 20  # toutes tentatives POST
-LOGIN_MAX_FAILURES_PER_PHONE = 5  # echecs seulement, remis a zero au succes
+# Le verrou par telephone + IP (5 echecs / 30 min) est gere par django-axes
+# (config/settings/base.py, AXES_*) : pas de verrou "telephone seul" ici, sinon
+# n'importe qui bloquerait un vendeur en pleine vente.
 LOGIN_RATE_LIMIT_MESSAGE = "Trop de tentatives. Réessayez dans quelques minutes."
 
 # Inscription : limite par IP (toutes tentatives POST) + champ piege "website".
@@ -107,12 +109,8 @@ def login_view(request):
             limit=LOGIN_MAX_ATTEMPTS_PER_IP,
             window_seconds=LOGIN_WINDOW_SECONDS,
         )
-        phone_key = rate_limit.phone_key("login", _normalize(raw_phone)) if raw_phone else None
 
-        if ip_limited or (
-            phone_key and rate_limit.is_limited(phone_key, limit=LOGIN_MAX_FAILURES_PER_PHONE)
-        ):
-            # Meme message que le numero existe ou non : pas d'enumeration.
+        if ip_limited:
             return render(
                 request,
                 "accounts/login.html",
@@ -126,16 +124,10 @@ def login_view(request):
             phone = _normalize(raw_phone)
             user = authenticate(request, username=phone, password=password)
             if user is not None:
-                rate_limit.reset(phone_key)
                 login(request, user)
                 next_url = request.GET.get("next") or _post_login_redirect_target(user)
                 return redirect(next_url)
             else:
-                rate_limit.hit(
-                    phone_key,
-                    limit=LOGIN_MAX_FAILURES_PER_PHONE,
-                    window_seconds=LOGIN_WINDOW_SECONDS,
-                )
                 error = "Numéro de téléphone ou mot de passe incorrect."
 
     return render(request, "accounts/login.html", {"error": error})
