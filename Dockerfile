@@ -59,9 +59,13 @@ RUN python manage.py collectstatic --noinput --clear 2>/dev/null || true
 
 EXPOSE 8000
 
-# Healthcheck
+# Healthcheck (F-56). En production SECURE_SSL_REDIRECT repond 301 a toute requete
+# sans X-Forwarded-Proto: https : sans cet en-tete, `curl -f` prenait ce 301 pour
+# un succes et la vue (base + cache) ne s'executait jamais. On emule le proxy de
+# l'hote. Pas de `curl -L` : la redirection vise https://localhost:8000 alors que
+# Gunicorn ne parle qu'en HTTP (echec SSL). Garde-fou : core/tests_healthcheck.py.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:8000/health/ || exit 1
+  CMD curl -f -H 'X-Forwarded-Proto: https' http://localhost:8000/health/ || exit 1
 
 # Gunicorn avec workers géo-précalculés (2*CPU + 1)
 CMD ["sh", "-c", "gunicorn config.wsgi:application \

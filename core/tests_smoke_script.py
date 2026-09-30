@@ -104,8 +104,11 @@ class SmokeScriptTests(SimpleTestCase):
 
     def _against(self, overrides, bodies=None, env=None):
         httpd = _server(overrides, bodies)
-        self.addCleanup(httpd.shutdown)
+        # addCleanup s'execute en ordre INVERSE : on enregistre server_close en
+        # premier pour que shutdown() arrete la boucle serve_forever AVANT la
+        # fermeture du socket (sinon WinError 10038 dans le thread du serveur).
         self.addCleanup(httpd.server_close)
+        self.addCleanup(httpd.shutdown)
         self.httpd = httpd
         return _run(f"http://127.0.0.1:{httpd.server_address[1]}", env)
 
