@@ -25,7 +25,10 @@ from orders.services.create_order import create_order
 from products.models import FlashSaleProduct, Product
 
 ORDER_SUBMIT_RATE_WINDOW_SECONDS = 60
-ORDER_SUBMIT_RATE_MAX_PER_WINDOW = 30
+# 120/min/IP (et non 30) : les operateurs mobiles maliens sont en CGNAT, une IP
+# est partagee par beaucoup d'acheteurs. Aligne sur Nginx `api_orders` (120 r/min) ;
+# la finesse vient de la limite par numero (settings.RATELIMIT_ORDER_PHONE).
+ORDER_SUBMIT_RATE_MAX_PER_WINDOW = 120
 MAX_AUDIO_BASE64_LENGTH = 2_000_000  # ~1.5 MB decoded, generous for a short voice note
 
 

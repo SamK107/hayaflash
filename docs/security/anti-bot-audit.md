@@ -106,7 +106,7 @@ Oui (HTML `core/views.py:127`, API `accounts/services/auth.py:31`), avec `reques
 | 2 | Protéger l'API DRF d'auth (**bloquant**) | **F-19 non traité** : ⬜ dans `docs/releases/v1.0.0-rc1.md:537`, l'API est **toujours routée** (`config/api_urls.py:125`). Donc protégée (B, C) ; retirer l'API plus tard (F-19) rendrait ces protections API superflues, sans les rendre nuisibles |
 | 3 | Pas de django-ratelimit, étendre `rate_limit.py` | Fait (section C2) |
 | 4 | Honeypot en helper + partial | Fait (section D) |
-| 5 | Zones Nginx auth étendues ; zone commandes à trancher | Auth fait. **Zone commandes inchangée** (10 r/s burst 20) en attendant ta décision : estimation ci-dessous |
+| 5 | Zones Nginx auth étendues ; zone commandes | Auth fait. **Commandes : 120 r/min burst 40 (Nginx) et 120/min/IP (Django)**, relevés ensemble (décision 30/09) ; contrepartie : F-59 en item P7-8 du suivi |
 | 6 | IP passerelle Docker en Phase 4 | Commande documentée ci-dessous, aucune mesure faite |
 | 7 | Section E : proposition seulement + nouveau finding | **F-59** ouvert dans le suivi ; proposition ci-dessous |
 | 8 | Garde `REDIS_URL` prod/staging | Fait (`config/settings/prod.py`, `staging.py`) |
@@ -170,7 +170,7 @@ proxy_set_header X-Forwarded-Proto $scheme;
 
 - Zone `auth` : **10 r/min**, burst 5, 429 ; appliquée à `/login/`, `/register/`, `/otp/` **et** `/api/v1/accounts/auth/`.
 - Réponse 429 **JSON** (`@rate_limited_json`) sur l'API d'auth et `/api/v1/orders/` : le front Alpine lit le premier message de l'objet ; un 429 HTML faisait afficher « Connexion impossible ».
-- Rien sur `/static/` ni `/media/` (test). **Zone commandes `api_orders` inchangée** (voir plus bas).
+- Rien sur `/static/` ni `/media/` (test). **Zone commandes `api_orders` : 120 r/min (2 r/s), burst 40** (décision 30/09), alignée sur Django (voir plus bas).
 - La zone `auth` est commune aux 4 routes, par IP : elle dépend de `set_real_ip_from` (section A).
 
 ### C2 — Django (`core/services/rate_limit.py`, constantes `RATELIMIT_*` dans les settings)
@@ -178,11 +178,11 @@ proxy_set_header X-Forwarded-Proto $scheme;
 - Cache : Redis en prod, **imposé** par la garde `REDIS_URL`.
 - Login : **10/min/IP** (`RATELIMIT_LOGIN_IP`), remplace l'ancien 20/15 min. Inscription : **5/h/IP** (`RATELIMIT_REGISTER_IP`). **Mêmes clés** pour le HTML et l'API DRF (changer de route ne donne pas un second quota).
 - Commande : **10 / 10 min par numéro acheteur** (`RATELIMIT_ORDER_PHONE`). Clé = 8 derniers chiffres (`+22370000001` et `70 00 00 01` partagent le quota). Compté seulement pour une **nouvelle** commande (un rejeu idempotent ne consomme rien). 429 JSON en français : `{"detail": ["Trop de commandes avec ce numéro. …"]}`.
-- Limite déjà en place, conservée et non touchée : 30/min/IP sur `/api/v1/orders/` (`orders/services/client_order.py`, PS-09).
+- Plafond par IP sur `/api/v1/orders/` (`orders/services/client_order.py::ORDER_SUBMIT_RATE_MAX_PER_WINDOW`) : **relevé de 30 à 120/min** avec Nginx (décision 30/09). Les lignes PS-09 / AR-07 de la matrice du suivi citent encore « 30 / IP / min » : à réaligner par l'audit.
 - `RATELIMIT_ENABLE = False` en test, activé par `override_settings` dans les tests dédiés (`core/tests_auth_rate_limit.py`, `core/tests_auth_api_rate_limit.py`, `orders/tests_order_phone_limit.py`). Nginx : `core/tests_nginx_ratelimit.py`.
 - Limite assumée : la limite par téléphone ne gêne pas un bot qui change de numéro à chaque commande ; c'est F-59 qui traite ce cas.
 
-### Zone commandes Nginx : estimation pour ta décision
+### Zone commandes Nginx : estimation (décision prise : 120 r/min burst 40 + Django 120/min, appliqué)
 
 Trois plafonds s'empilent sur `/api/v1/orders/` pour **une même IP** :
 
@@ -210,7 +210,7 @@ Comparaison avec un pic. **Ce sont des hypothèses, pas des mesures** : je n'ai 
 
 Deux effets de bord : (a) un bot derrière la **même** IP consomme le quota des acheteurs légitimes de cette IP ; (b) à 30 ou 60 commandes/min, un bot avec des numéros différents vide un stock de quelques dizaines d'unités en une minute. **Aucune limite d'IP compatible CGNAT ne protège le stock** : c'est F-59.
 
-Recommandation : Nginx `api_orders` à **120 r/min (2 r/s), burst 40**, et Django `ORDER_SUBMIT_RATE_MAX_PER_WINDOW` à **120/min**, relevés ensemble. La finesse repose sur la limite par téléphone (10/10 min) et sur F-59. Sinon, garder l'existant (10 r/s et 30/min) en sachant qu'il bloque les IP partagées dès ~23 acheteurs/min. **Rien modifié en attendant ta décision.**
+Recommandation : Nginx `api_orders` à **120 r/min (2 r/s), burst 40**, et Django `ORDER_SUBMIT_RATE_MAX_PER_WINDOW` à **120/min**, relevés ensemble. La finesse repose sur la limite par téléphone (10/10 min) et sur F-59. Sinon, garder l'existant (10 r/s et 30/min) en sachant qu'il bloque les IP partagées dès ~23 acheteurs/min. **Décision du 30/09 : recommandation appliquée** (`infra/nginx/prod.conf` : `rate=120r/m`, `burst=40` ; `ORDER_SUBMIT_RATE_MAX_PER_WINDOW = 120`). Tests : `core/tests_nginx_ratelimit.py::NginxOrdersZoneTests`. Contrepartie : **F-59 est un item explicite de P7-8** dans le suivi.
 
 ## Section D — Honeypot (fait)
 
@@ -224,7 +224,13 @@ Recommandation : Nginx `api_orders` à **120 r/min (2 r/s), burst 40**, et Djang
 
 `config/settings/prod.py` et `staging.py` lèvent `ImproperlyConfigured` si `REDIS_URL` est vide (tests : `core/tests_security_settings.py`). Conséquences à reporter dans le déploiement :
 
-- `/srv/hayaflash/.env` doit contenir `REDIS_URL` **avec le mot de passe** (le compose lance Redis avec `--requirepass ${REDIS_PASSWORD}`) : `redis://:<REDIS_PASSWORD>@redis:6379/1`. Sans mot de passe dans l'URL, Redis refuse les commandes et `rate_limit.py` (fail-open) **laisse tout passer en silence** : à vérifier avant le premier déploiement.
+- `/srv/hayaflash/.env` doit contenir `REDIS_URL` **avec le mot de passe** (le compose lance Redis avec `--requirepass ${REDIS_PASSWORD}`). Format exact, à reprendre tel quel en Phase 4 (`redis` = nom du service compose, base n° 1 ; les deux-points avant le mot de passe sont obligatoires, utilisateur vide) :
+
+  ```
+  REDIS_URL=redis://:<REDIS_PASSWORD>@redis:6379/1
+  ```
+
+  Si le mot de passe contient `@ : / ? # %`, l'encoder en pourcentage dans l'URL (ou choisir un mot de passe alphanumérique). Sans mot de passe dans l'URL, Redis refuse les commandes et `rate_limit.py` (fail-open) **laisse tout passer en silence** : à vérifier avant le premier déploiement.
 - `scripts/release_check.py` passe désormais un `REDIS_URL` factice à `check --deploy` (sinon la garde le ferait échouer).
 
 ## F-59 — stock réservé sans expiration (nouveau finding, ajouté au suivi)
@@ -253,8 +259,8 @@ Non implémentée (conditionnelle) : la section 0 a confirmé le COD. Le risque 
 | Contrôle | Résultat |
 |---|---|
 | `manage.py check --deploy --fail-level WARNING --settings=config.settings.prod` (env factice : `DEBUG=false`, `SECURE_SSL_REDIRECT=true`, `REDIS_URL` factice) | **0 warning** |
-| `pytest --ds=config.settings.test` | **602 passed**, 3 skipped (base de départ : 561) |
-| Couverture | **89 %** (11 721 lignes) — identique à la base de départ (89 %) |
+| `pytest --ds=config.settings.test` | **604 passed**, 3 skipped (base de départ : 561) — relancé après le relèvement des limites commandes |
+| Couverture | **89 %** (11 732 lignes) — identique à la base de départ (89 %) |
 | `ruff check . --select E,F,W --ignore E501` | vert |
 | `makemigrations --check --dry-run` | aucun changement (les migrations d'`axes` viennent du paquet) |
 | `pip-audit -r requirements.txt` | **aucune vulnérabilité connue** (dont `django-axes==8.3.1`) |
@@ -268,7 +274,7 @@ Remarques :
 
 ### À faire par toi (rien de fait côté VPS / HestiaCP)
 
-1. Décider de la zone Nginx commandes (estimation plus haut).
+1. ~~Décider de la zone Nginx commandes~~ : décidé et appliqué (120 r/min burst 40 / Django 120/min).
 2. Phase 4 : `docker network inspect`, puis `set_real_ip_from` + `TRUSTED_PROXY_NETWORKS` ; snippet HestiaCP (section A).
-3. `/srv/hayaflash/.env` : `REDIS_URL=redis://:<REDIS_PASSWORD>@redis:6379/1` (obligatoire désormais, sinon le démarrage échoue). `manage.py migrate` (tables `axes_*`).
+3. `/srv/hayaflash/.env` : `REDIS_URL=redis://:<REDIS_PASSWORD>@redis:6379/1` (obligatoire désormais, sinon le démarrage échoue). `manage.py migrate` (tables `axes_*`) : fait par le mainteneur en local, hors de cette PR.
 4. Vérification post-déploiement (section A).

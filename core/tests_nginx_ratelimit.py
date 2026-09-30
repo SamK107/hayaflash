@@ -40,3 +40,23 @@ class NginxRateLimitZonesTests(SimpleTestCase):
     def test_real_ip_is_read_from_forwarded_for_recursively(self):
         self.assertRegex(self.text, r"real_ip_header\s+X-Forwarded-For;")
         self.assertRegex(self.text, r"real_ip_recursive\s+on;")
+
+
+class NginxOrdersZoneTests(SimpleTestCase):
+    """Zone commandes alignee sur la limite Django (120/min/IP, CGNAT)."""
+
+    def setUp(self):
+        self.text = CONF.read_text(encoding="utf-8").replace("\r\n", "\n")
+
+    def test_orders_zone_is_120_per_minute_burst_40(self):
+        self.assertRegex(
+            self.text, r"limit_req_zone \$binary_remote_addr zone=api_orders:\w+ rate=120r/m;"
+        )
+        body = dict(_blocks(self.text))["/api/v1/orders/"]
+        self.assertIn("limit_req zone=api_orders burst=40 nodelay;", body)
+
+    def test_django_ip_cap_matches_nginx(self):
+        from orders.services import client_order
+
+        self.assertEqual(client_order.ORDER_SUBMIT_RATE_MAX_PER_WINDOW, 120)
+        self.assertEqual(client_order.ORDER_SUBMIT_RATE_WINDOW_SECONDS, 60)
