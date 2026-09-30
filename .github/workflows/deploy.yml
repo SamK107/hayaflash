@@ -118,9 +118,16 @@ jobs:
           script: |
             set -e
             cd /srv/hayaflash
-            git pull origin main
+            # Deploie le SHA EXACT de l'image (F-09), pas la pointe de main : main a
+            # pu avancer depuis ce build (scripts / compose differents de l'image).
+            git fetch --prune origin
+            git checkout --detach "${{ github.sha }}"
+            # SMOKE_HOST : le smoke test vise 127.0.0.1:8010 ; sans le domaine public
+            # en en-tete Host, Django refuse la requete (ALLOWED_HOSTS) et le smoke
+            # test echoue toujours (F-52). Secret STAGING_DOMAIN a creer en Phase 4.
+            SMOKE_HOST="${{ secrets.STAGING_DOMAIN }}" \
             DOCKER_IMAGE="${{ needs.build.outputs.image }}" HAYAFLASH_TAG="${{ github.sha }}" \
-              bash infra/scripts/deploy.sh http://localhost:8000
+              bash infra/scripts/deploy.sh http://127.0.0.1:8010
 
   # ── Deploy prod : seulement si staging + son healthcheck sont passes ────────
   # PAUSE VOLONTAIRE (13/09) : meme raison que deploy-staging. Cascaderait de
@@ -143,6 +150,9 @@ jobs:
           script: |
             set -e
             cd /srv/hayaflash
-            git pull origin main
+            # Deploie le SHA EXACT de l'image (F-09), pas la pointe de main : main a
+            # pu avancer depuis ce build (scripts / compose differents de l'image).
+            git fetch --prune origin
+            git checkout --detach "${{ github.sha }}"
             DOCKER_IMAGE="${{ needs.build.outputs.image }}" HAYAFLASH_TAG="${{ github.sha }}" \
               bash infra/scripts/deploy.sh https://${{ secrets.PROD_DOMAIN }}

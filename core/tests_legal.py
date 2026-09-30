@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase, modify_settings
+from django.test import TestCase, modify_settings, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -166,12 +166,30 @@ class AcceptanceIpTests(TestCase):
         request = RequestFactory().get("/", REMOTE_ADDR="")
         self.assertIsNone(acceptance_ip(request))
 
-    def test_forwarded_for_first_ip(self):
+    def test_forwarded_for_from_client_is_not_trusted(self):
+        """F-26 : ancien test « 1er X-Forwarded-For » = comportement vulnerable.
+
+        Ce en-tete est fourni par le client : la preuve d'acceptation des CGU
+        ne doit pas pouvoir etre falsifiee. On enregistre l'IP de la connexion.
+        """
         from django.test import RequestFactory
 
         from core.legal import acceptance_ip
 
-        request = RequestFactory().get("/", HTTP_X_FORWARDED_FOR="41.73.1.1, 10.0.0.1")
+        request = RequestFactory().get(
+            "/", REMOTE_ADDR="196.200.1.4", HTTP_X_FORWARDED_FOR="41.73.1.1, 10.0.0.1"
+        )
+        self.assertEqual(acceptance_ip(request), "196.200.1.4")
+
+    @override_settings(TRUSTED_PROXY_NETWORKS=["172.16.0.0/12"])
+    def test_trusted_proxy_header_is_used(self):
+        from django.test import RequestFactory
+
+        from core.legal import acceptance_ip
+
+        request = RequestFactory().get(
+            "/", REMOTE_ADDR="172.18.0.5", HTTP_X_REAL_IP="41.73.1.1"
+        )
         self.assertEqual(acceptance_ip(request), "41.73.1.1")
 
 

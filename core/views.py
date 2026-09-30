@@ -19,6 +19,7 @@ from core.legal import (
     record_legal_acceptances,
 )
 from core.services import rate_limit
+from core.services.client_ip import get_client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +103,7 @@ def login_view(request):
         password = request.POST.get("password", "")
 
         ip_limited = rate_limit.hit(
-            f"login:ip:{rate_limit.client_ip(request)}",
+            f"login:ip:{get_client_ip(request)}",
             limit=LOGIN_MAX_ATTEMPTS_PER_IP,
             window_seconds=LOGIN_WINDOW_SECONDS,
         )
@@ -160,7 +161,7 @@ def register_view(request):
             "accept_terms": accept_terms,
         }
 
-        ip = rate_limit.client_ip(request)
+        ip = get_client_ip(request)
         if rate_limit.hit(
             f"register:ip:{ip}",
             limit=REGISTER_MAX_ATTEMPTS_PER_IP,

@@ -414,6 +414,12 @@ HEALTH_CELERY_MAX_AGE = int(os.environ.get("HEALTH_CELERY_MAX_AGE", "180"))
 # alerter sur Celery via le code HTTP.
 HEALTH_CELERY_REQUIRED = _env_bool("HEALTH_CELERY_REQUIRED")
 
+# ── IP client derriere proxy (F-26) ───────────────────────────────────────────
+# Reseaux (CIDR) dont l'en-tete X-Real-IP est cru : les proxys DE CONFIANCE qui
+# parlent directement a Gunicorn. Vide (defaut, dev/test) = aucun en-tete cru,
+# on n'utilise que REMOTE_ADDR. Lu par core/services/client_ip.py.
+TRUSTED_PROXY_NETWORKS = _csv("TRUSTED_PROXY_NETWORKS")
+
 # ── Django REST Framework ─────────────────────────────────────────────────────
 # ── Django REST Framework ─────────────────────────────────────────────────────
 REST_FRAMEWORK = {
@@ -423,9 +429,11 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    # Variantes qui identifient le client via core.services.client_ip (F-26),
+    # et non via l'en-tete X-Forwarded-For brut que DRF lirait par defaut.
     "DEFAULT_THROTTLE_CLASSES": [
-        "rest_framework.throttling.AnonRateThrottle",
-        "rest_framework.throttling.UserRateThrottle",
+        "core.throttling.TrustedProxyAnonRateThrottle",
+        "core.throttling.TrustedProxyUserRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
         "anon": "30/minute",

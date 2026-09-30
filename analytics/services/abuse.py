@@ -6,6 +6,8 @@ import re
 from django.core.cache import cache
 from django.http import HttpRequest
 
+from core.services.client_ip import get_client_ip
+
 _BOT_UA = re.compile(
     r"(bot|crawl|spider|slurp|curl|wget|python-requests|scrapy|headless)",
     re.I,
@@ -28,16 +30,9 @@ def normalize_tracking_source(raw: str | None) -> str:
     return value
 
 
-def client_ip(request: HttpRequest) -> str:
-    xff = request.META.get("HTTP_X_FORWARDED_FOR")
-    if xff:
-        return xff.split(",")[0].strip()[:45]
-    return (request.META.get("REMOTE_ADDR") or "unknown")[:45]
-
-
 def request_fingerprint(request: HttpRequest) -> str:
     ua = (request.META.get("HTTP_USER_AGENT") or "")[:256]
-    raw = f"{client_ip(request)}|{ua}"
+    raw = f"{get_client_ip(request)}|{ua}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
 
 
@@ -51,7 +46,7 @@ def is_suspected_bot(request: HttpRequest) -> bool:
 def allow_tracking_request(request: HttpRequest) -> bool:
     if is_suspected_bot(request):
         return False
-    ip_key = f"viral:track:ip:{client_ip(request)}"
+    ip_key = f"viral:track:ip:{get_client_ip(request)}"
     try:
         n = cache.incr(ip_key)
     except ValueError:
@@ -71,7 +66,7 @@ def allow_tracking_request(request: HttpRequest) -> bool:
 
 def allow_conversion_tracking(request: HttpRequest) -> bool:
     """Conversions are server-validated; IP throttle only (no bot heuristic)."""
-    ip_key = f"viral:track:conv:ip:{client_ip(request)}"
+    ip_key = f"viral:track:conv:ip:{get_client_ip(request)}"
     try:
         n = cache.incr(ip_key)
     except ValueError:

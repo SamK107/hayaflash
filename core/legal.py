@@ -8,7 +8,6 @@ nouveaux inscrits (les acceptations passées restent liées à leur version).
 from __future__ import annotations
 
 import datetime
-import ipaddress
 
 from django.utils import timezone
 
@@ -28,20 +27,13 @@ LEGAL_ACCEPTANCE_REQUIRED_MESSAGE = (
 def acceptance_ip(request) -> str | None:
     """IP du client pour la preuve d'acceptation, ou None si inexploitable.
 
-    Réutilise analytics.services.abuse.client_ip (1re IP de X-Forwarded-For,
-    sinon REMOTE_ADDR), qui renvoie "unknown" à défaut : on ne garde qu'une
-    IP valide (GenericIPAddressField).
+    Utilise l'unique extraction d'IP (core.services.client_ip) : l'en-tete du
+    proxy de confiance, jamais un X-Forwarded-For fourni par le client. On ne
+    garde qu'une IP valide (GenericIPAddressField).
     """
-    if request is None:
-        return None
-    from analytics.services.abuse import client_ip
+    from core.services.client_ip import get_client_ip_or_none
 
-    ip = client_ip(request)
-    try:
-        ipaddress.ip_address(ip)
-    except ValueError:
-        return None
-    return ip
+    return get_client_ip_or_none(request)
 
 
 def record_legal_acceptances(user, request=None) -> list:

@@ -5,9 +5,10 @@ from __future__ import annotations
 from unittest import mock
 
 from django.core.cache import cache
-from django.test import RequestFactory, SimpleTestCase
+from django.test import RequestFactory, SimpleTestCase, override_settings
 
 from core.services import rate_limit
+from core.services.client_ip import get_client_ip
 
 
 class HitTests(SimpleTestCase):
@@ -66,6 +67,10 @@ class KeyAndIpTests(SimpleTestCase):
         self.assertNotIn("70000000", key)
         self.assertEqual(key, rate_limit.phone_key("login", "+22370000000"))
 
+    # F-26 : l'extraction d'IP est desormais unique (core/services/client_ip.py) et
+    # ne croit X-Real-IP que si la connexion vient d'un proxy de confiance ;
+    # X-Forwarded-For n'est plus jamais lu. Cas detailles : core/tests_client_ip.py.
+    @override_settings(TRUSTED_PROXY_NETWORKS=["172.16.0.0/12"])
     def test_client_ip_prefers_x_real_ip_over_spoofable_xff(self) -> None:
         request = RequestFactory().get(
             "/",
@@ -73,16 +78,20 @@ class KeyAndIpTests(SimpleTestCase):
             HTTP_X_FORWARDED_FOR="6.6.6.6, 41.73.1.1",
             REMOTE_ADDR="172.18.0.5",
         )
-        self.assertEqual(rate_limit.client_ip(request), "41.73.1.1")
+        self.assertEqual(get_client_ip(request), "41.73.1.1")
 
-    def test_client_ip_falls_back_to_xff_then_remote_addr(self) -> None:
+    def test_client_ip_ignores_xff_and_falls_back_to_remote_addr(self) -> None:
         factory = RequestFactory()
+        # Ancien comportement (vulnerable) : « 41.73.1.2 », 1er element de XFF.
         self.assertEqual(
-            rate_limit.client_ip(factory.get("/", HTTP_X_FORWARDED_FOR="41.73.1.2, 10.0.0.1")),
-            "41.73.1.2",
+            get_client_ip(
+                factory.get("/", REMOTE_ADDR="196.200.1.9", HTTP_X_FORWARDED_FOR="41.73.1.2, 10.0.0.1")
+            ),
+            "196.200.1.9",
         )
-        self.assertEqual(rate_limit.client_ip(factory.get("/", REMOTE_ADDR="196.200.1.9")), "196.200.1.9")
+        self.assertEqual(get_client_ip(factory.get("/", REMOTE_ADDR="196.200.1.9")), "196.200.1.9")
 
+    @override_settings(TRUSTED_PROXY_NETWORKS=["172.16.0.0/12"])
     def test_client_ip_is_truncated(self) -> None:
-        request = RequestFactory().get("/", HTTP_X_REAL_IP="x" * 100)
-        self.assertEqual(len(rate_limit.client_ip(request)), 45)
+        request = RequestFactory().get("/", REMOTE_ADDR="172.18.0.5", HTTP_X_REAL_IP="x" * 100)
+        self.assertLessEqual(len(get_client_ip(request)), 45)
