@@ -52,3 +52,37 @@ class NginxSecurityHeadersTests(SimpleTestCase):
                         f"location {name} : {header} perdu (heritage add_header)",
                     )
         self.assertGreaterEqual(checked, 2)
+
+
+class NginxMediaAntiExecutionTests(SimpleTestCase):
+    """F-04 : /media/ (contenu uploade) ne doit jamais etre rendu comme une page."""
+
+    def setUp(self):
+        self.text = CONF.read_text(encoding="utf-8").replace("\r\n", "\n")
+        self.media = dict(_blocks(self.text))["/media/"]
+
+    def test_media_forces_sandbox_csp(self):
+        self.assertRegex(
+            self.media,
+            r"add_header\s+Content-Security-Policy\s+\"[^\"]*sandbox[^\"]*\"\s+always;",
+        )
+
+    def test_media_sets_content_disposition_from_map(self):
+        self.assertRegex(
+            self.media, r"add_header\s+Content-Disposition\s+\$hf_media_disposition\s+always;"
+        )
+
+    def test_map_serves_inline_only_expected_types_else_attachment(self):
+        m = re.search(r"map\s+\$uri\s+\$hf_media_disposition\s*\{(.*?)\n\}", self.text, re.S)
+        self.assertIsNotNone(m)
+        body = m.group(1)
+        self.assertRegex(body, r"default\s+\"attachment\";")
+        for ext in ("jpe?g", "png", "webp", "gif", "webm", "ogg", "mp3", "m4a", "wav"):
+            self.assertIn(ext, body)
+        for forbidden in ("html", "svg", "js", "php", "pdf"):
+            self.assertNotRegex(body.split("inline")[0], forbidden)
+
+    def test_media_headers_are_not_duplicated(self):
+        # Nginx concatene (ne fusionne pas) les add_header d'un meme nom.
+        names = re.findall(r"add_header\s+(\S+)", self.media)
+        self.assertEqual(len(names), len(set(names)), names)
