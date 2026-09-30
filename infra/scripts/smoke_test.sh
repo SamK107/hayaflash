@@ -52,6 +52,8 @@ check() {
 
 echo "=== HayaFlash Smoke Test : $BASE ==="
 
+# /health/ : DB + cache (503 « degraded » si l'un tombe) — GOVERNANCE_SECURITE.md cat. 2 (F-52)
+check "Health (DB + cache)" "$BASE/health/"        '"status":"ok"'
 check "Page d'accueil"      "$BASE/"               "HayaFlash"
 check "Page login"          "$BASE/login/"          "Se connecter"
 check "Page ventes publiq." "$BASE/ventes/"         ""

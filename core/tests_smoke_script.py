@@ -24,6 +24,7 @@ SCRIPT = REPO_ROOT / "infra" / "scripts" / "smoke_test.sh"
 CRLF, LF = b"\r\n", b"\n"
 
 BODIES = {
+    "/health/": b'{"status":"ok","service":"HayaFlash","checks":{"database":"ok"}}',
     "/": b"<h1>HayaFlash</h1>",
     "/login/": b"Se connecter",
     "/ventes/": b"ok",
@@ -135,7 +136,8 @@ class SmokeScriptTests(SimpleTestCase):
         r = _run(f"http://127.0.0.1:{port}")
         self.assertEqual(r.returncode, 1, r.stdout)
         self.assertNotIn("OK   [", r.stdout)  # ancien bug : « HTTP 000000 » compte OK
-        self.assertEqual(r.stdout.count("connexion impossible"), 5)
+        # une ligne par URL testee, /health/ comprise (6)
+        self.assertEqual(r.stdout.count("connexion impossible"), 6)
 
     def test_2xx_with_missing_pattern_still_fails(self):
         r = self._against({}, {**BODIES, "/": b"page vide"})
@@ -148,3 +150,18 @@ class SmokeScriptTests(SimpleTestCase):
         for headers in self.httpd.seen_headers:
             self.assertEqual(headers["x-forwarded-proto"], "https")
             self.assertEqual(headers["host"], "hayaflash.example")
+
+    def test_health_endpoint_is_checked(self):
+        """F-52 : /health/ (DB + cache) fait partie du smoke test."""
+        for code in (503, 500, 301, 404):
+            with self.subTest(code=code):
+                r = self._against({"/health/": code})
+                self.assertEqual(r.returncode, 1, r.stdout)
+                self.assertIn("FAIL [Health", r.stdout)
+                self.assertIn(f"HTTP {code}", r.stdout)
+
+    def test_health_200_but_not_ok_status_fails(self):
+        r = self._against({}, {**BODIES, "/health/": b'{"status":"degraded"}'})
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn("FAIL [Health", r.stdout)
+        self.assertIn("pattern", r.stdout)

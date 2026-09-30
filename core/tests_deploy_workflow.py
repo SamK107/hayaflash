@@ -47,3 +47,16 @@ class DeployWorkflowTests(SimpleTestCase):
         for name in ("deploy-staging", "deploy-prod"):
             with self.subTest(job=name):
                 self.assertRegex(_job(self.text, name), r"(?m)^    if: false$")
+
+    def test_staging_smoke_test_gets_the_public_host(self):
+        """F-52 : deploy.sh vise 127.0.0.1:8010 ; sans SMOKE_HOST, Django refuse le
+        Host « 127.0.0.1 » (ALLOWED_HOSTS) et le smoke test echoue toujours."""
+        job = _job(self.text, "deploy-staging")
+        match = re.search(r"SMOKE_HOST=\"?\$\{\{\s*secrets\.\w+\s*\}\}\"?", job)
+        self.assertIsNotNone(match, "SMOKE_HOST absent du job deploy-staging")
+        self.assertLess(match.start(), job.index("deploy.sh"))
+
+    def test_prod_smoke_test_uses_the_public_url(self):
+        # deploy-prod teste par le domaine public : le Host est celui de l'URL.
+        job = _job(self.text, "deploy-prod")
+        self.assertRegex(job, r"deploy\.sh\s+https://\$\{\{\s*secrets\.PROD_DOMAIN\s*\}\}")
