@@ -56,4 +56,4 @@ packaging==26.1
 requests==2.33.1
 typing_extensions==4.15.0
 tzdata==2026.1
-urllib3==2.7.0
+urllib3==2.8.0
