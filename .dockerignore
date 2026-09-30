@@ -1,0 +1,56 @@
+# .dockerignore — contexte de build de l'image HayaFlash (F-25).
+# `COPY . .` (Dockerfile) n'embarque que ce qui n'est pas exclu ici : ni
+# l'historique git, ni l'environnement virtuel, ni surtout des secrets.
+
+# ── Versionnement et CI (inutiles dans l'image) ──────────────────────────────
+.git
+.gitignore
+.github
+
+# ── Secrets et configuration locale : JAMAIS dans une image ──────────────────
+# En conteneur, les variables viennent de `env_file` (docker-compose.production.yml).
+.env
+.env.*
+.certs
+
+# ── Python : environnement et caches ─────────────────────────────────────────
+.venv
+venv
+# `**/` : sans lui, un motif ne vise que la RACINE du contexte (contrairement a
+# .gitignore) et les caches imbriques (core/__pycache__/...) seraient embarques.
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+htmlcov
+
+# ── Node (aucun build front dans l'image : assets vendorises dans static/) ───
+**/node_modules
+
+# ── Donnees locales de developpement et de test ──────────────────────────────
+**/*.sqlite3
+media
+media_test
+staticfiles
+logs
+**/*.log
+
+# ── Editeurs / outils de poste ───────────────────────────────────────────────
+.vscode
+.idea
+.cursor
+.claude
+Claude outputs
+
+# ── Documentation volumineuse ou generee ─────────────────────────────────────
+# Rapports d'audit de release (horodates, peuvent contenir des details sensibles).
+docs/releases/reports/
+docs.zip
+
+# ── Le Dockerfile lui-meme et ce fichier n'ont pas a etre dans l'image ───────
+Dockerfile
+.dockerignore
