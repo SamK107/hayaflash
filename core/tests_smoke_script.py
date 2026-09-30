@@ -77,9 +77,9 @@ def _find_bash() -> str:
 
 
 def _run(base_url: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
-    # Sous Windows, git (autocrlf) extrait les .sh en CRLF, que bash refuse : on
-    # execute une copie normalisee en LF du MEME script (le depot n'a pas de
-    # .gitattributes : voir le suivi de release). Il est passe sur stdin
+    # .gitattributes force les .sh en LF (F-53), mais une copie de travail
+    # extraite AVANT ce fichier peut encore etre en CRLF (que bash refuse) : on
+    # execute une copie normalisee en LF du MEME script. Il est passe sur stdin
     # (`bash -s`), donc sans chemin a traduire selon le bash trouve.
     source = SCRIPT.read_bytes().replace(CRLF, LF)
     result = subprocess.run(

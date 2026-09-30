@@ -1,0 +1,5 @@
+# Fins de ligne (F-53)
+# Les scripts shell doivent rester en LF : sous Windows, autocrlf les extrait
+# en CRLF et bash refuse alors de les executer.
+*.sh text eol=lf
+.gitattributes text eol=lf
