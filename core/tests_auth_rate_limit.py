@@ -8,7 +8,6 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils.html import escape
 
-from core import views
 from core.services import honeypot, rate_limit
 from core.testing_helpers import honeypot_ok
 
