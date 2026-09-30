@@ -4,6 +4,9 @@ from decimal import Decimal
 
 from django.db import models
 
+from core.uploads import RandomUploadPath
+from core.validators import AUDIO_VALIDATORS, IMAGE_VALIDATORS
+
 
 class Product(models.Model):
     """Produit du catalogue permanent d'un vendeur.
@@ -48,7 +51,8 @@ class Product(models.Model):
         verbose_name="Caractéristiques",
     )
     description_audio = models.FileField(
-        upload_to="audio/products/",
+        upload_to=RandomUploadPath("audio/products"),
+        validators=AUDIO_VALIDATORS,
         null=True,
         blank=True,
         verbose_name="Description vocale",
@@ -100,7 +104,8 @@ class ProductMedia(models.Model):
         verbose_name="Type",
     )
     file = models.ImageField(
-        upload_to="products/images/",
+        upload_to=RandomUploadPath("products/images"),
+        validators=IMAGE_VALIDATORS,
         null=True,
         blank=True,
         verbose_name="Fichier image",

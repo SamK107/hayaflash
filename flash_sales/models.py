@@ -5,6 +5,8 @@ from django.db import models
 from django.utils import timezone
 
 from core.choices import SaleCategory
+from core.uploads import RandomUploadPath
+from core.validators import AUDIO_VALIDATORS, IMAGE_VALIDATORS
 
 
 class SaleOpeningRefused(ValueError):
@@ -28,7 +30,8 @@ class FlashSale(models.Model):
     title = models.CharField(max_length=255, verbose_name="Titre")
     description = models.TextField(blank=True, verbose_name="Description")
     cover_image = models.ImageField(
-        upload_to="flash_sales/covers/",
+        upload_to=RandomUploadPath("flash_sales/covers"),
+        validators=IMAGE_VALIDATORS,
         null=True,
         blank=True,
         verbose_name="Image de couverture",
@@ -75,7 +78,8 @@ class FlashSale(models.Model):
         help_text="Laisser vide pour illimité",
     )
     description_audio = models.FileField(
-        upload_to="audio/sales/",
+        upload_to=RandomUploadPath("audio/sales"),
+        validators=AUDIO_VALIDATORS,
         null=True,
         blank=True,
         verbose_name="Description vocale",

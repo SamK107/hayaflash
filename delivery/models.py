@@ -5,6 +5,9 @@ import uuid
 from django.conf import settings
 from django.db import models
 
+from core.uploads import RandomUploadPath
+from core.validators import AUDIO_VALIDATORS
+
 
 class Delivery(models.Model):
     class Status(models.TextChoices):
@@ -48,7 +51,8 @@ class Delivery(models.Model):
     )
     delivery_notes = models.TextField(blank=True)
     audio_note = models.FileField(
-        upload_to="delivery/audio/%Y/%m/%d/",
+        upload_to=RandomUploadPath("delivery/audio", dated=True),
+        validators=AUDIO_VALIDATORS,
         null=True,
         blank=True,
         verbose_name="Note vocale client",

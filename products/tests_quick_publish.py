@@ -620,7 +620,9 @@ class AssignImageAPITests(CatalogBaseTestCase):
         self.assertEqual(second.status_code, status.HTTP_201_CREATED, second.data)
         self.assertEqual(product.media.count(), 1)
         self.assertNotEqual(first.data["media_id"], second.data["media_id"])
-        self.assertIn("deuxieme", product.media.first().file.name)
+        # F-03 : le nom stocke est genere cote serveur (plus le nom du client) ;
+        # on verifie donc l'identite du media conserve, pas son nom de fichier.
+        self.assertEqual(product.media.first().pk, second.data["media_id"])
 
     def test_catalog_response_reflects_the_most_recently_assigned_image(self) -> None:
         product = create_product(owner=self.seller, name="Carte Noir", price=Decimal("100"), stock=5)
