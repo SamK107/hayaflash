@@ -9,11 +9,13 @@ from uuid import UUID
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.base import ContentFile
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import transaction
 from django.db.models import DecimalField, F, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
+from core.validators import validate_file_field
 from delivery.models import Delivery
 from delivery.services.validation import validate_delivery_input
 from orders.models import Order, OrderStatus
@@ -45,11 +47,15 @@ def _attach_audio_note(delivery: Delivery, audio_base64: str, order_id: int) -> 
         return
     if not raw:
         return
-    delivery.audio_note.save(
-        f"order_{order_id}_localisation.webm",
-        ContentFile(raw),
-        save=True,
+    audio = SimpleUploadedFile(
+        f"order_{order_id}_localisation.webm", raw, content_type="audio/webm"
     )
+    try:
+        validate_file_field(delivery, "audio_note", audio)  # F-02
+    except ValidationError:
+        logger.warning("delivery_audio_note_invalid order_id=%s", order_id)
+        return
+    delivery.audio_note.save(audio.name, ContentFile(raw), save=True)
 
 
 def create_delivery_for_order(

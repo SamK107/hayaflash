@@ -7,6 +7,8 @@ from django.db import models
 from django.utils import timezone
 
 from core.choices import SaleCategory
+from core.uploads import RandomUploadPath
+from core.validators import IMAGE_VALIDATORS
 
 
 phone_validator = RegexValidator(
@@ -103,7 +105,8 @@ class SellerProfile(models.Model):
     )
     bio = models.TextField(blank=True, verbose_name="Biographie")
     avatar = models.ImageField(
-        upload_to="sellers/avatars/",
+        upload_to=RandomUploadPath("sellers/avatars"),
+        validators=IMAGE_VALIDATORS,
         null=True,
         blank=True,
         verbose_name="Photo de profil",

@@ -7,6 +7,7 @@ from datetime import timedelta
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.utils import timezone
 
+from core.validators import validate_file_field
 from flash_sales.models import FlashSale, FlashSaleStatus
 from flash_sales.services.rules import (  # noqa: F401  (re-export : API historique)
     can_seller_create_sale,
@@ -53,6 +54,7 @@ def create_flash_sale(
 
 def save_sale_audio(*, sale: FlashSale, audio_file) -> FlashSale:
     """Attache un fichier audio de description a une vente."""
+    validate_file_field(sale, "description_audio", audio_file)  # F-02 (pas de full_clean ici)
     sale.description_audio = audio_file
     sale.save(update_fields=["description_audio"])
     return sale

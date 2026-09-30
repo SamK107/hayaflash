@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from django.core.exceptions import ValidationError
 
+from core.validators import validate_file_field
 from products.models import FlashSaleProduct, Product, ProductMedia, StockMovement
 
 
@@ -25,6 +26,9 @@ def create_product(
         raise ValidationError("Le stock ne peut pas être négatif.")
     if float(price) <= 0:
         raise ValidationError("Le prix doit être supérieur à 0.")
+
+    if description_audio:
+        validate_file_field(Product(), "description_audio", description_audio)  # F-02
 
     product = Product.objects.create(
         owner=owner,
@@ -70,12 +74,15 @@ def update_product(*, product: Product, **kwargs) -> Product:
 
 
 def add_product_image(*, product: Product, image_file, order: int = 0) -> ProductMedia:
-    return ProductMedia.objects.create(
+    media = ProductMedia(
         product=product,
         media_type=ProductMedia.MediaType.IMAGE,
         file=image_file,
         order=order,
     )
+    validate_file_field(media, "file")  # F-02 (pas de full_clean ici)
+    media.save()
+    return media
 
 
 def attach_product_to_sale(

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import Prefetch, Q
 from django.db.models.deletion import ProtectedError
@@ -21,6 +22,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
 from core.models import audit
+from core.validators import MAX_IMAGE_BYTES, validate_file_field
 
 from .mixins import SellerOwnershipMixin
 from .models import FlashSaleProduct, Product, ProductMedia
@@ -51,7 +53,6 @@ def _normalize_filename_match(value: str) -> str:
 
 
 MAX_BULK_IMAGES = 30
-MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 Mo -- coherent avec FILE_UPLOAD_MAX_MEMORY_SIZE
 
 
 class FlashSaleProductViewSet(SellerOwnershipMixin, viewsets.ViewSet):
@@ -341,6 +342,14 @@ class FlashSaleProductViewSet(SellerOwnershipMixin, viewsets.ViewSet):
         # accumuler plusieurs ProductMedia avec le meme `order=0` rendait le
         # choix de "la" photo affichee ambigu/instable (une ancienne pouvait
         # masquer la nouvelle apres rafraichissement de la page).
+        # F-02 : valide AVANT de supprimer l'ancienne photo (sinon un fichier
+        # invalide ferait perdre la photo existante).
+        try:
+            validate_file_field(ProductMedia(product=product), "file", file)
+        except DjangoValidationError as exc:
+            return Response(
+                {"detail": " ".join(exc.messages)}, status=status.HTTP_400_BAD_REQUEST
+            )
         ProductMedia.objects.filter(product=product).delete()
         media = add_product_image(product=product, image_file=file, order=0)
         return Response(
@@ -472,6 +481,11 @@ class FlashSaleProductViewSet(SellerOwnershipMixin, viewsets.ViewSet):
                 order=0,
             )
             media.file = f
+            try:
+                validate_file_field(media, "file")  # F-02
+            except DjangoValidationError as exc:
+                errors.append({"filename": f.name, "error": " ".join(exc.messages)})
+                continue
             media.save()
             uploads.append(
                 {
