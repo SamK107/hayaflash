@@ -22,14 +22,14 @@ MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 Mo (aligne sur FILE_UPLOAD_MAX_MEMORY_SIZ
 # (Nginx) : Django rejette proprement avant qu'un 413 brut n'arrive.
 MAX_AUDIO_BYTES = MAX_IMAGE_BYTES
 
-IMAGE_EXTENSIONS = ("jpg", "jpeg", "png", "webp", "gif")
+IMAGE_EXTENSIONS = ("jpg", "jpeg", "png", "webp")
 AUDIO_EXTENSIONS = ("webm", "ogg", "mp3", "m4a", "wav")
 
 # Formats reels acceptes (verifies par Pillow). Pas de correspondance stricte
 # extension <-> format pour les images : les telephones/OS renomment souvent
 # (.jpg contenant du PNG) ; l'extension reste sur liste blanche et le contenu
 # doit etre une vraie image d'un de ces formats.
-_IMAGE_FORMATS = {"JPEG", "PNG", "WEBP", "GIF"}
+_IMAGE_FORMATS = {"JPEG", "PNG", "WEBP"}
 
 
 def _mo(n: int) -> str:
@@ -108,7 +108,7 @@ def validate_image_content(file) -> None:
         )
     if fmt not in _IMAGE_FORMATS:
         raise ValidationError(
-            "Format d'image non accepté (JPEG, PNG, WebP ou GIF).",
+            "Format d'image non accepté (JPEG, PNG ou WebP).",
             code="invalid_image_content",
         )
 

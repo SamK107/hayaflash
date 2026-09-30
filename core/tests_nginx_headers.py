@@ -77,7 +77,7 @@ class NginxMediaAntiExecutionTests(SimpleTestCase):
         self.assertIsNotNone(m)
         body = m.group(1)
         self.assertRegex(body, r"default\s+\"attachment\";")
-        for ext in ("jpe?g", "png", "webp", "gif", "webm", "ogg", "mp3", "m4a", "wav"):
+        for ext in ("jpe?g", "png", "webp", "webm", "ogg", "mp3", "m4a", "wav"):
             self.assertIn(ext, body)
         for forbidden in ("html", "svg", "js", "php", "pdf"):
             self.assertNotRegex(body.split("inline")[0], forbidden)

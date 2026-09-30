@@ -102,6 +102,14 @@ class ImageFieldValidationTests(SimpleTestCase):
             with self.subTest(field=f"{model.__name__}.{name}"):
                 _validate(model, name, SimpleUploadedFile("a.jpg", _png_bytes()))
 
+    def test_gif_rejected(self):
+        # .gif retire de la liste (aucun usage dans l'app)
+        for model, name in IMAGE_FIELDS:
+            for fname, fmt in (("a.gif", "GIF"), ("a.png", "GIF")):
+                with self.subTest(field=f"{model.__name__}.{name}", fname=fname):
+                    with self.assertRaises(ValidationError):
+                        _validate(model, name, SimpleUploadedFile(fname, _png_bytes(fmt)))
+
     def test_unsupported_image_format_rejected(self):
         for model, name in IMAGE_FIELDS:
             with self.subTest(field=f"{model.__name__}.{name}"):

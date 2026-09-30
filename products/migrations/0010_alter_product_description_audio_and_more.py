@@ -40,7 +40,7 @@ class Migration(migrations.Migration):
                 upload_to=core.uploads.RandomUploadPath("products/images"),
                 validators=[
                     django.core.validators.FileExtensionValidator(
-                        allowed_extensions=("jpg", "jpeg", "png", "webp", "gif")
+                        allowed_extensions=("jpg", "jpeg", "png", "webp")
                     ),
                     core.validators.MaxFileSizeValidator(5242880),
                     core.validators.validate_image_content,
