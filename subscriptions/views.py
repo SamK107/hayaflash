@@ -252,15 +252,43 @@ def payment_callback_view(request):
             )
             return HttpResponse("OK")
 
+        payment.raw_callback = data
+        payment.txn_id = result.get("txn_id", "")
+
+        # DEFENSE EN PROFONDEUR (F-61) : meme verification active que
+        # billing_callback_view — SUCCESS dans le payload non confirme par Orange
+        # (statut autre, injoignable) = pas d'activation, mais 200 OK.
+        if result["success"]:
+            from .services.payment import sync_orange_payment_status
+
+            confirmed_status = sync_orange_payment_status(payment, source="webhook_legacy")
+            if confirmed_status != "SUCCESS" and payment.status != PaymentStatus.SUCCESS:
+                from .models import WebhookLog
+
+                logger.warning(
+                    "Orange callback: SUCCESS non confirme par Orange (%r) — "
+                    "pas d'activation, notif_token=%s",
+                    confirmed_status,
+                    notif_token[:16] + "...",
+                )
+                WebhookLog.objects.create(
+                    payment=payment,
+                    notif_token=notif_token,
+                    status=result.get("status", ""),
+                    txn_id=result.get("txn_id", ""),
+                    raw_payload=data,
+                    processed=False,
+                    error_message=(
+                        "SUCCESS non confirmé par Orange "
+                        f"(vérification : {confirmed_status or 'indisponible'}) — pas d'activation"
+                    ),
+                )
+                return HttpResponse("OK")
+
         # Traitement du webhook
         with transaction.atomic():
-            payment.raw_callback = data
-            payment.txn_id = result.get("txn_id", "")
-
             if result["success"]:
-                from .services.payment import activate_subscription_from_payment
-
-                activate_subscription_from_payment(payment)
+                # Deja active par sync_orange_payment_status (idempotent).
                 logger.info(
                     "Subscription activated via callback — notif_token=%s",
                     notif_token[:16] + "...",

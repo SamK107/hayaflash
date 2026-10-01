@@ -128,12 +128,14 @@ class RegularizeNotifTokenCommandTests(_Base):
     def test_after_regularization_webhook_activates(self):
         p = _payment(self.seller)
         self._run("--apply")
-        Client().post(
-            reverse("billing_callback_orange"),
-            data=json.dumps({"status": "SUCCESS", "notif_token": ORANGE_TOKEN,
-                             "txnid": "MP260927.0039.A61409"}),
-            content_type="application/json",
-        )
+        # F-61 : Orange confirme SUCCESS via transactionstatus.
+        with patch(STATUS_PATH, return_value=_status("SUCCESS", txn_id="MP260927.0039.A61409")):
+            Client().post(
+                reverse("billing_callback_orange"),
+                data=json.dumps({"status": "SUCCESS", "notif_token": ORANGE_TOKEN,
+                                 "txnid": "MP260927.0039.A61409"}),
+                content_type="application/json",
+            )
         p.refresh_from_db()
         self.assertEqual(p.status, PaymentStatus.SUCCESS)
         self.assertEqual(p.txn_id, "MP260927.0039.A61409")

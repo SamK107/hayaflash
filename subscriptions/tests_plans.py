@@ -48,8 +48,9 @@ from subscriptions.services.plans import (
 
 User = get_user_model()
 
-FAKE_INIT = {"payment_url": "https://pay.example/om", "raw": {"ok": True}}
+FAKE_INIT = {"payment_url": "https://pay.example/om", "raw": {"ok": True, "pay_token": "PT"}}
 INIT_PATH = "subscriptions.services.orange_money.initiate_payment"
+STATUS_PATH = "subscriptions.services.orange_money.get_transaction_status"
 
 
 def _seller(phone, *, plan=Plan.FREE, expires_at=None):
@@ -106,11 +107,15 @@ def _initiate(seller, plan=Plan.MEDIUM):
 
 def _webhook(payment, *, status="SUCCESS", **extra):
     body = {"status": status, "notif_token": payment.notif_token, "txnid": "TX1", **extra}
-    return Client().post(
-        reverse("billing_callback_orange"),
-        data=json.dumps(body),
-        content_type="application/json",
-    )
+    # F-61 : le webhook SUCCESS doit etre confirme par Orange (transactionstatus) ;
+    # ici Orange confirme, sauf test explicite du contraire (tests_webhook_active_check).
+    confirmed = {"status": "SUCCESS", "txn_id": "TX1", "notif_token": "", "amount": None, "raw": {}}
+    with patch(STATUS_PATH, return_value=confirmed):
+        return Client().post(
+            reverse("billing_callback_orange"),
+            data=json.dumps(body),
+            content_type="application/json",
+        )
 
 
 # ── A. Configuration des plans ────────────────────────────────────────────────
