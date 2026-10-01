@@ -1,7 +1,6 @@
 # docker-compose.production.yml — Production HayaFlash
 # Usage : docker compose -f docker-compose.production.yml up -d
 # Ne jamais utiliser en développement (pas de volume bind-mount src)
-
 # Nom de projet explicite (requiert Docker Compose >= 2.20, la syntaxe
 # `name:` top-level de la Compose Specification). Sans ça, docker compose
 # derive le nom du projet du nom du dossier courant — fragile si un autre
@@ -125,11 +124,11 @@ services:
     # VPS partage avec services.symain.africa : le Nginx de l'HOTE (HestiaCP)
     # garde 80/443 et termine TLS. Ce conteneur n'ecoute qu'en HTTP et n'est
     # joignable que depuis l'hote, sur un port dedie en loopback (F-21).
-    # PORT PROVISOIRE : 8010 — a confirmer contre `ss -tlnp` sur le VPS reel
-    # en Phase 4 (P4-2). Le vhost HestiaCP fait proxy_pass vers ce port ;
+    # Port 8020 confirme (Phase 4, P4-2 : 8010 occupe par bitiki-store sur le VPS).
+    # Le vhost HestiaCP fait proxy_pass vers ce port ;
     # infra/scripts/deploy.sh (BASE_URL par defaut) doit rester coherent.
     ports:
-      - "127.0.0.1:8010:80"
+      - "127.0.0.1:8020:80"
     volumes:
       - ./infra/nginx/prod.conf:/etc/nginx/templates/default.conf.template:ro
       - static_data:/srv/static:ro
