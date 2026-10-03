@@ -63,12 +63,12 @@ class DeliveryClosureWiringTests(DeliveryTestFixture):
         self._start_delivery()
         buttons = self._buttons()
         labels = list(buttons)
-        self.assertTrue(any(l.startswith("Livrée") for l in labels), labels)
+        self.assertTrue(any(lb.startswith("Livrée") for lb in labels), labels)
         self.assertIn("Échec", labels)
 
     def test_closure_buttons_hidden_before_delivery_starts(self) -> None:
         labels = list(self._buttons())
-        self.assertFalse(any(l.startswith("Livrée") for l in labels), labels)
+        self.assertFalse(any(lb.startswith("Livrée") for lb in labels), labels)
 
     def test_delivered_cod_collected_end_to_end(self) -> None:
         self._start_delivery()
@@ -99,7 +99,7 @@ class DeliveryClosureWiringTests(DeliveryTestFixture):
 
         # Une livraison close n'a plus de boutons de cloture.
         labels = list(self._buttons())
-        self.assertFalse(any(l.startswith("Livrée") for l in labels), labels)
+        self.assertFalse(any(lb.startswith("Livrée") for lb in labels), labels)
         self.assertNotIn("Échec", labels)
 
     def test_delivered_cod_not_collected(self) -> None:
