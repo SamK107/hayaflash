@@ -33,7 +33,11 @@ MAX_AUDIO_BASE64_LENGTH = 2_000_000  # ~1.5 MB decoded, generous for a short voi
 
 
 class OrderRateLimited(ValidationError):
-    """Trop de commandes pour ce numero acheteur (-> HTTP 429, voir orders/api.py)."""
+    """Trop de commandes (par IP ou par numero acheteur) -> HTTP 429, voir orders/api.py.
+
+    La detection du 429 repose sur ce type d'exception, jamais sur le texte du
+    message : celui-ci peut etre reformule librement.
+    """
 
 
 def enforce_public_order_rate_limit(request: HttpRequest) -> None:
@@ -46,7 +50,7 @@ def enforce_public_order_rate_limit(request: HttpRequest) -> None:
         cache.set(key, 1, ORDER_SUBMIT_RATE_WINDOW_SECONDS)
         n = 1
     if n > ORDER_SUBMIT_RATE_MAX_PER_WINDOW:
-        raise ValidationError(
+        raise OrderRateLimited(
             {
                 "detail": (
                     "Too many order attempts from this network. "
