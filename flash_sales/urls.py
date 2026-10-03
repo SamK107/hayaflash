@@ -15,6 +15,7 @@ urlpatterns = [
     path("<int:pk>/clone/", views.flash_sale_clone_view, name="clone"),
     # Réservations d'intérêt
     path("interests/", views.sale_interests_view, name="interests"),
+    path("interests/contacted/", views.sale_interest_contacted_view, name="interest_contacted"),
     path(
         "<int:pk>/interests/",
         views.flash_sale_interests_detail_view,

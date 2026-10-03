@@ -252,6 +252,12 @@ class SaleInterest(models.Model):
         verbose_name="Rappel envoyé le",
         help_text="Rempli automatiquement quand le rappel SMS a été envoyé.",
     )
+    contacted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Prévenu le",
+        help_text="Rempli quand le vendeur marque l'inscrit comme prévenu (WhatsApp).",
+    )
 
     class Meta:
         ordering = ["-created_at"]

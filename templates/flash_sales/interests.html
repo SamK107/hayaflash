@@ -38,20 +38,7 @@
     {% else %}
     <div class="divide-y divide-gray-50">
       {% for row in notify_rows %}
-      <div class="flex items-center gap-3 px-5 py-3">
-        <div class="flex-1 min-w-0">
-          {% if row.invitee.name %}<p class="text-sm font-semibold text-gray-800">{{ row.invitee.name }}</p>{% endif %}
-          <p class="text-sm text-gray-500">{{ row.invitee.phone }}</p>
-        </div>
-        {% if row.link %}
-        <a href="{{ row.link }}" target="_blank" rel="noopener"
-           class="shrink-0 inline-flex items-center gap-1 bg-success text-white text-sm font-semibold px-3 py-2 rounded-xl hover:bg-green-600">
-          <i data-lucide="message-circle" class="w-4 h-4" aria-hidden="true"></i>Prévenir
-        </a>
-        {% else %}
-        <span class="shrink-0 text-xs font-semibold text-amber-700">numéro à vérifier</span>
-        {% endif %}
-      </div>
+      {% include "flash_sales/partials/_notify_row.html" with row=row %}
       {% endfor %}
     </div>
     {% endif %}

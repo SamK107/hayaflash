@@ -28,6 +28,12 @@ class Invitee:
     phone: str  # tel que saisi (le plus recent)
     phone_e164: str | None  # chiffres seuls, sans « + », None si a verifier
     signed_up_at: datetime
+    key: str = ""  # cle de dedoublonnage (numero normalise, ou numero brut sans separateurs)
+    contacted_at: datetime | None = None  # inscription la plus recente
+
+    @property
+    def dom_id(self) -> str:
+        return re.sub(r"\W", "", self.key)
 
 
 def normalize_whatsapp_number(raw: str) -> str | None:
@@ -62,6 +68,28 @@ def next_scheduled_sale(seller, *, now: datetime | None = None) -> FlashSale | N
     )
 
 
+def _dedup_key(phone: str) -> str:
+    return normalize_whatsapp_number(phone) or _SEPARATORS_RE.sub("", phone)
+
+
+def mark_contacted(seller, key: str, *, now: datetime | None = None) -> int:
+    """Marque « prevenu » toutes les inscriptions du vendeur ayant ce numero normalise.
+
+    Ne touche JAMAIS les inscrits d'un autre vendeur. Retourne le nombre de lignes.
+    """
+    now = now or timezone.now()
+    ids = [
+        row.pk
+        for row in SaleInterest.objects.filter(flash_sale__owner=seller)
+        if _dedup_key(row.phone) == key
+    ]
+    if not ids:
+        return 0
+    return SaleInterest.objects.filter(pk__in=ids, flash_sale__owner=seller).update(
+        contacted_at=now
+    )
+
+
 def interests_to_notify(seller) -> list[Invitee]:
     """Inscrits du vendeur (toutes ses ventes), un par numero, les plus recents d'abord."""
     rows = SaleInterest.objects.filter(flash_sale__owner=seller).order_by(
@@ -78,11 +106,20 @@ def interests_to_notify(seller) -> list[Invitee]:
                 "phone": row.phone,
                 "e164": e164,
                 "at": row.created_at,
+                "contacted_at": row.contacted_at,  # ligne la plus recente
+                "key": key,
             }
         elif not entry["name"] and row.name:
             entry["name"] = row.name  # garde un nom si une inscription plus ancienne en a un
     return [
-        Invitee(name=e["name"], phone=e["phone"], phone_e164=e["e164"], signed_up_at=e["at"])
+        Invitee(
+            name=e["name"],
+            phone=e["phone"],
+            phone_e164=e["e164"],
+            signed_up_at=e["at"],
+            key=e["key"],
+            contacted_at=e["contacted_at"],
+        )
         for e in seen.values()
     ]
 
@@ -116,6 +153,29 @@ def whatsapp_link(invitee: Invitee, message: str) -> str | None:
     return f"https://wa.me/{invitee.phone_e164}?text={quote(message, safe='')}"
 
 
+def _notify_row(invitee: Invitee, *, seller_name: str, sale: FlashSale, sale_url: str) -> dict:
+    message = build_whatsapp_message(
+        invitee=invitee, seller_name=seller_name, sale=sale, sale_url=sale_url
+    )
+    return {"invitee": invitee, "link": whatsapp_link(invitee, message)}
+
+
+def build_notify_row(seller, key: str, *, build_sale_url) -> dict | None:
+    """Ligne d'un inscrit (apres marquage) ; ``link`` vaut None s'il n'y a plus de vente."""
+    invitee = next((i for i in interests_to_notify(seller) if i.key == key), None)
+    if invitee is None:
+        return None
+    sale = next_scheduled_sale(seller)
+    if sale is None:
+        return {"invitee": invitee, "link": None}
+    return _notify_row(
+        invitee,
+        seller_name=seller_display_name(seller),
+        sale=sale,
+        sale_url=build_sale_url(sale),
+    )
+
+
 def build_notify_context(seller, *, build_sale_url) -> dict:
     """Contexte du bloc « Prévenir vos inscrits » (liste de liens individuels)."""
     sale = next_scheduled_sale(seller)
@@ -130,12 +190,10 @@ def build_notify_context(seller, *, build_sale_url) -> dict:
         }
     sale_url = build_sale_url(sale)
     name = seller_display_name(seller)
-    rows = []
-    for invitee in interests_to_notify(seller):
-        message = build_whatsapp_message(
-            invitee=invitee, seller_name=name, sale=sale, sale_url=sale_url
-        )
-        rows.append({"invitee": invitee, "link": whatsapp_link(invitee, message)})
+    rows = [
+        _notify_row(invitee, seller_name=name, sale=sale, sale_url=sale_url)
+        for invitee in interests_to_notify(seller)
+    ]
     return {
         "notify_sale": sale,
         "notify_opening": _opening_label(sale),
