@@ -127,7 +127,7 @@
       <div class="flex flex-wrap gap-2">
         {% for teaser in teasers_list %}
         <span class="inline-flex items-center gap-1 bg-primary/8 text-primary text-sm font-semibold px-3 py-1.5 rounded-full border border-primary/15">
-          <span>⚡</span>{{ teaser }}
+          <i data-lucide="zap" class="hf-icon-inline" aria-hidden="true"></i>{{ teaser }}
         </span>
         {% endfor %}
       </div>
@@ -284,7 +284,7 @@
   {# mise a jour toutes les 15 s par hf-live-pulse.js (GET /f/<slug>/pulse/). #}
   <div id="hf-proof-live" aria-live="polite"
        class="{% if not social_proof.live %}hidden {% endif %}flex items-center gap-2 px-4 py-2 bg-orange-50 border-b border-orange-100 text-sm">
-    <span class="text-base leading-none" aria-hidden="true">🔥</span>
+    <span class="text-base leading-none"><i data-lucide="flame" class="hf-icon-inline" aria-hidden="true" style="color:#9A3412"></i></span>
     <span class="min-w-0">
       <span data-proof-main class="font-bold" style="color:#9A3412">{# text-orange-800 absent du build Tailwind fige #}{{ social_proof.live }}</span>
       <span data-proof-sub class="{% if not social_proof.live_sub %}hidden {% endif %}block text-xs text-orange-600">{{ social_proof.live_sub }}</span>
@@ -299,7 +299,7 @@
            class="w-full h-56 sm:h-72 object-cover cursor-zoom-in"
            loading="eager" fetchpriority="high" decoding="async"
            data-zoom title="Double-clic pour agrandir">
-      <span class="absolute bottom-2 right-2 bg-black/40 text-white text-xs px-2 py-0.5 rounded-full pointer-events-none">🔍</span>
+      <span class="absolute bottom-2 right-2 bg-black/40 text-white text-xs px-2 py-0.5 rounded-full pointer-events-none"><i data-lucide="zoom-in" class="hf-icon-inline" aria-hidden="true"></i></span>
     </div>
     {% endif %}
 
@@ -346,7 +346,7 @@
                class="w-full h-44 object-cover cursor-zoom-in"
                loading="lazy" decoding="async"
                data-zoom title="Double-clic pour agrandir">
-          <span class="absolute bottom-2 right-2 bg-black/40 text-white text-xs px-1.5 py-0.5 rounded-full pointer-events-none">🔍</span>
+          <span class="absolute bottom-2 right-2 bg-black/40 text-white text-xs px-1.5 py-0.5 rounded-full pointer-events-none"><i data-lucide="zoom-in" class="hf-icon-inline" aria-hidden="true"></i></span>
           {% if p.stock_available == 0 %}
           <div class="absolute inset-0 bg-black/50 flex items-center justify-center">
             <span class="bg-white text-gray-700 font-bold px-4 py-2 rounded-full text-sm">Épuisé</span>
@@ -574,7 +574,7 @@
             </button>
           </div>
           <div x-show="audioUrl" x-cloak class="p-3 bg-green-50 rounded-xl">
-            <p class="text-xs text-gray-500 mb-2">🎤 Votre message vocal :</p>
+            <p class="text-xs text-gray-500 mb-2"><i data-lucide="mic" class="hf-icon-inline" aria-hidden="true"></i> Votre message vocal :</p>
             <audio controls :src="audioUrl" class="w-full h-8"></audio>
             <button type="button" @click="clearAudio()"
                     class="mt-2 text-xs text-red-500 hover:underline">
