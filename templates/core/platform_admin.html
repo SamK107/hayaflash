@@ -85,8 +85,8 @@
                     {{ orange.month.to_remit|floatformat:0 }} FCFA
                 </p>
                 <p class="text-xs text-gray-400 mt-1">
-                    Collecté {{ orange.month.total_collected|floatformat:0 }} ·
-                    Commission {{ orange.month.commission|floatformat:0 }}
+                    Collecté {{ orange.month.total_collected|floatformat:0 }} FCFA ·
+                    Commission {{ orange.month.commission|floatformat:0 }} FCFA
                 </p>
             </div>
             <div class="bg-gray-50 rounded-xl p-3">
@@ -95,8 +95,8 @@
                     {{ orange.all_time.to_remit|floatformat:0 }} FCFA
                 </p>
                 <p class="text-xs text-gray-400 mt-1">
-                    Collecté {{ orange.all_time.total_collected|floatformat:0 }} ·
-                    Commission {{ orange.all_time.commission|floatformat:0 }}
+                    Collecté {{ orange.all_time.total_collected|floatformat:0 }} FCFA ·
+                    Commission {{ orange.all_time.commission|floatformat:0 }} FCFA
                 </p>
             </div>
         </div>
@@ -192,7 +192,7 @@
                             {{ p.plan }}
                         </td>
                         <td class="py-2.5 px-1 text-right font-semibold">
-                            {{ p.amount|floatformat:0 }}
+                            {{ p.amount|floatformat:0 }} FCFA
                         </td>
                         <td class="py-2.5 px-1">
                             <span class="px-2 py-0.5 rounded-full text-xs font-medium

@@ -107,6 +107,15 @@ compilateur Tailwind génère correctement les couleurs custom, contrairement
 au CDN qui avait ce problème). **Si la charte doit encore changer, c'est ici
 qu'il faut le faire, puis relancer le build.**
 
+## Fichiers vendorisés : pas de sourcemap
+
+Les fichiers de `static/vendor/` ne doivent contenir **aucune** ligne
+`//# sourceMappingURL=...` ni `/*# sourceMappingURL=... */` : le `.map` n'est
+pas vendorisé, et `CompressedManifestStaticFilesStorage` (WhiteNoise) fait
+échouer `collectstatic` sur toute référence vers un fichier absent (F-67 :
+`lucide-0.462.0.min.js` pointait vers `lucide.min.js.map`). Retirer la ligne
+après chaque mise à jour d'une librairie vendorisée.
+
 ## Limites connues (pas corrigées dans cette passe, volontairement)
 
 - **Lucide (356 Ko minifié)** : la version vendorisée est le build complet

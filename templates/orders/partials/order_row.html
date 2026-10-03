@@ -27,7 +27,7 @@
     {% for item in order.items.all %}
     <div class="flex justify-between text-sm">
       <span class="text-gray-700">{{ item.product_name_snapshot }} <span class="text-gray-400">x{{ item.quantity }}</span></span>
-      <span class="font-medium text-gray-900">{{ item.price_snapshot|floatformat:"0g" }} F</span>
+      <span class="font-medium text-gray-900">{{ item.price_snapshot|floatformat:"0g" }} FCFA</span>
     </div>
     {% endfor %}
     {% if order.total_amount %}

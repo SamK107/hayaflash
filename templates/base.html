@@ -63,6 +63,20 @@
       50%       { opacity: 0.4; transform: scale(0.85); }
     }
     .live-pulse { animation: live-pulse 1.5s ease-in-out infinite; }
+
+    /* Pastilles d'icones Lucide (docs/releases/reports/ui-icones-proposition.md) */
+    .hf-icon-badge { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+      width: 40px; height: 40px; border-radius: 12px; color: #fff; background: var(--hf-badge, #475569); }
+    .hf-icon-badge svg { width: 20px; height: 20px; stroke: currentColor; }
+    .hf-icon-badge--lg { width: 48px; height: 48px; border-radius: 14px; }
+    .hf-icon-badge--lg svg { width: 24px; height: 24px; }
+    .hf-icon-badge--violet { --hf-badge: #6556D6; }
+    .hf-icon-badge--teal { --hf-badge: #0F857A; }
+    .hf-icon-badge--green { --hf-badge: #1E8A4C; }
+    .hf-icon-badge--blue { --hf-badge: #2F6BD8; }
+    .hf-icon-badge--amber { --hf-badge: #A5660B; }
+    .hf-icon-badge--slate { --hf-badge: #475569; }
+    .hf-icon-inline { display: inline-block; width: 1em; height: 1em; vertical-align: -.125em; stroke: currentColor; }
   </style>
 
   <!-- HTMX CSRF header : static/js/hf-base.js -->
