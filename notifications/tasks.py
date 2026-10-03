@@ -41,20 +41,22 @@ def send_order_confirmation(order_id: int) -> None:
 
 
 @shared_task(name="notifications.send_sale_reminder", ignore_result=True)
-def send_sale_reminder(flash_sale_id: int, phone: str) -> None:
-    """Rappel SMS 1h avant l'ouverture d'une vente."""
+def send_sale_reminder(flash_sale_id: int, phone: str) -> bool:
+    """Rappel SMS 1h avant l'ouverture d'une vente. Retourne True si le SMS est parti."""
     from flash_sales.models import FlashSale
+    from notifications.models import Notification
     from notifications.services.dispatcher import send_notification
 
     try:
         sale = FlashSale.objects.get(pk=flash_sale_id)
     except FlashSale.DoesNotExist:
         logger.warning("FlashSale %s introuvable pour rappel", flash_sale_id)
-        return
+        return False
 
     message = (
         f"HayaFlash — Rappel !\n"
         f"La vente {sale.title} commence dans 1 heure !\n"
         f"Lien : https://hayaflash.com/f/{sale.public_slug}/"
     )
-    send_notification(recipient_phone=phone, message=message, channel="sms")
+    notif = send_notification(recipient_phone=phone, message=message, channel="sms")
+    return notif.status == Notification.Status.SENT

@@ -10,6 +10,9 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
+# Plafond de tentatives du rappel SMS par inscrit et par vente (voir send_pending_sale_reminders).
+MAX_REMINDER_ATTEMPTS = 5
+
 
 def _record_open_refusal(sale, reason: str) -> None:
     """Journalise (une seule fois) le refus d'ouverture automatique d'une vente."""
@@ -84,14 +87,31 @@ def auto_close_live_sales() -> None:
         logger.info("auto_close_live_sales : %d vente(s) fermees", count)
 
 
+def _failed_reminder_attempts(interest) -> int:
+    """Rappels SMS déjà échoués pour ce numéro et cette vente (messages contenant son lien)."""
+    from notifications.models import Notification
+
+    return Notification.objects.filter(
+        channel=Notification.Channel.SMS,
+        status=Notification.Status.FAILED,
+        recipient_phone=interest.phone,
+        message__contains=f"/f/{interest.flash_sale.public_slug}/",
+    ).count()
+
+
 @shared_task(name="flash_sales.send_pending_sale_reminders", ignore_result=True)
 def send_pending_sale_reminders() -> None:
     """
     Envoie un rappel SMS aux inscrits (SaleInterest) dont la vente programmée
     ouvre dans l'heure qui vient, et qui n'ont pas encore été relancés.
 
-    Idempotent : chaque SaleInterest n'est relancé qu'une seule fois grâce au
-    champ `reminded_at`.
+    `reminded_at` n'est posé que si le SMS est réellement parti (send_sms -> True).
+    Un échec (passerelle indisponible, SMS non configuré) laisse l'inscrit à
+    relancer au passage suivant (toutes les 5 minutes), dans la limite de
+    MAX_REMINDER_ATTEMPTS échecs par numéro et par vente, comptés via les
+    Notification en échec (aucun champ supplémentaire).
+
+    Idempotent : un inscrit déjà relancé (`reminded_at`) n'est jamais renvoyé.
     """
     from flash_sales.models import FlashSaleStatus, SaleInterest
     from notifications.tasks import send_sale_reminder
@@ -108,11 +128,22 @@ def send_pending_sale_reminders() -> None:
 
     count = 0
     for interest in pending:
+        failures = _failed_reminder_attempts(interest)
+        if failures >= MAX_REMINDER_ATTEMPTS:
+            if failures == MAX_REMINDER_ATTEMPTS:
+                logger.error(
+                    "Rappel SaleInterest %s (vente %s) abandonné après %d échecs SMS",
+                    interest.pk,
+                    interest.flash_sale_id,
+                    failures,
+                )
+            continue
         try:
-            send_sale_reminder.delay(interest.flash_sale_id, interest.phone)
-            interest.reminded_at = now
-            interest.save(update_fields=["reminded_at"])
-            count += 1
+            # Appel direct (et non .delay) : le résultat réel du SMS décide de reminded_at.
+            if send_sale_reminder(interest.flash_sale_id, interest.phone):
+                interest.reminded_at = now
+                interest.save(update_fields=["reminded_at"])
+                count += 1
         except Exception as exc:
             logger.error(
                 "Erreur envoi rappel SaleInterest %s (vente %s) : %s",
