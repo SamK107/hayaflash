@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 
 from accounts.access import seller_required
@@ -11,6 +12,7 @@ from core.context_processors import request_pwa_install_invite
 
 from .forms import FlashSaleForm
 from .models import FlashSale, FlashSaleStatus, SaleInterest
+from .services.notify_interests import build_notify_context
 from .services.ordering import (
     live_now_q,
     seller_done_q,
@@ -317,6 +319,12 @@ def sale_interests_view(request):
     ctx = {
         "sales_with_interests": sales_with_interests,
         "total_count": total_count,
+        **build_notify_context(
+            seller,
+            build_sale_url=lambda sale: request.build_absolute_uri(
+                reverse("public_flash_sale", kwargs={"slug": sale.public_slug})
+            ),
+        ),
     }
     return render(request, "flash_sales/interests.html", ctx)
 

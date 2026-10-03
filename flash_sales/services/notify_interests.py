@@ -11,7 +11,10 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 
+from urllib.parse import quote
+
 from django.utils import timezone
+from django.utils.formats import date_format
 
 from accounts.services.users import normalize_phone
 from flash_sales.models import FlashSale, FlashSaleStatus, SaleInterest
@@ -83,3 +86,60 @@ def interests_to_notify(seller) -> list[Invitee]:
         Invitee(name=e["name"], phone=e["phone"], phone_e164=e["e164"], signed_up_at=e["at"])
         for e in seen.values()
     ]
+
+
+def seller_display_name(seller) -> str:
+    return (seller.business_name or seller.user.display_name or "Vendeur").strip()
+
+
+def _opening_label(sale: FlashSale) -> str:
+    start = timezone.localtime(sale.start_time)
+    day = date_format(start, "l j F")
+    hour = f"{start.hour} h" if start.minute == 0 else f"{start.hour} h {start.minute:02d}"
+    return f"{day} à {hour}"
+
+
+def build_whatsapp_message(
+    *, invitee: Invitee, seller_name: str, sale: FlashSale, sale_url: str
+) -> str:
+    first_name = invitee.name.split()[0] if invitee.name.strip() else ""
+    greeting = f"Bonjour {first_name}," if first_name else "Bonjour,"
+    return (
+        f"{greeting} {seller_name} lance une vente flash : {sale.title}. "
+        f"Ouverture {_opening_label(sale)}. "
+        f"Commandez ici : {sale_url}"
+    )
+
+
+def whatsapp_link(invitee: Invitee, message: str) -> str | None:
+    if not invitee.phone_e164:
+        return None
+    return f"https://wa.me/{invitee.phone_e164}?text={quote(message, safe='')}"
+
+
+def build_notify_context(seller, *, build_sale_url) -> dict:
+    """Contexte du bloc « Prévenir vos inscrits » (liste de liens individuels)."""
+    sale = next_scheduled_sale(seller)
+    if sale is None:
+        return {
+            "notify_sale": None,
+            "notify_rows": [],
+            "notify_no_sale_message": (
+                "Vous n'avez aucune vente programmée. Programmez votre prochaine "
+                "vente pour pouvoir prévenir vos inscrits."
+            ),
+        }
+    sale_url = build_sale_url(sale)
+    name = seller_display_name(seller)
+    rows = []
+    for invitee in interests_to_notify(seller):
+        message = build_whatsapp_message(
+            invitee=invitee, seller_name=name, sale=sale, sale_url=sale_url
+        )
+        rows.append({"invitee": invitee, "link": whatsapp_link(invitee, message)})
+    return {
+        "notify_sale": sale,
+        "notify_opening": _opening_label(sale),
+        "notify_rows": rows,
+        "notify_no_sale_message": "",
+    }

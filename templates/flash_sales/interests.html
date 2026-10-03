@@ -19,6 +19,45 @@
     {% endif %}
   </div>
 
+  {% if total_count > 0 %}
+  <!-- Prévenir les inscrits (liens WhatsApp individuels, aucun envoi automatique) -->
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm mb-6 overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-50">
+      <h2 class="font-bold text-gray-900">Prévenir vos inscrits</h2>
+      {% if notify_sale %}
+      <p class="text-xs text-gray-400 mt-0.5">
+        Prochaine vente : {{ notify_sale.title }} · ouverture {{ notify_opening }}.
+        Un message WhatsApp prérempli s'ouvre : vous l'envoyez vous-même.
+      </p>
+      {% endif %}
+    </div>
+    {% if not notify_sale %}
+    <p class="px-5 py-4 text-sm text-amber-800 bg-amber-50">{{ notify_no_sale_message }}
+      <a href="{% url 'flash_sales:create' %}" class="font-semibold text-primary underline">Programmer une vente</a>
+    </p>
+    {% else %}
+    <div class="divide-y divide-gray-50">
+      {% for row in notify_rows %}
+      <div class="flex items-center gap-3 px-5 py-3">
+        <div class="flex-1 min-w-0">
+          {% if row.invitee.name %}<p class="text-sm font-semibold text-gray-800">{{ row.invitee.name }}</p>{% endif %}
+          <p class="text-sm text-gray-500">{{ row.invitee.phone }}</p>
+        </div>
+        {% if row.link %}
+        <a href="{{ row.link }}" target="_blank" rel="noopener"
+           class="shrink-0 inline-flex items-center gap-1 bg-success text-white text-sm font-semibold px-3 py-2 rounded-xl hover:bg-green-600">
+          <i data-lucide="message-circle" class="w-4 h-4" aria-hidden="true"></i>Prévenir
+        </a>
+        {% else %}
+        <span class="shrink-0 text-xs font-semibold text-amber-700">numéro à vérifier</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
   {% if not sales_with_interests %}
   <!-- État vide -->
   <div class="text-center py-16">
