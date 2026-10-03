@@ -53,8 +53,8 @@ def enforce_public_order_rate_limit(request: HttpRequest) -> None:
         raise OrderRateLimited(
             {
                 "detail": (
-                    "Too many order attempts from this network. "
-                    "Please wait a minute and try again."
+                    "Trop de tentatives de commande depuis ce réseau. "
+                    "Patientez une minute puis réessayez."
                 )
             }
         )
@@ -154,21 +154,21 @@ def build_create_order_payload_from_public(*, data: dict[str, Any]) -> dict[str,
     try:
         phone_norm = normalize_phone(data["phone"])
     except TypeError as exc:
-        raise ValidationError({"phone": "Invalid phone value."}) from exc
+        raise ValidationError({"phone": "Numéro de téléphone invalide."}) from exc
 
     flash_sale = FlashSale.objects.filter(pk=flash_sale_id).first()
     if flash_sale is None:
-        raise ValidationError({"flash_sale_id": "Flash sale not found."})
+        raise ValidationError({"flash_sale_id": "Vente flash introuvable."})
 
     product = Product.objects.filter(pk=product_id).first()
     if product is None:
-        raise ValidationError({"product_id": "Product not found."})
+        raise ValidationError({"product_id": "Produit introuvable."})
     is_linked = FlashSaleProduct.objects.filter(
         flash_sale_id=flash_sale.id, product_id=product_id, is_active=True
     ).exists()
     if not is_linked:
         raise ValidationError(
-            {"product_id": "This product is not part of the selected flash sale."}
+            {"product_id": "Ce produit ne fait pas partie de cette vente flash."}
         )
 
     assert_flash_sale_accepts_orders(flash_sale)

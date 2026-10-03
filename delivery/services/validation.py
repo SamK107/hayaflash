@@ -30,12 +30,12 @@ def validate_coordinates(lat: Any, lng: Any) -> tuple[Decimal | None, Decimal | 
         return None, None
     if lat_dec is None or lng_dec is None:
         raise ValidationError(
-            {"delivery": "Both latitude and longitude are required when either is set."}
+            {"delivery": "La latitude et la longitude doivent être renseignées ensemble."}
         )
     if not (-90 <= lat_dec <= 90):
-        raise ValidationError({"latitude": "Latitude must be between -90 and 90."})
+        raise ValidationError({"latitude": "La latitude doit être comprise entre -90 et 90."})
     if not (-180 <= lng_dec <= 180):
-        raise ValidationError({"longitude": "Longitude must be between -180 and 180."})
+        raise ValidationError({"longitude": "La longitude doit être comprise entre -180 et 180."})
     return lat_dec, lng_dec
 
 
@@ -60,7 +60,7 @@ def validate_delivery_input(data: dict[str, Any]) -> dict[str, Any]:
         raise ValidationError(
             {
                 "delivery": (
-                    "Provide a written address or record a voice note."
+                    "Écrivez votre adresse ou enregistrez un message vocal."
                 )
             }
         )
@@ -68,8 +68,8 @@ def validate_delivery_input(data: dict[str, Any]) -> dict[str, Any]:
         raise ValidationError(
             {
                 "address_text": (
-                    f"Address must be at least {MIN_ADDRESS_LENGTH} characters "
-                    "(or record a voice note instead)."
+                    f"L'adresse doit contenir au moins {MIN_ADDRESS_LENGTH} caractères "
+                    "(ou enregistrez un message vocal à la place)."
                 )
             }
         )
@@ -99,7 +99,7 @@ def validate_delivery_input(data: dict[str, Any]) -> dict[str, Any]:
         raise ValidationError(
             {
                 "delivery_notes": (
-                    f"Must be at most {MAX_DELIVERY_NOTES_LENGTH} characters."
+                    f"Les précisions de livraison ne doivent pas dépasser {MAX_DELIVERY_NOTES_LENGTH} caractères."
                 )
             }
         )
