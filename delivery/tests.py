@@ -259,7 +259,10 @@ class SellerDeliveryActionFormCsrfTests(DeliveryTestFixture):
                 "csrfmiddlewaretoken": token,
             },
         )
-        self.assertEqual(resp.status_code, 200, resp.content)
+        # Envoi classique (sans HTMX) : redirection vers la page complete, jamais
+        # un fragment nu (F-72) ; l'action est bien enregistree.
+        self.assertEqual(resp.status_code, 302, resp.content)
+        self.assertIn(f"flash_sale_id={self.sale.pk}", resp["Location"])
         self.delivery.refresh_from_db()
         self.assertEqual(self.delivery.status, Delivery.Status.IN_TRANSIT)
         self.assertEqual(self.delivery.assigned_to, "Moussa D.")

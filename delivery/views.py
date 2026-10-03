@@ -6,6 +6,7 @@ from uuid import UUID
 
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
+from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.http import (
     HttpResponse,
@@ -14,11 +15,13 @@ from django.http import (
     HttpResponseRedirect,
 )
 from django.shortcuts import render
+from django.urls import reverse
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_GET, require_POST
 
 from accounts.access import redirect_without_seller_profile
 from accounts.models import SellerProfile
+from delivery.models import Delivery
 from delivery.services.seller_dashboard import (
     apply_delivery_action_from_form,
     get_delivery_row_context,
@@ -175,40 +178,90 @@ def seller_deliveries_list_partial(request):
         return HttpResponseForbidden("Not allowed.")
 
 
+_ACTION_SUCCESS_MESSAGES = {
+    "confirm": "Commande confirmée.",
+    "start_delivery": "Livraison démarrée.",
+    "mark_delivered": "Livraison marquée comme livrée.",
+    "mark_failed": "Livraison marquée comme échouée.",
+}
+
+
+def _is_htmx(request) -> bool:
+    return request.headers.get("HX-Request") == "true"
+
+
+def _deliveries_page_url(request, delivery_id: UUID) -> str:
+    """Page complete des livraisons (meme vente que la livraison, si elle est au vendeur)."""
+    url = reverse("orders:seller_deliveries_dashboard")
+    flash_sale_id = (
+        Delivery.objects.filter(
+            pk=delivery_id, order__flash_sale__owner__user=request.user
+        )
+        .values_list("order__flash_sale_id", flat=True)
+        .first()
+    )
+    return f"{url}?flash_sale_id={flash_sale_id}" if flash_sale_id else url
+
+
+def _first_validation_message(exc: ValidationError) -> str:
+    msgs = getattr(exc, "message_dict", None)
+    if msgs:
+        flat: list[str] = []
+        for v in msgs.values():
+            if isinstance(v, list):
+                flat.extend(str(x) for x in v)
+            else:
+                flat.append(str(v))
+        return flat[0] if flat else str(exc)
+    return "; ".join(str(m) for m in getattr(exc, "messages", [str(exc)]))
+
+
 @login_required
 @require_POST
 def seller_delivery_action(request, delivery_id: UUID):
+    """Action sur une livraison.
+
+    Requete HTMX (``HX-Request``) : fragment de la ligne (ou texte d'erreur 400).
+    Envoi classique de formulaire : jamais de fragment nu, redirection vers la
+    page des livraisons avec un message (succes ou erreur) en francais.
+    """
+    htmx = _is_htmx(request)
     if not _require_seller(request.user):
-        return HttpResponseForbidden("Seller profile required.")
+        return HttpResponseForbidden("Profil vendeur requis.")
 
     action = request.POST.get("action")
     if not isinstance(action, str) or not action.strip():
-        return HttpResponseBadRequest("action is required.")
+        if htmx:
+            return HttpResponseBadRequest("L'action demandée est manquante.")
+        messages.error(request, "L'action demandée est manquante.")
+        return HttpResponseRedirect(_deliveries_page_url(request, delivery_id))
+    action = action.strip()
 
     try:
         apply_delivery_action_from_form(
             user=request.user,
             delivery_id=delivery_id,
-            action=action.strip(),
+            action=action,
             form_data=request.POST,
         )
     except PermissionDenied:
-        return HttpResponseForbidden("Not allowed.")
+        return HttpResponseForbidden("Action non autorisée.")
     except ValidationError as exc:
-        msgs = getattr(exc, "message_dict", None)
-        if msgs:
-            flat = []
-            for v in msgs.values():
-                if isinstance(v, list):
-                    flat.extend(str(x) for x in v)
-                else:
-                    flat.append(str(v))
-            return HttpResponse(flat[0] if flat else str(exc), status=400)
-        return HttpResponse(str(exc), status=400)
+        message = _first_validation_message(exc)
+        if htmx:
+            return HttpResponse(message, status=400)
+        messages.error(request, message)
+        return HttpResponseRedirect(_deliveries_page_url(request, delivery_id))
+
+    if not htmx:
+        messages.success(
+            request, _ACTION_SUCCESS_MESSAGES.get(action, "Livraison mise à jour.")
+        )
+        return HttpResponseRedirect(_deliveries_page_url(request, delivery_id))
 
     row = get_delivery_row_context(user=request.user, delivery_id=delivery_id)
     if row is None:
-        return HttpResponseForbidden("Delivery not found.")
+        return HttpResponseForbidden("Livraison introuvable.")
     html = render_to_string(
         "delivery/partials/delivery_row.html",
         {"row": row},

@@ -229,7 +229,7 @@ def advance_delivery(
         if action == "confirm":
             if order.status != OrderStatus.PENDING:
                 raise ValidationError(
-                    "Order cannot be confirmed from its current status."
+                    "Cette commande ne peut plus être confirmée dans son état actuel."
                 )
             order.status = OrderStatus.CONFIRMED
             order.save(update_fields=["status", "updated_at"])
@@ -237,10 +237,10 @@ def advance_delivery(
         elif action == "start_delivery":
             assigned_to = payload.get("assigned_to")
             if not isinstance(assigned_to, str) or not assigned_to.strip():
-                raise ValidationError({"assigned_to": "Courier name is required."})
+                raise ValidationError({"assigned_to": "Indiquez le nom du livreur."})
             if order.status != OrderStatus.CONFIRMED:
                 raise ValidationError(
-                    "Order must be confirmed before starting delivery."
+                    "La commande doit être confirmée avant de démarrer la livraison."
                 )
             order.status = OrderStatus.OUT_FOR_DELIVERY
             order.save(update_fields=["status", "updated_at"])
@@ -258,13 +258,13 @@ def advance_delivery(
 
         elif action == "mark_delivered":
             if "cod_collected" not in payload:
-                raise ValidationError({"cod_collected": "This field is required."})
+                raise ValidationError({"cod_collected": "Indiquez si le paiement à la livraison a été encaissé."})
             cod_collected = payload.get("cod_collected")
             if not isinstance(cod_collected, bool):
-                raise ValidationError({"cod_collected": "Must be a boolean."})
+                raise ValidationError({"cod_collected": "Valeur d'encaissement invalide."})
             if order.status != OrderStatus.OUT_FOR_DELIVERY:
                 raise ValidationError(
-                    "Order must be out for delivery before marking delivered."
+                    "La commande doit être en cours de livraison avant d'être marquée livrée."
                 )
             order.status = OrderStatus.DELIVERED
             order.save(update_fields=["status", "updated_at"])
@@ -292,13 +292,13 @@ def advance_delivery(
                 Delivery.Status.IN_TRANSIT,
             ):
                 raise ValidationError(
-                    "Delivery cannot be marked failed from its current status."
+                    "Cette livraison ne peut plus être marquée en échec dans son état actuel."
                 )
             delivery.status = Delivery.Status.FAILED
             delivery.save(update_fields=["status", "updated_at"])
 
         else:
-            raise ValidationError({"action": f"Unknown action: {action}"})
+            raise ValidationError({"action": f"Action inconnue : {action}."})
 
         logger.info(
             "delivery_advance actor_id=%s order_id=%s delivery_id=%s action=%s "
