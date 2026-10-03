@@ -45,8 +45,17 @@
     if (!b) return;
     ['-w', '-end'].forEach(function (sfx) {
       var ph = document.getElementById('interest-phone' + sfx);
+      var cc = document.getElementById('interest-cc' + sfx);
       var nm = document.getElementById('interest-name' + sfx);
-      if (ph && !ph.value) ph.value = b.phone;
+      if (ph && !ph.value) {
+        var phone = String(b.phone || '').replace(/[\s().\-]/g, '');
+        var dial = phone.replace(/^00/, '+');
+        var opt = cc && /^\+/.test(dial) ? Array.prototype.slice.call(cc.options)
+          .filter(function (o) { return dial.indexOf(o.value) === 0; })
+          .sort(function (x, y) { return y.value.length - x.value.length; })[0] : null;
+        if (opt) { cc.value = opt.value; ph.value = dial.slice(opt.value.length); }
+        else ph.value = b.phone;  // numero nu : l'indicatif reste a choisir (jamais devine)
+      }
       if (nm && !nm.value && b.name) nm.value = b.name;
     });
   });

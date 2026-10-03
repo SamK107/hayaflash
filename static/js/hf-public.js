@@ -275,7 +275,13 @@ function orderDrawer(saleId) {
 /* ── INTÉRÊT / ALERTE ── */
 async function submitInterest(e, slug, sfx) {
   e.preventDefault();
-  const phone = document.getElementById('interest-phone' + sfx).value.trim();
+  // Numero toujours envoye au format international complet (+indicatif...) : si le
+  // client n'a pas tape lui-meme « + » ou « 00 », on prefixe l'indicatif choisi.
+  const national = document.getElementById('interest-phone' + sfx).value.trim();
+  const ccEl = document.getElementById('interest-cc' + sfx);
+  const phone = (!national || /^(\+|00)/.test(national))
+    ? national
+    : (ccEl ? ccEl.value : '+223') + national.replace(/^[\s.\-]+/, '');
   const name  = document.getElementById('interest-name'  + sfx).value.trim();
   const errEl = document.getElementById('interest-error'       + sfx);
   const btn   = document.getElementById('interest-submit'      + sfx);
@@ -298,11 +304,11 @@ async function submitInterest(e, slug, sfx) {
       let msg = 'Une erreur est survenue. Réessayez.';
       try { const d = await res.json(); if (d && d.error) msg = d.error; } catch (_) {}
       errEl.textContent = msg; errEl.classList.remove('hidden');
-      btn.disabled = false; txtEl.textContent = sfx ? 'Je veux etre prevenu(e)' : 'Confirmer ma reservation';
+      btn.disabled = false; txtEl.textContent = sfx ? 'Je veux être prévenu(e)' : 'Confirmer ma réservation';
     }
   } catch(ex) {
     errEl.textContent = 'Connexion impossible.'; errEl.classList.remove('hidden');
-    btn.disabled = false; txtEl.textContent = sfx ? 'Je veux etre prevenu(e)' : 'Confirmer ma reservation';
+    btn.disabled = false; txtEl.textContent = sfx ? 'Je veux être prévenu(e)' : 'Confirmer ma réservation';
   }
 }
 
