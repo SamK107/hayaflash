@@ -50,3 +50,51 @@ class HomeIconBadgesTests(TestCase):
         self.assertGreaterEqual(len(icons), 25)
         for attrs in icons:
             self.assertIn('aria-hidden="true"', attrs)
+
+
+class FcfaUnitTests(SimpleTestCase):
+    """Chaque montant affiche porte l'unite « FCFA » (jamais « F » seul, jamais sans unite)."""
+
+    # (gabarit, expression de montant) : l'expression doit etre suivie de FCFA.
+    AMOUNTS = (
+        ("accounts/profile.html", "stats.total_revenue"),
+        ("flash_sales/analytics_dashboard.html", "p.total_revenue"),
+        ("orders/partials/order_row.html", "item.price_snapshot"),
+        ("delivery/partials/delivery_summary.html", "summary.total_cod_pending"),
+        ("delivery/partials/delivery_summary.html", "summary.total_cod_collected"),
+        ("core/platform_admin.html", "orange.month.total_collected"),
+        ("core/platform_admin.html", "orange.month.commission"),
+        ("core/platform_admin.html", "orange.all_time.total_collected"),
+        ("core/platform_admin.html", "orange.all_time.commission"),
+        ("core/platform_admin.html", "p.amount"),
+    )
+
+    def test_amounts_are_followed_by_fcfa(self) -> None:
+        import re
+
+        base = Path(settings.BASE_DIR) / "templates"
+        for tpl, expr in self.AMOUNTS:
+            text = (base / tpl).read_text(encoding="utf-8")
+            m = re.search(r"\{\{\s*" + re.escape(expr) + r"[^}]*\}\}(.{0,80})", text, re.S)
+            self.assertIsNotNone(m, f"{tpl}: {expr} introuvable")
+            self.assertIn("FCFA", m.group(1), f"{tpl}: {expr} sans unite FCFA")
+
+    def test_no_bare_f_unit(self) -> None:
+        import re
+
+        base = Path(settings.BASE_DIR) / "templates"
+        offenders = []
+        for tpl in {t for t, _ in self.AMOUNTS}:
+            text = (base / tpl).read_text(encoding="utf-8")
+            if re.search(r"\}\}\s*(<span[^>]*>)?\s+F\s*(</span>|\n)", text):
+                offenders.append(tpl)
+        self.assertEqual(offenders, [])
+
+    def test_delivery_summary_renders_fcfa(self) -> None:
+        from django.template.loader import render_to_string
+
+        html = render_to_string(
+            "delivery/partials/delivery_summary.html",
+            {"summary": {"total_orders": 3, "total_cod_pending": 12500, "total_cod_collected": 4000}},
+        )
+        self.assertEqual(html.count("FCFA"), 2)
