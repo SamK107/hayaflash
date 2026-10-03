@@ -33,7 +33,7 @@ COMPOSE_FILES = ("docker-compose.production.yml", "docker-compose.yml")
 def _worker_queues_from_compose(filename: str) -> set[str]:
     text = (Path(settings.BASE_DIR) / filename).read_text(encoding="utf-8")
     line = next(
-        (l for l in text.splitlines() if "celery -A config worker" in l and "command" in l),
+        (ln for ln in text.splitlines() if "celery -A config worker" in ln and "command" in ln),
         None,
     )
     assert line is not None, f"{filename}: commande du worker introuvable"
