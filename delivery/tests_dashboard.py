@@ -129,6 +129,7 @@ class SellerDeliveriesDashboardTests(DeliveryTestFixture):
                 "orders:seller_delivery_action", kwargs={"delivery_id": delivery.pk}
             ),
             {"action": "confirm"},
+            HTTP_HX_REQUEST="true",
         )
         self.assertEqual(resp.status_code, 200)
         order.refresh_from_db()
@@ -149,6 +150,7 @@ class SellerDeliveriesDashboardTests(DeliveryTestFixture):
                 "orders:seller_delivery_action", kwargs={"delivery_id": delivery.pk}
             ),
             {"action": "start_delivery"},
+            HTTP_HX_REQUEST="true",
         )
         self.assertEqual(resp.status_code, 400)
 
@@ -173,6 +175,7 @@ class SellerDeliveriesDashboardTests(DeliveryTestFixture):
                 "orders:seller_delivery_action", kwargs={"delivery_id": delivery.pk}
             ),
             {"action": "mark_delivered", "cod_collected": "true"},
+            HTTP_HX_REQUEST="true",
         )
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "collecte")

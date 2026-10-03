@@ -88,7 +88,11 @@
     {% endif %}
 
     {% if row.can_start_delivery %}
-    <form class="flex-1 flex gap-2" method="POST" action="{% url 'orders:seller_delivery_action' delivery.id %}">
+    {# Sans JS/HTMX, l'envoi classique est redirige par la vue vers la page complete (F-72). #}
+    <form class="flex-1 flex gap-2" method="POST" action="{% url 'orders:seller_delivery_action' delivery.id %}"
+          hx-post="{% url 'orders:seller_delivery_action' delivery.id %}"
+          hx-target="#delivery-row-{{ delivery.id }}"
+          hx-swap="outerHTML">
       {% csrf_token %}
       <input type="hidden" name="action" value="start_delivery">
       <input

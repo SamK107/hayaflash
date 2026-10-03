@@ -257,7 +257,9 @@ def _parse_cod_collected(raw: Any) -> bool:
     if isinstance(raw, bool):
         return raw
     if raw is None:
-        raise ValidationError({"cod_collected": "This field is required."})
+        raise ValidationError(
+            {"cod_collected": "Indiquez si le paiement à la livraison a été encaissé."}
+        )
     return str(raw).strip().lower() in ("true", "1", "yes", "on")
 
 
@@ -273,11 +275,13 @@ def apply_delivery_action_from_form(
     if action == "start_delivery":
         assigned = form_data.get("assigned_to")
         if not isinstance(assigned, str) or not assigned.strip():
-            raise ValidationError({"assigned_to": "Courier name is required."})
+            raise ValidationError({"assigned_to": "Indiquez le nom du livreur."})
         payload["assigned_to"] = assigned.strip()
     elif action == "mark_delivered":
         if "cod_collected" not in form_data:
-            raise ValidationError({"cod_collected": "This field is required."})
+            raise ValidationError(
+                {"cod_collected": "Indiquez si le paiement à la livraison a été encaissé."}
+            )
         payload["cod_collected"] = _parse_cod_collected(form_data.get("cod_collected"))
 
     delivery = advance_delivery(
