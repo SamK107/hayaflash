@@ -382,6 +382,11 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
+# Files ecoutees par le worker : source unique, verifiee contre la commande `-Q` de
+# docker-compose*.yml (core/tests_celery_queues.py). F-89 : sans file par defaut
+# explicite, les taches partaient dans « celery », que personne ne consommait.
+CELERY_WORKER_QUEUES = ("default", "flash_sales", "notifications")
+CELERY_TASK_DEFAULT_QUEUE = "default"
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERY_BEAT_SCHEDULE = {
