@@ -345,7 +345,7 @@
       <div class="flex gap-3 pt-2">
         <button type="submit"
                 class="flex-1 bg-primary text-white py-3.5 rounded-xl font-bold text-base transition-colors hover:bg-red-700">
-          {% if sale %}Enregistrer les modifications{% else %}⚡ Programmer la vente{% endif %}
+          {% if sale %}Enregistrer les modifications{% else %}<i data-lucide="zap" class="hf-icon-inline" aria-hidden="true"></i> Programmer la vente{% endif %}
         </button>
         <a href="{% if sale %}{% url 'flash_sales:detail' sale.pk %}{% else %}{% url 'flash_sales:list' %}{% endif %}"
            class="px-6 py-3.5 border border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-colors text-center">
