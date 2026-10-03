@@ -68,3 +68,56 @@ class OrderPhoneRateLimitDisabledTests(LiveFlashSaleProductFixture):
     def test_disabled_in_test_settings(self) -> None:
         self.assertFalse(settings.RATELIMIT_ENABLE)
         self.assertFalse(rate_limit.order_phone_limited("+22370000001"))
+
+
+class OrderRateLimit429DetectionTests(LiveFlashSaleProductFixture):
+    """Le 429 est detecte par le type d'exception (OrderRateLimited), pas par le texte."""
+
+    def _post(self, **extra):
+        return APIClient().post(
+            "/api/v1/orders/",
+            {
+                "flash_sale_id": self.sale.pk,
+                "product_id": self.product.pk,
+                "name": "Client",
+                "phone": "+22370000009",
+                "quantity": 1,
+                "client_request_id": str(uuid4()),
+                "delivery": _valid_delivery(),
+            },
+            format="json",
+            REMOTE_ADDR="196.200.7.7",
+            **extra,
+        )
+
+    def test_ip_limit_is_429_whatever_the_message(self) -> None:
+        from unittest import mock
+
+        from orders.services import client_order
+
+        with mock.patch.object(client_order, "ORDER_SUBMIT_RATE_MAX_PER_WINDOW", 0):
+            resp = self._post()
+        self.assertEqual(resp.status_code, 429)
+
+        # Meme avec un texte totalement different : le statut ne change pas.
+        def reworded(request):
+            raise client_order.OrderRateLimited({"detail": "Message quelconque."})
+
+        with mock.patch.object(client_order, "enforce_public_order_rate_limit", reworded):
+            resp = self._post()
+        self.assertEqual(resp.status_code, 429)
+        self.assertEqual(resp.json(), {"detail": ["Message quelconque."]})
+
+    def test_plain_validation_error_stays_400_even_with_legacy_text(self) -> None:
+        from unittest import mock
+
+        from django.core.exceptions import ValidationError
+
+        from orders.services import client_order
+
+        def legacy(request):
+            raise ValidationError({"detail": "Too many order attempts from this network."})
+
+        with mock.patch.object(client_order, "enforce_public_order_rate_limit", legacy):
+            resp = self._post()
+        self.assertEqual(resp.status_code, 400)

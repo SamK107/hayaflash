@@ -118,7 +118,7 @@ def _create_order_transactional(data: dict[str, Any]) -> Order:
         )
         if link is None:
             raise ValidationError(
-                {"items": f"Product {product_id} was not found for this flash sale."}
+                {"items": f"Le produit {product_id} est introuvable dans cette vente flash."}
             )
         product = Product.objects.select_for_update().get(pk=product_id)
         need = totals_by_product[product_id]
@@ -126,8 +126,8 @@ def _create_order_transactional(data: dict[str, Any]) -> Order:
             raise ValidationError(
                 {
                     "items": (
-                        f"Insufficient stock for product {product_id} "
-                        f"(requested {need}, available {product.stock_available})."
+                        f"Stock insuffisant pour le produit {product_id} "
+                        f"(demandé : {need}, disponible : {product.stock_available})."
                     )
                 }
             )
@@ -163,8 +163,8 @@ def _create_order_transactional(data: dict[str, Any]) -> Order:
             raise ValidationError(
                 {
                     "items": (
-                        f"Stock for product {product_id} changed while placing the order; "
-                        "please retry."
+                        f"Le stock du produit {product_id} a changé pendant votre commande. "
+                        "Veuillez réessayer."
                     )
                 }
             )

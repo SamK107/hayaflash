@@ -101,7 +101,7 @@ def send_otp(phone: str) -> None:
 
     from accounts.services.sms import send_sms
 
-    send_sms(normalized_phone, f"Your verification code is: {code}")
+    send_sms(normalized_phone, f"Votre code de vérification HayaFlash : {code}")
 
 
 def verify_phone_otp(phone: str, code: str) -> bool:

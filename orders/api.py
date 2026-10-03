@@ -16,23 +16,12 @@ from orders.services.client_order import OrderRateLimited, submit_public_order_a
 from analytics.services.public_pages import build_referral_loop_context
 
 
-def _flatten_validation_messages(payload: dict) -> str:
-    parts: list[str] = []
-    for v in payload.values():
-        if isinstance(v, list):
-            parts.extend(str(x) for x in v)
-        else:
-            parts.append(str(v))
-    return " ".join(parts)
-
-
 def _validation_response(exc: ValidationError) -> tuple[dict, int]:
     detail = getattr(exc, "message_dict", None)
     if not detail:
         msgs = list(getattr(exc, "messages", [str(exc)]))
         detail = {"detail": msgs}
-    flat = _flatten_validation_messages(detail)
-    if isinstance(exc, OrderRateLimited) or "Too many order attempts" in flat:
+    if isinstance(exc, OrderRateLimited):
         return detail, status.HTTP_429_TOO_MANY_REQUESTS
     return detail, status.HTTP_400_BAD_REQUEST
 

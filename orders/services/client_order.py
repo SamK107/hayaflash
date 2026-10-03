@@ -33,7 +33,11 @@ MAX_AUDIO_BASE64_LENGTH = 2_000_000  # ~1.5 MB decoded, generous for a short voi
 
 
 class OrderRateLimited(ValidationError):
-    """Trop de commandes pour ce numero acheteur (-> HTTP 429, voir orders/api.py)."""
+    """Trop de commandes (par IP ou par numero acheteur) -> HTTP 429, voir orders/api.py.
+
+    La detection du 429 repose sur ce type d'exception, jamais sur le texte du
+    message : celui-ci peut etre reformule librement.
+    """
 
 
 def enforce_public_order_rate_limit(request: HttpRequest) -> None:
@@ -46,11 +50,11 @@ def enforce_public_order_rate_limit(request: HttpRequest) -> None:
         cache.set(key, 1, ORDER_SUBMIT_RATE_WINDOW_SECONDS)
         n = 1
     if n > ORDER_SUBMIT_RATE_MAX_PER_WINDOW:
-        raise ValidationError(
+        raise OrderRateLimited(
             {
                 "detail": (
-                    "Too many order attempts from this network. "
-                    "Please wait a minute and try again."
+                    "Trop de tentatives de commande depuis ce réseau. "
+                    "Patientez une minute puis réessayez."
                 )
             }
         )
@@ -150,21 +154,21 @@ def build_create_order_payload_from_public(*, data: dict[str, Any]) -> dict[str,
     try:
         phone_norm = normalize_phone(data["phone"])
     except TypeError as exc:
-        raise ValidationError({"phone": "Invalid phone value."}) from exc
+        raise ValidationError({"phone": "Numéro de téléphone invalide."}) from exc
 
     flash_sale = FlashSale.objects.filter(pk=flash_sale_id).first()
     if flash_sale is None:
-        raise ValidationError({"flash_sale_id": "Flash sale not found."})
+        raise ValidationError({"flash_sale_id": "Vente flash introuvable."})
 
     product = Product.objects.filter(pk=product_id).first()
     if product is None:
-        raise ValidationError({"product_id": "Product not found."})
+        raise ValidationError({"product_id": "Produit introuvable."})
     is_linked = FlashSaleProduct.objects.filter(
         flash_sale_id=flash_sale.id, product_id=product_id, is_active=True
     ).exists()
     if not is_linked:
         raise ValidationError(
-            {"product_id": "This product is not part of the selected flash sale."}
+            {"product_id": "Ce produit ne fait pas partie de cette vente flash."}
         )
 
     assert_flash_sale_accepts_orders(flash_sale)

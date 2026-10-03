@@ -6,10 +6,15 @@ import urllib.parse
 logger = logging.getLogger(__name__)
 
 
+def format_fcfa(amount) -> str:
+    """40000 -> '40 000' (meme separateur que le filtre web ``thousands``)."""
+    return f"{int(amount):,}".replace(",", " ")
+
+
 def build_whatsapp_order_message(order) -> str:
     """Construit le message de confirmation commande pour WhatsApp."""
     items_text = "\n".join(
-        f"  - {item.product_name_snapshot} x{item.quantity} — {int(item.price_snapshot * item.quantity):,} FCFA"
+        f"  - {item.product_name_snapshot} x{item.quantity} — {format_fcfa(item.price_snapshot * item.quantity)} FCFA"
         for item in order.items.all()
     )
     return (
@@ -17,7 +22,7 @@ def build_whatsapp_order_message(order) -> str:
         f"Bonjour {order.customer_name},\n\n"
         f"Votre commande a bien ete enregistree :\n"
         f"{items_text}\n\n"
-        f"Total : {int(order.total_amount):,} FCFA\n\n"
+        f"Total : {format_fcfa(order.total_amount)} FCFA\n\n"
         f"Paiement a la livraison.\n\n"
         f"Commande via HayaFlash"
     )
