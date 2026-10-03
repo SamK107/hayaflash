@@ -72,7 +72,7 @@
   {% endif %}
 
   <!-- Actions -->
-  <div class="flex gap-2">
+  <div class="flex flex-wrap gap-2">
     {% if row.can_confirm %}
     <button
       type="button"
@@ -105,26 +105,37 @@
     </form>
     {% endif %}
 
-    {% if row.can_complete %}
+    {% if row.can_mark_delivered %}
     <button
       type="button"
       class="flex-1 bg-success text-white font-bold py-2.5 rounded-xl text-sm hover:bg-green-600 transition-colors"
       hx-post="{% url 'orders:seller_delivery_action' delivery.id %}"
-      hx-vals='{"action": "complete"}'
+      hx-vals='{"action": "mark_delivered", "cod_collected": "true"}'
       hx-target="#delivery-row-{{ delivery.id }}"
       hx-swap="outerHTML"
       hx-include="[name='csrfmiddlewaretoken']"
     >
-      Livrée
+      Livrée · encaissée
+    </button>
+    <button
+      type="button"
+      class="flex-1 bg-amber-100 text-amber-800 font-semibold py-2.5 rounded-xl text-sm transition-colors"
+      hx-post="{% url 'orders:seller_delivery_action' delivery.id %}"
+      hx-vals='{"action": "mark_delivered", "cod_collected": "false"}'
+      hx-target="#delivery-row-{{ delivery.id }}"
+      hx-swap="outerHTML"
+      hx-include="[name='csrfmiddlewaretoken']"
+    >
+      Livrée · non encaissée
     </button>
     {% endif %}
 
-    {% if row.can_fail %}
+    {% if row.can_mark_failed %}
     <button
       type="button"
       class="flex-1 bg-gray-100 text-gray-600 font-semibold py-2.5 rounded-xl text-sm hover:bg-gray-200 transition-colors"
       hx-post="{% url 'orders:seller_delivery_action' delivery.id %}"
-      hx-vals='{"action": "fail"}'
+      hx-vals='{"action": "mark_failed"}'
       hx-target="#delivery-row-{{ delivery.id }}"
       hx-swap="outerHTML"
       hx-include="[name='csrfmiddlewaretoken']"
