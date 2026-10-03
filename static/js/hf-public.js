@@ -85,41 +85,10 @@ function hfWaiting(openAtMs) {
 }
 
 /* ── BOUTON "M'ALERTER" ── */
-function hfWaitingAlert(openAtMs) {
-  // 1. Web Notification API
-  if ('Notification' in window && Notification.permission !== 'denied') {
-    Notification.requestPermission().then(p => {
-      if (p === 'granted') {
-        _hfScheduleNotif(openAtMs);
-        _hfNotifConfirmed();
-      } else {
-        document.getElementById('interest-drawer-w').classList.add('open');
-      }
-    });
-  } else {
-    // Pas de notif disponible ou refusee → drawer telephone
-    document.getElementById('interest-drawer-w').classList.add('open');
-  }
-}
-function _hfScheduleNotif(openAtMs) {
-  const ms = openAtMs - Date.now();
-  if (ms > 180000) {
-    setTimeout(() => new Notification('HayaFlash — Dans 2 minutes !', {
-      body: 'La vente flash ouvre bientot. Soyez pret(e) !'
-    }), ms - 120000);
-  }
-  if (ms > 0) {
-    setTimeout(() => new Notification('HayaFlash — C\'est ouvert !', {
-      body: 'Commandez maintenant — les stocks partent vite !'
-    }), ms);
-  }
-}
-function _hfNotifConfirmed() {
-  const btn = document.getElementById('btn-notify-waiting');
-  if (!btn) return;
-  btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mr-2 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Notification activee !';
-  btn.className = btn.className.replace('bg-primary','bg-green-600').replace('hover:bg-red-700','hover:bg-green-700');
-  btn.disabled = true;
+// Ouvre toujours le tiroir telephone : seul un numero inscrit (SaleInterest) permet
+// au vendeur de prevenir le client. Aucune notification navigateur locale (F-81).
+function hfWaitingAlert() {
+  document.getElementById('interest-drawer-w').classList.add('open');
 }
 
 /* ── Met a jour le stock affiche pour un produit, sans recharger la page ── */
@@ -306,7 +275,13 @@ function orderDrawer(saleId) {
 /* ── INTÉRÊT / ALERTE ── */
 async function submitInterest(e, slug, sfx) {
   e.preventDefault();
-  const phone = document.getElementById('interest-phone' + sfx).value.trim();
+  // Numero toujours envoye au format international complet (+indicatif...) : si le
+  // client n'a pas tape lui-meme « + » ou « 00 », on prefixe l'indicatif choisi.
+  const national = document.getElementById('interest-phone' + sfx).value.trim();
+  const ccEl = document.getElementById('interest-cc' + sfx);
+  const phone = (!national || /^(\+|00)/.test(national))
+    ? national
+    : (ccEl ? ccEl.value : '+223') + national.replace(/^[\s.\-]+/, '');
   const name  = document.getElementById('interest-name'  + sfx).value.trim();
   const errEl = document.getElementById('interest-error'       + sfx);
   const btn   = document.getElementById('interest-submit'      + sfx);
@@ -329,11 +304,11 @@ async function submitInterest(e, slug, sfx) {
       let msg = 'Une erreur est survenue. Réessayez.';
       try { const d = await res.json(); if (d && d.error) msg = d.error; } catch (_) {}
       errEl.textContent = msg; errEl.classList.remove('hidden');
-      btn.disabled = false; txtEl.textContent = sfx ? 'Je veux etre prevenu(e)' : 'Confirmer ma reservation';
+      btn.disabled = false; txtEl.textContent = sfx ? 'Je veux être prévenu(e)' : 'Confirmer ma réservation';
     }
   } catch(ex) {
     errEl.textContent = 'Connexion impossible.'; errEl.classList.remove('hidden');
-    btn.disabled = false; txtEl.textContent = sfx ? 'Je veux etre prevenu(e)' : 'Confirmer ma reservation';
+    btn.disabled = false; txtEl.textContent = sfx ? 'Je veux être prévenu(e)' : 'Confirmer ma réservation';
   }
 }
 

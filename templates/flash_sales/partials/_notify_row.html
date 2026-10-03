@@ -1,0 +1,28 @@
+<div id="notify-{{ row.invitee.dom_id }}"
+     class="flex items-center gap-3 px-5 py-3{% if row.invitee.contacted_at %} opacity-50{% endif %}">
+  <div class="flex-1 min-w-0">
+    {% if row.invitee.name %}<p class="text-sm font-semibold text-gray-800">{{ row.invitee.name }}</p>{% endif %}
+    <p class="text-sm text-gray-500">{{ row.invitee.phone }}</p>
+    {% if row.invitee.contacted_at %}
+    <p class="text-xs font-semibold text-green-700">Prévenu le {{ row.invitee.contacted_at|date:"d/m à H:i" }}</p>
+    {% endif %}
+  </div>
+  {% if row.link %}
+  <a href="{{ row.link }}" target="_blank" rel="noopener"
+     class="shrink-0 inline-flex items-center gap-1 bg-success text-white text-sm font-semibold px-3 py-2 rounded-xl hover:bg-green-600">
+    <i data-lucide="message-circle" class="w-4 h-4" aria-hidden="true"></i>Prévenir
+  </a>
+  {% else %}
+  <span class="shrink-0 text-xs font-semibold text-amber-700">numéro à vérifier</span>
+  {% endif %}
+  {% if not row.invitee.contacted_at %}
+  <button type="button"
+          class="shrink-0 bg-gray-100 text-gray-600 text-xs font-semibold px-3 py-2 rounded-xl hover:bg-gray-200"
+          hx-post="{% url 'flash_sales:interest_contacted' %}"
+          hx-vals='{"key": "{{ row.invitee.key|escapejs }}"}'
+          hx-target="#notify-{{ row.invitee.dom_id }}"
+          hx-swap="outerHTML">
+    Marquer comme prévenu
+  </button>
+  {% endif %}
+</div>

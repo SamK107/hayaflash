@@ -246,13 +246,17 @@ class SendPendingSaleRemindersTest(TestCase):
         )
 
     def test_reminds_interest_within_the_hour(self) -> None:
+        from unittest.mock import patch
+
         from flash_sales.tasks import send_pending_sale_reminders
         from notifications.models import Notification
 
         sale = self._sale(start_in=timedelta(minutes=30))
         interest = self._interest(sale)
 
-        send_pending_sale_reminders()
+        # reminded_at n'est pose que si le SMS part reellement (F-81) : passerelle simulee.
+        with patch("notifications.services.sms.send_sms", return_value=True):
+            send_pending_sale_reminders()
 
         interest.refresh_from_db()
         self.assertIsNotNone(interest.reminded_at)

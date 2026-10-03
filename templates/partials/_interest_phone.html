@@ -1,0 +1,14 @@
+<div>
+  <label for="interest-phone{{ sfx }}" class="block text-sm font-semibold text-gray-700 mb-1.5">Votre téléphone <span class="text-red-500">*</span></label>
+  <div class="flex gap-2">
+    <select id="interest-cc{{ sfx }}" aria-label="Indicatif du pays" style="width:9.5rem"
+            class="shrink-0 px-3 py-3.5 border border-gray-200 rounded-xl text-base bg-white focus:outline-none focus:ring-2 focus:ring-primary">
+      {% for c in countries %}
+      <option value="{{ c.dial }}"{% if c.calling_code == default_country.calling_code %} selected{% endif %}>{{ c.dial }} {{ c.name }}</option>
+      {% endfor %}
+    </select>
+    <input type="tel" id="interest-phone{{ sfx }}" name="phone" inputmode="tel" autocomplete="tel-national"
+           placeholder="70 00 00 00" required
+           class="min-w-0 flex-1 px-4 py-3.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+  </div>
+</div>

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from django.contrib import messages
+from django.http import Http404, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 
 from accounts.access import seller_required
@@ -11,6 +13,11 @@ from core.context_processors import request_pwa_install_invite
 
 from .forms import FlashSaleForm
 from .models import FlashSale, FlashSaleStatus, SaleInterest
+from .services.notify_interests import (
+    build_notify_context,
+    build_notify_row,
+    mark_contacted,
+)
 from .services.ordering import (
     live_now_q,
     seller_done_q,
@@ -317,8 +324,39 @@ def sale_interests_view(request):
     ctx = {
         "sales_with_interests": sales_with_interests,
         "total_count": total_count,
+        **build_notify_context(
+            seller, build_sale_url=_public_sale_url_builder(request)
+        ),
     }
     return render(request, "flash_sales/interests.html", ctx)
+
+
+def _public_sale_url_builder(request):
+    return lambda sale: request.build_absolute_uri(
+        reverse("public_flash_sale", kwargs={"slug": sale.public_slug})
+    )
+
+
+@seller_required
+def sale_interest_contacted_view(request):
+    """POST : marque « prevenu » un inscrit (cle = numero normalise) du vendeur connecte.
+
+    Propriete : seules les inscriptions des ventes du vendeur sont lues et modifiees.
+    HTMX -> la ligne mise a jour (fragment) ; envoi classique -> redirection.
+    """
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+    seller = _get_seller(request)
+    key = (request.POST.get("key") or "").strip()
+    if not key or not mark_contacted(seller, key):
+        raise Http404("Inscrit introuvable.")
+    if request.headers.get("HX-Request") != "true":
+        messages.success(request, "Inscrit marqué comme prévenu.")
+        return redirect("flash_sales:interests")
+    row = build_notify_row(seller, key, build_sale_url=_public_sale_url_builder(request))
+    if row is None:
+        raise Http404("Inscrit introuvable.")
+    return render(request, "flash_sales/partials/_notify_row.html", {"row": row})
 
 
 @seller_required
