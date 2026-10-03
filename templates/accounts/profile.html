@@ -55,7 +55,7 @@
         <div class="min-w-0">
           <p class="font-bold text-gray-900 truncate">{{ profile.business_name|default:request.user.display_name }}</p>
           <p class="text-xs text-gray-500 truncate">{{ profile.bio|default:"Aucune description"|truncatechars:60 }}</p>
-          <p class="text-xs text-orange-500 mt-1 truncate">📍 {{ profile.delivery_zones|default:"Zones non renseignées" }}</p>
+          <p class="text-xs text-orange-500 mt-1 truncate"><i data-lucide="map-pin" class="hf-icon-inline" aria-hidden="true"></i> {{ profile.delivery_zones|default:"Zones non renseignées" }}</p>
         </div>
       </div>
       {# Stats mini #}
