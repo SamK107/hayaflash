@@ -22,7 +22,6 @@ class NormalizeWhatsappNumberTests(AlertFixture):
             "+223 70 00 00 01": "22370000001",
             "+22370000001": "22370000001",
             "0022370000001": "22370000001",
-            "70 00 00 01": "22370000001",  # numero local malien a 8 chiffres
             "(+223) 70-00-00-01": "22370000001",
             "+33 6 12 34 56 78": "33612345678",
         }
@@ -30,7 +29,9 @@ class NormalizeWhatsappNumberTests(AlertFixture):
             self.assertEqual(normalize_whatsapp_number(raw), expected, raw)
 
     def test_invalid(self) -> None:
-        for raw in ("", "abc", "123", "+22", "7000", "12345678901234567", "70 00 00 0x"):
+        # Jamais de pays devine : un numero nu (meme a 8 chiffres) n'a pas de lien.
+        for raw in ("", "abc", "123", "+22", "7000", "70 00 00 01", "70000001",
+                    "0612345678", "12345678901234567", "+223 70 00 00 0x"):
             self.assertIsNone(normalize_whatsapp_number(raw), raw)
 
 
@@ -60,7 +61,7 @@ class InterestsToNotifyTests(AlertFixture):
     def test_dedup_by_normalized_number_keeps_latest_name(self) -> None:
         sale = self.make_sale()
         self._interest(sale, "+223 70 00 00 01", "")
-        self._interest(sale, "70 00 00 01", "Fatoumata")
+        self._interest(sale, "00223 70 00 00 01", "Fatoumata")
         self._interest(sale, "+22370000001", "")
         self._interest(sale, "+22371111111", "Moussa")
         got = interests_to_notify(self.seller)
@@ -79,7 +80,7 @@ class InterestsToNotifyTests(AlertFixture):
         a = self.make_sale(status=FlashSaleStatus.CLOSED, start_in_h=-9)
         b = self.make_sale(start_in_h=4)
         self._interest(a, "+22370000001")
-        self._interest(b, "70 00 00 01")
+        self._interest(b, "00223 70 00 00 01")
         self.assertEqual(len(interests_to_notify(self.seller)), 1)
 
     def test_isolation_between_sellers(self) -> None:

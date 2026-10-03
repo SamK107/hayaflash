@@ -72,9 +72,18 @@ class NotifyLinksTests(AlertFixture):
         self.assertIn("numéro à vérifier", html)
         self.assertIn("1234567", html)
 
+    def test_legacy_number_without_country_code_has_no_link(self) -> None:
+        """Ancien inscrit (numero nu) : conserve, numero a verifier, jamais de pays devine."""
+        SaleInterest.objects.create(flash_sale=self.closed, phone="70 00 00 01", name="Ancien")
+        html = self.client.get(self.url).content.decode()
+        self.assertEqual(self._links(html), [])
+        self.assertIn("numéro à vérifier", html)
+        self.assertIn("70 00 00 01", html)
+        self.assertNotIn("supposé", html)
+
     def test_duplicates_give_one_link(self) -> None:
         SaleInterest.objects.create(flash_sale=self.closed, phone="+22370000001")
-        SaleInterest.objects.create(flash_sale=self.next, phone="70 00 00 01")
+        SaleInterest.objects.create(flash_sale=self.next, phone="00223 70 00 00 01")
         self.assertEqual(len(self._links(self.client.get(self.url).content.decode())), 1)
 
     def test_no_scheduled_sale_says_so_and_has_no_link(self) -> None:

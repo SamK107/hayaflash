@@ -19,9 +19,6 @@ from django.utils.formats import date_format
 from accounts.services.users import normalize_phone
 from flash_sales.models import FlashSale, FlashSaleStatus, SaleInterest
 
-# Numero local malien a 8 chiffres (ex. « 70 00 00 01 ») -> indicatif du Mali.
-DEFAULT_COUNTRY_CODE = "223"
-LOCAL_NUMBER_LENGTH = 8
 _SEPARATORS_RE = re.compile(r"[\s().\-]")
 
 
@@ -34,7 +31,11 @@ class Invitee:
 
 
 def normalize_whatsapp_number(raw: str) -> str | None:
-    """Numero au format wa.me (E.164 sans « + »), ou None s'il est inexploitable."""
+    """Numero au format wa.me (E.164 sans « + »), ou None s'il est inexploitable.
+
+    Seul un numero deja international (+… ou 00…) donne un lien : on ne devine
+    jamais un pays a partir d'un numero nu.
+    """
     if not isinstance(raw, str):
         return None
     cleaned = _SEPARATORS_RE.sub("", normalize_phone(raw))
@@ -42,8 +43,6 @@ def normalize_whatsapp_number(raw: str) -> str | None:
         digits = cleaned[1:]
     elif cleaned.startswith("00"):
         digits = cleaned[2:]
-    elif cleaned.isdigit() and len(cleaned) == LOCAL_NUMBER_LENGTH:
-        digits = DEFAULT_COUNTRY_CODE + cleaned
     else:
         return None
     if not digits.isdigit() or not 10 <= len(digits) <= 15:
