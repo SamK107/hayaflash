@@ -14,6 +14,7 @@ def send_order_confirmation(order_id: int) -> None:
     """Envoie une confirmation SMS apres creation de commande."""
     from orders.models import Order
     from notifications.services.dispatcher import send_notification
+    from notifications.services.whatsapp import format_fcfa
 
     try:
         order = (
@@ -28,7 +29,7 @@ def send_order_confirmation(order_id: int) -> None:
     total = int(order.total_amount) if order.total_amount else 0
     message = (
         f"HayaFlash — Commande #{order.pk} enregistree !\n"
-        f"Total : {total:,} FCFA\n"
+        f"Total : {format_fcfa(total)} FCFA\n"
         f"Paiement a la livraison. Merci {order.customer_name} !"
     )
     send_notification(

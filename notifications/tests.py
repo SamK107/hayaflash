@@ -113,3 +113,35 @@ class NotificationTasksTest(TestCase):
 
         send_order_confirmation(999999)
         self.assertEqual(Notification.objects.count(), 0)
+
+
+class FcfaThousandsSeparatorTests(TestCase):
+    """Montants WhatsApp/SMS : '40 000 FCFA' (espace), jamais '40,000 FCFA'."""
+
+    def test_format_fcfa(self) -> None:
+        from decimal import Decimal
+
+        from notifications.services.whatsapp import format_fcfa
+
+        self.assertEqual(format_fcfa(40000), "40 000")
+        self.assertEqual(format_fcfa(Decimal("1999")), "1 999")
+        self.assertEqual(format_fcfa(500), "500")
+        self.assertEqual(format_fcfa(1234567), "1 234 567")
+
+    def test_whatsapp_message_uses_space_separator(self) -> None:
+        from decimal import Decimal
+        from types import SimpleNamespace
+
+        from notifications.services.whatsapp import build_whatsapp_order_message
+
+        item = SimpleNamespace(
+            product_name_snapshot="Boubou", quantity=2, price_snapshot=Decimal("20000")
+        )
+        order = SimpleNamespace(
+            customer_name="Awa",
+            total_amount=Decimal("40000"),
+            items=SimpleNamespace(all=lambda: [item]),
+        )
+        msg = build_whatsapp_order_message(order)
+        self.assertIn("40 000 FCFA", msg)
+        self.assertNotIn("40,000", msg)
