@@ -214,7 +214,7 @@ def seller_home_view(request):
 
     from flash_sales.models import FlashSale, FlashSaleStatus
     from flash_sales.services.ordering import live_now_q, upcoming_q
-    from orders.models import Order
+    from orders.models import Order, OrderStatus
 
     # Garde-fou : un compte sans SellerProfile (staff createsuperuser, lien
     # /seller/ favori/partage par erreur) plantait ici en 500. Staff ->
@@ -231,18 +231,29 @@ def seller_home_view(request):
     # est passee n'est plus "a venir / en cours", meme si Celery ne l'a pas
     # encore fermee.
     now = timezone.now()
-    active_sales = FlashSale.objects.filter(
+    active_qs = FlashSale.objects.filter(
         live_now_q(now) | upcoming_q(now), owner=seller
-    ).order_by("start_time")[:5]
-
-    recent_sales = (
+    )
+    recent_qs = (
         FlashSale.objects.filter(owner=seller)
         .exclude(live_now_q(now) | upcoming_q(now))
         .exclude(status=FlashSaleStatus.CANCELLED)
-        .order_by("-start_time")[:3]
     )
+    # F-75 : les cartes affichent le vrai total (COUNT), pas la taille de la
+    # liste tranchee ci-dessous ([:5] / [:3]).
+    active_total = active_qs.count()
+    recent_total = recent_qs.count()
+    active_sales = active_qs.order_by("start_time")[:5]
+    recent_sales = recent_qs.order_by("-start_time")[:3]
 
     total_orders = Order.objects.filter(flash_sale__owner=seller).count()
+    # Ligne d'etat de l'en-tete. « En cours » = par l'heure (point 15) ;
+    # « a traiter » = statut pending uniquement (meme definition que la pastille
+    # « Commandes » de la navigation, core/context_processors.py).
+    live_count = FlashSale.objects.filter(live_now_q(now), owner=seller).count()
+    to_process_count = Order.service_objects.filter(
+        flash_sale__owner=seller, status=OrderStatus.PENDING
+    ).count()
 
     return render(
         request,
@@ -250,9 +261,25 @@ def seller_home_view(request):
         {
             "active_sales": active_sales,
             "recent_sales": recent_sales,
+            "active_total": active_total,
+            "recent_total": recent_total,
             "total_orders": total_orders,
+            "live_count": live_count,
+            "to_process_count": to_process_count,
+            "seller_initials": _initials(request.user.display_name),
+            "seller_first_name": (request.user.display_name or "").split(" ")[0],
         },
     )
+
+
+def _initials(display_name: str) -> str:
+    """Deux lettres pour la pastille de l'en-tete (« Awa Traore » -> « AT »)."""
+    words = (display_name or "").split()
+    if len(words) >= 2:
+        return (words[0][0] + words[1][0]).upper()
+    if words:
+        return words[0][:2].upper()
+    return "HF"
 
 
 @staff_member_required

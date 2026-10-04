@@ -5,16 +5,25 @@
 {% block content %}
 <div class="max-w-5xl mx-auto px-4 py-8">
 
-  <!-- Header -->
-  <div class="flex items-center justify-between mb-8">
-    <div>
-      <h1 class="text-2xl font-bold text-gray-900">Bonjour, {{ request.user.display_name }} 👋</h1>
-      <p class="text-gray-500 text-sm mt-1">Gérez vos ventes flash depuis votre tableau de bord.</p>
+  <!-- En-tete : pastille d'initiales, ligne d'etat, bouton principal -->
+  <div class="flex items-center justify-between gap-4 mb-8">
+    <div class="flex items-center gap-4 min-w-0">
+      <div class="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold shrink-0" aria-hidden="true">{{ seller_initials }}</div>
+      <div class="min-w-0">
+        <h1 class="text-2xl font-bold text-gray-900 truncate">Bonjour, {{ seller_first_name }}</h1>
+        <p class="text-gray-500 text-sm mt-1">
+          {% if live_count or to_process_count %}
+            {% if live_count %}{{ live_count }} vente{{ live_count|pluralize }} en cours{% endif %}{% if live_count and to_process_count %} · {% endif %}{% if to_process_count %}{{ to_process_count }} commande{{ to_process_count|pluralize }} à traiter{% endif %}
+          {% else %}
+            Rien à traiter pour le moment
+          {% endif %}
+        </p>
+      </div>
     </div>
     <a href="{% url 'flash_sales:create' %}"
-       class="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-primary-dark transition-colors shadow-sm">
+       class="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-primary-dark transition-colors shadow-sm shrink-0">
       <i data-lucide="plus" class="w-5 h-5"></i>
-      Nouvelle vente
+      Créer une vente flash
     </a>
   </div>
 
@@ -26,11 +35,11 @@
     </div>
     <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
       <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Ventes actives</p>
-      <p class="text-3xl font-bold text-primary mt-1">{{ active_sales|length }}</p>
+      <p class="text-3xl font-bold text-primary mt-1">{{ active_total }}</p>
     </div>
     <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm col-span-2 md:col-span-1">
       <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Ventes terminées</p>
-      <p class="text-3xl font-bold text-gray-900 mt-1">{{ recent_sales|length }}</p>
+      <p class="text-3xl font-bold text-gray-900 mt-1">{{ recent_total }}</p>
     </div>
   </div>
 
@@ -102,9 +111,7 @@
   <!-- Empty state -->
   {% if not active_sales and not recent_sales %}
   <div class="text-center py-20">
-    <div class="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto mb-5">
-      <i data-lucide="zap" class="w-10 h-10 text-primary"></i>
-    </div>
+    <span class="hf-icon-badge hf-icon-badge--lg hf-icon-badge--violet mx-auto mb-5"><i data-lucide="zap"></i></span>
     <h2 class="text-xl font-bold text-gray-900 mb-2">Lancez votre première vente flash !</h2>
     <p class="text-gray-500 mb-6 max-w-sm mx-auto">Créez une vente en moins de 60 secondes et commencez à recevoir des commandes.</p>
     <a href="{% url 'flash_sales:create' %}"
