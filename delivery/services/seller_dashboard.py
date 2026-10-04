@@ -32,8 +32,9 @@ def _auto_sync_stale_deliveries(qs) -> None:
     for d in stale_delivered:
         d.status = Delivery.Status.DELIVERED
         d.delivered_at = d.delivered_at or now
-        d.cod_collected = True
-        d.save(update_fields=["status", "delivered_at", "cod_collected", "updated_at"])
+        # F-94 : on aligne le statut, jamais l'encaissement. Forcer
+        # cod_collected = True effacait un impaye (« Livree · non encaissee »).
+        d.save(update_fields=["status", "delivered_at", "updated_at"])
 
     stale_transit = list(
         qs.filter(order__status=OrderStatus.OUT_FOR_DELIVERY).exclude(
