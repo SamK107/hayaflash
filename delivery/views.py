@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from urllib.parse import quote
 from uuid import UUID
 
 from django.contrib.auth.decorators import login_required
@@ -116,6 +117,9 @@ def seller_deliveries_dashboard(request):
     context["current_flash_sale"] = context.get("flash_sale")
     context["flash_sale_choices"] = context.get("flash_sales", [])
     context["current_flash_sale_id"] = flash_sale_id
+    context["delivery_select_prefix"] = (
+        f"?status={quote(status_filter or '')}&flash_sale_id="
+    )
     return render(request, "delivery/deliveries_dashboard.html", context)
 
 

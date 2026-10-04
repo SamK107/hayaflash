@@ -3,22 +3,81 @@
 from __future__ import annotations
 
 
+# Pastilles de la navigation vendeur (F-84). Definitions :
+# - commandes a traiter  = commandes du vendeur au statut `pending` (jamais
+#   confirmees) ; les `confirmed` attendent la livraison, donc relevent du
+#   compteur « livraisons » ;
+# - livraisons en cours  = livraisons du vendeur aux statuts `assigned` ou
+#   `in_transit` (`pending` = pas encore prise en charge, `delivered` / `failed`
+#   = terminees) ;
+# - reservations         = SaleInterest du vendeur.
+# Les deux premiers COUNT sont mis en cache 5 s (meme ordre de grandeur que
+# KPI_CACHE_TTL_SECONDS) : au plus 5 s de retard, cout constant.
+NAV_COUNTS_CACHE_KEY = "hf:navcounts:{seller_id}"
+NAV_COUNTS_TTL_SECONDS = 5
+NAV_BADGE_CAP = 99
+_ZERO_NAV_COUNTS = {"orders_to_process_count": 0, "deliveries_active_count": 0}
+
+
+def format_nav_badge(count: int) -> str:
+    """Texte d'une pastille : valeur exacte jusqu'a 99, « 99+ » au-dela."""
+    return f"{NAV_BADGE_CAP}+" if count > NAV_BADGE_CAP else str(count)
+
+
+def _compute_nav_counts(seller) -> dict:
+    from delivery.models import Delivery
+    from orders.models import Order, OrderStatus
+
+    return {
+        "orders_to_process_count": Order.service_objects.filter(
+            flash_sale__owner=seller, status=OrderStatus.PENDING
+        ).count(),
+        "deliveries_active_count": Delivery.objects.filter(
+            order__flash_sale__owner=seller,
+            status__in=[Delivery.Status.ASSIGNED, Delivery.Status.IN_TRANSIT],
+        ).count(),
+    }
+
+
 def seller_interests_count(request):
     """
-    Injecte `interests_count` dans tous les templates.
-    Vaut 0 si l'utilisateur n'est pas authentifié ou n'a pas de profil vendeur.
+    Injecte les compteurs de la navigation vendeur dans tous les templates :
+    `interests_count`, `orders_to_process_count`, `deliveries_active_count` et
+    leur libelle de pastille (`*_badge`, plafonne a « 99+ »).
+    Tout vaut 0 si l'utilisateur n'est pas authentifie ou n'a pas de profil
+    vendeur. Les fragments HTMX (HX-Request) ne rendent pas la navigation : on
+    saute alors tous les COUNT.
     """
-    if not request.user.is_authenticated:
-        return {"interests_count": 0}
+    zero = {
+        "interests_count": 0,
+        **_ZERO_NAV_COUNTS,
+        "orders_to_process_badge": "0",
+        "deliveries_active_badge": "0",
+    }
+    if not request.user.is_authenticated or request.headers.get("HX-Request"):
+        return zero
     try:
         seller = request.user.seller_profile
     except Exception:
-        return {"interests_count": 0}
+        return zero
+
+    from django.core.cache import cache
 
     from flash_sales.models import SaleInterest
 
     count = SaleInterest.objects.filter(flash_sale__owner=seller).count()
-    return {"interests_count": count}
+
+    counts = cache.get_or_set(
+        NAV_COUNTS_CACHE_KEY.format(seller_id=seller.pk),
+        lambda: _compute_nav_counts(seller),
+        NAV_COUNTS_TTL_SECONDS,
+    )
+    return {
+        "interests_count": count,
+        **counts,
+        "orders_to_process_badge": format_nav_badge(counts["orders_to_process_count"]),
+        "deliveries_active_badge": format_nav_badge(counts["deliveries_active_count"]),
+    }
 
 
 def active_live_sale(request):

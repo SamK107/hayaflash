@@ -33,6 +33,9 @@
                   transition-colors">
           <i data-lucide="shopping-bag" class="w-4 h-4"></i>
           Commandes
+          {% if orders_to_process_count > 0 %}
+          <span data-nav-badge="orders" class="hf-nav-badge ml-1 bg-primary text-white text-xs font-bold px-1.5 py-0.5 rounded-full leading-none">{{ orders_to_process_badge }}</span>
+          {% endif %}
         </a>
         <a href="{% url 'orders:seller_deliveries_dashboard' %}"
            class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium
@@ -40,6 +43,9 @@
                   transition-colors">
           <i data-lucide="truck" class="w-4 h-4"></i>
           Livraisons
+          {% if deliveries_active_count > 0 %}
+          <span data-nav-badge="deliveries" class="hf-nav-badge ml-1 bg-primary text-white text-xs font-bold px-1.5 py-0.5 rounded-full leading-none">{{ deliveries_active_badge }}</span>
+          {% endif %}
         </a>
         <a href="{% url 'flash_sales:interests' %}"
            class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium
@@ -129,12 +135,22 @@
         <i data-lucide="plus-circle" class="w-5 h-5 text-primary"></i>Nouvelle vente
       </a>
       <a href="{% url 'orders:seller_dashboard' %}"
-         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-        <i data-lucide="shopping-bag" class="w-5 h-5 text-primary"></i>Commandes
+         class="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+        <span class="flex items-center gap-3">
+          <i data-lucide="shopping-bag" class="w-5 h-5 text-primary"></i>Commandes
+        </span>
+        {% if orders_to_process_count > 0 %}
+        <span data-nav-badge="orders" class="hf-nav-badge bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full">{{ orders_to_process_badge }}</span>
+        {% endif %}
       </a>
       <a href="{% url 'orders:seller_deliveries_dashboard' %}"
-         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-        <i data-lucide="truck" class="w-5 h-5 text-primary"></i>Livraisons
+         class="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+        <span class="flex items-center gap-3">
+          <i data-lucide="truck" class="w-5 h-5 text-primary"></i>Livraisons
+        </span>
+        {% if deliveries_active_count > 0 %}
+        <span data-nav-badge="deliveries" class="hf-nav-badge bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full">{{ deliveries_active_badge }}</span>
+        {% endif %}
       </a>
       <a href="{% url 'flash_sales:interests' %}"
          class="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">

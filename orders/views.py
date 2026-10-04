@@ -17,9 +17,12 @@ from accounts.models import SellerProfile
 from orders.services.client_order import resolve_client_order_page
 from orders.services.dashboard import (
     advance_order_status,
+    count_dashboard_orders,
     get_dashboard_kpis_cached,
     get_order_row_context,
     list_dashboard_order_rows,
+    list_owned_flash_sales,
+    resolve_owned_flash_sale,
 )
 
 PARTIAL_MIN_INTERVAL_SECONDS = 3.0
@@ -67,25 +70,43 @@ def seller_dashboard(request):
     from flash_sales.services.ordering import live_now_q, seller_upcoming_q
 
     seller = request.user.seller_profile
-    # Par l'heure (CLAUDE.md point 15), comme la prise de commande.
-    live_sale = (
-        FlashSale.objects.filter(live_now_q(), owner=seller)
-        .order_by("-start_time")
-        .first()
+    # Filtre « une vente » : 404 si elle n'est pas au vendeur (jamais de fuite).
+    current_sale = resolve_owned_flash_sale(
+        request.user, request.GET.get("flash_sale_id")
     )
+    live_qs = FlashSale.objects.filter(live_now_q(), owner=seller)
+    if current_sale is not None:
+        live_sale = live_qs.filter(pk=current_sale.pk).first()
+        actions_sale = live_sale
+    else:
+        # Par l'heure (CLAUDE.md point 15), comme la prise de commande.
+        live_sale = live_qs.order_by("-start_time").first()
+        # Fermer « la » vente n'a de sens que s'il n'y en a qu'une en cours.
+        actions_sale = live_sale if live_qs.count() == 1 else None
     next_sale = None
-    if not live_sale:
+    if not live_sale and current_sale is None:
         next_sale = (
             FlashSale.objects.filter(seller_upcoming_q(), owner=seller)
             .order_by("start_time")
             .first()
         )
+    scope_id = current_sale.pk if current_sale else None
     return render(
         request,
         "orders/dashboard.html",
         {
             "live_sale": live_sale,
+            "actions_sale": actions_sale,
             "next_sale": next_sale,
+            "current_flash_sale": current_sale,
+            "current_flash_sale_id": scope_id,
+            "flash_sale_choices": list_owned_flash_sales(request.user),
+            "kpis": get_dashboard_kpis_cached(request.user, scope_id),
+            "order_rows": list_dashboard_order_rows(
+                request.user, flash_sale_id=scope_id
+            ),
+            "orders_total": count_dashboard_orders(request.user, scope_id),
+            "filter_query": f"?flash_sale_id={scope_id}" if scope_id else "",
         },
     )
 
@@ -94,30 +115,44 @@ def seller_dashboard(request):
 def seller_dashboard_kpi_partial(request):
     if not _require_seller(request.user):
         return HttpResponseForbidden("Profil vendeur requis.")
+    sale = resolve_owned_flash_sale(request.user, request.GET.get("flash_sale_id"))
+    scope_id = sale.pk if sale else None
 
     def build() -> str:
         return render_to_string(
             "orders/partials/kpi.html",
-            {"kpis": get_dashboard_kpis_cached(request.user)},
+            {"kpis": get_dashboard_kpis_cached(request.user, scope_id)},
             request=request,
         )
 
-    return _rate_limited_partial_html(request, slot="kpi", build_html=build)
+    return _rate_limited_partial_html(
+        request, slot=f"kpi:{scope_id or 'all'}", build_html=build
+    )
 
 
 @login_required
 def seller_dashboard_orders_partial(request):
     if not _require_seller(request.user):
         return HttpResponseForbidden("Profil vendeur requis.")
+    sale = resolve_owned_flash_sale(request.user, request.GET.get("flash_sale_id"))
+    scope_id = sale.pk if sale else None
 
     def build() -> str:
         return render_to_string(
             "orders/partials/orders_list.html",
-            {"order_rows": list_dashboard_order_rows(request.user)},
+            {
+                "order_rows": list_dashboard_order_rows(
+                    request.user, flash_sale_id=scope_id
+                ),
+                "orders_total": count_dashboard_orders(request.user, scope_id),
+                "current_flash_sale_id": scope_id,
+            },
             request=request,
         )
 
-    return _rate_limited_partial_html(request, slot="orders", build_html=build)
+    return _rate_limited_partial_html(
+        request, slot=f"orders:{scope_id or 'all'}", build_html=build
+    )
 
 
 @login_required

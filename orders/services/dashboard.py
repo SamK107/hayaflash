@@ -15,15 +15,47 @@ from django.db.models import (
     Value,
 )
 from django.db.models.functions import Coalesce
+from django.http import Http404
 
+from flash_sales.models import FlashSale
 from orders.models import Order, OrderItem, OrderStatus
 
-KPI_CACHE_KEY = "kpi:seller:{user_id}"
+KPI_CACHE_KEY = "kpi:seller:{user_id}:v{version}:{scope}"
+KPI_VERSION_KEY = "kpi:seller:{user_id}:version"
 KPI_CACHE_TTL_SECONDS = 4
+DASHBOARD_PAGE_SIZE = 20
 
 
-def _seller_orders_queryset(user):
-    return (
+def resolve_owned_flash_sale(user, raw_flash_sale_id):
+    """Vente du vendeur désignée par le filtre, ou 404.
+
+    ``None`` / chaîne vide / ``all`` = « Toutes les ventes ». Une valeur non entière, une
+    vente inconnue ou celle d'un autre vendeur lèvent le même Http404 : rien ne
+    permet de distinguer « n'existe pas » de « appartient à quelqu'un d'autre ».
+    """
+    if raw_flash_sale_id in (None, "", "all"):
+        return None
+    try:
+        sale_id = int(raw_flash_sale_id)
+    except (TypeError, ValueError):
+        raise Http404("Vente introuvable.") from None
+    sale = FlashSale.objects.filter(pk=sale_id, owner__user=user).first()
+    if sale is None:
+        raise Http404("Vente introuvable.")
+    return sale
+
+
+def list_owned_flash_sales(user):
+    """Ventes proposées dans le sélecteur (récentes d'abord)."""
+    return FlashSale.objects.filter(owner__user=user).order_by("-start_time")
+
+
+def _scope(flash_sale_id) -> str:
+    return "all" if flash_sale_id is None else str(flash_sale_id)
+
+
+def _seller_orders_queryset(user, flash_sale_id=None):
+    qs = (
         Order.service_objects.filter(flash_sale__owner__user=user)
         .select_related("flash_sale")
         .prefetch_related(
@@ -33,22 +65,35 @@ def _seller_orders_queryset(user):
             )
         )
     )
+    if flash_sale_id is not None:
+        qs = qs.filter(flash_sale_id=flash_sale_id)
+    return qs
+
+
+def _kpi_version(user) -> int:
+    return cache.get(KPI_VERSION_KEY.format(user_id=user.pk), 0)
 
 
 def invalidate_seller_kpi_cache(user) -> None:
-    cache.delete(KPI_CACHE_KEY.format(user_id=user.pk))
+    """Invalide toutes les variantes (toutes ventes + une par vente) en changeant la version."""
+    key = KPI_VERSION_KEY.format(user_id=user.pk)
+    cache.set(key, _kpi_version(user) + 1, None)
 
 
-def get_dashboard_kpis(user) -> dict[str, Any]:
+def get_dashboard_kpis(user, flash_sale_id=None) -> dict[str, Any]:
     """
-    Agrégats pour le vendeur connecté.
+    Agrégats pour le vendeur connecté (optionnellement limités à une vente).
     - total_orders  : toutes commandes non annulées
     - total_quantity: articles de toutes commandes non annulées
     - total_revenue : CA réel = uniquement les commandes "Livré et payé"
     - pending_revenue: CA potentiel = commandes en cours (confirmées + en livraison)
     """
+    sale_filter = {} if flash_sale_id is None else {"flash_sale_id": flash_sale_id}
+    item_sale_filter = (
+        {} if flash_sale_id is None else {"order__flash_sale_id": flash_sale_id}
+    )
     non_cancelled = Order.service_objects.filter(
-        flash_sale__owner__user=user,
+        flash_sale__owner__user=user, **sale_filter
     ).exclude(status=OrderStatus.CANCELLED)
 
     total_orders = non_cancelled.count()
@@ -62,6 +107,7 @@ def get_dashboard_kpis(user) -> dict[str, Any]:
     delivered_agg = OrderItem.objects.filter(
         order__flash_sale__owner__user=user,
         order__status=OrderStatus.DELIVERED,
+        **item_sale_filter,
     ).aggregate(
         total_quantity=Coalesce(Sum("quantity"), Value(0, output_field=IntegerField())),
         total_revenue=Coalesce(
@@ -77,6 +123,7 @@ def get_dashboard_kpis(user) -> dict[str, Any]:
     pending_revenue_agg = OrderItem.objects.filter(
         order__flash_sale__owner__user=user,
         order__status__in=[OrderStatus.CONFIRMED, OrderStatus.OUT_FOR_DELIVERY],
+        **item_sale_filter,
     ).aggregate(
         pending_revenue=Coalesce(
             Sum(revenue_expr),
@@ -95,20 +142,34 @@ def get_dashboard_kpis(user) -> dict[str, Any]:
     }
 
 
-def get_dashboard_kpis_cached(user) -> dict[str, Any]:
-    """KPI snapshot with short TTL (shared cache backend: LocMem or Redis)."""
-    key = KPI_CACHE_KEY.format(user_id=user.pk)
+def get_dashboard_kpis_cached(user, flash_sale_id=None) -> dict[str, Any]:
+    """KPI snapshot with short TTL (shared cache backend: LocMem or Redis).
+
+    La clé porte la vente filtrée (ou « all ») et la version d'invalidation :
+    deux filtres ne partagent jamais la même entrée.
+    """
+    key = KPI_CACHE_KEY.format(
+        user_id=user.pk, version=_kpi_version(user), scope=_scope(flash_sale_id)
+    )
     hit = cache.get(key)
     if hit is not None:
         return hit
-    data = get_dashboard_kpis(user)
+    data = get_dashboard_kpis(user, flash_sale_id)
     cache.set(key, data, KPI_CACHE_TTL_SECONDS)
     return data
 
 
-def get_dashboard_orders(user, *, limit: int = 20):
-    """Latest orders for this seller, newest first."""
-    return _seller_orders_queryset(user).order_by("-created_at")[:limit]
+def get_dashboard_orders(user, *, limit: int = DASHBOARD_PAGE_SIZE, flash_sale_id=None):
+    """Latest orders for this seller (optionally one sale), newest first."""
+    return _seller_orders_queryset(user, flash_sale_id).order_by("-created_at")[:limit]
+
+
+def count_dashboard_orders(user, flash_sale_id=None) -> int:
+    """Nombre total de commandes du périmètre (tous statuts), pour « 20 sur N »."""
+    return Order.service_objects.filter(
+        flash_sale__owner__user=user,
+        **({} if flash_sale_id is None else {"flash_sale_id": flash_sale_id}),
+    ).count()
 
 
 def _next_status(current: str) -> str | None:
@@ -131,9 +192,14 @@ def _row_dict_for_order(order: Order) -> dict[str, Any]:
     }
 
 
-def list_dashboard_order_rows(user, *, limit: int = 20) -> list[dict[str, Any]]:
+def list_dashboard_order_rows(
+    user, *, limit: int = DASHBOARD_PAGE_SIZE, flash_sale_id=None
+) -> list[dict[str, Any]]:
     """Pre-built rows for templates (no branching logic in HTML)."""
-    return [_row_dict_for_order(o) for o in get_dashboard_orders(user, limit=limit)]
+    return [
+        _row_dict_for_order(o)
+        for o in get_dashboard_orders(user, limit=limit, flash_sale_id=flash_sale_id)
+    ]
 
 
 def get_order_row_context(user, order_id: int) -> dict[str, Any] | None:

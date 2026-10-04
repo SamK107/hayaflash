@@ -64,6 +64,14 @@
     }
     .live-pulse { animation: live-pulse 1.5s ease-in-out infinite; }
 
+    /* En-tete de l'accueil connecte : bouton « Mon dashboard » sur une seule ligne,
+       hauteur stable, numero tronque puis masque sous 400 px. */
+    .hf-nav-dash { white-space: nowrap; flex-shrink: 0; line-height: 1.2; min-height: 2.5rem;
+      justify-content: center; }
+    .hf-nav-user { max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      margin-right: .25rem; }
+    @media (max-width: 399px) { .hf-nav-user { display: none; } }
+
     /* Pastilles d'icones Lucide (docs/releases/reports/ui-icones-proposition.md) */
     .hf-icon-badge { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
       width: 40px; height: 40px; border-radius: 12px; color: #fff; background: var(--hf-badge, #475569); }

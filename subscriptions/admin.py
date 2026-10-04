@@ -125,7 +125,7 @@ class PlanConfigAdmin(admin.ModelAdmin):
             None,
             {
                 "description": (
-                    "⚠️ Un changement s'applique aux NOUVEAUX paiements uniquement : "
+                    "Attention : un changement s'applique aux NOUVEAUX paiements uniquement : "
                     "les paiements existants gardent leur montant, les abonnements en "
                     "cours leur échéance. Quota et fonctionnalités s'appliquent tout "
                     "de suite (cache de 60 s). Montants en FCFA entiers."
