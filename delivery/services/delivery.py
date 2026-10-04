@@ -150,7 +150,7 @@ def list_seller_deliveries(
         owner__user=user,
     ).first()
     if flash_sale is None:
-        raise PermissionDenied("Flash sale not found or not accessible.")
+        raise PermissionDenied("Vente flash introuvable ou inaccessible.")
 
     qs = _delivery_queryset_for_seller(user=user, flash_sale_id=flash_sale_id)
     if status:
@@ -209,7 +209,7 @@ def advance_delivery(
             .first()
         )
         if delivery is None:
-            raise PermissionDenied("Delivery not found.")
+            raise PermissionDenied("Livraison introuvable.")
 
         order = (
             Order.service_objects.select_for_update()
@@ -217,11 +217,11 @@ def advance_delivery(
             .first()
         )
         if order is None:
-            raise PermissionDenied("Order not found.")
+            raise PermissionDenied("Commande introuvable.")
 
         owner_user = delivery.order.flash_sale.owner.user
         if owner_user.pk != user.pk:
-            raise PermissionDenied("Not allowed.")
+            raise PermissionDenied("Action non autorisée.")
 
         order_before = order.status
         delivery_before = delivery.status

@@ -41,7 +41,7 @@ def _client_accepts_etag(request, etag: str) -> bool:
 def seller_public_page(request, slug: str):
     context = resolve_seller_public_page(request, slug)
     if context.get("not_found"):
-        raise Http404("Seller not found.")
+        raise Http404("Vendeur introuvable.")
 
     source = normalize_tracking_source(request.GET.get("src"))
     share_link = context.get("share_link")
@@ -62,7 +62,7 @@ def seller_public_page(request, slug: str):
 def flash_sale_public_page(request, slug: str):
     context = resolve_flash_sale_public_page(request, slug)
     if context.get("not_found"):
-        raise Http404("Flash sale not found.")
+        raise Http404("Vente flash introuvable.")
 
     source = normalize_tracking_source(request.GET.get("src"))
     share_link = context.get("share_link")
@@ -111,7 +111,7 @@ def track_whatsapp_share(request):
     source = normalize_tracking_source(request.GET.get("src") or "whatsapp")
 
     if not validate_whatsapp_redirect_target(target):
-        raise Http404("Invalid redirect target.")
+        raise Http404("Destination de redirection invalide.")
 
     link = resolve_share_link_by_token(token)
     if link is not None:

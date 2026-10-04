@@ -7,12 +7,12 @@
   <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 text-center">
     <i data-lucide="banknote" class="w-5 h-5 text-amber-500 mx-auto mb-1"></i>
     <p class="text-lg font-bold text-gray-900">{{ summary.total_cod_pending|floatformat:"0g"|default:"0" }}<span class="text-xs font-normal text-gray-500"> FCFA</span></p>
-    <p class="text-xs text-gray-500">COD a collecter</p>
+    <p class="text-xs text-gray-500">À encaisser</p>
   </div>
   <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 text-center">
     <i data-lucide="check-circle" class="w-5 h-5 text-success mx-auto mb-1"></i>
     <p class="text-lg font-bold text-gray-900">{{ summary.total_cod_collected|floatformat:"0g"|default:"0" }}<span class="text-xs font-normal text-gray-500"> FCFA</span></p>
-    <p class="text-xs text-gray-500">COD collecte</p>
+    <p class="text-xs text-gray-500">Encaissé</p>
   </div>
 </div>
 <div class="grid grid-cols-3 gap-3 mt-3">

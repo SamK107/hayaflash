@@ -178,7 +178,7 @@ class SellerDeliveriesDashboardTests(DeliveryTestFixture):
             HTTP_HX_REQUEST="true",
         )
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "collecte")
+        self.assertContains(resp, "encaissé")
         delivery.refresh_from_db()
         self.assertTrue(delivery.cod_collected)
 

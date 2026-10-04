@@ -25,14 +25,14 @@ def api_v1_delivery_list(request) -> Response:
     raw_fs = request.query_params.get("flash_sale_id")
     if not raw_fs:
         return Response(
-            {"detail": "flash_sale_id query parameter is required."},
+            {"detail": "Le paramètre flash_sale_id est obligatoire."},
             status=status.HTTP_400_BAD_REQUEST,
         )
     try:
         flash_sale_id = int(raw_fs)
     except (TypeError, ValueError):
         return Response(
-            {"detail": "flash_sale_id must be an integer."},
+            {"detail": "flash_sale_id doit être un nombre entier."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -45,7 +45,7 @@ def api_v1_delivery_list(request) -> Response:
         )
     except PermissionDenied:
         return Response(
-            {"detail": "Flash sale not found or not accessible."},
+            {"detail": "Vente flash introuvable ou inaccessible."},
             status=status.HTTP_403_FORBIDDEN,
         )
     return Response(payload, status=status.HTTP_200_OK)
@@ -57,13 +57,13 @@ def api_v1_delivery_advance(request, delivery_id: UUID) -> Response:
     body = request.data
     if not isinstance(body, dict):
         return Response(
-            {"detail": "JSON object required."},
+            {"detail": "Un objet JSON est requis."},
             status=status.HTTP_400_BAD_REQUEST,
         )
     action = body.get("action")
     if not isinstance(action, str) or not action.strip():
         return Response(
-            {"detail": "action is required."},
+            {"detail": "Le champ « action » est obligatoire."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -76,7 +76,7 @@ def api_v1_delivery_advance(request, delivery_id: UUID) -> Response:
         )
     except PermissionDenied:
         return Response(
-            {"detail": "Delivery not found or not accessible."},
+            {"detail": "Livraison introuvable ou inaccessible."},
             status=status.HTTP_403_FORBIDDEN,
         )
     except ValidationError as exc:

@@ -299,7 +299,7 @@ def flash_sale_clone_view(request, pk: int):
     sale = get_object_or_404(FlashSale, pk=pk, owner=seller)
     try:
         new_sale = clone_flash_sale(sale=sale, seller=seller)
-        messages.success(request, "Vente clonee ! Modifiez les dates puis ouvrez-la.")
+        messages.success(request, "Vente clonée ! Modifiez les dates puis ouvrez-la.")
         request_pwa_install_invite(request, "seller")
         return redirect("flash_sales:edit", pk=new_sale.pk)
     except Exception as e:
@@ -384,7 +384,7 @@ def sale_interests_reset_view(request, pk: int):
     seller = _get_seller(request)
     sale = get_object_or_404(FlashSale, pk=pk, owner=seller)
     deleted_count, _ = SaleInterest.objects.filter(flash_sale=sale).delete()
-    messages.success(request, f"{deleted_count} reservation(s) supprimee(s).")
+    messages.success(request, f"{deleted_count} réservation(s) supprimée(s).")
     return redirect("flash_sales:interests")
 
 

@@ -18,16 +18,16 @@ from products.models import FlashSaleProduct, Product
 
 def _require_str(value: Any, field: str) -> str:
     if not isinstance(value, str):
-        raise ValidationError({field: "Must be a non-empty string."})
+        raise ValidationError({field: "Doit être un texte non vide."})
     stripped = value.strip()
     if not stripped:
-        raise ValidationError({field: "Must be a non-empty string."})
+        raise ValidationError({field: "Doit être un texte non vide."})
     return stripped
 
 
 def _validate_create_order_payload(data: dict[str, Any]) -> None:
     if not isinstance(data, dict):
-        raise ValidationError("Payload must be a dictionary.")
+        raise ValidationError("Les données doivent être un dictionnaire.")
 
     for key in (
         "flash_sale_id",
@@ -38,13 +38,13 @@ def _validate_create_order_payload(data: dict[str, Any]) -> None:
         "delivery",
     ):
         if key not in data:
-            raise ValidationError({key: "This field is required."})
+            raise ValidationError({key: "Ce champ est obligatoire."})
 
     if not isinstance(data["delivery"], dict):
-        raise ValidationError({"delivery": "Must be a JSON object."})
+        raise ValidationError({"delivery": "Doit être un objet JSON."})
 
     if not isinstance(data["flash_sale_id"], int) or data["flash_sale_id"] < 1:
-        raise ValidationError({"flash_sale_id": "Must be a positive integer."})
+        raise ValidationError({"flash_sale_id": "Doit être un entier positif."})
 
     _require_str(data["customer_name"], "customer_name")
     _require_str(data["customer_phone"], "customer_phone")
@@ -52,21 +52,21 @@ def _validate_create_order_payload(data: dict[str, Any]) -> None:
 
     items = data["items"]
     if not isinstance(items, list) or not items:
-        raise ValidationError({"items": "Must be a non-empty list of line items."})
+        raise ValidationError({"items": "Doit être une liste non vide d'articles."})
 
     for i, row in enumerate(items):
         if not isinstance(row, dict):
-            raise ValidationError({"items": f"Line {i} must be an object."})
+            raise ValidationError({"items": f"La ligne {i} doit être un objet."})
         if "product_id" not in row or "quantity" not in row:
             raise ValidationError(
-                {"items": f"Line {i} must include product_id and quantity."}
+                {"items": f"La ligne {i} doit contenir product_id et quantity."}
             )
         pid = row["product_id"]
         qty = row["quantity"]
         if not isinstance(pid, int) or pid < 1:
-            raise ValidationError({"items": f"Line {i}: invalid product_id."})
+            raise ValidationError({"items": f"Ligne {i} : product_id invalide."})
         if not isinstance(qty, int) or qty < 1:
-            raise ValidationError({"items": f"Line {i}: quantity must be >= 1."})
+            raise ValidationError({"items": f"Ligne {i} : la quantité doit être au moins 1."})
 
 
 def _aggregate_quantities(items: Iterable[dict[str, Any]]) -> dict[int, int]:

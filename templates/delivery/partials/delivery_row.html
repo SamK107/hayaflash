@@ -34,11 +34,11 @@
   </div>
   {% endif %}
 
-  <!-- COD + Livreur -->
+  {# Paiement à la livraison + Livreur #}
   <div class="flex items-center justify-between text-sm">
     <span class="{% if row.cod_collected %}text-success font-semibold{% else %}text-amber-600 font-semibold{% endif %}">
       {{ row.cod_amount|floatformat:"0g" }} FCFA
-      {% if row.cod_collected %}✓ collecte{% else %}a collecter{% endif %}
+      {% if row.cod_collected %}✓ encaissé{% else %}à encaisser{% endif %}
     </span>
     {% if row.assigned_to %}
     <span class="text-gray-400 text-xs">Livreur : {{ row.assigned_to }}</span>

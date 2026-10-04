@@ -221,11 +221,29 @@ class FlashSale(models.Model):
         # Une vente SCHEDULED dans sa fenetre horaire prend deja des commandes
         # (beat en retard, cf. ORDERABLE_STATUSES) : l'annuler ferait disparaitre
         # des commandes en cours du dashboard public. Meme regle que LIVE.
+        # F-91 : seule une vente programmee, pas encore commandable et sans
+        # aucune commande peut etre annulee (sinon le quota gratuit serait
+        # contournable par POST direct et des commandes resteraient rattachees
+        # a une vente « annulee »).
         from flash_sales.services.ordering import is_orderable_now
 
+        if self.status == FlashSaleStatus.CANCELLED:
+            raise ValueError("Cette vente est déjà annulée.")
+        if self.status in (
+            FlashSaleStatus.CLOSED,
+            FlashSaleStatus.EXECUTING,
+            FlashSaleStatus.COMPLETED,
+        ):
+            raise ValueError(
+                "Impossible d'annuler une vente terminée ou clôturée."
+            )
         if self.status == FlashSaleStatus.LIVE or is_orderable_now(self):
             raise ValueError(
                 "Impossible d'annuler une vente en cours. Fermez-la d'abord."
+            )
+        if self.orders.exists():
+            raise ValueError(
+                "Impossible d'annuler une vente qui a déjà reçu des commandes."
             )
         self.status = FlashSaleStatus.CANCELLED
         self.save(update_fields=["status", "updated_at"])

@@ -119,7 +119,7 @@ def resolve_delivery_dashboard_page(
 
 def get_delivery_summary(*, user, flash_sale_id: int) -> dict[str, Any]:
     if _get_owned_flash_sale(user=user, flash_sale_id=flash_sale_id) is None:
-        raise PermissionDenied("Flash sale not found or not accessible.")
+        raise PermissionDenied("Vente flash introuvable ou inaccessible.")
 
     qs = _tenant_deliveries(user=user, flash_sale_id=flash_sale_id)
     _auto_sync_stale_deliveries(qs)
@@ -218,7 +218,7 @@ def list_delivery_rows(
     status_filter: str | None = None,
 ) -> list[dict[str, Any]]:
     if _get_owned_flash_sale(user=user, flash_sale_id=flash_sale_id) is None:
-        raise PermissionDenied("Flash sale not found or not accessible.")
+        raise PermissionDenied("Vente flash introuvable ou inaccessible.")
 
     base_qs = _tenant_deliveries(user=user, flash_sale_id=flash_sale_id)
     _auto_sync_stale_deliveries(base_qs)

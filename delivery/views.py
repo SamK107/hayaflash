@@ -52,7 +52,7 @@ def _parse_flash_sale_id(request) -> int | None:
 def _require_flash_sale_id(request) -> int | HttpResponseBadRequest:
     flash_sale_id = _parse_flash_sale_id(request)
     if flash_sale_id is None:
-        return HttpResponseBadRequest("flash_sale_id query parameter is required.")
+        return HttpResponseBadRequest("Le paramètre flash_sale_id est obligatoire.")
     return flash_sale_id
 
 
@@ -110,7 +110,7 @@ def seller_deliveries_dashboard(request):
         ("pending", "En attente"),
         ("in_transit", "En cours"),
         ("delivered", "Livrées"),
-        ("failed", "Annulées"),
+        ("failed", "Échec"),
     ]
     # Template uses these aliases
     context["current_flash_sale"] = context.get("flash_sale")
@@ -123,7 +123,7 @@ def seller_deliveries_dashboard(request):
 @require_GET
 def seller_deliveries_summary_partial(request):
     if not _require_seller(request.user):
-        return HttpResponseForbidden("Seller profile required.")
+        return HttpResponseForbidden("Profil vendeur requis.")
 
     flash_sale_id = _require_flash_sale_id(request)
     if isinstance(flash_sale_id, HttpResponseBadRequest):
@@ -144,14 +144,14 @@ def seller_deliveries_summary_partial(request):
     try:
         return _rate_limited_partial_html(request, slot=slot, build_html=build)
     except PermissionDenied:
-        return HttpResponseForbidden("Not allowed.")
+        return HttpResponseForbidden("Action non autorisée.")
 
 
 @login_required
 @require_GET
 def seller_deliveries_list_partial(request):
     if not _require_seller(request.user):
-        return HttpResponseForbidden("Seller profile required.")
+        return HttpResponseForbidden("Profil vendeur requis.")
 
     flash_sale_id = _require_flash_sale_id(request)
     if isinstance(flash_sale_id, HttpResponseBadRequest):
@@ -175,7 +175,7 @@ def seller_deliveries_list_partial(request):
     try:
         return _rate_limited_partial_html(request, slot=slot, build_html=build)
     except PermissionDenied:
-        return HttpResponseForbidden("Not allowed.")
+        return HttpResponseForbidden("Action non autorisée.")
 
 
 _ACTION_SUCCESS_MESSAGES = {
