@@ -222,8 +222,8 @@
     </a>
     <div style="display:flex; align-items:center; gap:.75rem;">
       {% if user.is_authenticated %}
-      <span style="color:rgba(255,255,255,.3); font-size:.8rem;">{{ user.get_short_name|default:user.phone }}</span>
-      <a href="{% url 'seller_home' %}" class="btn btn-flash" style="padding:.55rem 1.25rem; font-size:.875rem;">
+      <span class="hf-nav-user" style="color:rgba(255,255,255,.3); font-size:.8rem;">{{ user.get_short_name|default:user.phone }}</span>
+      <a href="{% url 'seller_home' %}" class="btn btn-flash hf-nav-dash" style="padding:.55rem 1.25rem; font-size:.875rem;">
         <i data-lucide="zap" style="width:1rem;height:1rem;"></i>Mon dashboard
       </a>
       {% else %}
