@@ -1,35 +1,79 @@
-"""PR 3 : icones Lucide a la place des emojis, garde-fou emojis monetaires."""
+"""PR 3 / PR 4 : icones Lucide a la place des emojis, garde-fou emojis decoratifs."""
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from django.conf import settings
 from django.test import Client, SimpleTestCase, TestCase
 
-# Emojis de devise (dont devises etrangeres) : l'application est en FCFA.
-MONETARY_EMOJIS = ("💵", "💰", "💸", "💴", "💶", "💷", "🪙")
+# Emojis decoratifs : l'interface utilise des icones Lucide (voir
+# docs/releases/reports/ui-pr4-proposition.md). Sont consideres comme emojis :
+# les pictogrammes U+1F000-1FAFF, les symboles divers/dingbats U+2600-27BF, les
+# symboles techniques U+23E9-23FA (dont le chronometre), U+2B00-2BFF et le
+# selecteur de variante U+FE0F. Les fleches (U+2192, U+2190) et la ponctuation ne
+# sont pas des emojis.
+DECORATIVE_EMOJI_RE = re.compile(
+    "[\U0001F000-\U0001FAFF☀-➿⏩-⏺⬀-⯿️]"
+)
+# Exceptions ecrites : glyphes typographiques autorises partout
+# (coche U+2713, croix U+2715, etoile U+2605)...
+ALLOWED_GLYPHS = frozenset("✓✕★")
+# ... et emojis des textes de partage WhatsApp / Web Share (lignes `text: '...'`
+# des gabarits ; analytics/services/share_links.py est du Python, hors perimetre) :
+# flamme U+1F525 et eclair U+26A1.
+SHARE_TEXT_EMOJIS = frozenset("\U0001F525⚡")
+# Pages legales : volontairement non touchees par la PR 4.
+EXCLUDED_DIRS = (("templates", "core", "legal"),)
 
 
-class NoMonetaryEmojiTests(SimpleTestCase):
-    def test_no_monetary_emoji_in_templates_or_js(self) -> None:
+def _is_share_text_line(line: str) -> bool:
+    return line.lstrip().startswith("text:")
+
+
+class NoDecorativeEmojiTests(SimpleTestCase):
+    def test_no_decorative_emoji_in_templates_or_js(self) -> None:
         base = Path(settings.BASE_DIR)
-        files = list((base / "templates").rglob("*.html")) + [
-            p for p in (base / "static" / "js").rglob("*.js")
+        files = [
+            p
+            for p in (
+                list((base / "templates").rglob("*.html"))
+                + list((base / "static" / "js").rglob("*.js"))
+            )
+            if not any(
+                p.relative_to(base).parts[: len(ex)] == ex for ex in EXCLUDED_DIRS
+            )
         ]
         self.assertGreater(len(files), 20)
         offenders = []
         for path in files:
-            text = path.read_text(encoding="utf-8")
-            for emoji in MONETARY_EMOJIS:
-                if emoji in text:
-                    offenders.append(f"{path.relative_to(base)}: {emoji}")
+            for lineno, line in enumerate(
+                path.read_text(encoding="utf-8").splitlines(), start=1
+            ):
+                for match in DECORATIVE_EMOJI_RE.finditer(line):
+                    char = match.group()
+                    if char in ALLOWED_GLYPHS:
+                        continue
+                    if char in SHARE_TEXT_EMOJIS and _is_share_text_line(line):
+                        continue
+                    offenders.append(
+                        f"{path.relative_to(base)}:{lineno}: U+{ord(char):04X}"
+                    )
         self.assertEqual(
             offenders,
             [],
-            "Emoji monetaire interdit : utiliser une icone Lucide neutre "
-            "(banknote, wallet, hand-coins).",
+            "Emoji decoratif interdit : utiliser une icone Lucide "
+            "(.hf-icon-badge) ou un mot. Exceptions : voir ALLOWED_GLYPHS et "
+            "SHARE_TEXT_EMOJIS.",
         )
+
+    def test_guard_regex_catches_known_emojis(self) -> None:
+        # main qui salue, mains jointes, chronometre, avertissement, billet
+        for emoji in ("\U0001F44B", "\U0001F64F", "⏱", "⚠️", "\U0001F4B5"):
+            self.assertTrue(DECORATIVE_EMOJI_RE.search(emoji), repr(emoji))
+        for ok in ("→", "←", "é", "FCFA"):
+            self.assertIsNone(DECORATIVE_EMOJI_RE.search(ok), repr(ok))
 
 
 class HomeIconBadgesTests(TestCase):
