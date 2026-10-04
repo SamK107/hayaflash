@@ -63,3 +63,22 @@ class NoFalseCancellationPromiseTests(SimpleTestCase):
         html = self._read("templates/analytics/flash_sale_public.html")
         self.assertNotIn("Annulation possible", html)
         self.assertIn("Paiement à la livraison", html)
+
+
+class AmountLabelsGuardTests(SimpleTestCase):
+    """Libelles de montants : « Encaisse (FCFA) » / « En cours d'encaissement (FCFA) »."""
+
+    OLD_LABELS = ("FCFA encaissé", "FCFA en cours")
+
+    def test_old_amount_labels_are_gone(self) -> None:
+        base = Path(settings.BASE_DIR)
+        files = list((base / "templates").rglob("*.html")) + list(
+            (base / "static" / "js").rglob("*.js")
+        )
+        offenders = [
+            f"{p.relative_to(base)}: {label}"
+            for p in files
+            for label in self.OLD_LABELS
+            if label.lower() in p.read_text(encoding="utf-8").lower()
+        ]
+        self.assertEqual(offenders, [])

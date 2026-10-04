@@ -97,7 +97,7 @@ class FilteredListTests(DashboardFilterBase):
 
     def test_kpi_cards_keep_existing_labels(self):
         html = self.get(KPI).content.decode()
-        for label in ("Commandes", "Articles livrés", "FCFA encaissé", "FCFA en cours"):
+        for label in ("Commandes", "Articles livrés", "Encaissé (FCFA)", "En cours d'encaissement (FCFA)"):
             self.assertIn(label, html)
 
 
