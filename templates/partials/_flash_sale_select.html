@@ -1,6 +1,8 @@
-{# Sélecteur de vente partagé (Livraisons, Commandes). Paramètres : prefix (début de l'URL cible,
+{% comment %}
+Sélecteur de vente partagé (Livraisons, Commandes). Paramètres : prefix (début de l'URL cible,
    se termine par "flash_sale_id="), choices, current_id, all_label (facultatif : ajoute l'entrée
-   « toutes les ventes » à valeur vide). Navigation par data-hf-nav-prefix (static/js/hf-base.js). #}
+   « toutes les ventes » à valeur vide). Navigation par data-hf-nav-prefix (static/js/hf-base.js).
+{% endcomment %}
 <select
   data-hf-nav-prefix="{{ prefix }}"
   {% if all_label %}data-hf-nav-allow-empty{% endif %}

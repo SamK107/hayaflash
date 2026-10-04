@@ -82,3 +82,17 @@ class AmountLabelsGuardTests(SimpleTestCase):
             if label.lower() in p.read_text(encoding="utf-8").lower()
         ]
         self.assertEqual(offenders, [])
+
+
+class NoMultilineTemplateCommentTests(SimpleTestCase):
+    """`{# ... #}` ne couvre qu'une ligne : sur plusieurs lignes, le commentaire
+    s'affiche tel quel dans la page. Utiliser `{% comment %}` dans ce cas."""
+
+    def test_no_multiline_brace_hash_comment(self) -> None:
+        base = Path(settings.BASE_DIR)
+        offenders = [
+            str(p.relative_to(base))
+            for p in (base / "templates").rglob("*.html")
+            if re.search(r"\{#(?:(?!#\}).)*\n", p.read_text(encoding="utf-8"))
+        ]
+        self.assertEqual(offenders, [])
