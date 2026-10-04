@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aperçu — en-tête accueil vendeur</title>
+<style>
+  :root { --primary:#E63946; --bg:#F5F5F5; --ink:#111827; --muted:#6B7280; --line:#F3F4F6; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  .bar { background:#fff; border-bottom:1px solid #E5E7EB; padding:.75rem 1rem; display:flex; flex-wrap:wrap; gap:.5rem 1rem; align-items:center; font-size:.85rem; }
+  .bar b { margin-right:.25rem; }
+  .bar button { border:1px solid #D1D5DB; background:#fff; border-radius:.5rem; padding:.35rem .7rem; cursor:pointer; font:inherit; }
+  .bar button[aria-pressed="true"] { background:var(--primary); border-color:var(--primary); color:#fff; }
+  .stage { padding:1.25rem 1rem; display:flex; justify-content:center; }
+  .frame { width:100%; max-width:64rem; transition:max-width .2s; }
+  .frame.mobile { max-width:390px; }
+  .wrap { background:var(--bg); padding:1.5rem 1rem; border:1px dashed #D1D5DB; border-radius:1rem; }
+  .head { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+  .who { display:flex; align-items:center; gap:.85rem; min-width:0; }
+  .avatar { width:2.75rem; height:2.75rem; border-radius:50%; background:rgba(230,57,70,.1); color:var(--primary);
+            font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  h1 { font-size:1.4rem; margin:0; font-weight:700; line-height:1.25; }
+  .status { margin:.2rem 0 0; font-size:.875rem; color:var(--muted); }
+  .status strong { color:var(--ink); }
+  .cta { display:inline-flex; align-items:center; gap:.5rem; background:var(--primary); color:#fff; border:0; text-decoration:none;
+         padding:.65rem 1.2rem; border-radius:.75rem; font-weight:600; font-size:.95rem; box-shadow:0 1px 2px rgba(0,0,0,.08); white-space:nowrap; }
+  .cta svg { width:1.1rem; height:1.1rem; }
+  .frame.mobile .cta { width:100%; justify-content:center; margin-top:1rem; }
+  .cards { display:grid; grid-template-columns:repeat(3,1fr); gap:.75rem; margin-top:1.25rem; }
+  .frame.mobile .cards { grid-template-columns:1fr 1fr; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:1rem; padding:1rem; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+  .card small { display:block; font-size:.7rem; letter-spacing:.04em; text-transform:uppercase; color:#9CA3AF; font-weight:600; }
+  .card p { margin:.25rem 0 0; font-size:1.75rem; font-weight:700; }
+  .note { max-width:64rem; margin:0 auto; padding:0 1rem 2rem; font-size:.8rem; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="bar" role="group" aria-label="Options d'aperçu">
+  <b>Aperçu :</b>
+  <span>Écran</span>
+  <button type="button" id="b-desk" aria-pressed="true">Ordinateur</button>
+  <button type="button" id="b-mob" aria-pressed="false">Mobile (390 px)</button>
+  <span>Données</span>
+  <button type="button" id="d-busy" aria-pressed="true">2 ventes · 5 commandes</button>
+  <button type="button" id="d-one" aria-pressed="false">1 vente · 1 commande</button>
+  <button type="button" id="d-none" aria-pressed="false">Rien à traiter</button>
+</div>
+
+<div class="stage">
+  <div class="frame" id="frame">
+    <div class="wrap">
+      <div class="head">
+        <div class="who">
+          <div class="avatar" id="initials" aria-hidden="true">AT</div>
+          <div>
+            <h1>Bonjour, <span id="firstname">Aminata</span></h1>
+            <p class="status" id="status"></p>
+          </div>
+        </div>
+        <a class="cta" href="#" onclick="return false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Créer une vente flash
+        </a>
+      </div>
+      <div class="cards">
+        <div class="card"><small>Commandes totales</small><p id="k1">38</p></div>
+        <div class="card"><small>Ventes actives</small><p id="k2">7</p></div>
+        <div class="card"><small>Ventes terminées</small><p id="k3">12</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+<p class="note">Maquette statique : aucune ressource externe. Les chiffres des cartes sont des totaux réels (correction F-75 : plus de plafond à 5 et 3). Le bouton est inactif dans cet aperçu.</p>
+
+<script>
+(function () {
+  var datasets = {
+    busy: { live: 2, todo: 5, k: [38, 7, 12] },
+    one:  { live: 1, todo: 1, k: [1, 1, 0] },
+    none: { live: 0, todo: 0, k: [0, 0, 4] }
+  };
+  function plural(n, one, many) { return n + " " + (n > 1 ? many : one); }
+  function render(key) {
+    var d = datasets[key], parts = [];
+    if (d.live) parts.push("<strong>" + plural(d.live, "vente en cours", "ventes en cours") + "</strong>");
+    if (d.todo) parts.push("<strong>" + plural(d.todo, "commande à traiter", "commandes à traiter") + "</strong>");
+    document.getElementById("status").innerHTML = parts.length ? parts.join(" · ") : "Rien à traiter pour le moment";
+    ["k1", "k2", "k3"].forEach(function (id, i) { document.getElementById(id).textContent = d.k[i]; });
+    ["busy", "one", "none"].forEach(function (k) {
+      document.getElementById("d-" + k).setAttribute("aria-pressed", String(k === key));
+    });
+  }
+  function view(mobile) {
+    document.getElementById("frame").classList.toggle("mobile", mobile);
+    document.getElementById("b-mob").setAttribute("aria-pressed", String(mobile));
+    document.getElementById("b-desk").setAttribute("aria-pressed", String(!mobile));
+  }
+  document.getElementById("b-desk").addEventListener("click", function () { view(false); });
+  document.getElementById("b-mob").addEventListener("click", function () { view(true); });
+  ["busy", "one", "none"].forEach(function (k) {
+    document.getElementById("d-" + k).addEventListener("click", function () { render(k); });
+  });
+  render("busy");
+})();
+</script>
+</body>
+</html>
