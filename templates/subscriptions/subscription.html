@@ -75,7 +75,7 @@
         {% if card.highlight %}
         <div class="flex items-center justify-between">
           <span class="text-lg font-black text-gray-900">{{ card.label }}</span>
-          <span class="text-xs font-bold bg-primary text-white px-2.5 py-1 rounded-full">Recommande</span>
+          <span class="text-xs font-bold bg-primary text-white px-2.5 py-1 rounded-full">Recommandé</span>
         </div>
         {% else %}
         <p class="text-lg font-black text-gray-900">{{ card.label }}</p>
@@ -96,7 +96,7 @@
              {% if card.highlight %}bg-primary text-white hover:bg-red-700 shadow-sm
              {% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
           <i data-lucide="{% if card.highlight %}zap{% else %}arrow-up{% endif %}" class="w-4 h-4"></i>
-          Choisir {{ card.label }}
+          Passer au plan {{ card.label }}
         </a>
       </div>
       {% else %}

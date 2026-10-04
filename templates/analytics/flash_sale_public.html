@@ -183,7 +183,7 @@
       <button type="button" x-data x-show="'share' in navigator" x-cloak
               @click="navigator.share({
                 title: '{{ flash_sale.title|escapejs }}',
-                text: '⚡ {{ flash_sale.title|escapejs }} — bientot sur HayaFlash !',
+                text: '⚡ {{ flash_sale.title|escapejs }} — bientôt sur HayaFlash !',
                 url: window.location.href
               }).catch(() => {})"
               class="flex items-center justify-center gap-2 w-full bg-gray-100 hover:bg-gray-200
@@ -586,7 +586,7 @@
         </div>
         <div class="bg-gray-50 rounded-xl p-4 flex items-center justify-between">
           <div>
-            <p class="text-sm text-gray-500">Total estime</p>
+            <p class="text-sm text-gray-500">Total estimé</p>
             <p class="text-xl font-black text-primary" x-text="(qty * productPriceNum).toLocaleString('fr-FR') + ' FCFA'"></p>
           </div>
           <div class="text-right text-xs text-gray-400">
