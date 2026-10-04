@@ -29,11 +29,11 @@ DASHBOARD_PAGE_SIZE = 20
 def resolve_owned_flash_sale(user, raw_flash_sale_id):
     """Vente du vendeur désignée par le filtre, ou 404.
 
-    ``None`` / chaîne vide = « Toutes les ventes ». Une valeur non entière, une
+    ``None`` / chaîne vide / ``all`` = « Toutes les ventes ». Une valeur non entière, une
     vente inconnue ou celle d'un autre vendeur lèvent le même Http404 : rien ne
     permet de distinguer « n'existe pas » de « appartient à quelqu'un d'autre ».
     """
-    if raw_flash_sale_id in (None, ""):
+    if raw_flash_sale_id in (None, "", "all"):
         return None
     try:
         sale_id = int(raw_flash_sale_id)

@@ -1,16 +1,15 @@
 {% comment %}
 Sélecteur de vente partagé (Livraisons, Commandes). Paramètres : prefix (début de l'URL cible,
    se termine par "flash_sale_id="), choices, current_id, all_label (facultatif : ajoute l'entrée
-   « toutes les ventes » à valeur vide). Navigation par data-hf-nav-prefix (static/js/hf-base.js).
+   « toutes les ventes », valeur "all", sans dépendre du JS pour une valeur vide). Navigation par data-hf-nav-prefix (static/js/hf-base.js).
 {% endcomment %}
 <select
   data-hf-nav-prefix="{{ prefix }}"
-  {% if all_label %}data-hf-nav-allow-empty{% endif %}
   aria-label="Choisir une vente"
   class="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
 >
   {% if all_label %}
-  <option value="" {% if not current_id %}selected{% endif %}>{{ all_label }}</option>
+  <option value="all" {% if not current_id %}selected{% endif %}>{{ all_label }}</option>
   {% elif not current_id %}
   <option value="" disabled selected>-- Sélectionnez une vente --</option>
   {% endif %}

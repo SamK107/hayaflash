@@ -213,3 +213,21 @@ class TableauLiveLinkTests(DashboardFilterBase):
         ).content.decode()
         self.assertIn(f"{reverse(PAGE)}?flash_sale_id={self.sale.pk}", html)
         self.assertIn("Tableau LIVE", html)
+
+
+class AllSalesOptionTests(DashboardFilterBase):
+    """« Toutes les ventes » doit marcher meme si un ancien hf-base.js (sans
+    gestion de la valeur vide) est en cache : l'option a la valeur `all`."""
+
+    def test_all_option_has_non_empty_value(self):
+        html = self.get(PAGE, self.sale_b.pk).content.decode()
+        self.assertIn('<option value="all"', html)
+        self.assertNotIn('data-hf-nav-allow-empty', html)
+
+    def test_all_value_returns_every_sale_on_page_and_partials(self):
+        for name in (PAGE, LIST, KPI):
+            resp = self.client.get(reverse(name), {"flash_sale_id": "all"})
+            self.assertEqual(resp.status_code, 200, name)
+        html = self.client.get(reverse(LIST), {"flash_sale_id": "all"}).content.decode()
+        self.assertIn("Cliente-Alpha", html)
+        self.assertIn("Cliente-Bravo", html)
