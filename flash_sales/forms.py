@@ -10,6 +10,7 @@ from .services.rules import (  # source unique des regles metier
     MAX_DURATION_MINUTES,
     SaleRuleError,
     check_daily_limit,
+    check_no_overlap,
 )
 
 DURATION_CHOICES = [
@@ -198,5 +199,13 @@ class FlashSaleForm(forms.ModelForm):
                 )
             except SaleRuleError as exc:
                 self.add_error("start_time", " ".join(exc.messages))
+            else:
+                # Pas de chevauchement avec une autre vente du vendeur (F-90)
+                try:
+                    check_no_overlap(
+                        self._seller, start, end_time, exclude_pk=self._existing_sale_pk
+                    )
+                except SaleRuleError as exc:
+                    self.add_error("start_time", " ".join(exc.messages))
 
         return cleaned

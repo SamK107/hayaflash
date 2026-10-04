@@ -2,7 +2,8 @@
 
 - quota mensuel selon le plan (FREE 3 / MEDIUM 10 / PRO illimite), fail-closed ;
 - 3 ventes par jour maximum (tout statut sauf CANCELLED) ;
-- duree maximale de 2 h.
+- duree maximale de 2 h ;
+- pas de chevauchement de creneaux entre deux ventes du meme vendeur (F-90).
 
 Appele par TOUS les chemins : create_flash_sale, update_flash_sale,
 clone_flash_sale, FlashSale.open_sale (donc aussi l'auto-open Celery) et le
@@ -85,6 +86,35 @@ def check_daily_limit(seller, start_time: datetime, *, exclude_pk: int | None = 
         )
 
 
+def find_overlapping_sale(seller, start_time: datetime, end_time: datetime, exclude_pk: int | None = None):
+    """Premiere vente du vendeur dont le creneau recoupe [start, end[, hors CANCELLED.
+
+    Chevauchement strict : A.start < B.end ET B.start < A.end (creneaux
+    consecutifs, fin A = debut B, autorises). Quel que soit le statut sauf
+    CANCELLED : COMPLETED / CLOSED ne comptent que si le creneau se recoupe.
+    """
+    from flash_sales.models import FlashSale, FlashSaleStatus
+
+    qs = FlashSale.objects.filter(
+        owner=seller, start_time__lt=end_time, end_time__gt=start_time
+    ).exclude(status=FlashSaleStatus.CANCELLED)
+    if exclude_pk is not None:
+        qs = qs.exclude(pk=exclude_pk)
+    return qs.order_by("start_time").first()
+
+
+def check_no_overlap(seller, start_time: datetime, end_time: datetime, *, exclude_pk: int | None = None) -> None:
+    other = find_overlapping_sale(seller, start_time, end_time, exclude_pk)
+    if other is None:
+        return
+    fmt = "%d/%m %H:%M"
+    raise SaleRuleError(
+        f"Vous avez déjà une vente de {timezone.localtime(other.start_time):{fmt}} "
+        f"à {timezone.localtime(other.end_time):{fmt}} ({other.title}). "
+        "Choisissez un autre créneau."
+    )
+
+
 def enforce_creation_rules(seller, start_time, end_time, *, exclude_pk=None, quota=True) -> None:
     """Toutes les regles, pour une vente qui va etre creee ou modifiee.
 
@@ -92,6 +122,7 @@ def enforce_creation_rules(seller, start_time, end_time, *, exclude_pk=None, quo
     """
     check_duration(start_time, end_time)
     check_daily_limit(seller, start_time, exclude_pk=exclude_pk)
+    check_no_overlap(seller, start_time, end_time, exclude_pk=exclude_pk)
     if quota:
         check_monthly_quota(seller, exclude_pk=exclude_pk)
 
