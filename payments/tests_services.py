@@ -196,7 +196,7 @@ class InitiatePaymentTests(PaymentsBase):
         order.items.update(price_snapshot=Decimal("0"))
         with self.assertRaises(ValidationError) as cm:
             initiate_payment_for_order(order_id=order.pk, phone=PHONE, provider="mtn")
-        self.assertIn("greater than zero", str(cm.exception))
+        self.assertIn("supérieur à zéro", str(cm.exception))
 
     def test_invalid_inputs_are_rejected_before_any_write(self):
         order = self.make_order()
@@ -223,7 +223,7 @@ class InitiatePaymentTests(PaymentsBase):
                 initiate_payment_for_order(order_id=value, phone=PHONE, provider="mtn")
             # refuse par la validation de type, pas par un « Order not found »
             self.assertEqual(
-                cm.exception.message_dict["order_id"], ["Must be a positive integer."]
+                cm.exception.message_dict["order_id"], ["Doit être un entier positif."]
             )
         self.assertFalse(PaymentTransaction.objects.exists())
 
@@ -235,7 +235,7 @@ class InitiatePaymentTests(PaymentsBase):
             format="json",
         )
         self.assertEqual(resp.status_code, 400, resp.content)
-        self.assertIn("Must be a positive integer", json.dumps(resp.json()))
+        self.assertIn("entier positif", str(resp.json()))
 
     def test_client_reference_accepts_uuid_object_and_replays(self):
         order = self.make_order()

@@ -107,7 +107,7 @@
     {% for offer in plan_offers %}
     {% if offer.highlight %}
     <div class="border-2 border-primary rounded-2xl p-4 mb-4 relative">
-      <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-black px-3 py-1 rounded-full">Recommande</span>
+      <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-black px-3 py-1 rounded-full">Recommandé</span>
       <div class="flex items-start justify-between mb-3 mt-1">
     {% else %}
     <div class="border-2 border-gray-100 rounded-2xl p-4 mb-3 hover:border-blue-200 transition-colors">
@@ -135,12 +135,12 @@
       {% if offer.highlight %}
       <a href="{% url 'subscriptions:checkout' offer.plan %}"
          class="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black py-3 rounded-xl text-sm transition-all active:scale-[.98] shadow-sm">
-        <i data-lucide="zap" class="w-4 h-4"></i>Choisir {{ offer.label }} — {{ offer.price|floatformat:"0g" }} FCFA/mois
+        <i data-lucide="zap" class="w-4 h-4"></i>Passer au plan {{ offer.label }} — {{ offer.price|floatformat:"0g" }} FCFA/mois
       </a>
       {% else %}
       <a href="{% url 'subscriptions:checkout' offer.plan %}"
          class="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-sm transition-all active:scale-[.98]">
-        Choisir {{ offer.label }} — {{ offer.price|floatformat:"0g" }} FCFA/mois
+        Passer au plan {{ offer.label }} — {{ offer.price|floatformat:"0g" }} FCFA/mois
       </a>
       {% endif %}
     </div>

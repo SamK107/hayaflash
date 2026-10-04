@@ -47,7 +47,7 @@ def initiate_payment_view(request) -> Response:
     body = request.data
     if not isinstance(body, dict):
         return Response(
-            {"detail": "JSON object required."},
+            {"detail": "Un objet JSON est requis."},
             status=status.HTTP_400_BAD_REQUEST,
         )
     try:

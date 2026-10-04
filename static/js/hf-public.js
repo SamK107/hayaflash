@@ -266,7 +266,7 @@ function orderDrawer(saleId) {
         }
         else { this.orderError = Object.values(data).flat()[0] || 'Une erreur est survenue.'; }
       } catch(e) {
-        this.orderError = 'Connexion impossible. Verifiez votre reseau.';
+        this.orderError = 'Connexion impossible. Vérifiez votre réseau.';
       } finally { this.submitting = false; }
     }
   };

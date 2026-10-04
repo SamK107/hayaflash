@@ -94,7 +94,7 @@ def build_whatsapp_message(*, headline: str, url: str) -> str:
         headline.strip(),
         f"Commandez : {url}",
         "",
-        "Powered by HayaFlash",
+        "Propulsé par HayaFlash",
     ]
     return "\n".join(lines)
 

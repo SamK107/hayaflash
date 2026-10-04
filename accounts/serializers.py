@@ -52,7 +52,7 @@ class RegisterSerializer(serializers.Serializer):
     def validate_phone(self, value: str) -> str:
         phone = User.objects.normalize_phone(value)
         if User.objects.filter(phone=phone).exists():
-            raise serializers.ValidationError("A user with this phone already exists.")
+            raise serializers.ValidationError("Un compte existe déjà avec ce numéro de téléphone.")
         return phone
 
 

@@ -18,7 +18,7 @@ def _parse_optional_decimal(value: Any, field: str) -> Decimal | None:
     try:
         return Decimal(str(value))
     except (InvalidOperation, TypeError, ValueError) as exc:
-        raise ValidationError({field: "Invalid decimal value."}) from exc
+        raise ValidationError({field: "Valeur décimale invalide."}) from exc
 
 
 def validate_coordinates(lat: Any, lng: Any) -> tuple[Decimal | None, Decimal | None]:
@@ -50,7 +50,7 @@ def validate_delivery_input(data: dict[str, Any]) -> dict[str, Any]:
     only rejected when there is no voice note to fall back on.
     """
     if not isinstance(data, dict):
-        raise ValidationError({"delivery": "Must be a JSON object."})
+        raise ValidationError({"delivery": "Doit être un objet JSON."})
 
     raw_address = data.get("address_text")
     address_text = raw_address.strip() if isinstance(raw_address, str) else ""
@@ -78,22 +78,22 @@ def validate_delivery_input(data: dict[str, Any]) -> dict[str, Any]:
 
     geo_method = data.get("geo_method") or Delivery.GeoMethod.MANUAL
     if geo_method not in VALID_GEO_METHODS:
-        raise ValidationError({"geo_method": "Invalid geo_method value."})
+        raise ValidationError({"geo_method": "Valeur geo_method invalide."})
 
     geo_accuracy = data.get("geo_accuracy")
     if geo_accuracy is not None and geo_accuracy != "":
         try:
             geo_accuracy_f = float(geo_accuracy)
         except (TypeError, ValueError) as exc:
-            raise ValidationError({"geo_accuracy": "Must be a number."}) from exc
+            raise ValidationError({"geo_accuracy": "Doit être un nombre."}) from exc
         if geo_accuracy_f < 0:
-            raise ValidationError({"geo_accuracy": "Must be >= 0."})
+            raise ValidationError({"geo_accuracy": "Doit être supérieur ou égal à 0."})
     else:
         geo_accuracy_f = None
 
     notes_raw = data.get("delivery_notes") or ""
     if not isinstance(notes_raw, str):
-        raise ValidationError({"delivery_notes": "Must be a string."})
+        raise ValidationError({"delivery_notes": "Doit être un texte."})
     delivery_notes = notes_raw.strip()
     if len(delivery_notes) > MAX_DELIVERY_NOTES_LENGTH:
         raise ValidationError(
