@@ -120,7 +120,13 @@ class CloneRulesTests(RulesBase):
             FlashSale.objects.all().delete()
             _set_plan(self.seller, plan)
             sales = self._old_sales(limit - 1)
-            clone_flash_sale(sale=sales[0], seller=self.seller)  # dernier slot : passe
+            first = clone_flash_sale(sale=sales[0], seller=self.seller)  # dernier slot : passe
+            # Le clone garde ses dates provisoires (J+1) : on l'ecarte pour que le
+            # refus ne vienne que du quota, pas du chevauchement (F-90 / F-48).
+            FlashSale.objects.filter(pk=first.pk).update(
+                start_time=first.start_time + timedelta(days=20),
+                end_time=first.end_time + timedelta(days=20),
+            )
             with self.assertRaises(ValidationError) as cm:
                 clone_flash_sale(sale=sales[0], seller=self.seller)
             self.assertIn("ventes ce mois-ci", " ".join(cm.exception.messages))
@@ -128,8 +134,10 @@ class CloneRulesTests(RulesBase):
     def test_clone_pro_not_limited_by_quota_but_by_daily_rule(self):
         _set_plan(self.seller, Plan.PRO)
         sales = self._old_sales(2)
-        for _ in range(3):
-            clone_flash_sale(sale=sales[0], seller=self.seller)
+        # 3 ventes deja sur le jour du clone (J+1), sur des creneaux disjoints.
+        day = _future_day(1)
+        for h in (0, 2, 4):
+            self._sale(start=day + timedelta(hours=h), hours=1)
         with self.assertRaises(ValidationError) as cm:
             clone_flash_sale(sale=sales[0], seller=self.seller)
         self.assertIn("par jour", " ".join(cm.exception.messages))
