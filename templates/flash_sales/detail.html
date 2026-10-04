@@ -189,7 +189,7 @@
           Clôturez la vente pour passer au traitement des commandes.
         </p>
         {% endif %}
-        <a href="{% url 'orders:seller_dashboard' %}"
+        <a href="{% url 'orders:seller_dashboard' %}?flash_sale_id={{ sale.pk }}"
            class="w-full flex items-center justify-center gap-2 bg-primary text-white py-3 rounded-xl font-semibold hover:bg-primary-dark transition-colors">
           <i data-lucide="activity" class="w-5 h-5"></i>Tableau LIVE
         </a>
@@ -211,7 +211,7 @@
             <i data-lucide="copy-plus" class="w-5 h-5"></i>Reprendre cette vente
           </button>
         </form>
-        <a href="{% url 'orders:seller_dashboard' %}"
+        <a href="{% url 'orders:seller_dashboard' %}?flash_sale_id={{ sale.pk }}"
            class="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-600 py-2.5 rounded-xl font-medium hover:bg-gray-50 transition-colors">
           <i data-lucide="list" class="w-4 h-4"></i>Voir les commandes
         </a>

@@ -208,7 +208,8 @@
 
   document.addEventListener('change', function (e) {
     var sel = e.target;
-    if (sel.hasAttribute && sel.hasAttribute('data-hf-nav-prefix') && sel.value) {
+    if (sel.hasAttribute && sel.hasAttribute('data-hf-nav-prefix')
+        && (sel.value || sel.hasAttribute('data-hf-nav-allow-empty'))) {
       window.location.href = sel.dataset.hfNavPrefix + encodeURIComponent(sel.value);
     }
   });

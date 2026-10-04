@@ -4,10 +4,11 @@
     {% include "orders/partials/order_row.html" with row=row only %}
   {% endfor %}
 </div>
+<p class="text-xs text-gray-400 text-center mt-3">{{ order_rows|length }} sur {{ orders_total }} commande{{ orders_total|pluralize }}</p>
 {% else %}
 <div class="bg-white rounded-2xl border border-gray-100 p-8 text-center">
-  <i data-lucide="inbox" class="w-10 h-10 text-gray-300 mx-auto mb-3"></i>
-  <p class="text-gray-400 text-sm">Aucune commande pour l'instant</p>
-  <p class="text-gray-300 text-xs mt-1">Les nouvelles commandes apparaissent ici automatiquement</p>
+  <span class="hf-icon-badge hf-icon-badge--lg hf-icon-badge--slate mx-auto mb-3"><i data-lucide="inbox"></i></span>
+  <p class="text-gray-600 text-sm font-medium">{% if current_flash_sale_id %}Aucune commande pour cette vente.{% else %}Aucune commande pour l'instant.{% endif %}</p>
+  <p class="text-gray-400 text-xs mt-1">Les nouvelles commandes apparaissent ici automatiquement.</p>
 </div>
 {% endif %}
