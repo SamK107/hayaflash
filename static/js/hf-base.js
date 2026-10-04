@@ -49,6 +49,30 @@
     });
   });
 
+  /* ── Erreurs HTMX (F-92) : htmx 2 ne remplace pas le contenu sur 4xx/5xx,
+   * donc sans ce gestionnaire le vendeur ne voit rien quand une action echoue.
+   * Le texte de la reponse (court, en francais, cote serveur) est affiche via
+   * le toast existant (x-text : jamais interprete comme HTML). Une page HTML
+   * d'erreur ou un corps vide donnent un message generique. ── */
+  function hfHtmxErrorMessage(xhr) {
+    var text = ((xhr && xhr.responseText) || '').trim();
+    if (text && text.length <= 200 && text.indexOf('<') === -1) return text;
+    if (xhr && xhr.status === 403) return 'Action non autorisée.';
+    return "L'action a échoué. Réessayez dans un instant.";
+  }
+  document.addEventListener('htmx:responseError', function (e) {
+    var xhr = e.detail && e.detail.xhr;
+    if (!xhr || xhr.status < 400) return;
+    window.dispatchEvent(new CustomEvent('hf-toast', {
+      detail: { msg: hfHtmxErrorMessage(xhr), type: 'error' }
+    }));
+  });
+  document.addEventListener('htmx:sendError', function () {
+    window.dispatchEvent(new CustomEvent('hf-toast', {
+      detail: { msg: 'Connexion impossible. Vérifiez votre réseau et réessayez.', type: 'error' }
+    }));
+  });
+
   /* ── Invitation a installer la PWA demandee par la vue precedente ── */
   document.addEventListener('DOMContentLoaded', function () {
     var el = document.querySelector('[data-hf-install-invite]');
