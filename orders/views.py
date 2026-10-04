@@ -93,7 +93,7 @@ def seller_dashboard(request):
 @login_required
 def seller_dashboard_kpi_partial(request):
     if not _require_seller(request.user):
-        return HttpResponseForbidden("Seller profile required.")
+        return HttpResponseForbidden("Profil vendeur requis.")
 
     def build() -> str:
         return render_to_string(
@@ -108,7 +108,7 @@ def seller_dashboard_kpi_partial(request):
 @login_required
 def seller_dashboard_orders_partial(request):
     if not _require_seller(request.user):
-        return HttpResponseForbidden("Seller profile required.")
+        return HttpResponseForbidden("Profil vendeur requis.")
 
     def build() -> str:
         return render_to_string(
@@ -171,18 +171,18 @@ def export_orders_csv(request, pk: int):
 @require_POST
 def seller_order_advance_status(request, order_id: int):
     if not _require_seller(request.user):
-        return HttpResponseForbidden("Seller profile required.")
+        return HttpResponseForbidden("Profil vendeur requis.")
     try:
         advance_order_status(user=request.user, order_id=order_id)
     except PermissionDenied:
-        return HttpResponseForbidden("Not allowed.")
+        return HttpResponseForbidden("Action non autorisée.")
     except ValidationError as exc:
         msg = "; ".join(getattr(exc, "messages", [])) or str(exc)
         return HttpResponse(msg, status=400)
 
     row = get_order_row_context(request.user, order_id)
     if row is None:
-        return HttpResponseForbidden("Order not found.")
+        return HttpResponseForbidden("Commande introuvable.")
     html = render_to_string(
         "orders/partials/order_row.html",
         {"row": row},
@@ -196,7 +196,7 @@ def seller_order_advance_status(request, order_id: int):
 def bulk_confirm_orders(request):
     """POST /seller/orders/bulk-confirm/ — confirme plusieurs commandes en attente."""
     if not _require_seller(request.user):
-        return HttpResponseForbidden("Seller profile required.")
+        return HttpResponseForbidden("Profil vendeur requis.")
 
     order_ids = request.POST.getlist("order_ids")
     if not order_ids:
@@ -236,7 +236,7 @@ def bulk_confirm_orders(request):
 def bulk_mark_delivered(request):
     """POST /seller/orders/bulk-delivered/ — marque plusieurs commandes livrées."""
     if not _require_seller(request.user):
-        return HttpResponseForbidden("Seller profile required.")
+        return HttpResponseForbidden("Profil vendeur requis.")
 
     order_ids = request.POST.getlist("order_ids")
     if not order_ids:

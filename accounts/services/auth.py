@@ -38,7 +38,7 @@ def login_user(request, validated_data: dict) -> User:
     )
 
     if user is None:
-        raise AuthenticationFailed("Invalid phone or password.")
+        raise AuthenticationFailed("Numéro de téléphone ou mot de passe incorrect.")
 
     login(request, user)
     return user

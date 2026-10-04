@@ -204,11 +204,11 @@ def advance_order_status(*, user, order_id: int) -> Order:
         .first()
     )
     if order is None:
-        raise PermissionDenied("Order not found or not accessible.")
+        raise PermissionDenied("Commande introuvable ou inaccessible.")
 
     nxt = _next_status(order.status)
     if nxt is None:
-        raise ValidationError("This order cannot be advanced from its current status.")
+        raise ValidationError("Cette commande ne peut plus avancer dans son état actuel.")
 
     order.status = nxt
     order.save(update_fields=["status", "updated_at"])

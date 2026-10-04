@@ -62,15 +62,15 @@ def enforce_public_order_rate_limit(request: HttpRequest) -> None:
 
 def _as_positive_int(value: Any, field: str, *, min_value: int = 1) -> int:
     if isinstance(value, bool):
-        raise ValidationError({field: "Invalid integer."})
+        raise ValidationError({field: "Entier invalide."})
     if isinstance(value, int):
         n = value
     elif isinstance(value, str) and value.strip().isdigit():
         n = int(value.strip())
     else:
-        raise ValidationError({field: "Must be a positive integer."})
+        raise ValidationError({field: "Doit être un entier positif."})
     if n < min_value:
-        raise ValidationError({field: f"Must be at least {min_value}."})
+        raise ValidationError({field: f"Doit être au moins {min_value}."})
     return n
 
 
@@ -109,7 +109,7 @@ def _extract_delivery_from_public(data: dict[str, Any]) -> dict[str, Any]:
         cleaned["audio_base64"] = _clean_audio_base64(data.get("audio_base64"))
         return cleaned
 
-    raise ValidationError({"delivery": "This field is required."})
+    raise ValidationError({"delivery": "Ce champ est obligatoire."})
 
 
 def build_create_order_payload_from_public(*, data: dict[str, Any]) -> dict[str, Any]:
@@ -118,7 +118,7 @@ def build_create_order_payload_from_public(*, data: dict[str, Any]) -> dict[str,
     Required: flash_sale_id, product_id, name, phone, quantity, client_request_id.
     """
     if not isinstance(data, dict):
-        raise ValidationError({"detail": "Body must be a JSON object."})
+        raise ValidationError({"detail": "Le corps de la requête doit être un objet JSON."})
 
     missing = [
         k
@@ -134,7 +134,7 @@ def build_create_order_payload_from_public(*, data: dict[str, Any]) -> dict[str,
     ]
     if missing:
         raise ValidationError(
-            {m: "This field is required." for m in missing},
+            {m: "Ce champ est obligatoire." for m in missing},
         )
 
     flash_sale_id = _as_positive_int(data["flash_sale_id"], "flash_sale_id")
@@ -142,14 +142,14 @@ def build_create_order_payload_from_public(*, data: dict[str, Any]) -> dict[str,
     quantity = _as_positive_int(data["quantity"], "quantity")
 
     if not isinstance(data["name"], str) or not data["name"].strip():
-        raise ValidationError({"name": "Must be a non-empty string."})
+        raise ValidationError({"name": "Doit être un texte non vide."})
     if not isinstance(data["phone"], str) or not data["phone"].strip():
-        raise ValidationError({"phone": "Must be a non-empty string."})
+        raise ValidationError({"phone": "Doit être un texte non vide."})
     if (
         not isinstance(data["client_request_id"], str)
         or not data["client_request_id"].strip()
     ):
-        raise ValidationError({"client_request_id": "Must be a non-empty string."})
+        raise ValidationError({"client_request_id": "Doit être un texte non vide."})
 
     try:
         phone_norm = normalize_phone(data["phone"])

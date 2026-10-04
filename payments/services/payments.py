@@ -29,12 +29,12 @@ def order_payable_total(order: Order) -> Decimal:
 
 def _require_provider(raw: Any) -> str:
     if not isinstance(raw, str) or not raw.strip():
-        raise ValidationError({"provider": "Must be a non-empty string."})
+        raise ValidationError({"provider": "Doit être un texte non vide."})
     choice_values = {c for c, _ in PaymentProvider.choices}
     v = raw.strip()
     if v not in choice_values:
         raise ValidationError(
-            {"provider": f"Invalid provider. Allowed: {sorted(choice_values)}."},
+            {"provider": f"Fournisseur invalide. Valeurs autorisées : {sorted(choice_values)}."},
         )
     return v
 
@@ -45,11 +45,11 @@ def _parse_client_reference(raw: Any) -> uuid.UUID | None:
     if isinstance(raw, uuid.UUID):
         return raw
     if not isinstance(raw, str) or not raw.strip():
-        raise ValidationError({"client_reference": "Must be a UUID string."})
+        raise ValidationError({"client_reference": "Doit être un UUID sous forme de texte."})
     try:
         return uuid.UUID(raw.strip())
     except ValueError as exc:
-        raise ValidationError({"client_reference": "Must be a valid UUID."}) from exc
+        raise ValidationError({"client_reference": "Doit être un UUID valide."}) from exc
 
 
 def initiate_payment_for_order(
@@ -66,9 +66,9 @@ def initiate_payment_for_order(
     """
     # bool est une sous-classe de int : `true` (JSON) ciblait sinon la commande n° 1.
     if isinstance(order_id, bool) or not isinstance(order_id, int) or order_id < 1:
-        raise ValidationError({"order_id": "Must be a positive integer."})
+        raise ValidationError({"order_id": "Doit être un entier positif."})
     if not isinstance(phone, str) or not phone.strip():
-        raise ValidationError({"phone": "Must be a non-empty string."})
+        raise ValidationError({"phone": "Doit être un texte non vide."})
 
     provider_code = _require_provider(provider)
     client_ref = _parse_client_reference(client_reference)
@@ -91,7 +91,7 @@ def initiate_payment_for_order(
                 .get(pk=order_id)
             )
         except Order.DoesNotExist as exc:
-            raise ValidationError({"order_id": "Order not found."}) from exc
+            raise ValidationError({"order_id": "Commande introuvable."}) from exc
 
         if order.status != OrderStatus.PENDING:
             raise ValidationError(
@@ -101,12 +101,12 @@ def initiate_payment_for_order(
         computed = order_payable_total(order)
         if computed <= 0:
             raise ValidationError(
-                {"order_id": "Order total must be greater than zero."}
+                {"order_id": "Le total de la commande doit être supérieur à zéro."}
             )
 
         order_phone = _normalize_phone(order.customer_phone or "")
         if not order_phone or order_phone != phone_n:
-            raise ValidationError({"phone": "Does not match order customer_phone."})
+            raise ValidationError({"phone": "Ne correspond pas au téléphone du client de la commande."})
 
         client_uuid = client_ref if client_ref is not None else uuid.uuid4()
 
