@@ -7,6 +7,7 @@ from django.db.models.functions import TruncDate, TruncMonth
 from django.utils import timezone
 
 from orders.models import OrderItem, OrderStatus
+from orders.services.dashboard import collected_q
 
 
 def _revenue_expr() -> ExpressionWrapper:
@@ -16,12 +17,16 @@ def _revenue_expr() -> ExpressionWrapper:
     )
 
 
+# F-95 : tout le CA de l'analytique = « Encaissé » des cartes de la page Commandes
+# (F-94), via la même définition `collected_q`. Une commande livrée mais non
+# encaissée, ou livrée sans livraison, n'entre dans aucun total ni classement.
+def _collected_items():
+    return OrderItem.objects.filter(collected_q("order__"))
+
+
 def get_flash_sale_stats(flash_sale_id: int) -> dict:
-    """Statistiques détaillées pour une vente flash (commandes livrées)."""
-    delivered_items = OrderItem.objects.filter(
-        order__flash_sale_id=flash_sale_id,
-        order__status=OrderStatus.DELIVERED,
-    )
+    """Statistiques détaillées pour une vente flash (commandes encaissées)."""
+    delivered_items = _collected_items().filter(order__flash_sale_id=flash_sale_id)
     agg = delivered_items.aggregate(
         total_quantity=Sum("quantity"),
         total_revenue=Sum(_revenue_expr()),
@@ -37,12 +42,11 @@ def get_flash_sale_stats(flash_sale_id: int) -> dict:
 
 
 def get_revenue_timeline(seller_id: int, days: int = 30) -> list[dict]:
-    """Timeline de CA par jour sur `days` jours (commandes livrées)."""
+    """Timeline de CA par jour sur `days` jours (commandes encaissées)."""
     start_date = timezone.now() - timedelta(days=days)
     rows = (
-        OrderItem.objects.filter(
+        _collected_items().filter(
             order__flash_sale__owner_id=seller_id,
-            order__status=OrderStatus.DELIVERED,
             order__created_at__gte=start_date,
         )
         .annotate(day=TruncDate("order__created_at"))
@@ -60,9 +64,8 @@ def get_revenue_timeline_monthly(seller_id: int) -> list[dict]:
     """Timeline mensuelle sur 12 mois (PRO)."""
     start_date = timezone.now() - timedelta(days=365)
     rows = (
-        OrderItem.objects.filter(
+        _collected_items().filter(
             order__flash_sale__owner_id=seller_id,
-            order__status=OrderStatus.DELIVERED,
             order__created_at__gte=start_date,
         )
         .annotate(month=TruncMonth("order__created_at"))
@@ -77,12 +80,9 @@ def get_revenue_timeline_monthly(seller_id: int) -> list[dict]:
 
 
 def get_top_products(seller_id: int, limit: int = 5) -> list[dict]:
-    """Top produits livrés par quantité."""
+    """Top produits encaissés par quantité."""
     rows = (
-        OrderItem.objects.filter(
-            order__flash_sale__owner_id=seller_id,
-            order__status=OrderStatus.DELIVERED,
-        )
+        _collected_items().filter(order__flash_sale__owner_id=seller_id)
         .values("product_name_snapshot")
         .annotate(
             total_sold=Sum("quantity"),
@@ -109,10 +109,7 @@ def get_sales_by_flash(seller_id: int) -> list[dict]:
         .order_by("-start_time")
     )
     revenue_by_sale = dict(
-        OrderItem.objects.filter(
-            order__flash_sale_id__in=[s["pk"] for s in sales],
-            order__status=OrderStatus.DELIVERED,
-        )
+        _collected_items().filter(order__flash_sale_id__in=[s["pk"] for s in sales])
         .values("order__flash_sale_id")
         .annotate(revenue=Sum(_revenue_expr()))
         .values_list("order__flash_sale_id", "revenue")
