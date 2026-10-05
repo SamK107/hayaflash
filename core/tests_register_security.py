@@ -96,6 +96,7 @@ class F17RegisterPasswordTests(TestCase):
     def test_password_similar_to_phone_refused(self):
         response = self.post(password="22370000041x", phone="+22370000041")
         self.assertFalse(User.objects.exists())
+        self.assertContains(response, "trop semblable")
 
     def test_mismatch_still_reported(self):
         response = self.post(password="vache-lune-8", password2="vache-lune-9")
