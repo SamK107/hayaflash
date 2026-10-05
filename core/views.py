@@ -8,6 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db import transaction
 from django.shortcuts import redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
 
 from accounts.models import SellerProfile
 from accounts.services.users import get_user_by_phone
@@ -85,6 +86,28 @@ def _post_login_redirect_target(user) -> str:
     return "seller_home"
 
 
+def _safe_next_url(request) -> str | None:
+    """`?next=` valide ou None (F-06 : pas de redirection ouverte).
+
+    Seul l'hote de la requete (deja controle contre ALLOWED_HOSTS par Django)
+    est accepte ; en HTTPS, une cible http:// est refusee. Les URLs externes,
+    `//hote`, `javascript:` et les variantes avec antislash sont ignorees : on
+    retombe alors sur la page par defaut.
+    """
+    candidate = request.GET.get("next", "")
+    # Antislash refuse d'emblee (les navigateurs le lisent comme « / ») ; seuls
+    # un chemin absolu « /... » ou une URL http(s) complete sont consideres.
+    if "\\" in candidate or not candidate.startswith(("/", "http://", "https://")):
+        return None
+    if url_has_allowed_host_and_scheme(
+        candidate,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return candidate
+    return None
+
+
 def login_view(request):
     if request.user.is_authenticated:
         return redirect(_post_login_redirect_target(request.user))
@@ -110,8 +133,7 @@ def login_view(request):
             user = authenticate(request, username=phone, password=password)
             if user is not None:
                 login(request, user)
-                next_url = request.GET.get("next") or _post_login_redirect_target(user)
-                return redirect(next_url)
+                return redirect(_safe_next_url(request) or _post_login_redirect_target(user))
             else:
                 error = "Numéro de téléphone ou mot de passe incorrect."
 
