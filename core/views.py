@@ -22,7 +22,11 @@ from core.legal import (
     record_legal_acceptances,
 )
 from core.services import honeypot, rate_limit
-from core.services.rate_limit import LOGIN_RATE_LIMIT_MESSAGE, REGISTER_RATE_LIMIT_MESSAGE
+from core.services.rate_limit import (
+    LOGIN_RATE_LIMIT_MESSAGE,
+    REGISTER_PHONE_RATE_LIMIT_MESSAGE,
+    REGISTER_RATE_LIMIT_MESSAGE,
+)
 from core.services.client_ip import get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -211,6 +215,16 @@ def register_view(request):
             )
 
         phone = _normalize(raw_phone)
+        # F-15 : limite par numero (apres l'IP et le honeypot : un robot qui remplit
+        # le piege ne consomme pas le quota d'un numero). Message identique que le
+        # numero existe ou non.
+        if phone and rate_limit.register_phone_limited(phone):
+            return render(
+                request,
+                "accounts/register.html",
+                {"errors": [REGISTER_PHONE_RATE_LIMIT_MESSAGE], "form_data": form_data},
+                status=429,
+            )
         errors = _phone_errors(phone, password, password2, business_name)
         if not accept_terms:
             errors.append(LEGAL_ACCEPTANCE_REQUIRED_MESSAGE)

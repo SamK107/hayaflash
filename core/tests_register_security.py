@@ -247,3 +247,82 @@ class F16EnumerationTests(TestCase):
             ):
                 self.post(phone)
             self.assertEqual(len(calls), 1, label)
+
+
+@override_settings(RATELIMIT_ENABLE=True, RATELIMIT_REGISTER_IP=(100, 3600), RATELIMIT_REGISTER_PHONE=(3, 1800))
+class F15PhoneRateLimitTests(TestCase):
+    """F-15 : limite par numéro EN PLUS de la limite par IP (CGNAT : beaucoup
+    d'utilisateurs derrière une IP, donc la limite par IP seule est large ; la
+    limite par numéro empêche de marteler un même numéro depuis plusieurs IP)."""
+
+    def post(self, phone=PHONE, ip="196.200.1.1", **kwargs):
+        return self.client.post(
+            reverse("register"), payload(phone=phone, **kwargs), REMOTE_ADDR=ip
+        )
+
+    def test_same_number_from_many_ips_is_limited_after_three_attempts(self):
+        for i in range(3):
+            response = self.post(password="abc", password2="abc", ip=f"196.200.2.{i}")
+            self.assertEqual(response.status_code, 200)
+        response = self.post(ip="196.200.2.99")
+        self.assertEqual(response.status_code, 429)
+        self.assertContains(
+            response, "Trop de tentatives avec ce numéro. Réessayez dans quelques minutes.", status_code=429
+        )
+        self.assertFalse(User.objects.exists())
+
+    def test_429_does_not_reveal_whether_the_number_exists(self):
+        User.objects.create_user(phone="+22370000061", password="ancien-mot-de-passe", display_name="X")
+        responses = []
+        for phone in ("+22370000061", "+22370000062"):
+            for i in range(3):
+                self.post(phone=phone, password="abc", password2="abc", ip=f"196.200.3.{i}")
+            responses.append(self.post(phone=phone, ip="196.200.3.99"))
+        self.assertEqual([r.status_code for r in responses], [429, 429])
+        # meme message pour un numero existant et un numero libre
+        self.assertEqual(
+            responses[0].content.decode().count("Trop de tentatives avec ce numéro"),
+            responses[1].content.decode().count("Trop de tentatives avec ce numéro"),
+        )
+
+    def test_two_different_numbers_from_the_same_ip_are_not_blocked(self):
+        for i, phone in enumerate(("+22370000063", "+22370000064", "+22370000065")):
+            self.client.logout()
+            self.assertEqual(self.post(phone=phone, ip="196.200.4.4").status_code, 302, phone)
+        self.assertEqual(User.objects.count(), 3)
+
+    def test_phone_formats_share_one_counter(self):
+        for raw in ("+22370000066", "+223 70000066", "+223-7000 0066"):
+            self.post(phone=raw, password="abc", password2="abc", ip="196.200.5.5")
+        self.assertEqual(self.post(phone="+223 70 00 00 66", ip="196.200.5.6").status_code, 429)
+
+    @override_settings(RATELIMIT_REGISTER_PHONE=(2, 60))
+    def test_counter_resets_after_the_window(self):
+        from unittest import mock
+
+        with mock.patch("django.core.cache.backends.locmem.time.time") as fake_time:
+            fake_time.return_value = 1_000_000.0
+            for i in range(2):
+                self.post(password="abc", password2="abc", ip=f"196.200.6.{i}")
+            self.assertEqual(self.post(ip="196.200.6.9").status_code, 429)
+            fake_time.return_value = 1_000_061.0  # fenetre de 60 s depassee
+            self.assertEqual(self.post(ip="196.200.6.10").status_code, 302)
+
+    def test_key_never_contains_the_phone_in_clear(self):
+        from django.core.cache import cache
+
+        self.post(ip="196.200.7.7")
+        keys = [k for k in getattr(cache, "_cache", {}).keys()]
+        self.assertTrue(keys)
+        self.assertFalse([k for k in keys if "22370000041" in k])
+
+    def test_ip_limit_still_applies_and_honeypot_attempts_do_not_count(self):
+        with override_settings(RATELIMIT_REGISTER_IP=(2, 3600)):
+            for i in range(2):
+                self.post(phone=f"+2237000007{i}", ip="196.200.8.8")
+                self.client.logout()
+            self.assertEqual(self.post(phone="+22370000079", ip="196.200.8.8").status_code, 429)
+        # un robot qui remplit le honeypot ne consomme pas le quota du numero
+        for i in range(5):
+            self.post(phone="+22370000080", ip=f"196.200.9.{i}", website="http://spam.example")
+        self.assertEqual(self.post(phone="+22370000080", ip="196.200.9.99").status_code, 302)
