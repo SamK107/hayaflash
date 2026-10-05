@@ -26,6 +26,7 @@ def format_nav_badge(count: int) -> str:
 
 def _compute_nav_counts(seller) -> dict:
     from delivery.models import Delivery
+    from delivery.services.delivery import live_deliveries_q
     from orders.models import Order, OrderStatus
 
     return {
@@ -33,6 +34,7 @@ def _compute_nav_counts(seller) -> dict:
             flash_sale__owner=seller, status=OrderStatus.PENDING
         ).count(),
         "deliveries_active_count": Delivery.objects.filter(
+            live_deliveries_q(),
             order__flash_sale__owner=seller,
             status__in=[Delivery.Status.ASSIGNED, Delivery.Status.IN_TRANSIT],
         ).count(),
