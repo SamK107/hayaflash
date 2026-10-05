@@ -11,6 +11,7 @@ from django.db.models import (
     F,
     IntegerField,
     Prefetch,
+    Q,
     Sum,
     Value,
 )
@@ -85,8 +86,8 @@ def get_dashboard_kpis(user, flash_sale_id=None) -> dict[str, Any]:
     Agrégats pour le vendeur connecté (optionnellement limités à une vente).
     - total_orders  : toutes commandes non annulées
     - total_quantity: articles de toutes commandes non annulées
-    - total_revenue : CA réel = uniquement les commandes "Livré et payé"
-    - pending_revenue: CA potentiel = commandes en cours (confirmées + en livraison)
+    - total_revenue : Encaissé = commandes livrées dont la livraison a cod_collected=True
+    - pending_revenue: En cours d'encaissement = confirmées + en livraison + livrées non encaissées
     """
     sale_filter = {} if flash_sale_id is None else {"flash_sale_id": flash_sale_id}
     item_sale_filter = (
@@ -103,42 +104,40 @@ def get_dashboard_kpis(user, flash_sale_id=None) -> dict[str, Any]:
         output_field=DecimalField(max_digits=14, decimal_places=0),
     )
 
-    # CA réel : seulement "Livré et payé"
-    delivered_agg = OrderItem.objects.filter(
-        order__flash_sale__owner__user=user,
-        order__status=OrderStatus.DELIVERED,
-        **item_sale_filter,
-    ).aggregate(
-        total_quantity=Coalesce(Sum("quantity"), Value(0, output_field=IntegerField())),
-        total_revenue=Coalesce(
-            Sum(revenue_expr),
-            Value(
-                Decimal("0.00"),
-                output_field=DecimalField(max_digits=14, decimal_places=0),
-            ),
-        ),
+    zero = Value(
+        Decimal("0.00"), output_field=DecimalField(max_digits=14, decimal_places=0)
+    )
+    owned_items = OrderItem.objects.filter(
+        order__flash_sale__owner__user=user, **item_sale_filter
     )
 
-    # CA potentiel : commandes confirmées ou en livraison (pas encore encaissées)
-    pending_revenue_agg = OrderItem.objects.filter(
-        order__flash_sale__owner__user=user,
-        order__status__in=[OrderStatus.CONFIRMED, OrderStatus.OUT_FOR_DELIVERY],
-        **item_sale_filter,
-    ).aggregate(
-        pending_revenue=Coalesce(
-            Sum(revenue_expr),
-            Value(
-                Decimal("0.00"),
-                output_field=DecimalField(max_digits=14, decimal_places=0),
-            ),
-        )
+    # Articles livrés : commandes livrées, qu'elles soient encaissées ou non.
+    delivered_agg = owned_items.filter(order__status=OrderStatus.DELIVERED).aggregate(
+        total_quantity=Coalesce(Sum("quantity"), Value(0, output_field=IntegerField())),
+    )
+
+    # Encaissé (F-94) : commande livrée ET paiement à la livraison réellement
+    # encaissé (Delivery.cod_collected). `order.delivery` est un OneToOne : la
+    # jointure ne multiplie pas les lignes de commande (pas de double comptage).
+    collected = Q(order__status=OrderStatus.DELIVERED, order__delivery__cod_collected=True)
+    # En cours d'encaissement : commandes confirmées ou en livraison, plus les
+    # commandes livrées NON encaissées (cod_collected faux). Une commande livrée
+    # sans livraison associée n'est jamais « encaissée » : par prudence elle
+    # compte ici. ~Q(...cod_collected=True) traite le NULL (pas de livraison)
+    # comme « non encaissé ».
+    in_progress = Q(
+        order__status__in=[OrderStatus.CONFIRMED, OrderStatus.OUT_FOR_DELIVERY]
+    ) | (Q(order__status=OrderStatus.DELIVERED) & ~Q(order__delivery__cod_collected=True))
+    money = owned_items.aggregate(
+        total_revenue=Coalesce(Sum(revenue_expr, filter=collected), zero),
+        pending_revenue=Coalesce(Sum(revenue_expr, filter=in_progress), zero),
     )
 
     return {
         "total_orders": total_orders,
         "total_quantity": int(delivered_agg["total_quantity"] or 0),
-        "total_revenue": delivered_agg["total_revenue"] or Decimal("0.00"),
-        "pending_revenue": pending_revenue_agg["pending_revenue"] or Decimal("0.00"),
+        "total_revenue": money["total_revenue"],
+        "pending_revenue": money["pending_revenue"],
     }
 
 
