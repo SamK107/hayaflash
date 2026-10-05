@@ -36,7 +36,13 @@ class LoginNextRedirectTests(TestCase):
         self.assertDefaultTarget(self.login("javascript:alert(1)"))
 
     def test_backslash_tricks_are_ignored(self):
-        for value in ("/\evil.example", "\\evil.example", "https:\\evil.example", "/\/evil.example"):
+        bs = chr(92)  # antislash
+        for value in (
+            "/" + bs + "evil.example",
+            bs + bs + "evil.example",
+            "https:" + bs + bs + "evil.example",
+            "/" + bs + "/evil.example",
+        ):
             with self.subTest(value=value):
                 self.client.logout()
                 self.assertDefaultTarget(self.login(value))

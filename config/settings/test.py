@@ -104,6 +104,21 @@ CELERY_RESULT_BACKEND = "cache+memory://"
 # Emails capturés en mémoire
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 
+# F-17 : parite avec base.py (validateurs appliques aux NOUVELLES saisies :
+# inscription et changement de mot de passe, jamais a la connexion).
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        "NAME": "accounts.validators.FrenchUserAttributeSimilarityValidator",
+        "OPTIONS": {"user_attributes": ("phone", "display_name")},
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {"min_length": 8},
+    },
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+
 # Password hasher rapide pour les tests
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 

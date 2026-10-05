@@ -283,10 +283,13 @@ LOGOUT_REDIRECT_URL = "/"
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        "NAME": "accounts.validators.FrenchUserAttributeSimilarityValidator",
+        # Le modele User n'a ni username ni email : similarite avec le numero et le nom.
+        "OPTIONS": {"user_attributes": ("phone", "display_name")},
     },
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {"min_length": 8},
     },
     {
         "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",

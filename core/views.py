@@ -55,13 +55,23 @@ def _normalize(raw: str) -> str:
 def _phone_errors(
     phone: str, password: str, password2: str, business_name: str
 ) -> list[str]:
+    from django.contrib.auth import get_user_model
+
+    from accounts.services.passwords import password_policy_errors
+
     errs = []
     if not phone:
         errs.append("Le numéro de téléphone est obligatoire.")
     if not business_name.strip():
         errs.append("Le nom de votre boutique est obligatoire.")
-    if len(password) < 6:
-        errs.append("Le mot de passe doit contenir au moins 6 caractères.")
+    # F-17 : validateurs Django (8 caracteres minimum, mot de passe courant,
+    # tout numerique, similarite avec le numero / le nom de la boutique).
+    errs.extend(
+        password_policy_errors(
+            password,
+            get_user_model()(phone=phone, display_name=business_name),
+        )
+    )
     if password != password2:
         errs.append("Les deux mots de passe ne correspondent pas.")
     return errs
