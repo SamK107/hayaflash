@@ -28,6 +28,19 @@ class NginxRateLimitZonesTests(SimpleTestCase):
             self.assertRegex(body, r"limit_req zone=auth burst=5")
             self.assertIn("limit_req_status 429;", body)
 
+    def test_register_is_matched_by_the_auth_location(self):
+        """F-07 : le motif de location de la zone `auth` couvre bien /register/
+        (et /login/, /otp/), et ne couvre ni /static/ ni /media/."""
+        import re
+
+        name = next(n for n in self.blocks if n.startswith("~ ^/(login|register"))
+        pattern = re.compile(name[len("~ "):])
+        for path in ("/register/", "/login/", "/otp/"):
+            self.assertTrue(pattern.match(path), path)
+        for path in ("/static/x.js", "/media/x.png", "/seller/", "/"):
+            self.assertIsNone(pattern.match(path), path)
+        self.assertRegex(self.blocks[name], r"limit_req zone=auth burst=5 nodelay;")
+
     def test_static_and_media_have_no_rate_limit(self):
         for name in ("/static/", "/media/"):
             self.assertNotIn("limit_req", self.blocks[name])
