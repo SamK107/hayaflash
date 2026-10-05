@@ -122,7 +122,8 @@ def health(_request):
 
 urlpatterns = [
     path("health/", health, name="api-health"),
-    path("accounts/", include(("accounts.urls", "accounts"), namespace="accounts")),
+    # F-19 : l'API d'authentification (/accounts/auth/*) est retiree en V1 ;
+    # inscription et connexion = pages web (/register/, /login/).
     path("orders/", api_v1_orders_create, name="api-v1-orders"),
     path("delivery/", include("delivery.urls")),
     path("payments/", include("payments.urls")),

@@ -369,13 +369,10 @@ echo -n "Flash sales endpoint... "
 status=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/v1/flash-sales/")
 [ "$status" = "200" ] && echo "✅" || (echo "❌ $status" && exit 1)
 
-# Auth register (dry run)
-echo -n "Auth register endpoint... "
-status=$(curl -s -o /dev/null -w "%{http_code}" \
-  -X POST "$BASE_URL/api/v1/accounts/auth/register/" \
-  -H "Content-Type: application/json" \
-  -d '{"phone": "invalid", "password": "x"}')
-[ "$status" = "400" ] && echo "✅ (validation active)" || (echo "❌ unexpected $status" && exit 1)
+# API d'auth retiree en V1 (F-19) : doit repondre 404
+echo -n "Auth API retiree (404)... "
+status=$(curl -s -o /dev/null -w "%{http_code}"   -X POST "$BASE_URL/api/v1/accounts/auth/register/"   -H "Content-Type: application/json"   -d '{"phone": "invalid", "password": "x"}')
+[ "$status" = "404" ] && echo "✅ (route retiree)" || (echo "❌ unexpected $status" && exit 1)
 
 # Rate limit header présent
 echo -n "Rate limit headers... "
