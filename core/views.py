@@ -25,6 +25,10 @@ from core.services.client_ip import get_client_ip
 
 logger = logging.getLogger(__name__)
 
+REGISTER_FAILED_MESSAGE = (
+    "Impossible de créer le compte pour le moment. Réessayez dans quelques instants."
+)
+
 # Limites de debit (valeurs : settings.RATELIMIT_*, core/services/rate_limit.py, fail-open).
 # Le verrou par telephone + IP (5 echecs / 30 min) est gere par django-axes
 # (config/settings/base.py, AXES_*) : pas de verrou "telephone seul" ici, sinon
@@ -212,7 +216,16 @@ def register_view(request):
                 )
                 return redirect("seller_home")
             except Exception as exc:
-                errors.append(f"Erreur lors de la création du compte : {exc}")
+                # F-18 : jamais le texte brut de l'exception a l'utilisateur. Le
+                # journal garde le type et une empreinte du numero (jamais le
+                # numero ni le mot de passe ; le message d'exception peut les
+                # contenir, il n'est donc pas journalise).
+                logger.error(
+                    "Inscription echouee (%s) %s",
+                    type(exc).__name__,
+                    rate_limit.phone_key("register", phone),
+                )
+                errors.append(REGISTER_FAILED_MESSAGE)
 
     return render(
         request,
