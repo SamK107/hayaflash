@@ -27,6 +27,22 @@ KPI_CACHE_TTL_SECONDS = 4
 DASHBOARD_PAGE_SIZE = 20
 
 
+def collected_q(prefix: str = "order__") -> Q:
+    """Définition unique de « Encaissé » (F-94) : commande livrée ET livraison encaissée.
+
+    ``prefix`` désigne le chemin vers la commande depuis le modèle filtré
+    (``"order__"`` pour ``OrderItem``, ``""`` pour ``Order``). ``order.delivery``
+    est un OneToOne : la jointure ne multiplie pas les lignes. Une commande
+    livrée sans livraison n'est jamais encaissée (NULL ≠ True).
+    """
+    return Q(
+        **{
+            f"{prefix}status": OrderStatus.DELIVERED,
+            f"{prefix}delivery__cod_collected": True,
+        }
+    )
+
+
 def resolve_owned_flash_sale(user, raw_flash_sale_id):
     """Vente du vendeur désignée par le filtre, ou 404.
 
@@ -119,7 +135,7 @@ def get_dashboard_kpis(user, flash_sale_id=None) -> dict[str, Any]:
     # Encaissé (F-94) : commande livrée ET paiement à la livraison réellement
     # encaissé (Delivery.cod_collected). `order.delivery` est un OneToOne : la
     # jointure ne multiplie pas les lignes de commande (pas de double comptage).
-    collected = Q(order__status=OrderStatus.DELIVERED, order__delivery__cod_collected=True)
+    collected = collected_q("order__")
     # En cours d'encaissement : commandes confirmées ou en livraison, plus les
     # commandes livrées NON encaissées (cod_collected faux). Une commande livrée
     # sans livraison associée n'est jamais « encaissée » : par prudence elle
