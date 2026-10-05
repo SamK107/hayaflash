@@ -32,10 +32,24 @@ REGISTER_PHONE_RATE_LIMIT_MESSAGE = "Trop de tentatives avec ce numéro. Réessa
 ORDER_RATE_LIMIT_MESSAGE = "Trop de commandes avec ce numéro. Réessayez dans quelques minutes."
 
 
+def _phone_digest(phone: str | None) -> str:
+    return hashlib.sha256((phone or "").encode("utf-8")).hexdigest()[:16]
+
+
+def phone_fingerprint(phone: str | None) -> str:
+    """Empreinte ``tel:<sha256 tronque>`` d'un numero, pour les journaux (F-36).
+
+    A utiliser dans tout ``logger.*`` / ``print`` a la place du numero : meme
+    empreinte que dans ``phone_key``, donc un incident se recoupe avec les
+    compteurs de limitation sans jamais ecrire le numero. Le numero stocke en
+    base et le texte du SMS ne sont pas concernes.
+    """
+    return f"tel:{_phone_digest(phone)}"
+
+
 def phone_key(scope: str, normalized_phone: str) -> str:
     """Cle ``<scope>:phone:<sha256 tronque>`` : jamais le numero en clair."""
-    digest = hashlib.sha256(normalized_phone.encode("utf-8")).hexdigest()[:16]
-    return f"{scope}:phone:{digest}"
+    return f"{scope}:phone:{_phone_digest(normalized_phone)}"
 
 
 def hit(key: str, *, limit: int, window_seconds: int) -> bool:

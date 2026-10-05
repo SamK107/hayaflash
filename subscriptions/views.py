@@ -212,7 +212,8 @@ def payment_callback_view(request):
         # SÉCURITÉ CRITIQUE: Lookup par notif_token UNIQUEMENT (pas order_id)
         notif_token = result.get("notif_token") or ""
         if not notif_token:
-            logger.warning("Orange callback sans notif_token: %s", data)
+            # Le payload peut contenir le numero du payeur (subscribernumber) : cles seulement.
+            logger.warning("Orange callback sans notif_token: cles=%s", sorted(data))
             return HttpResponse("OK")
 
         try:

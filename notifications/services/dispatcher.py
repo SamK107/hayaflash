@@ -4,6 +4,7 @@ import logging
 
 from django.utils import timezone
 
+from core.services.rate_limit import phone_fingerprint
 from notifications.models import Notification
 
 logger = logging.getLogger(__name__)
@@ -31,7 +32,9 @@ def send_notification(
             # WhatsApp Business API — V1.1
             # En V1 : log uniquement, le lien wa.me est utilise cote client
             logger.info(
-                "WhatsApp (V1 log only) -> %s : %s", recipient_phone, message[:80]
+                "WhatsApp (V1 log only) -> %s : %s",
+                phone_fingerprint(recipient_phone),
+                message[:80],
             )
             success = True
         else:

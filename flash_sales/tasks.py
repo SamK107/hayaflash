@@ -145,11 +145,12 @@ def send_pending_sale_reminders() -> None:
                 interest.save(update_fields=["reminded_at"])
                 count += 1
         except Exception as exc:
+            # Le texte de l'exception peut contenir le numero : type seulement (F-36).
             logger.error(
                 "Erreur envoi rappel SaleInterest %s (vente %s) : %s",
                 interest.pk,
                 interest.flash_sale_id,
-                exc,
+                type(exc).__name__,
             )
 
     if count:
