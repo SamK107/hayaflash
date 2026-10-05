@@ -6,7 +6,9 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
-from django.db import transaction
+from django.contrib.auth.hashers import make_password
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 from django.shortcuts import redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 
@@ -25,6 +27,12 @@ from core.services.client_ip import get_client_ip
 
 logger = logging.getLogger(__name__)
 
+# F-16 : message unique pour « numero deja pris » et « numero invalide » ; le
+# gabarit en fait un lien vers /login/ (accounts/register.html).
+REGISTER_NEUTRAL_MESSAGE = (
+    "Impossible de créer ce compte avec ces informations. "
+    "Si vous avez déjà un compte, connectez-vous."
+)
 REGISTER_FAILED_MESSAGE = (
     "Impossible de créer le compte pour le moment. Réessayez dans quelques instants."
 )
@@ -50,6 +58,16 @@ def _normalize(raw: str) -> str:
         else:
             phone = "+223" + phone
     return phone
+
+
+def _phone_is_valid(phone: str) -> bool:
+    from accounts.models import phone_validator
+
+    try:
+        phone_validator(phone)
+    except ValidationError:
+        return False
+    return True
 
 
 def _phone_errors(
@@ -198,11 +216,13 @@ def register_view(request):
             errors.append(LEGAL_ACCEPTANCE_REQUIRED_MESSAGE)
 
         if not errors:
-            # verifier unicite du numero
-            if get_user_by_phone(phone):
-                errors.append(
-                    "Ce numéro est déjà utilisé. Connectez-vous ou utilisez un autre numéro."
-                )
+            # F-16 : numero deja pris ET numero invalide donnent le MEME message,
+            # neutre. Chaque branche paie un hachage du mot de passe (Argon2 en
+            # production) comme une creation reelle, pour qu'une difference de
+            # duree ne revele pas l'existence d'un compte.
+            if not _phone_is_valid(phone) or get_user_by_phone(phone):
+                make_password(password)
+                errors.append(REGISTER_NEUTRAL_MESSAGE)
 
         if not errors:
             from django.contrib.auth import get_user_model
@@ -225,6 +245,10 @@ def register_view(request):
                     request, f"Bienvenue ! Votre boutique '{business_name}' est prete."
                 )
                 return redirect("seller_home")
+            except IntegrityError:
+                # Course sur le numero unique (deux inscriptions simultanees) :
+                # meme reponse que « numero deja pris » (F-16).
+                errors.append(REGISTER_NEUTRAL_MESSAGE)
             except Exception as exc:
                 # F-18 : jamais le texte brut de l'exception a l'utilisateur. Le
                 # journal garde le type et une empreinte du numero (jamais le
@@ -243,6 +267,7 @@ def register_view(request):
         {
             "errors": errors,
             "form_data": form_data,
+            "show_login_link": REGISTER_NEUTRAL_MESSAGE in errors,
         },
     )
 

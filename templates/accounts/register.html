@@ -29,6 +29,9 @@
           <p class="text-red-700 text-sm">{{ err }}</p>
         </div>
         {% endfor %}
+        {% if show_login_link %}
+        <p class="text-sm pl-6"><a href="{% url 'login' %}" class="text-primary font-semibold underline">Se connecter</a></p>
+        {% endif %}
       </div>
       {% endif %}
 

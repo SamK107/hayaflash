@@ -169,3 +169,81 @@ class F17ExistingShortPasswordsStillLogInTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response["Location"], reverse("seller_home"))
+
+
+NEUTRAL = (
+    "Impossible de créer ce compte avec ces informations. "
+    "Si vous avez déjà un compte, connectez-vous."
+)
+
+
+def _error_block(response):
+    """Messages d'erreur rendus (tout ce qui suit l'en-tête d'erreur du formulaire)."""
+    body = response.content.decode()
+    return NEUTRAL in body, body
+
+
+class F16EnumerationTests(TestCase):
+    """Un numéro déjà pris et un numéro libre mais invalide donnent la MÊME
+    réponse : rien ne permet de savoir si un compte existe."""
+
+    def setUp(self):
+        User.objects.create_user(phone="+22370000051", password="ancien-mot-de-passe", display_name="Existante")
+
+    def post(self, phone):
+        return self.client.post(reverse("register"), payload(phone=phone))
+
+    def test_taken_number_gets_neutral_message_with_login_link(self):
+        response = self.post("+22370000051")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, NEUTRAL)
+        self.assertContains(response, 'href="%s"' % reverse("login"))
+        self.assertNotContains(response, "déjà utilisé")
+        self.assertEqual(User.objects.count(), 1)
+
+    def test_free_invalid_and_taken_numbers_get_identical_messages(self):
+        taken = self.post("+22370000051")
+        invalid = self.post("+223abc")
+        self.assertEqual(taken.status_code, invalid.status_code)
+        for response in (taken, invalid):
+            self.assertContains(response, NEUTRAL)
+            self.assertNotContains(response, "invalide")
+            self.assertNotContains(response, "déjà utilisé")
+        self.assertEqual(User.objects.count(), 1)
+
+    def test_race_on_unique_phone_gives_the_same_message(self):
+        """Deux inscriptions simultanées : l'IntegrityError du perdant ne doit pas
+        produire un autre message que « numéro déjà pris »."""
+        from django.db import IntegrityError
+
+        with patch("accounts.models.UserManager.create_user", side_effect=IntegrityError("unique")):
+            response = self.post("+22370000052")
+        self.assertContains(response, NEUTRAL)
+
+    def test_other_field_errors_do_not_reveal_the_account(self):
+        # Mot de passe trop court + numéro déjà pris : seule l'erreur de mot de passe.
+        response = self.client.post(
+            reverse("register"), payload(phone="+22370000051", password="abc", password2="abc")
+        )
+        self.assertNotContains(response, NEUTRAL)
+        self.assertContains(response, "au minimum 8 caractères")
+
+    def test_both_branches_hash_the_password_once(self):
+        """Pas de différence de durée exploitable : chaque branche paie un
+        hachage (Argon2 en production) — création réelle, numéro pris, numéro invalide."""
+        from django.contrib.auth.hashers import make_password as real
+
+        calls = []
+
+        def counting(*args, **kwargs):
+            calls.append(1)
+            return real(*args, **kwargs)
+
+        for label, phone in (("free", "+22370000053"), ("taken", "+22370000051"), ("invalid", "+223abc")):
+            calls.clear()
+            self.client.logout()
+            with patch("django.contrib.auth.base_user.make_password", counting), patch(
+                "core.views.make_password", counting
+            ):
+                self.post(phone)
+            self.assertEqual(len(calls), 1, label)
