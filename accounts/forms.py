@@ -83,7 +83,6 @@ class ChangePasswordForm(forms.Form):
     )
     new_password = forms.CharField(
         label="Nouveau mot de passe",
-        min_length=8,
         widget=forms.PasswordInput(
             attrs={"class": "hf-input", "autocomplete": "new-password"}
         ),
@@ -103,6 +102,16 @@ class ChangePasswordForm(forms.Form):
         pwd = self.cleaned_data["current_password"]
         if self._user and not check_password(pwd, self._user.password):
             raise forms.ValidationError("Mot de passe actuel incorrect.")
+        return pwd
+
+    def clean_new_password(self):
+        # F-17 : memes validateurs que l'inscription (8 caracteres minimum, etc.).
+        from accounts.services.passwords import password_policy_errors
+
+        pwd = self.cleaned_data["new_password"]
+        errors = password_policy_errors(pwd, self._user)
+        if errors:
+            raise forms.ValidationError(errors)
         return pwd
 
     def clean(self):

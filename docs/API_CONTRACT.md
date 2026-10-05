@@ -34,8 +34,6 @@
 | Endpoint | Limite | Fenêtre |
 |---|---|---|
 | `POST /orders/` | 30 | 1 min / IP |
-| `POST /accounts/auth/login/` | 10 | 1 min / IP |
-| `POST /accounts/auth/register/` | 5 | 1 min / IP |
 | `GET /flash-sales/` | 100 | 1 min / IP |
 | Tous les autres | 200 | 1 min / IP |
 
@@ -47,88 +45,9 @@
 
 ### 🔐 Auth
 
-#### POST /accounts/auth/register/
-
-Inscription d'un nouveau utilisateur (vendeur ou client).
-
-**Request**
-```json
-{
-  "phone": "+22376000000",
-  "password": "motdepasse123",
-  "display_name": "Fatoumata Diallo",
-  "is_seller": true,
-  "business_name": "Boutique Fati Mode",
-  "accept_terms": true
-}
-```
-
-`accept_terms` (booléen, **obligatoire**) : l'utilisateur accepte les CGU (`/cgu/`) et la politique de confidentialité (`/confidentialite/`). Doit valoir `true`. À la création du compte, deux preuves d'acceptation sont enregistrées (versions courantes, date, IP), dans la même transaction que l'utilisateur et le profil vendeur.
-
-**Response 201**
-```json
-{
-  "user_id": "uuid",
-  "phone": "+22376000000",
-  "display_name": "Fatoumata Diallo",
-  "seller_code": "SLR-A1B2C3D4",
-  "public_slug": "boutique-fati-mode",
-  "token": "jwt_token_or_session"
-}
-```
-
-**Erreurs**
-- `400` — phone déjà utilisé, password trop court
-- `400` — `accept_terms` absent ou différent de `true` ; aucun compte n'est créé :
-  ```json
-  { "accept_terms": ["Vous devez accepter les CGU et la politique de confidentialité."] }
-  ```
-- `429` — rate limit
-
----
-
-#### POST /accounts/auth/login/
-
-**Request**
-```json
-{
-  "phone": "+22376000000",
-  "password": "motdepasse123"
-}
-```
-
-**Response 200**
-```json
-{
-  "user_id": "uuid",
-  "display_name": "Fatoumata Diallo",
-  "token": "jwt_or_session_token",
-  "is_seller": true,
-  "seller_code": "SLR-A1B2C3D4"
-}
-```
-
----
-
-#### GET /accounts/auth/me/
-
-Auth requis.
-
-**Response 200**
-```json
-{
-  "user_id": "uuid",
-  "phone": "+22376000000",
-  "display_name": "Fatoumata Diallo",
-  "is_phone_verified": true,
-  "seller": {
-    "seller_code": "SLR-A1B2C3D4",
-    "public_slug": "boutique-fati-mode",
-    "business_name": "Boutique Fati Mode",
-    "is_active": true
-  }
-}
-```
+L'API d'authentification (`/accounts/auth/register|login|logout|me/`) est **retirée en V1** (F-19, 05/10) :
+ces URLs répondent 404. L'inscription et la connexion passent par les pages web (`/register/`, `/login/`),
+protégées par des limites par IP et par numéro, un honeypot et django-axes.
 
 ---
 

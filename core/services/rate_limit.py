@@ -28,6 +28,7 @@ KEY_PREFIX = "rl:"
 
 LOGIN_RATE_LIMIT_MESSAGE = "Trop de tentatives. Réessayez dans quelques minutes."
 REGISTER_RATE_LIMIT_MESSAGE = "Trop d'inscriptions depuis ce réseau. Réessayez plus tard."
+REGISTER_PHONE_RATE_LIMIT_MESSAGE = "Trop de tentatives avec ce numéro. Réessayez dans quelques minutes."
 ORDER_RATE_LIMIT_MESSAGE = "Trop de commandes avec ce numéro. Réessayez dans quelques minutes."
 
 
@@ -95,6 +96,12 @@ def login_ip_limited(request: HttpRequest) -> bool:
 
 def register_ip_limited(request: HttpRequest) -> bool:
     return _limited(f"register:ip:{get_client_ip(request)}", "RATELIMIT_REGISTER_IP")
+
+
+def register_phone_limited(normalized_phone: str) -> bool:
+    """Limite par numero a l'inscription (F-15). Meme reponse que le numero
+    existe ou non : le compteur ne depend que de la saisie."""
+    return _limited(phone_key("register", normalized_phone), "RATELIMIT_REGISTER_PHONE")
 
 
 def order_phone_limited(phone: str) -> bool:

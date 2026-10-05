@@ -283,10 +283,13 @@ LOGOUT_REDIRECT_URL = "/"
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        "NAME": "accounts.validators.FrenchUserAttributeSimilarityValidator",
+        # Le modele User n'a ni username ni email : similarite avec le numero et le nom.
+        "OPTIONS": {"user_attributes": ("phone", "display_name")},
     },
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {"min_length": 8},
     },
     {
         "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
@@ -457,6 +460,10 @@ AXES_LOCKOUT_MESSAGE = (
 RATELIMIT_ENABLE = True
 RATELIMIT_LOGIN_IP = (10, 60)
 RATELIMIT_REGISTER_IP = (5, 60 * 60)
+# F-15 : par numero (cle hachee), en plus de l'IP. 5 tentatives / 30 min : assez pour
+# les fautes de frappe d'un vrai vendeur, bien en deca d'un martelage. Cle par numero
+# et non par IP : derriere un CGNAT malien, beaucoup d'utilisateurs partagent une IP.
+RATELIMIT_REGISTER_PHONE = (5, 30 * 60)
 RATELIMIT_ORDER_PHONE = (10, 10 * 60)
 
 # ── Django REST Framework ─────────────────────────────────────────────────────

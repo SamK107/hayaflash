@@ -6,8 +6,11 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
-from django.db import transaction
+from django.contrib.auth.hashers import make_password
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 from django.shortcuts import redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
 
 from accounts.models import SellerProfile
 from accounts.services.users import get_user_by_phone
@@ -19,10 +22,24 @@ from core.legal import (
     record_legal_acceptances,
 )
 from core.services import honeypot, rate_limit
-from core.services.rate_limit import LOGIN_RATE_LIMIT_MESSAGE, REGISTER_RATE_LIMIT_MESSAGE
+from core.services.rate_limit import (
+    LOGIN_RATE_LIMIT_MESSAGE,
+    REGISTER_PHONE_RATE_LIMIT_MESSAGE,
+    REGISTER_RATE_LIMIT_MESSAGE,
+)
 from core.services.client_ip import get_client_ip
 
 logger = logging.getLogger(__name__)
+
+# F-16 : message unique pour « numero deja pris » et « numero invalide » ; le
+# gabarit en fait un lien vers /login/ (accounts/register.html).
+REGISTER_NEUTRAL_MESSAGE = (
+    "Impossible de créer ce compte avec ces informations. "
+    "Si vous avez déjà un compte, connectez-vous."
+)
+REGISTER_FAILED_MESSAGE = (
+    "Impossible de créer le compte pour le moment. Réessayez dans quelques instants."
+)
 
 # Limites de debit (valeurs : settings.RATELIMIT_*, core/services/rate_limit.py, fail-open).
 # Le verrou par telephone + IP (5 echecs / 30 min) est gere par django-axes
@@ -47,16 +64,36 @@ def _normalize(raw: str) -> str:
     return phone
 
 
+def _phone_is_valid(phone: str) -> bool:
+    from accounts.models import phone_validator
+
+    try:
+        phone_validator(phone)
+    except ValidationError:
+        return False
+    return True
+
+
 def _phone_errors(
     phone: str, password: str, password2: str, business_name: str
 ) -> list[str]:
+    from django.contrib.auth import get_user_model
+
+    from accounts.services.passwords import password_policy_errors
+
     errs = []
     if not phone:
         errs.append("Le numéro de téléphone est obligatoire.")
     if not business_name.strip():
         errs.append("Le nom de votre boutique est obligatoire.")
-    if len(password) < 6:
-        errs.append("Le mot de passe doit contenir au moins 6 caractères.")
+    # F-17 : validateurs Django (8 caracteres minimum, mot de passe courant,
+    # tout numerique, similarite avec le numero / le nom de la boutique).
+    errs.extend(
+        password_policy_errors(
+            password,
+            get_user_model()(phone=phone, display_name=business_name),
+        )
+    )
     if password != password2:
         errs.append("Les deux mots de passe ne correspondent pas.")
     return errs
@@ -85,6 +122,28 @@ def _post_login_redirect_target(user) -> str:
     return "seller_home"
 
 
+def _safe_next_url(request) -> str | None:
+    """`?next=` valide ou None (F-06 : pas de redirection ouverte).
+
+    Seul l'hote de la requete (deja controle contre ALLOWED_HOSTS par Django)
+    est accepte ; en HTTPS, une cible http:// est refusee. Les URLs externes,
+    `//hote`, `javascript:` et les variantes avec antislash sont ignorees : on
+    retombe alors sur la page par defaut.
+    """
+    candidate = request.GET.get("next", "")
+    # Antislash refuse d'emblee (les navigateurs le lisent comme « / ») ; seuls
+    # un chemin absolu « /... » ou une URL http(s) complete sont consideres.
+    if "\\" in candidate or not candidate.startswith(("/", "http://", "https://")):
+        return None
+    if url_has_allowed_host_and_scheme(
+        candidate,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return candidate
+    return None
+
+
 def login_view(request):
     if request.user.is_authenticated:
         return redirect(_post_login_redirect_target(request.user))
@@ -110,8 +169,7 @@ def login_view(request):
             user = authenticate(request, username=phone, password=password)
             if user is not None:
                 login(request, user)
-                next_url = request.GET.get("next") or _post_login_redirect_target(user)
-                return redirect(next_url)
+                return redirect(_safe_next_url(request) or _post_login_redirect_target(user))
             else:
                 error = "Numéro de téléphone ou mot de passe incorrect."
 
@@ -157,16 +215,28 @@ def register_view(request):
             )
 
         phone = _normalize(raw_phone)
+        # F-15 : limite par numero (apres l'IP et le honeypot : un robot qui remplit
+        # le piege ne consomme pas le quota d'un numero). Message identique que le
+        # numero existe ou non.
+        if phone and rate_limit.register_phone_limited(phone):
+            return render(
+                request,
+                "accounts/register.html",
+                {"errors": [REGISTER_PHONE_RATE_LIMIT_MESSAGE], "form_data": form_data},
+                status=429,
+            )
         errors = _phone_errors(phone, password, password2, business_name)
         if not accept_terms:
             errors.append(LEGAL_ACCEPTANCE_REQUIRED_MESSAGE)
 
         if not errors:
-            # verifier unicite du numero
-            if get_user_by_phone(phone):
-                errors.append(
-                    "Ce numéro est déjà utilisé. Connectez-vous ou utilisez un autre numéro."
-                )
+            # F-16 : numero deja pris ET numero invalide donnent le MEME message,
+            # neutre. Chaque branche paie un hachage du mot de passe (Argon2 en
+            # production) comme une creation reelle, pour qu'une difference de
+            # duree ne revele pas l'existence d'un compte.
+            if not _phone_is_valid(phone) or get_user_by_phone(phone):
+                make_password(password)
+                errors.append(REGISTER_NEUTRAL_MESSAGE)
 
         if not errors:
             from django.contrib.auth import get_user_model
@@ -189,8 +259,21 @@ def register_view(request):
                     request, f"Bienvenue ! Votre boutique '{business_name}' est prete."
                 )
                 return redirect("seller_home")
+            except IntegrityError:
+                # Course sur le numero unique (deux inscriptions simultanees) :
+                # meme reponse que « numero deja pris » (F-16).
+                errors.append(REGISTER_NEUTRAL_MESSAGE)
             except Exception as exc:
-                errors.append(f"Erreur lors de la création du compte : {exc}")
+                # F-18 : jamais le texte brut de l'exception a l'utilisateur. Le
+                # journal garde le type et une empreinte du numero (jamais le
+                # numero ni le mot de passe ; le message d'exception peut les
+                # contenir, il n'est donc pas journalise).
+                logger.error(
+                    "Inscription echouee (%s) %s",
+                    type(exc).__name__,
+                    rate_limit.phone_key("register", phone),
+                )
+                errors.append(REGISTER_FAILED_MESSAGE)
 
     return render(
         request,
@@ -198,6 +281,7 @@ def register_view(request):
         {
             "errors": errors,
             "form_data": form_data,
+            "show_login_link": REGISTER_NEUTRAL_MESSAGE in errors,
         },
     )
 

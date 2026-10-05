@@ -88,45 +88,6 @@ class AxesLoginTests(TestCase):
 
 
 @override_settings(AXES_ENABLED=True)
-class AxesApiLoginTests(TestCase):
-    url = "/api/v1/accounts/auth/login/"
-
-    def setUp(self) -> None:
-        User.objects.create_user(phone=PHONE, password=PASSWORD, display_name="Awa")
-
-    def _post(self, password="mauvais", ip="196.200.1.1"):
-        return self.client.post(
-            self.url,
-            {"phone": PHONE, "password": password},
-            content_type="application/json",
-            REMOTE_ADDR=ip,
-        )
-
-    def test_api_login_locked_with_json_429(self) -> None:
-        for _ in range(LIMIT - 1):
-            self.assertEqual(self._post().status_code, 403)
-        # L'echec qui atteint la limite verrouille deja (429).
-        self.assertEqual(self._post().status_code, 429)
-        response = self._post(password=PASSWORD)
-        self.assertEqual(response.status_code, 429)
-        self.assertIn("Trop de tentatives", response.json()["detail"][0])
-
-    def test_html_and_api_share_the_same_counter(self) -> None:
-        for _ in range(LIMIT - 2):
-            self._post()
-        for _ in range(2):
-            self.client.post(
-                reverse("login"), {"phone": PHONE, "password": "mauvais"}, REMOTE_ADDR="196.200.1.1"
-            )
-        self.assertEqual(self._post(password=PASSWORD).status_code, 429)
-
-    def test_api_other_ip_not_blocked(self) -> None:
-        for _ in range(LIMIT):
-            self._post()
-        self.assertEqual(self._post(password=PASSWORD, ip="196.200.9.9").status_code, 200)
-
-
-@override_settings(AXES_ENABLED=True)
 class AxesAdminTests(TestCase):
     def setUp(self) -> None:
         User.objects.create_superuser(phone="+22370000009", password=PASSWORD, display_name="Root")
