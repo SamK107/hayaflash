@@ -5,6 +5,7 @@ from typing import Any
 
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import transaction
 from django.db.models import (
     DecimalField,
     ExpressionWrapper,
@@ -279,20 +280,29 @@ def advance_order_status(*, user, order_id: int) -> Order:
     Post-live COD workflow uses ``delivery.services.advance_delivery`` via
     la page Livraisons (logistique post-vente).
     """
-    order = (
-        Order.service_objects.select_related("flash_sale__owner__user")
-        .filter(pk=order_id, flash_sale__owner__user=user)
-        .first()
-    )
-    if order is None:
-        raise PermissionDenied("Commande introuvable ou inaccessible.")
+    # F-59 : lecture sous verrou. Sans elle, une confirmation concurrente de
+    # l'expiration automatique (orders.services.expiration) pourrait ecraser
+    # « Annule » par « Confirme » alors que le stock vient d'etre restitue.
+    with transaction.atomic():
+        order = (
+            Order.service_objects.select_for_update(of=("self",))
+            .select_related("flash_sale__owner__user")
+            .filter(pk=order_id, flash_sale__owner__user=user)
+            .first()
+        )
+        if order is None:
+            raise PermissionDenied("Commande introuvable ou inaccessible.")
 
-    nxt = _next_status(order.status)
-    if nxt is None:
-        raise ValidationError("Cette commande ne peut plus avancer dans son état actuel.")
+        nxt = _next_status(order.status)
+        if nxt is None:
+            raise ValidationError(
+                "Cette commande ne peut plus avancer dans son état actuel."
+            )
 
-    order.status = nxt
-    order.save(update_fields=["status", "updated_at"])
+        order.status = nxt
+        order.save(update_fields=["status", "updated_at"])
+    # Hors verrou : cette synchro avale ses erreurs, ce qui est incompatible avec
+    # une transaction PostgreSQL encore ouverte.
     _sync_delivery_for_order(order=order, new_status=nxt, user=user)
     invalidate_seller_kpi_cache(user)
     return order

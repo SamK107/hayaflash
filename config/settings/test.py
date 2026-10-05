@@ -97,6 +97,7 @@ CACHES = {
 
 # Celery synchrone en tests (pas de worker nécessaire)
 CELERY_TASK_ALWAYS_EAGER = True
+ORDER_PENDING_EXPIRY_HOURS = 48  # F-59 (test.py ne derive pas de base.py)
 CELERY_TASK_EAGER_PROPAGATES = True
 CELERY_BROKER_URL = "memory://"
 CELERY_RESULT_BACKEND = "cache+memory://"
