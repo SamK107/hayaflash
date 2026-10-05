@@ -9,6 +9,7 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.core.cache import cache
 
 from accounts.services.users import get_user_by_phone, normalize_phone
+from core.services.rate_limit import phone_fingerprint
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +55,8 @@ def _record_failed_otp_verify(normalized_phone: str) -> int:
     if n >= OTP_MAX_VERIFY_ATTEMPTS:
         if settings.DEBUG:
             logger.warning(
-                "OTP verify locked after max attempts (tail=%s).",
-                normalized_phone[-4:] if len(normalized_phone) >= 4 else "****",
+                "OTP verify locked after max attempts (%s).",
+                phone_fingerprint(normalized_phone),
             )
         else:
             logger.warning(
@@ -116,8 +117,8 @@ def verify_phone_otp(phone: str, code: str) -> bool:
     if _is_otp_verify_locked(normalized_phone):
         if settings.DEBUG:
             logger.info(
-                "OTP verify rejected: locked (tail=%s).",
-                normalized_phone[-4:] if len(normalized_phone) >= 4 else "****",
+                "OTP verify rejected: locked (%s).",
+                phone_fingerprint(normalized_phone),
             )
         else:
             logger.warning("OTP verify rejected: locked.")

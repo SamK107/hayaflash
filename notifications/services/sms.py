@@ -5,6 +5,8 @@ import logging
 import requests
 from django.conf import settings
 
+from core.services.rate_limit import phone_fingerprint
+
 logger = logging.getLogger(__name__)
 
 
@@ -17,7 +19,7 @@ def send_sms(phone: str, message: str) -> bool:
         logger.warning(
             "SMS non configure (ORANGE_SMS_API_KEY ou ORANGE_SMS_BASE_URL manquant) "
             "— SMS non envoyé à %s",
-            phone,
+            phone_fingerprint(phone),
         )
         return False
 
@@ -29,8 +31,11 @@ def send_sms(phone: str, message: str) -> bool:
             timeout=10,
         )
         resp.raise_for_status()
-        logger.info("SMS envoye a %s", phone)
+        logger.info("SMS envoye a %s", phone_fingerprint(phone))
         return True
     except Exception as exc:
-        logger.error("Erreur envoi SMS a %s : %s", phone, exc)
+        # Le texte de l'exception peut contenir le numero : type seulement.
+        logger.error(
+            "Erreur envoi SMS a %s : %s", phone_fingerprint(phone), type(exc).__name__
+        )
         return False

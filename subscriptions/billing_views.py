@@ -127,8 +127,10 @@ def billing_callback_view(request):
         # SÉCURITÉ CRITIQUE: Lookup par notif_token UNIQUEMENT (pas order_id)
         notif_token = result.get("notif_token") or ""
         if not notif_token:
+            # Le payload peut contenir le numero du payeur : cles seulement (F-36).
             logger.warning(
-                "billing_callback: pas de notif_token dans payload: %s", data
+                "billing_callback: pas de notif_token dans payload: cles=%s",
+                sorted(data),
             )
             return HttpResponse("OK")
 
