@@ -112,6 +112,7 @@ def seller_deliveries_dashboard(request):
         ("in_transit", "En cours"),
         ("delivered", "Livrées"),
         ("failed", "Échec"),
+        ("cancelled", "Annulées"),
     ]
     # Template uses these aliases
     context["current_flash_sale"] = context.get("flash_sale")

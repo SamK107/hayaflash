@@ -102,9 +102,29 @@ def delivery_public_snapshot(delivery: Delivery) -> dict[str, Any]:
     }
 
 
+CANCELLED_ORDER_MESSAGE = (
+    "Cette commande est annulée : aucune action de livraison n'est possible."
+)
+
+
+def live_deliveries_q(prefix: str = "order__") -> Q:
+    """Définition unique (F-99) des livraisons qui comptent : commande NON annulée.
+
+    La livraison d'une commande annulée (par exemple expirée, F-59) garde son statut
+    `pending` : sans ce filtre elle gonflerait « À encaisser », les compteurs et les
+    listes. ``prefix`` = chemin vers la commande (``"order__"`` pour ``Delivery``).
+    """
+    return ~Q(**{f"{prefix}status": OrderStatus.CANCELLED})
+
+
+def cancelled_deliveries_q(prefix: str = "order__") -> Q:
+    return Q(**{f"{prefix}status": OrderStatus.CANCELLED})
+
+
 def _delivery_queryset_for_seller(*, user, flash_sale_id: int):
     return (
         Delivery.objects.filter(
+            live_deliveries_q(),
             order__flash_sale_id=flash_sale_id,
             order__flash_sale__owner__user=user,
         )
@@ -222,6 +242,9 @@ def advance_delivery(
         owner_user = delivery.order.flash_sale.owner.user
         if owner_user.pk != user.pk:
             raise PermissionDenied("Action non autorisée.")
+
+        if order.status == OrderStatus.CANCELLED:
+            raise ValidationError(CANCELLED_ORDER_MESSAGE)
 
         order_before = order.status
         delivery_before = delivery.status

@@ -36,9 +36,9 @@
 
   {# Paiement à la livraison + Livreur #}
   <div class="flex items-center justify-between text-sm">
-    <span class="{% if row.cod_collected %}text-success font-semibold{% else %}text-amber-600 font-semibold{% endif %}">
+    <span class="{% if row.is_cancelled %}text-gray-400 font-semibold{% elif row.cod_collected %}text-success font-semibold{% else %}text-amber-600 font-semibold{% endif %}">
       {{ row.cod_amount|floatformat:"0g" }} FCFA
-      {% if row.cod_collected %}✓ encaissé{% else %}à encaisser{% endif %}
+      {% if row.is_cancelled %}annulée, rien à encaisser{% elif row.cod_collected %}✓ encaissé{% else %}à encaisser{% endif %}
     </span>
     {% if row.assigned_to %}
     <span class="text-gray-400 text-xs">Livreur : {{ row.assigned_to }}</span>

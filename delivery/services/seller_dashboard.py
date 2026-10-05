@@ -9,7 +9,11 @@ from django.db.models import DecimalField, Prefetch, Q, Sum, Value
 from django.db.models.functions import Coalesce
 
 from delivery.models import Delivery
-from delivery.services.delivery import advance_delivery
+from delivery.services.delivery import (
+    advance_delivery,
+    cancelled_deliveries_q,
+    live_deliveries_q,
+)
 from flash_sales.models import FlashSale
 from orders.models import Order, OrderItem, OrderStatus
 
@@ -60,9 +64,11 @@ _STATUS_SORT = {
 }
 
 
-def _tenant_deliveries(*, user, flash_sale_id: int):
+def _tenant_deliveries(*, user, flash_sale_id: int, cancelled: bool = False):
+    """Livraisons de la vente ; celles des commandes annulées seulement si demandé (F-99)."""
     return (
         Delivery.objects.filter(
+            cancelled_deliveries_q() if cancelled else live_deliveries_q(),
             order__flash_sale_id=flash_sale_id,
             order__flash_sale__owner__user=user,
         )
@@ -156,6 +162,14 @@ def get_delivery_summary(*, user, flash_sale_id: int) -> dict[str, Any]:
 
 
 def _action_flags(*, order: Order, delivery: Delivery) -> dict[str, bool]:
+    if order.status == OrderStatus.CANCELLED:
+        return {
+            "can_confirm": False,
+            "can_start_delivery": False,
+            "can_mark_delivered": False,
+            "can_mark_failed": False,
+            "can_cancel_order": False,
+        }
     return {
         "can_confirm": order.status == OrderStatus.PENDING
         and delivery.status == Delivery.Status.PENDING,
@@ -186,7 +200,12 @@ def _row_dict_from_delivery(delivery: Delivery) -> dict[str, Any]:
         "cod_amount": delivery.cod_amount,
         "cod_collected": delivery.cod_collected,
         "status": delivery.status,
-        "status_label": delivery.get_status_display(),
+        "is_cancelled": order.status == OrderStatus.CANCELLED,
+        "status_label": (
+            "Commande annulée"
+            if order.status == OrderStatus.CANCELLED
+            else delivery.get_status_display()
+        ),
         "assigned_to": delivery.assigned_to or "",
         **_action_flags(order=order, delivery=delivery),
     }
@@ -221,9 +240,14 @@ def list_delivery_rows(
     if _get_owned_flash_sale(user=user, flash_sale_id=flash_sale_id) is None:
         raise PermissionDenied("Vente flash introuvable ou inaccessible.")
 
-    base_qs = _tenant_deliveries(user=user, flash_sale_id=flash_sale_id)
-    _auto_sync_stale_deliveries(base_qs)
-    qs = _apply_status_filter(base_qs, status_filter)
+    # Filtre « Annulées » : lecture seule, jamais mélangé aux autres filtres (F-99).
+    cancelled_only = status_filter == "cancelled"
+    base_qs = _tenant_deliveries(
+        user=user, flash_sale_id=flash_sale_id, cancelled=cancelled_only
+    )
+    if not cancelled_only:
+        _auto_sync_stale_deliveries(base_qs)
+    qs = base_qs if cancelled_only else _apply_status_filter(base_qs, status_filter)
     deliveries = list(qs)
     deliveries.sort(
         key=lambda d: (
