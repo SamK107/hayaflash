@@ -391,6 +391,9 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_WORKER_QUEUES = ("default", "flash_sales", "notifications")
 CELERY_TASK_DEFAULT_QUEUE = "default"
 CELERY_TASK_TRACK_STARTED = True
+# F-59 : delai (heures) apres lequel une commande jamais confirmee est annulee et
+# son stock restitue (decision du mainteneur, 48 h). Lu par orders/services/expiration.py.
+ORDER_PENDING_EXPIRY_HOURS = 48
 CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERY_BEAT_SCHEDULE = {
     "auto-open-scheduled-sales": {
@@ -410,6 +413,12 @@ CELERY_BEAT_SCHEDULE = {
     "check-pending-orange-payments": {
         "task": "subscriptions.check_pending_orange_payments",
         "schedule": 300.0,
+    },
+    # F-59 : annule les commandes en attente depuis plus de ORDER_PENDING_EXPIRY_HOURS
+    # et rend leur stock. File par defaut (« default »), ecoutee par le worker.
+    "expire-pending-orders": {
+        "task": "orders.expire_pending_orders",
+        "schedule": 900.0,
     },
     # Sonde de /health/ (check "celery") : ecrit un timestamp dans le cache.
     "celery-heartbeat": {

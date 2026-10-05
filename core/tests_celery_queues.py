@@ -25,6 +25,7 @@ TASK_MODULES = (
     "core.tasks",
     "flash_sales.tasks",
     "notifications.tasks",
+    "orders.tasks",
     "subscriptions.tasks",
 )
 COMPOSE_FILES = ("docker-compose.production.yml", "docker-compose.yml")
@@ -88,6 +89,7 @@ class TaskRoutingTests(SimpleTestCase):
             "flash_sales.send_pending_sale_reminders",
             "notifications.send_sale_reminder",
             "notifications.send_order_confirmation",
+            "orders.expire_pending_orders",
             "subscriptions.check_pending_orange_payments",
         ):
             self.assertIn(expected, names)

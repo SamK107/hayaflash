@@ -40,6 +40,7 @@ class CeleryBeatConfigTests(SimpleTestCase):
         names = set()
         for module_name in (
             "flash_sales.tasks",
+            "orders.tasks",
             "subscriptions.tasks",
             "core.tasks",
         ):
