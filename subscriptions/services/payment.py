@@ -211,6 +211,31 @@ def create_orange_payment(
     return payment
 
 
+def _record_partner_commission(payment: SubscriptionPayment) -> None:
+    """Commission du partenaire parrain (programme partenaires), sans jamais gener.
+
+    Point d'accroche unique : activate_subscription_from_payment est appele par le
+    webhook, le retour navigateur et la tache de verification (via
+    sync_orange_payment_status). Un point de sauvegarde isole la creation : une
+    panne (meme SQL) ne fait ni echouer ni annuler l'activation. Le journal ne
+    contient jamais de numero (empreinte seulement).
+    """
+    try:
+        from partners.services.commissions import record_for_payment
+
+        with transaction.atomic():
+            record_for_payment(payment)
+    except Exception as exc:
+        from core.services.rate_limit import phone_fingerprint
+
+        logger.error(
+            "Commission partenaire non enregistree (%s) paiement=%s %s",
+            type(exc).__name__,
+            payment.pk,
+            phone_fingerprint(payment.phone),
+        )
+
+
 @transaction.atomic
 def activate_subscription_from_payment(payment: SubscriptionPayment) -> Subscription:
     """
@@ -270,6 +295,7 @@ def activate_subscription_from_payment(payment: SubscriptionPayment) -> Subscrip
             "Paiement special %s sur abonnement payant actif : abonnement inchangé",
             payment.pk,
         )
+        _record_partner_commission(payment)
         return sub
     if override is not None:
         new_expires = now + timedelta(days=duration_days)
@@ -291,6 +317,7 @@ def activate_subscription_from_payment(payment: SubscriptionPayment) -> Subscrip
         payment.pk,
         payment.price_override_id or "-",
     )
+    _record_partner_commission(payment)
     return sub
 
 

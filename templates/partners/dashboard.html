@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% load partners_extras %}
+{% block title %}Programme partenaires — HayaFlash{% endblock %}
+
+{% block content %}
+<div class="hf-p-wrap">
+  {% include "partners/_nav.html" with active="dashboard" %}
+
+  <div class="hf-p-grid">
+    <div class="hf-p-card hf-p-kpi">
+      <span class="hf-icon-badge hf-icon-badge--blue"><i data-lucide="mouse-pointer-click" aria-hidden="true"></i></span>
+      <div><p class="hf-p-kpi-label">Clics sur les liens</p><p class="hf-p-kpi-value">{{ stats.clicks }}</p></div>
+    </div>
+    <div class="hf-p-card hf-p-kpi">
+      <span class="hf-icon-badge hf-icon-badge--teal"><i data-lucide="user-plus" aria-hidden="true"></i></span>
+      <div><p class="hf-p-kpi-label">Vendeurs inscrits</p><p class="hf-p-kpi-value">{{ stats.referrals }}</p></div>
+    </div>
+    <div class="hf-p-card hf-p-kpi">
+      <span class="hf-icon-badge hf-icon-badge--green"><i data-lucide="activity" aria-hidden="true"></i></span>
+      <div><p class="hf-p-kpi-label">Vendeurs actifs</p><p class="hf-p-kpi-value">{{ stats.active }}</p></div>
+    </div>
+    <div class="hf-p-card hf-p-kpi">
+      <span class="hf-icon-badge hf-icon-badge--amber"><i data-lucide="credit-card" aria-hidden="true"></i></span>
+      <div><p class="hf-p-kpi-label">Vendeurs payants</p><p class="hf-p-kpi-value">{{ stats.payers }}</p></div>
+    </div>
+    <div class="hf-p-card hf-p-kpi">
+      <span class="hf-icon-badge hf-icon-badge--violet"><i data-lucide="banknote" aria-hidden="true"></i></span>
+      <div><p class="hf-p-kpi-label">Revenu attribué du mois, net (FCFA)</p><p class="hf-p-kpi-value">{{ stats.attributed_net_fcfa|fcfa }}</p></div>
+    </div>
+    <div class="hf-p-card hf-p-kpi">
+      <span class="hf-icon-badge hf-icon-badge--slate"><i data-lucide="users" aria-hidden="true"></i></span>
+      <div><p class="hf-p-kpi-label">Places de fondateur</p><p class="hf-p-kpi-value">{{ stats.slots_used }} / {{ stats.slots_total }}</p></div>
+    </div>
+    <div class="hf-p-card hf-p-kpi">
+      <span class="hf-icon-badge hf-icon-badge--amber"><i data-lucide="clipboard-check" aria-hidden="true"></i></span>
+      <div><p class="hf-p-kpi-label">Commissions à valider (FCFA)</p><p class="hf-p-kpi-value">{{ stats.to_validate_fcfa|fcfa }}</p></div>
+    </div>
+    <div class="hf-p-card hf-p-kpi">
+      <span class="hf-icon-badge hf-icon-badge--green"><i data-lucide="wallet" aria-hidden="true"></i></span>
+      <div><p class="hf-p-kpi-label">Commissions à payer (FCFA)</p><p class="hf-p-kpi-value">{{ stats.to_pay_fcfa|fcfa }}</p></div>
+    </div>
+  </div>
+
+  <div class="hf-p-card">
+    <h2 class="hf-p-section-title">Alertes{% if alerts.total %} <span class="hf-p-pill hf-p-pill--amber">{{ alerts.total }}</span>{% endif %}</h2>
+    {% if not alerts.total %}
+      <div class="hf-p-empty">
+        <span class="hf-icon-badge hf-icon-badge--green"><i data-lucide="check" aria-hidden="true"></i></span>
+        <p>Aucune alerte pour le moment.</p>
+      </div>
+    {% endif %}
+    {% for p in alerts.inactive %}
+      <div class="hf-p-alert">
+        <strong>{{ p.name }}</strong> : aucune activité depuis plus de 60 jours
+        (dernière : {{ p.last_activity|date:"d/m/Y" }}).
+        <a href="{% url 'partners_detail' p.pk %}">Ouvrir la fiche</a>
+      </div>
+    {% endfor %}
+    {% for r in alerts.flagged %}
+      <div class="hf-p-alert">
+        Inscription signalée pour <strong>{{ r.partner.name }}</strong> : {{ r.seller.business_name|default:r.seller.user.display_name }}
+        ({{ r.flag_reason }}).
+        <a href="{% url 'partners_detail' r.partner_id %}">Ouvrir la fiche</a>
+      </div>
+    {% endfor %}
+    {% for p in alerts.releasable %}
+      <div class="hf-p-alert">
+        La place de <strong>{{ p.name }}</strong> peut être libérée (deux trimestres consécutifs sans nouveau vendeur actif).
+        <a href="{% url 'partners_detail' p.pk %}">Ouvrir la fiche</a>
+      </div>
+    {% endfor %}
+    {% for po in alerts.overdue %}
+      <div class="hf-p-alert">
+        Versement en retard pour <strong>{{ po.partner.name }}</strong> : {{ po.total_fcfa|fcfa }} FCFA,
+        période {{ po.period }}, échéance le {{ po.due_date|date:"d/m/Y" }}.
+        <a href="{% url 'partners_detail' po.partner_id %}?period={{ po.period }}">Ouvrir la fiche</a>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="hf-p-card">
+    <h2 class="hf-p-section-title">Entonnoir par partenaire</h2>
+    {% if funnel %}
+    <div class="hf-p-scroll">
+      <table class="hf-p-table">
+        <thead>
+          <tr>
+            <th>Partenaire</th>
+            <th class="hf-p-num">Clics</th>
+            <th class="hf-p-num">Inscrits</th>
+            <th class="hf-p-num">Actifs</th>
+            <th class="hf-p-num">Payants</th>
+            <th class="hf-p-num">Clic vers inscrit</th>
+            <th class="hf-p-num">Inscrit vers payant</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in funnel %}
+          <tr>
+            <td><a href="{% url 'partners_detail' row.partner.pk %}">{{ row.partner.name }}</a>
+              <span class="hf-p-muted">{{ row.partner.code }}</span></td>
+            <td class="hf-p-num">{{ row.clicks }}</td>
+            <td class="hf-p-num">{{ row.signups }}</td>
+            <td class="hf-p-num">{{ row.active }}</td>
+            <td class="hf-p-num">{{ row.payers }}</td>
+            <td class="hf-p-num">{{ row.signup_rate }} %</td>
+            <td class="hf-p-num">{{ row.payer_rate }} %</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="hf-p-empty">
+      <span class="hf-icon-badge hf-icon-badge--slate"><i data-lucide="handshake" aria-hidden="true"></i></span>
+      <p>Aucun partenaire pour le moment. Créez-en un depuis l'administration Django.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

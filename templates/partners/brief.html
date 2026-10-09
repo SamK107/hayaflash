@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Brief partenaire — HayaFlash{% endblock %}
+
+{% block content %}
+<div class="hf-p-wrap">
+  <div class="hf-no-print">{% include "partners/_nav.html" with active="documents" %}</div>
+  <div class="hf-p-card">
+    <p><span class="hf-p-pill hf-p-pill--amber">Brouillon</span>
+      <span class="hf-p-muted">Document informatif : ce n'est pas un document à accepter. Seules les conditions du programme, acceptées par le partenaire, font foi.</span></p>
+    <div class="hf-p-actions hf-no-print"><button type="button" class="hf-p-btn" data-hf-print>Imprimer</button></div>
+  </div>
+  <div class="hf-p-card">{{ brief_html|safe }}</div>
+</div>
+{% endblock %}

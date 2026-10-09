@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Document accepté — HayaFlash{% endblock %}
+{% block extra_head %}<meta name="robots" content="noindex, nofollow, noarchive">{% endblock %}
+
+{% block content %}
+<div class="hf-p-wrap">
+  {% if error %}<div class="hf-p-alert hf-no-print" role="alert">{{ error }}</div>{% endif %}
+  <div class="hf-keep-banner">Document important, à conserver</div>
+  {% if not valid %}<div class="hf-p-alert" role="alert"><strong>Invalidé par HayaFlash</strong></div>{% endif %}
+
+  <div class="hf-p-card">
+    <div class="hf-doc">{{ acceptance.text_snapshot|safe }}</div>
+  </div>
+
+  <div class="hf-p-card hf-proof">
+    <h2 class="hf-p-section-title">Accepté par le partenaire</h2>
+    <p class="hf-proof-tags">
+      <span class="hf-p-pill hf-p-pill--green">Accepté en ligne</span>
+      <span class="hf-p-pill hf-p-pill--blue">Vérifiable en ligne</span>
+    </p>
+    <dl class="hf-proof-list">
+      <dt>Nom complet saisi</dt><dd>{{ acceptance.signer_name }}</dd>
+      <dt>Date et heure</dt><dd>{{ acceptance.accepted_at_utc|date:"d/m/Y à H:i" }} (heure de Bamako (UTC))</dd>
+      <dt>Document et version</dt><dd>{{ acceptance.get_doc_type_display }}, version {{ acceptance.doc_version }}</dd>
+      {% if acceptance.cite_shop is not None %}
+      <dt>Autorisation de citer la boutique</dt><dd>{% if acceptance.cite_shop %}Oui{% else %}Non{% endif %}</dd>
+      {% endif %}
+      <dt>Référence</dt><dd class="hf-p-hash">{{ acceptance.reference }}</dd>
+    </dl>
+
+    <div class="hf-proof-marks">
+      <svg class="hf-seal" viewBox="0 0 220 220" role="img" aria-label="Sceau HayaFlash, accepté le {{ acceptance.seal_date }}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <path id="hf-seal-top" d="M 26,110 A 84,84 0 0,1 194,110"/>
+          <path id="hf-seal-bottom" d="M 16,110 A 94,94 0 0,0 204,110"/>
+        </defs>
+        <g transform="rotate(-2.5 110 110)">
+          <circle cx="110" cy="110" r="104" fill="none" stroke="#111" stroke-width="4"/>
+          <circle cx="110" cy="110" r="76" fill="none" stroke="#111" stroke-width="1.5"/>
+          <text font-size="{{ seal.top_size }}" font-weight="700" letter-spacing="1" fill="#111" text-anchor="middle"><textPath href="#hf-seal-top" startOffset="50%">{{ seal.top_text }}</textPath></text>
+          <text font-size="11.5" font-weight="700" letter-spacing="1" fill="#111" text-anchor="middle"><textPath href="#hf-seal-bottom" startOffset="50%">{{ seal.bottom_text }}</textPath></text>
+          <text x="110" y="108" text-anchor="middle" font-size="24" font-weight="800" fill="#111">{{ seal.version }}</text>
+          <text x="110" y="128" text-anchor="middle" font-size="9.5" fill="#111">{{ seal.reference }}</text>
+        </g>
+      </svg>
+
+      <div class="hf-qr">
+        {{ qr_svg|safe }}
+        <p class="hf-qr-label">Vérifiable en ligne</p>
+        <p class="hf-qr-url hf-p-hash"><a href="{{ verify_url }}" rel="noopener">{{ verify_url }}</a></p>
+        <p class="hf-qr-url hf-qr-ref">Référence {{ acceptance.reference }}</p>
+      </div>
+    </div>
+
+    <div class="hf-p-actions hf-no-print">
+      <button type="button" class="hf-p-btn hf-p-btn--primary" data-hf-print>Imprimer</button>
+    </div>
+  </div>
+
+  <div class="hf-print-ref">Référence {{ acceptance.reference }} · HayaFlash, accepté le {{ acceptance.accepted_at_utc|date:"d/m/Y" }}</div>
+</div>
+{% endblock %}

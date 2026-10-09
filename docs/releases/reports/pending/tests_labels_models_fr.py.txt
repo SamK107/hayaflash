@@ -1,0 +1,46 @@
+"""PR 2 : libelles de modeles en francais (EN ATTENTE d'accord : migrations d'etat
+`AlterField`, voir docs/releases/reports/pending/). Valeurs stockees inchangees."""
+
+from __future__ import annotations
+
+from analytics.models.share import ShareEventType, ShareLinkType
+from delivery.tests import DeliveryTestFixture
+from payments.models import LedgerAccount, PaymentTransactionStatus
+
+
+class ModelLabelsFrenchTests(DeliveryTestFixture):
+    """Libelles affiches (admin) : francais, valeurs stockees inchangees."""
+
+    def test_payment_status_labels_and_values(self):
+        self.assertEqual(
+            {v: str(l) for v, l in PaymentTransactionStatus.choices},
+            {"pending": "En attente", "success": "Réussi", "failed": "Échoué"},
+        )
+
+    def test_ledger_account_labels_and_values(self):
+        self.assertEqual(
+            {v: str(l) for v, l in LedgerAccount.choices},
+            {
+                "user_wallet": "Portefeuille utilisateur",
+                "platform_commission": "Commission plateforme",
+            },
+        )
+
+    def test_share_labels_and_values(self):
+        self.assertEqual(
+            {v: str(l) for v, l in ShareLinkType.choices},
+            {
+                "seller": "Boutique du vendeur",
+                "flash_sale": "Vente flash",
+                "product": "Lien de commande produit",
+            },
+        )
+        self.assertEqual(
+            {v: str(l) for v, l in ShareEventType.choices},
+            {
+                "page_view": "Vue de page",
+                "click": "Clic",
+                "whatsapp_share": "Partage WhatsApp",
+                "conversion": "Commande passée",
+            },
+        )

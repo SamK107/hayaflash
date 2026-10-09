@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Messages préparés — HayaFlash{% endblock %}
+
+{% block content %}
+<div class="hf-p-wrap">
+  {% include "partners/_nav.html" with active="messages" %}
+  <div class="hf-p-card">
+    <h2 class="hf-p-section-title">Messages préparés</h2>
+    {% if messages_list %}
+    <div class="hf-p-scroll">
+      <table class="hf-p-table">
+        <thead><tr><th>Date</th><th>Modèle</th><th>Partenaire</th><th>Numéro</th><th>Par</th><th></th></tr></thead>
+        <tbody>
+          {% for m in messages_list %}
+          <tr>
+            <td>{{ m.created_at|date:"d/m/Y H:i" }}</td>
+            <td>{{ m.template_key }}</td>
+            <td>{% if m.partner %}<a href="{% url 'partners_detail' m.partner_id %}">{{ m.partner.name }}</a>{% else %}Non enregistré{% endif %}</td>
+            <td>{{ m.phone_e164 }}</td>
+            <td>{{ m.created_by.display_name|default:"Équipe" }}</td>
+            <td><a href="{% url 'partners_message_detail' m.pk %}">Voir le texte</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="hf-p-empty">
+      <span class="hf-icon-badge hf-icon-badge--slate"><i data-lucide="message-circle" aria-hidden="true"></i></span>
+      <p>Aucun message préparé pour le moment.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
