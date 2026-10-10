@@ -212,7 +212,7 @@ def create_orange_payment(
 
 
 def _record_partner_commission(payment: SubscriptionPayment) -> None:
-    """Commission du partenaire parrain (programme partenaires), sans jamais gener.
+    """Commission du partenaire dont le lien a servi a l'inscription (programme partenaires), sans jamais gener.
 
     Point d'accroche unique : activate_subscription_from_payment est appele par le
     webhook, le retour navigateur et la tache de verification (via
@@ -231,14 +231,18 @@ def _record_partner_commission(payment: SubscriptionPayment) -> None:
                 return
             record_for_payment(payment)
     except Exception as exc:
-        from core.services.rate_limit import phone_fingerprint
+        # La journalisation ne doit jamais lever : elle ne peut pas annuler l'activation.
+        try:
+            from core.services.rate_limit import phone_fingerprint
 
-        logger.error(
-            "Commission partenaire non enregistree (%s) paiement=%s %s",
-            type(exc).__name__,
-            payment.pk,
-            phone_fingerprint(payment.phone),
-        )
+            logger.error(
+                "Commission partenaire non enregistree (%s) paiement=%s %s",
+                type(exc).__name__,
+                payment.pk,
+                phone_fingerprint(payment.phone),
+            )
+        except Exception:
+            pass
 
 
 @transaction.atomic

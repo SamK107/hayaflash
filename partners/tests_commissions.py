@@ -137,6 +137,26 @@ class RecordTests(Base):
         entry = record_for_payment(pay(self.seller, amount=1000, override=override))
         self.assertEqual((entry.net_fcfa, entry.commission_fcfa), (990, 297))
 
+    def test_partner_reason_special_price_counts_on_the_amount_actually_paid(self):
+        override = SellerPriceOverride.objects.create(
+            seller=self.seller, plan="medium", price=1500, reason=OverrideReason.PARTNER,
+            expires_at=timezone.now() + timedelta(days=5),
+        )
+        entry = record_for_payment(pay(self.seller, amount=1500, override=override))
+        self.assertEqual((entry.gross_fcfa, entry.net_fcfa, entry.commission_fcfa), (1500, 1485, 445))
+        self.referral.refresh_from_db()
+        self.assertIsNotNone(self.referral.first_paid_at)  # démarre la fenêtre de 12 mois
+
+    def test_promo_reason_special_price_counts_on_the_amount_actually_paid(self):
+        override = SellerPriceOverride.objects.create(
+            seller=self.seller, plan="medium", price=1200, reason=OverrideReason.PROMO,
+            expires_at=timezone.now() + timedelta(days=5),
+        )
+        entry = record_for_payment(pay(self.seller, amount=1200, override=override))
+        self.assertEqual((entry.gross_fcfa, entry.net_fcfa, entry.commission_fcfa), (1200, 1188, 356))
+        self.referral.refresh_from_db()
+        self.assertIsNotNone(self.referral.first_paid_at)
+
     def test_payment_not_really_collected_is_ignored(self):
         for status in (PaymentStatus.PENDING, PaymentStatus.FAILED, PaymentStatus.EXPIRED, PaymentStatus.CANCELLED):
             with self.subTest(status=status):
@@ -331,3 +351,17 @@ class ActivationHookTests(Base):
         activate_subscription_from_payment(payment)
         self.assertEqual(CommissionEntry.objects.count(), 0)
         self.assertEqual(Subscription.objects.get(seller=other).plan, "medium")
+
+    def test_logging_failure_never_breaks_the_activation(self):
+        # La journalisation de l'échec ne doit jamais lever : numéro vide (la colonne est NOT NULL),
+        # et empreinte qui lève elle-même.
+        for phone in ("",):
+            with self.subTest(phone=phone):
+                payment = self.pending()
+                payment.phone = phone
+                with patch("partners.services.commissions.record_for_payment", side_effect=RuntimeError("boom")):
+                    with patch("core.services.rate_limit.phone_fingerprint", side_effect=ValueError("empreinte")):
+                        sub = activate_subscription_from_payment(payment)
+                payment.refresh_from_db()
+                self.assertEqual(payment.status, PaymentStatus.SUCCESS)
+                self.assertEqual(sub.plan, "medium")
