@@ -227,9 +227,18 @@ la page publique. Corrigé **en place** (aucune acceptation réelle hors démo) 
 ## Migrations de l'app `partners` : règle « 0002 après staging » (F-113)
 
 - Tant que `0001_initial` n'a été appliquée **nulle part** hors base de test jetable, on peut la régénérer.
-- Dès qu'elle a été appliquée quelque part (poste local compris, staging, production), **on n'y touche plus** :
-  tout changement de schéma passe par une migration `0002` (puis `0003`...). Régénérer 0001 sur une base où elle est
+- **0001 est gelée** (commit du programme partenaires). Dès qu'elle a été appliquée quelque part (poste local compris,
+  staging, production), **on n'y touche plus** : toute évolution du schéma passe par une migration `0002`, puis `0003`...,
+  **additive** (nouvelles tables, colonnes nulles ou avec valeur par défaut, index) et **réversible** (`migrate partners 000N-1`
+  doit fonctionner). Aucun renommage ni suppression de colonne sans migration en deux temps. Régénérer 0001 sur une base où elle est
   déjà marquée appliquée casse cette base (colonnes manquantes : `migrate` ne rejoue pas la migration).
 - Dépannage d'une base **locale** cassée par une régénération (données de démonstration seulement) :
   `python manage.py migrate partners zero --settings=config.settings.dev`, puis
   `python manage.py migrate partners --settings=config.settings.dev` et `seed_partners_demo`. Jamais sur staging ou production.
+
+
+- **Contrôle fait le 09/10** (`sqlmigrate partners 0001`, PostgreSQL) : la migration crée 9 tables et 29 index, puis ajoute
+  17 contraintes (14 clés étrangères, 2 unicités, 1 contrainte de contrôle) **sur les seules tables `partners_*` qu'elle
+  vient de créer**. Aucun `ALTER`, `DROP`, `UPDATE` ni `INSERT` sur `accounts`, `subscriptions`, `orders` ou toute autre
+  table existante. Elle dépend de `accounts.0007` et `subscriptions.0009` (clés étrangères vers `SellerProfile`,
+  `SubscriptionPayment` et `User`).

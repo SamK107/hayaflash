@@ -221,9 +221,14 @@ def _record_partner_commission(payment: SubscriptionPayment) -> None:
     contient jamais de numero (empreinte seulement).
     """
     try:
+        from partners.models import Referral
         from partners.services.commissions import record_for_payment
 
         with transaction.atomic():
+            # Court-circuit : un vendeur sans inscription via un lien partenaire (le cas
+            # courant) ne coute qu'une requete, et rien d'autre n'est lu ni verrouille.
+            if not Referral.objects.filter(seller_id=payment.seller_id).exists():
+                return
             record_for_payment(payment)
     except Exception as exc:
         from core.services.rate_limit import phone_fingerprint
