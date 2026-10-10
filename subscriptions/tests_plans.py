@@ -549,6 +549,11 @@ class NoHardcodedPricesInTemplatesTest(TestCase):
         offenders = []
         for root in roots:
             for path in root.rglob("*.html"):
+                # Documents juridiques FIGES par version (programme partenaires) : leurs montants
+                # (seuil de versement, exemple de calcul) sont des clauses du contrat, pas des
+                # tarifs de plan ; ils ne doivent pas suivre PlanConfig.
+                if path.relative_to(root).parts[:2] == ("partners", "legal"):
+                    continue
                 for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
                     if PRICE_RE.search(line) or QUOTA_RE.search(line):
                         offenders.append(f"{path}:{n}: {line.strip()[:100]}")

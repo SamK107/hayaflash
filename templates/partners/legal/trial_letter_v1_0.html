@@ -1,0 +1,39 @@
+<div class="hf-doc">
+<h2>HayaFlash : lettre d'essai. Version 1.0.</h2>
+<p>Entre {{ entity.name }}, {{ entity.form }}, {% if entity.capital %}capital {{ entity.capital }}, {% endif %}siège {{ entity.address }}, RCCM {{ entity.rccm }}, éditrice de HayaFlash, et {{ partner.name }}, téléphone {{ partner.phone }}, boutique {{ partner.shop_name|default:"(non renseignée)" }} (« le Participant »).</p>
+
+<h3>1. Ce que HayaFlash vous offre</h3>
+<p>Pendant 30 jours à compter de l'acceptation de la présente lettre, un accès gratuit au plan Pro de HayaFlash (ventes illimitées, dans la limite de 3 ventes par jour et de 2 heures par vente, règles applicables à tous les plans), avec un accompagnement : configuration de votre première vente et point hebdomadaire de 10 minutes.</p>
+
+<h3>2. Ce que nous vous demandons</h3>
+<ul>
+<li>Utiliser HayaFlash pour vos ventes en direct, au moins 2 fois par semaine.</li>
+<li>Nous donner votre avis franchement, une fois par semaine (message vocal ou appel).</li>
+<li>Si vous parlez de HayaFlash à votre public, le faire honnêtement et préciser que vous bénéficiez d'un accès offert.</li>
+<li>Autorisation facultative de citer le nom de votre boutique : voir la case distincte ci-dessous.</li>
+</ul>
+
+<h3>3. Votre lien personnel</h3>
+<p>Nous vous remettons un lien personnel. Un vendeur qui s'inscrit librement à partir de ce lien est enregistré comme inscrit via votre lien, uniquement pour les statistiques de l'essai. Aucune rémunération n'est due ni promise pendant l'essai.</p>
+
+<h3>4. Ce que cette lettre n'est pas</h3>
+<ul>
+<li>Ce n'est pas un contrat de travail, de mandat ni d'exclusivité. Vous restez libre de vos activités.</li>
+<li>Vous n'engagez pas HayaFlash et ne devez faire aucune promesse en son nom (prix, délai, fonctionnalité, gain).</li>
+<li>Elle ne promet aucun contrat ultérieur. À la fin de l'essai, HayaFlash pourra vous proposer de participer à un programme partenaire, sans obligation pour aucune des parties. Si cela se produit, les vendeurs inscrits via votre lien pendant l'essai pourront être pris en compte dans les conditions de ce programme. Rien n'est dû tant qu'un abonnement payant n'a pas été réglé.</li>
+</ul>
+
+<h3>5. Fin de l'essai</h3>
+<p>L'accès Pro offert s'arrête à la fin des 30 jours, sauf accord écrit. Votre compte passe alors au plan gratuit (3 ventes par mois) ou à un plan payant de votre choix. Vos données restent conservées. Chacun peut mettre fin à l'essai à tout moment, sans pénalité, par simple message.</p>
+
+<h3>6. Données personnelles</h3>
+<p>Nous traitons votre identité, votre téléphone, votre boutique et vos statistiques d'usage pour mener l'essai et améliorer HayaFlash. Droits d'accès et de rectification : {{ entity.contact }}.</p>
+
+<h3>7. Droit applicable</h3>
+<p>Droit malien. Règlement amiable d'abord, puis {{ entity.jurisdiction }}.</p>
+
+<p>Acceptation : case obligatoire « J'ai lu et j'accepte la lettre d'essai version 1.0 » + nom complet. {{ entity.name }} conserve la date, l'heure, la version, le texte accepté et des données techniques de connexion comme preuve.</p>
+<p>(Case facultative distincte : « J'autorise HayaFlash à citer le nom de ma boutique comme utilisatrice ou utilisateur. »)</p>
+<p class="hf-doc-end"><strong>Fin du document</strong></p>
+<p class="hf-doc-ident">{{ entity.name }}{% if entity.form %}, {{ entity.form }}{% endif %}{% if entity.rccm %}, RCCM {{ entity.rccm }}{% endif %}{% if entity.address %}, {{ entity.address }}{% endif %}. Version 1.0.</p>
+</div>

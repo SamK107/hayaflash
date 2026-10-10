@@ -1,0 +1,13 @@
+<div class="hf-p-head">
+  <span class="hf-icon-badge hf-icon-badge--violet"><i data-lucide="handshake" aria-hidden="true"></i></span>
+  <h1 class="hf-p-title">Programme partenaires</h1>
+  <span class="hf-p-pill hf-p-pill--red">Réservé à l'équipe</span>
+</div>
+<nav class="hf-p-nav" aria-label="Navigation partenaires">
+  <a href="{% url 'partners_dashboard' %}" {% if active == 'dashboard' %}aria-current="page"{% endif %}>Tableau de bord</a>
+  <a href="{% url 'partners_list' %}" {% if active == 'list' %}aria-current="page"{% endif %}>Partenaires</a>
+  <a href="{% url 'partners_contact' %}" {% if active == 'contact' %}aria-current="page"{% endif %}>Contacter</a>
+  <a href="{% url 'partners_messages' %}" {% if active == 'messages' %}aria-current="page"{% endif %}>Messages</a>
+  <a href="{% url 'partners_documents' %}" {% if active == 'documents' %}aria-current="page"{% endif %}>Documents</a>
+  <a href="{% url 'platform_admin' %}">Administration</a>
+</nav>

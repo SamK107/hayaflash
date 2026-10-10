@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Documents des partenaires — HayaFlash{% endblock %}
+
+{% block content %}
+<div class="hf-p-wrap">
+  {% include "partners/_nav.html" with active="documents" %}
+
+  <div class="hf-p-card">
+    <h2 class="hf-p-section-title">Acceptations de documents</h2>
+    <form method="get" class="hf-p-form">
+      <select name="doc_type" class="hf-p-input" aria-label="Document">
+        <option value="">Tous les documents</option>
+        {% for value, label in doc_types %}<option value="{{ value }}" {% if value == filters.doc_type %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <select name="version" class="hf-p-input" aria-label="Version">
+        <option value="">Toutes les versions</option>
+        {% for v in versions %}<option value="{{ v }}" {% if v == filters.version %}selected{% endif %}>Version {{ v }}</option>{% endfor %}
+      </select>
+      <select name="method" class="hf-p-input" aria-label="Méthode">
+        <option value="">Toutes les méthodes</option>
+        {% for value, label in methods %}<option value="{{ value }}" {% if value == filters.method %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <button type="submit" class="hf-p-btn">Filtrer</button>
+      <a class="hf-p-btn" href="{% url 'partners_documents_csv' %}?doc_type={{ filters.doc_type }}&amp;version={{ filters.version }}&amp;method={{ filters.method }}">Export interne (CSV)</a>
+      <a class="hf-p-btn" href="{% url 'partners_brief' %}">Brief partenaire (brouillon)</a>
+    </form>
+  </div>
+
+  <div class="hf-p-card">
+    {% if acceptances %}
+    <div class="hf-p-scroll">
+      <table class="hf-p-table">
+        <thead><tr><th>Partenaire</th><th>Document</th><th>Version</th><th>Date</th><th>Nom saisi</th><th>Méthode</th><th>Empreinte du texte</th><th>Statut</th><th></th></tr></thead>
+        <tbody>
+          {% for a in acceptances %}
+          <tr>
+            <td><a href="{% url 'partners_detail' a.partner_id %}">{{ a.partner.name }}</a></td>
+            <td>{{ a.get_doc_type_display }}</td>
+            <td>{{ a.doc_version }}</td>
+            <td>{{ a.accepted_at|date:"d/m/Y H:i" }}</td>
+            <td>{{ a.signer_name }}</td>
+            <td>{{ a.get_method_display }}{% if a.manual_reference %}<br><span class="hf-p-muted">{{ a.manual_reference }}</span>{% endif %}</td>
+            <td class="hf-p-hash">{{ a.text_sha256 }}</td>
+            <td>{% if a.is_invalidated %}<span class="hf-p-pill hf-p-pill--red">Invalidé</span>{% else %}<span class="hf-p-pill hf-p-pill--green">Valide</span>{% endif %}</td>
+            <td><a href="{% url 'partners_document_detail' a.pk %}">Voir le texte</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="hf-p-empty">
+      <span class="hf-icon-badge hf-icon-badge--slate"><i data-lucide="file-text" aria-hidden="true"></i></span>
+      <p>Aucune acceptation enregistrée pour le moment.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="hf-p-card">
+    <h2 class="hf-p-section-title">En attente d'acceptation</h2>
+    {% if pending %}
+    <div class="hf-p-scroll">
+      <table class="hf-p-table">
+        <thead><tr><th>Partenaire</th><th>Document à accepter</th><th>Statut</th></tr></thead>
+        <tbody>
+          {% for p in pending %}
+          <tr>
+            <td><a href="{% url 'partners_detail' p.pk %}">{{ p.name }}</a></td>
+            <td>{{ p.pending_doc }}</td>
+            <td><span class="hf-p-pill hf-p-pill--amber">En attente</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="hf-p-empty"><p>Aucun document en attente.</p></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

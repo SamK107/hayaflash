@@ -13,6 +13,7 @@ Modele de reference : ``orders/services/client_order.py``
 from __future__ import annotations
 
 import hashlib
+import hmac
 import logging
 import re
 
@@ -45,6 +46,17 @@ def phone_fingerprint(phone: str | None) -> str:
     base et le texte du SMS ne sont pas concernes.
     """
     return f"tel:{_phone_digest(phone)}"
+
+
+def ip_fingerprint(ip: str | None) -> str:
+    """Empreinte SALEE d'une IP (HMAC-SHA256 avec SECRET_KEY, tronquee a 16 hex).
+
+    Pour stocker ou comparer une IP sans jamais l'ecrire en clair (programme
+    partenaires). Contrairement a ``phone_fingerprint`` (non salee, F-98), elle ne
+    se retrouve pas par enumeration sans la cle secrete.
+    """
+    mac = hmac.new(settings.SECRET_KEY.encode("utf-8"), f"ip:{ip or ''}".encode("utf-8"), hashlib.sha256)
+    return mac.hexdigest()[:16]
 
 
 def phone_key(scope: str, normalized_phone: str) -> str:
@@ -102,6 +114,16 @@ def _limited(key: str, setting: str) -> bool:
         return False
     limit, window = getattr(settings, setting)
     return hit(key, limit=limit, window_seconds=window)
+
+
+def referral_ip_limited(request: HttpRequest) -> bool:
+    """Limite par IP sur le lien de recommandation /r/<code>/."""
+    return _limited(f"referral:ip:{get_client_ip(request)}", "RATELIMIT_REFERRAL_IP")
+
+
+def partner_link_ip_limited(request: HttpRequest) -> bool:
+    """Limite par IP sur les pages publiques par lien prive des partenaires."""
+    return _limited(f"partnerlink:ip:{get_client_ip(request)}", "RATELIMIT_PARTNER_LINK_IP")
 
 
 def login_ip_limited(request: HttpRequest) -> bool:

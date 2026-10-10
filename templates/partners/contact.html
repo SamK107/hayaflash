@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Contacter un partenaire — HayaFlash{% endblock %}
+
+{% block content %}
+<div class="hf-p-wrap">
+  {% include "partners/_nav.html" with active="contact" %}
+
+  <div class="hf-p-card">
+    <h2 class="hf-p-section-title">Contacter par WhatsApp</h2>
+    <p class="hf-p-muted">Rien n'est envoyé automatiquement : vous ouvrez WhatsApp avec le message prérempli, puis vous touchez « Envoyer » vous-même.</p>
+  </div>
+
+  {% if error %}<div class="hf-p-alert" role="alert">{{ error }}</div>{% endif %}
+
+  {% if result %}
+  <div class="hf-p-card">
+    <h2 class="hf-p-section-title">{% if result.preview %}Aperçu du message{% else %}Message prêt{% endif %}</h2>
+    <pre class="hf-p-pre">{{ result.body }}</pre>
+    {% if not result.preview %}
+    <div class="hf-p-actions">
+      <a class="hf-p-btn hf-p-btn--primary" href="{{ result.url }}" target="_blank" rel="noopener">Ouvrir WhatsApp</a>
+    </div>
+    <p class="hf-p-muted">Le lien privé contenu dans ce message n'est affiché qu'une fois : il n'est pas conservé en clair dans le journal.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="hf-p-card">
+    <h2 class="hf-p-section-title">Modèle</h2>
+    <div class="hf-p-actions">
+      {% for key, label in templates %}
+      <a class="hf-p-btn {% if key == template_key %}hf-p-btn--primary{% endif %}"
+         href="{% url 'partners_contact' %}?template={{ key }}{% if prefill_partner %}&amp;partner={{ prefill_partner.pk }}{% endif %}">{{ key }}</a>
+      {% endfor %}
+    </div>
+    <p class="hf-p-muted">Modèle choisi : {% for key, label in templates %}{% if key == template_key %}{{ label }}{% endif %}{% endfor %}.</p>
+  </div>
+
+  <form method="post" class="hf-p-card">
+    {% csrf_token %}
+    <input type="hidden" name="template_key" value="{{ template_key }}">
+
+    <label class="hf-p-label" for="country">Indicatif du pays</label>
+    <select class="hf-p-field" id="country" name="country">
+      {% for c in countries %}
+      <option value="{{ c.calling_code }}" {% if c.calling_code == form.country %}selected{% endif %}>{{ c.name }} ({{ c.dial }})</option>
+      {% endfor %}
+    </select>
+
+    <label class="hf-p-label" for="phone_national">Numéro (sans l'indicatif)</label>
+    <input class="hf-p-field" type="tel" id="phone_national" name="phone_national" value="{{ form.phone_national }}"
+           inputmode="numeric" autocomplete="off" required>
+
+    <label class="hf-p-label" for="first_name">Prénom</label>
+    <input class="hf-p-field" type="text" id="first_name" name="first_name" value="{{ form.first_name }}" maxlength="120" required>
+
+    <label class="hf-p-label" for="shop_name">Boutique (facultatif)</label>
+    <input class="hf-p-field" type="text" id="shop_name" name="shop_name" value="{{ form.shop_name }}" maxlength="160">
+
+    <label class="hf-p-label" for="message">Message (modifiable avant l'envoi)</label>
+    <textarea class="hf-p-field" id="message" name="message" rows="12" maxlength="3000" required>{{ form.message }}</textarea>
+    <p class="hf-p-muted">Variables : {prénom}, {lien}, {places}, {boutique}, {ton nom}. Limite : {{ max_length }} caractères une fois les variables remplacées.</p>
+
+    <div class="hf-p-actions">
+      <button type="submit" name="action" value="preview" class="hf-p-btn">Aperçu</button>
+      <button type="submit" name="action" value="send" class="hf-p-btn hf-p-btn--primary">Préparer le message</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

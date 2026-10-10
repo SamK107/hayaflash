@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Message préparé — HayaFlash{% endblock %}
+
+{% block content %}
+<div class="hf-p-wrap">
+  {% include "partners/_nav.html" with active="messages" %}
+  <div class="hf-p-card">
+    <h2 class="hf-p-section-title">Message du {{ message.created_at|date:"d/m/Y à H:i" }}</h2>
+    <p class="hf-p-meta">
+      <span>Modèle : {{ message.template_key }}</span>
+      <span>Numéro : {{ message.phone_e164 }}</span>
+      <span>Partenaire : {% if message.partner %}{{ message.partner.name }}{% else %}non enregistré{% endif %}</span>
+    </p>
+    <pre class="hf-p-pre">{{ message.body_text }}</pre>
+    <p class="hf-p-muted">Le lien privé n'est pas conservé en clair : il apparaît masqué.</p>
+    <a class="hf-p-btn" href="{% url 'partners_messages' %}">Retour au journal</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Document HayaFlash{% endblock %}
+{% block extra_head %}<meta name="robots" content="noindex, nofollow, noarchive">{% endblock %}
+
+{% block content %}
+<div class="hf-p-wrap">
+  {% if draft_banner %}
+  <div class="hf-p-banner hf-no-print">BROUILLON : informations de l'éditeur manquantes</div>
+  {% endif %}
+
+  {% if error %}
+  <div class="hf-p-alert hf-no-print" role="alert">{{ error }}</div>
+  {% endif %}
+
+  {% if doc_type %}
+  <div class="hf-p-card">
+    {{ document_html|safe }}
+  </div>
+  {% include "partners/public/_accept_form.html" %}
+
+  {% else %}
+  <div class="hf-p-card">
+    <h1 class="hf-p-section-title">Vos documents HayaFlash</h1>
+    <p class="hf-p-muted">Bonjour {{ partner.name }}. Aucun document n'est à accepter pour le moment.</p>
+  </div>
+  {% endif %}
+
+  {% if accepted %}
+  <div class="hf-p-card">
+    <h2 class="hf-p-section-title">Documents déjà acceptés</h2>
+    <div class="hf-p-scroll">
+      <table class="hf-p-table">
+        <thead><tr><th>Document</th><th>Version</th><th>Date</th><th>Nom saisi</th><th>Empreinte du texte</th></tr></thead>
+        <tbody>
+          {% for a in accepted %}
+          <tr>
+            <td>{{ a.get_doc_type_display }}</td>
+            <td>{{ a.doc_version }}</td>
+            <td>{{ a.accepted_at|date:"d/m/Y H:i" }}</td>
+            <td>{{ a.signer_name }}</td>
+            <td class="hf-p-hash">{{ a.text_sha256 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
