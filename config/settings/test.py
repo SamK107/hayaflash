@@ -36,6 +36,7 @@ LOCAL_APPS = [
     "payments",
     "products",
     "subscriptions",
+    "partners",
     "analytics",
     "notifications",
     "delivery",
@@ -97,6 +98,30 @@ CACHES = {
 
 # Celery synchrone en tests (pas de worker nécessaire)
 CELERY_TASK_ALWAYS_EAGER = True
+
+# ── Programme partenaires (app `partners`) ────────────────────────────────────
+PARTNER_COMMISSION_PERCENT = 30
+ORANGE_RETENTION_PERCENT = 1
+PARTNER_COMMISSION_MONTHS = 12      # par vendeur recommande, depuis son 1er paiement
+PARTNER_CONTRACT_MONTHS = 12        # contrat d'1 an, non renouvelable
+PARTNER_FOUNDER_SLOTS = 20
+PARTNER_MIN_PAYOUT_FCFA = 2000      # cumulable d'un mois a l'autre
+PARTNER_PAYOUT_DEADLINE_DAY = 10    # versement avant le 10 du mois suivant
+PARTNER_REFERRAL_COOKIE_DAYS = 30
+PARTNER_INACTIVE_ALERT_DAYS = 60
+PARTNER_TRIAL_DAYS = 30
+PARTNER_ACCEPT_LINK_DAYS = 30
+
+# ── Identite de l'editeur (documents du programme partenaires) ───────────────
+# Jamais de valeur inventee : tout est lu dans l'environnement. Un document dont une
+# valeur utilisee est vide est « incomplet » : acceptation refusee hors dev.
+LEGAL_ENTITY_NAME = "ABEXPERTISES"
+LEGAL_ENTITY_FORM = ""
+LEGAL_ENTITY_CAPITAL = ""
+LEGAL_ENTITY_ADDRESS = ""
+LEGAL_ENTITY_RCCM = ""
+LEGAL_ENTITY_CONTACT = ""
+LEGAL_JURISDICTION = ""
 ORDER_PENDING_EXPIRY_HOURS = 48  # F-59 (test.py ne derive pas de base.py)
 CELERY_TASK_EAGER_PROPAGATES = True
 CELERY_BROKER_URL = "memory://"
@@ -164,6 +189,8 @@ RATELIMIT_LOGIN_IP = (10, 60)
 RATELIMIT_REGISTER_IP = (5, 60 * 60)
 RATELIMIT_REGISTER_PHONE = (5, 30 * 60)
 RATELIMIT_ORDER_PHONE = (10, 10 * 60)
+RATELIMIT_REFERRAL_IP = (60, 60)
+RATELIMIT_PARTNER_LINK_IP = (30, 60)
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 USE_TZ = True

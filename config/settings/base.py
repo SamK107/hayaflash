@@ -214,6 +214,7 @@ INSTALLED_APPS = [
     "payments",
     "products",
     "subscriptions",
+    "partners",
     "analytics",
     "sslserver",
     "notifications",
@@ -391,6 +392,30 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_WORKER_QUEUES = ("default", "flash_sales", "notifications")
 CELERY_TASK_DEFAULT_QUEUE = "default"
 CELERY_TASK_TRACK_STARTED = True
+
+# ── Programme partenaires (app `partners`) ────────────────────────────────────
+PARTNER_COMMISSION_PERCENT = 30
+ORANGE_RETENTION_PERCENT = 1
+PARTNER_COMMISSION_MONTHS = 12      # par vendeur recommande, depuis son 1er paiement
+PARTNER_CONTRACT_MONTHS = 12        # contrat d'1 an, non renouvelable
+PARTNER_FOUNDER_SLOTS = 20
+PARTNER_MIN_PAYOUT_FCFA = 2000      # cumulable d'un mois a l'autre
+PARTNER_PAYOUT_DEADLINE_DAY = 10    # versement avant le 10 du mois suivant
+PARTNER_REFERRAL_COOKIE_DAYS = 30
+PARTNER_INACTIVE_ALERT_DAYS = 60
+PARTNER_TRIAL_DAYS = 30
+PARTNER_ACCEPT_LINK_DAYS = 30
+
+# ── Identite de l'editeur (documents du programme partenaires) ───────────────
+# Jamais de valeur inventee : tout est lu dans l'environnement. Un document dont une
+# valeur utilisee est vide est « incomplet » : acceptation refusee hors dev.
+LEGAL_ENTITY_NAME = (os.environ.get("LEGAL_ENTITY_NAME") or "ABEXPERTISES").strip()
+LEGAL_ENTITY_FORM = os.environ.get("LEGAL_ENTITY_FORM", "").strip()
+LEGAL_ENTITY_CAPITAL = os.environ.get("LEGAL_ENTITY_CAPITAL", "").strip()
+LEGAL_ENTITY_ADDRESS = os.environ.get("LEGAL_ENTITY_ADDRESS", "").strip()
+LEGAL_ENTITY_RCCM = os.environ.get("LEGAL_ENTITY_RCCM", "").strip()
+LEGAL_ENTITY_CONTACT = os.environ.get("LEGAL_ENTITY_CONTACT", "").strip()
+LEGAL_JURISDICTION = os.environ.get("LEGAL_JURISDICTION", "").strip()
 # F-59 : delai (heures) apres lequel une commande jamais confirmee est annulee et
 # son stock restitue (decision du mainteneur, 48 h). Lu par orders/services/expiration.py.
 ORDER_PENDING_EXPIRY_HOURS = 48
@@ -474,6 +499,8 @@ RATELIMIT_REGISTER_IP = (5, 60 * 60)
 # et non par IP : derriere un CGNAT malien, beaucoup d'utilisateurs partagent une IP.
 RATELIMIT_REGISTER_PHONE = (5, 30 * 60)
 RATELIMIT_ORDER_PHONE = (10, 10 * 60)
+RATELIMIT_REFERRAL_IP = (60, 60)
+RATELIMIT_PARTNER_LINK_IP = (30, 60)
 
 # ── Django REST Framework ─────────────────────────────────────────────────────
 # ── Django REST Framework ─────────────────────────────────────────────────────
