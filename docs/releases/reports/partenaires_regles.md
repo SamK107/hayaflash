@@ -106,6 +106,8 @@ Une commission n'est créée que si **toutes** ces conditions sont vraies :
    après l'acceptation fixe `first_paid_at` et la fenêtre de 12 mois ;
 4. le paiement est réussi en base, hors test de paiement, de montant non nul, et sa ligne n'existe pas déjà.
 
+La commission porte sur le montant effectivement encaissé, tarifs spéciaux compris (pilote, partenaire, promo), sauf le motif « test » et les montants à 0 ; un premier paiement à tarif spécial démarre la fenêtre de 12 mois.
+
 Un vendeur inscrit pendant l'essai est attribué, mais ne génère aucune commission avant l'acceptation. Les
 paiements d'avant l'acceptation ne sont jamais rattrapés (ni par `partners_reconcile`).
 
