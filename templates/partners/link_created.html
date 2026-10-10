@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Lien généré — HayaFlash{% endblock %}
+
+{% block content %}
+<div class="hf-p-wrap">
+  {% include "partners/_nav.html" with active="list" %}
+  <div class="hf-p-card">
+    <h2 class="hf-p-section-title">Lien de consultation pour {{ partner.name }}</h2>
+    <p class="hf-p-muted">Ce lien n'est affiché qu'une seule fois : seule son empreinte est conservée. Copiez-le maintenant.</p>
+    <pre id="lien-consultation" class="hf-p-pre">{{ url }}</pre>
+    <div class="hf-p-actions">
+      <button type="button" class="hf-p-btn hf-p-btn--primary" data-hf-copy-from="#lien-consultation">Copier le lien</button>
+      <a class="hf-p-btn" href="{% url 'partners_detail' partner.pk %}">Retour à la fiche</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

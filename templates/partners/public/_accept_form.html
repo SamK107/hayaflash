@@ -1,0 +1,21 @@
+<div class="hf-doc-accept">
+  <h3>Acceptation</h3>
+  <p>En envoyant, vous acceptez ce document dans sa version {{ doc.version }}. Pour preuve de votre acceptation, HayaFlash conserve la date, l'heure, le texte accepté et des données techniques de connexion. <a href="{% url 'legal_privacy' %}" target="_blank" rel="noopener">Voir la politique de confidentialité</a>.</p>
+  <form method="post" action="{% url 'partner_doc_accept' token_for_url %}">
+    {% csrf_token %}
+    <label class="hf-p-check">
+      <input type="checkbox" name="accept_terms" value="1" required>
+      <span>{{ doc.ack }}</span>
+    </label>
+    <label class="hf-p-label" for="signer_name">Votre nom complet</label>
+    <input class="hf-p-field" type="text" id="signer_name" name="signer_name" required minlength="2" maxlength="160"
+           autocomplete="name">
+    {% if is_letter %}
+    <label class="hf-p-check">
+      <input type="checkbox" name="cite_shop" value="1">
+      <span>{{ cite_label }}.</span>
+    </label>
+    {% endif %}
+    <button type="submit" class="hf-p-btn hf-p-btn--primary hf-p-btn--lg">Accepter et envoyer</button>
+  </form>
+</div>

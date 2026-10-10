@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Vérification d'un document — HayaFlash{% endblock %}
+{% block extra_head %}<meta name="robots" content="noindex, nofollow, noarchive">{% endblock %}
+
+{% block content %}
+<div class="hf-p-wrap">
+  <div class="hf-p-card">
+    <div class="hf-p-head">
+      <span class="hf-icon-badge hf-icon-badge--green"><i data-lucide="check" aria-hidden="true"></i></span>
+      <h1 class="hf-p-title">Document authentique</h1>
+    </div>
+    <p class="hf-proof-tags">
+      <span class="hf-p-pill hf-p-pill--green">Accepté en ligne</span>
+      <span class="hf-p-pill hf-p-pill--blue">Vérifiable en ligne</span>
+      {% if s.valid %}<span class="hf-p-pill hf-p-pill--green">Valide</span>{% else %}<span class="hf-p-pill hf-p-pill--red">Invalidé par HayaFlash</span>{% endif %}
+    </p>
+    <dl class="hf-proof-list">
+      <dt>Document</dt><dd>{{ s.doc_label }}</dd>
+      <dt>Version</dt><dd>{{ s.version }}</dd>
+      <dt>Accepté le</dt><dd>{{ s.accepted_at|date:"d/m/Y à H:i" }} (heure de Bamako (UTC))</dd>
+      <dt>Boutique ou signataire</dt><dd>{{ s.who }}</dd>
+      <dt>Statut</dt><dd>{% if s.valid %}Valide{% else %}Invalidé par HayaFlash{% endif %}</dd>
+      <dt>Référence</dt><dd class="hf-p-hash">{{ s.reference }}</dd>
+      <dt>Empreinte SHA-256 du texte</dt><dd class="hf-p-hash">{{ s.sha256 }}</dd>
+    </dl>
+    <p class="hf-p-muted">Cette page confirme l'existence de l'acceptation et l'empreinte du texte accepté. Elle n'affiche ni le texte, ni les coordonnées du signataire.</p>
+  </div>
+</div>
+{% endblock %}

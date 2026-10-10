@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ acceptance.get_doc_type_display }} — {{ acceptance.partner.name }} — HayaFlash{% endblock %}
+
+{% block content %}
+<div class="hf-p-wrap">
+  <div class="hf-no-print">{% include "partners/_nav.html" with active="documents" %}</div>
+
+  <div class="hf-p-card">
+    <h2 class="hf-p-section-title">{{ acceptance.get_doc_type_display }}, version {{ acceptance.doc_version }}</h2>
+    <p class="hf-p-meta">
+      <span>Partenaire : {{ acceptance.partner.name }}</span>
+      <span>Accepté le {{ acceptance.accepted_at|date:"d/m/Y à H:i" }}</span>
+      <span>Nom saisi : {{ acceptance.signer_name }}</span>
+      <span>{{ acceptance.get_method_display }}</span>
+      {% if acceptance.manual_reference %}<span>Référence : {{ acceptance.manual_reference }}</span>{% endif %}
+    </p>
+    <p class="hf-p-muted">Empreinte du texte accepté :</p>
+    <p class="hf-p-hash">{{ acceptance.text_sha256 }}</p>
+    <p class="hf-p-meta">
+      <span>Référence : {{ acceptance.reference }}</span>
+      <span>Statut :
+        {% if acceptance.is_invalidated %}<span class="hf-p-pill hf-p-pill--red">Invalidé par HayaFlash</span>
+        {% else %}<span class="hf-p-pill hf-p-pill--green">Valide</span>{% endif %}</span>
+    </p>
+    {% if acceptance.is_invalidated %}
+    <p class="hf-p-muted hf-no-print">Motif interne : {{ acceptance.invalidation.reason }} (le {{ acceptance.invalidation.created_at|date:"d/m/Y H:i" }}).</p>
+    {% else %}
+    <form method="post" action="{% url 'partners_document_invalidate' acceptance.pk %}" class="hf-p-form hf-no-print"
+          data-hf-confirm="Invalider cette acceptation ? Rien n'est supprimé, mais la page de vérification publique l'affichera comme invalidée.">
+      {% csrf_token %}
+      <input type="text" name="reason" class="hf-p-input" placeholder="Motif interne" required maxlength="500" aria-label="Motif interne">
+      <button type="submit" class="hf-p-btn hf-p-btn--danger">Invalider</button>
+    </form>
+    {% endif %}
+    <div class="hf-p-actions hf-no-print">
+      <button type="button" class="hf-p-btn" data-hf-print>Imprimer</button>
+      <a class="hf-p-btn" href="{% url 'partners_documents' %}">Retour aux documents</a>
+    </div>
+  </div>
+
+  <div class="hf-p-card">
+    {{ acceptance.text_snapshot|safe }}
+  </div>
+</div>
+{% endblock %}

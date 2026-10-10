@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load partners_extras %}
+{% block title %}Partenaires — HayaFlash{% endblock %}
+
+{% block content %}
+<div class="hf-p-wrap">
+  {% include "partners/_nav.html" with active="list" %}
+
+  <div class="hf-p-card">
+    <h2 class="hf-p-section-title">Partenaires</h2>
+    {% if rows %}
+    <div class="hf-p-scroll">
+      <table class="hf-p-table">
+        <thead>
+          <tr>
+            <th>Partenaire</th>
+            <th>Statut</th>
+            <th>Contrat</th>
+            <th class="hf-p-num">Vendeurs actifs</th>
+            <th class="hf-p-num">À verser (FCFA)</th>
+            <th class="hf-p-num">Versées (FCFA)</th>
+            <th>Trimestre</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          {% with p=row.partner %}
+          <tr>
+            <td><a href="{% url 'partners_detail' p.pk %}">{{ p.name }}</a><br>
+              <span class="hf-p-muted">{{ p.code }}{% if p.is_founder %} · fondateur{% endif %}</span></td>
+            <td><span class="hf-p-pill {% if p.status == 'active' %}hf-p-pill--green{% elif p.status == 'paused' %}hf-p-pill--amber{% endif %}">{{ p.get_status_display }}</span></td>
+            <td>{{ p.contract_start|date:"d/m/Y" }} au {{ p.contract_end|date:"d/m/Y" }}</td>
+            <td class="hf-p-num">{{ row.active_sellers }}</td>
+            <td class="hf-p-num">{{ row.due_fcfa|fcfa }}</td>
+            <td class="hf-p-num">{{ row.paid_fcfa|fcfa }}</td>
+            <td>
+              {% if row.quarterly.releasable %}<span class="hf-p-pill hf-p-pill--red">Place libérable</span>
+              {% elif row.quarterly.warning %}<span class="hf-p-pill hf-p-pill--amber">Avertissement</span>
+              {% else %}<span class="hf-p-pill hf-p-pill--green">Conforme</span>{% endif %}
+            </td>
+          </tr>
+          {% endwith %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="hf-p-empty">
+      <span class="hf-icon-badge hf-icon-badge--slate"><i data-lucide="handshake" aria-hidden="true"></i></span>
+      <p>Aucun partenaire pour le moment. Créez-en un depuis l'administration Django.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

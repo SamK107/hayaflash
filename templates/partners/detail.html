@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+{% load partners_extras %}
+{% block title %}{{ partner.name }} — Partenaires — HayaFlash{% endblock %}
+
+{% block content %}
+<div class="hf-p-wrap">
+  {% include "partners/_nav.html" with active="list" %}
+
+  <div class="hf-p-card">
+    <h2 class="hf-p-section-title">{{ partner.name }}
+      <span class="hf-p-pill {% if partner.status == 'active' %}hf-p-pill--green{% elif partner.status == 'paused' %}hf-p-pill--amber{% endif %}">{{ partner.get_status_display }}</span>
+      {% if partner.is_founder %}<span class="hf-p-pill hf-p-pill--blue">Fondateur</span>{% endif %}
+    </h2>
+    <p class="hf-p-meta">
+      <span>Code : <strong>{{ partner.code }}</strong></span>
+      <span>Lien : /r/{{ partner.code }}/</span>
+      <span>Contrat : {{ partner.contract_start|date:"d/m/Y" }} au {{ partner.contract_end|date:"d/m/Y" }}</span>
+      <span>Commission : {{ partner.commission_percent }} %</span>
+      <span>{{ partner.get_kind_display }}</span>
+    </p>
+  </div>
+
+  <div class="hf-p-card">
+    <h2 class="hf-p-section-title">Documents</h2>
+    <p class="hf-p-meta">
+      <span>Phase : {{ partner.get_phase_display }}</span>
+      {% if partner.trial_end %}<span>Essai jusqu'au {{ partner.trial_end|date:"d/m/Y" }}</span>{% endif %}
+      {% if partner.cite_shop_consent %}<span>Autorise à citer sa boutique</span>{% endif %}
+      {% if pending_doc %}<span class="hf-p-pill hf-p-pill--amber">En attente : {{ pending_doc }}</span>{% endif %}
+    </p>
+    {% if acceptances %}
+    <div class="hf-p-scroll">
+      <table class="hf-p-table">
+        <thead><tr><th>Document</th><th>Version</th><th>Date</th><th>Nom saisi</th><th>Méthode</th><th></th></tr></thead>
+        <tbody>
+          {% for a in acceptances %}
+          <tr>
+            <td>{{ a.get_doc_type_display }}</td><td>{{ a.doc_version }}</td>
+            <td>{{ a.accepted_at|date:"d/m/Y H:i" }}</td><td>{{ a.signer_name }}</td>
+            <td>{{ a.get_method_display }}</td>
+            <td><a href="{% url 'partners_document_detail' a.pk %}">Voir le texte</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="hf-p-muted">Aucun document accepté pour le moment.</p>
+    {% endif %}
+
+    <div class="hf-p-actions">
+      <form method="post" action="{% url 'partners_link_create' partner.pk %}" class="hf-p-form"
+            data-hf-confirm="Générer un nouveau lien de consultation ? Il ne sera affiché qu'une fois.">
+        {% csrf_token %}
+        <button type="submit" class="hf-p-btn">Générer un lien de consultation</button>
+      </form>
+      <a class="hf-p-btn" href="{% url 'partners_contact' %}?partner={{ partner.pk }}">Contacter par WhatsApp</a>
+      <form method="post" action="{% url 'partners_offer_pro' partner.pk %}" class="hf-p-form"
+            data-hf-confirm="Offrir 30 jours de plan Pro à ce partenaire, sans paiement ? Une seule fois.">
+        {% csrf_token %}
+        <button type="submit" class="hf-p-btn">Offrir 30 jours de plan Pro</button>
+      </form>
+    </div>
+
+    {% if links %}
+    <h3 class="hf-p-section-title">Liens privés</h3>
+    <div class="hf-p-scroll">
+      <table class="hf-p-table">
+        <thead><tr><th>Type</th><th>Créé le</th><th>Expire le</th><th>Dernière visite</th><th>État</th><th></th></tr></thead>
+        <tbody>
+          {% for l in links %}
+          <tr>
+            <td>{{ l.get_purpose_display }}</td>
+            <td>{{ l.created_at|date:"d/m/Y H:i" }}</td>
+            <td>{% if l.expires_at %}{{ l.expires_at|date:"d/m/Y" }}{% else %}Jamais{% endif %}</td>
+            <td>{% if l.last_viewed_at %}{{ l.last_viewed_at|date:"d/m/Y H:i" }}{% else %}Jamais ouvert{% endif %}</td>
+            <td>{% if l.is_active %}<span class="hf-p-pill hf-p-pill--green">Actif</span>{% else %}<span class="hf-p-pill">Inactif</span>{% endif %}</td>
+            <td>
+              {% if l.is_active %}
+              <form method="post" action="{% url 'partners_link_revoke' l.pk %}" class="hf-p-form" data-hf-confirm="Révoquer ce lien ?">
+                {% csrf_token %}<button type="submit" class="hf-p-btn hf-p-btn--danger">Révoquer un lien</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    <h3 class="hf-p-section-title">Enregistrer une acceptation écrite</h3>
+    <form method="post" action="{% url 'partners_written_acceptance' partner.pk %}" class="hf-p-form"
+          data-hf-confirm="Enregistrer cette acceptation écrite ? Elle ne pourra plus être modifiée.">
+      {% csrf_token %}
+      <select name="doc_type" class="hf-p-input" aria-label="Document">
+        {% for value, label in doc_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+      </select>
+      <input type="text" name="reference" class="hf-p-input" placeholder="Référence du message ou du document" required maxlength="200" aria-label="Référence">
+      <input type="date" name="accepted_on" class="hf-p-input" required aria-label="Date d'acceptation">
+      <button type="submit" class="hf-p-btn hf-p-btn--primary">Enregistrer une acceptation écrite</button>
+    </form>
+  </div>
+
+  <div class="hf-p-card">
+    <h2 class="hf-p-section-title">Période</h2>
+    <form method="get" class="hf-p-form">
+      <input type="month" name="period" value="{{ period }}" class="hf-p-input" aria-label="Période">
+      <button type="submit" class="hf-p-btn">Afficher</button>
+    </form>
+    <p class="hf-p-muted">Cumul non versé jusqu'à la fin du mois : {{ carried_over|fcfa }} FCFA.</p>
+    <div class="hf-p-actions">
+      <form method="post" action="{% url 'partners_validate' partner.pk %}" class="hf-p-form"
+            data-hf-confirm="Valider les commissions de {{ period }} ?">
+        {% csrf_token %}<input type="hidden" name="period" value="{{ period }}">
+        <button type="submit" class="hf-p-btn">Valider les commissions du mois</button>
+      </form>
+      <form method="post" action="{% url 'partners_build_payout' partner.pk %}" class="hf-p-form"
+            data-hf-confirm="Préparer le versement de {{ period }} ?">
+        {% csrf_token %}<input type="hidden" name="period" value="{{ period }}">
+        <button type="submit" class="hf-p-btn hf-p-btn--primary">Préparer le versement</button>
+      </form>
+      <a class="hf-p-btn" href="{% url 'partners_csv_partner' partner.pk %}?period={{ period }}">Export partenaire (CSV)</a>
+      <a class="hf-p-btn" href="{% url 'partners_csv_internal' partner.pk %}?period={{ period }}">Export interne complet (CSV)</a>
+    </div>
+  </div>
+
+  <div class="hf-p-card">
+    <h2 class="hf-p-section-title">Relevé à copier dans WhatsApp</h2>
+    <pre id="releve-texte" class="hf-p-pre">{{ statement }}</pre>
+    <button type="button" class="hf-p-btn" data-hf-copy-from="#releve-texte">Copier le relevé</button>
+    <p class="hf-p-muted">Le relevé n'indique ni nom, ni téléphone, ni boutique des vendeurs.</p>
+  </div>
+
+  <div class="hf-p-card">
+    <h2 class="hf-p-section-title">Seuil trimestriel</h2>
+    <div class="hf-p-scroll">
+      <table class="hf-p-table">
+        <thead><tr><th>Trimestre</th><th>Du</th><th>Au</th><th>Résultat</th></tr></thead>
+        <tbody>
+          {% for q in quarterly.quarters %}
+          <tr>
+            <td>{{ q.index }}</td>
+            <td>{{ q.start|date:"d/m/Y" }}</td>
+            <td>{{ q.end|date:"d/m/Y" }}</td>
+            <td>
+              {% if not q.closed %}<span class="hf-p-pill">En cours ou à venir</span>
+              {% elif q.filled %}<span class="hf-p-pill hf-p-pill--green">Rempli</span>
+              {% elif q.missed %}<span class="hf-p-pill hf-p-pill--red">Manqué</span>
+              {% else %}<span class="hf-p-pill">Non évalué (premier trimestre)</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if quarterly.releasable %}
+      <p class="hf-p-alert">Deux trimestres consécutifs manqués : la place peut être libérée.</p>
+    {% elif quarterly.warning %}
+      <p class="hf-p-alert">Avertissement : un trimestre manqué. Un second manqué consécutif rendra la place libérable.</p>
+    {% endif %}
+    <form method="post" action="{% url 'partners_release' partner.pk %}" class="hf-p-form"
+          data-hf-confirm="Libérer la place de ce partenaire ? Ses droits sur les commissions déjà acquises sont conservés.">
+      {% csrf_token %}
+      <button type="submit" class="hf-p-btn hf-p-btn--danger">Libérer la place</button>
+    </form>
+  </div>
+
+  <div class="hf-p-card">
+    <h2 class="hf-p-section-title">Vendeurs inscrits via le lien</h2>
+    {% if referrals %}
+    <div class="hf-p-scroll">
+      <table class="hf-p-table">
+        <thead><tr><th>Vendeur</th><th>Téléphone</th><th>Attribué le</th><th>Source</th><th>Commissions jusqu'au</th><th>Statut</th></tr></thead>
+        <tbody>
+          {% for r in referrals %}
+          <tr>
+            <td>{{ r.seller.business_name|default:r.seller.user.display_name }}</td>
+            <td>{{ r.seller.user.phone }}</td>
+            <td>{{ r.attributed_at|date:"d/m/Y" }}</td>
+            <td>{{ r.get_source_display }}</td>
+            <td>{% if r.commission_ends_at %}{{ r.commission_ends_at|date:"d/m/Y" }}{% else %}Pas encore payant{% endif %}</td>
+            <td>{% if r.flagged %}<span class="hf-p-pill hf-p-pill--amber">Signalé</span>{% else %}<span class="hf-p-pill hf-p-pill--green">Valide</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="hf-p-empty">
+      <span class="hf-icon-badge hf-icon-badge--slate"><i data-lucide="user-plus" aria-hidden="true"></i></span>
+      <p>Aucun vendeur inscrit via le lien pour le moment.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="hf-p-card">
+    <h2 class="hf-p-section-title">Commissions</h2>
+    {% if entries %}
+    <div class="hf-p-scroll">
+      <table class="hf-p-table">
+        <thead>
+          <tr><th>Paiement</th><th>Vendeur</th><th class="hf-p-num">Montant payé (FCFA)</th><th class="hf-p-num">Net (FCFA)</th>
+          <th class="hf-p-num">Commission (FCFA)</th><th>Statut</th></tr>
+        </thead>
+        <tbody>
+          {% for e in entries %}
+          <tr>
+            <td>{{ e.payment.paid_at|date:"d/m/Y" }}</td>
+            <td>{{ e.referral.seller.business_name|default:"Vendeur" }}</td>
+            <td class="hf-p-num">{{ e.gross_fcfa|fcfa }}</td>
+            <td class="hf-p-num">{{ e.net_fcfa|fcfa }}</td>
+            <td class="hf-p-num">{{ e.commission_fcfa|fcfa }} ({{ e.percent }} %)</td>
+            <td>{{ e.get_status_display }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="hf-p-empty">
+      <span class="hf-icon-badge hf-icon-badge--slate"><i data-lucide="wallet" aria-hidden="true"></i></span>
+      <p>Aucune commission pour le moment.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="hf-p-card">
+    <h2 class="hf-p-section-title">Versements</h2>
+    {% if payouts %}
+    <div class="hf-p-scroll">
+      <table class="hf-p-table">
+        <thead><tr><th>Période</th><th class="hf-p-num">Total (FCFA)</th><th>Échéance</th><th>Statut</th><th>Paiement</th></tr></thead>
+        <tbody>
+          {% for po in payouts %}
+          <tr>
+            <td>{{ po.period }}</td>
+            <td class="hf-p-num">{{ po.total_fcfa|fcfa }}</td>
+            <td>{{ po.due_date|date:"d/m/Y" }}</td>
+            <td><span class="hf-p-pill {% if po.status == 'paid' %}hf-p-pill--green{% else %}hf-p-pill--amber{% endif %}">{{ po.get_status_display }}</span></td>
+            <td>
+              {% if po.status == 'paid' %}
+                Référence {{ po.orange_reference }}, le {{ po.paid_at|date:"d/m/Y" }}
+              {% else %}
+                <form method="post" action="{% url 'partners_mark_paid' po.pk %}" class="hf-p-form"
+                      data-hf-confirm="Marquer ce versement comme payé ?">
+                  {% csrf_token %}
+                  <input type="text" name="reference" class="hf-p-input" placeholder="Référence Orange" required maxlength="80" aria-label="Référence Orange">
+                  <button type="submit" class="hf-p-btn hf-p-btn--primary">Marquer comme payé</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="hf-p-empty">
+      <span class="hf-icon-badge hf-icon-badge--slate"><i data-lucide="banknote" aria-hidden="true"></i></span>
+      <p>Aucun versement pour le moment.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -16,6 +16,7 @@
  *                                    enfants) -> ajoute hidden (modales)
  *   data-hf-call="nom"               appelle une fonction globale de la liste
  *                                    blanche HF_CALLS ci-dessous, sans argument
+ *   data-hf-print                    ouvre la boite d'impression du navigateur
  *   data-hf-speak="texte"            lecture vocale (hfSpeak, hf-public.js)
  *   data-hf-waiting-alert="ms"       bouton « M'alerter » (hf-public.js)
  *   data-hf-interest="slug"          + data-hf-interest-sfx : formulaire
@@ -187,6 +188,9 @@
       if (HF_CALLS.indexOf(name) !== -1 && typeof window[name] === 'function') window[name]();
       return;
     }
+
+    el = t.closest('[data-hf-print]');
+    if (el) { window.print(); return; }
 
     el = t.closest('[data-hf-speak]');
     if (el && window.hfSpeak) { window.hfSpeak(el, el.dataset.hfSpeak); return; }
