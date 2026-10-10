@@ -28,6 +28,7 @@ from core.services.rate_limit import (
     REGISTER_RATE_LIMIT_MESSAGE,
 )
 from core.services.client_ip import get_client_ip
+from partners.services import attribution as partner_attribution
 
 logger = logging.getLogger(__name__)
 
@@ -181,7 +182,11 @@ def register_view(request):
         return redirect("seller_home")
 
     errors = []
-    form_data = {}
+    # Pre-remplissage du « Code partenaire » depuis le cookie de recommandation.
+    cookie_code = partner_attribution.clean_code(
+        request.COOKIES.get(partner_attribution.COOKIE_NAME, "")
+    )
+    form_data = {"partner_code": cookie_code}
 
     if request.method == "POST":
         raw_phone = request.POST.get("phone", "").strip()
@@ -189,8 +194,13 @@ def register_view(request):
         password2 = request.POST.get("password2", "")
         business_name = request.POST.get("business_name", "").strip()
         accept_terms = bool(request.POST.get("accept_terms"))
+        # Programme partenaires : le champ saisi l'emporte sur le cookie hf_ref.
+        typed_code = request.POST.get("partner_code", "").strip()
+        referral_code = typed_code or request.COOKIES.get(partner_attribution.COOKIE_NAME, "")
+        referral_source = "code" if typed_code else "link"
 
         form_data = {
+            "partner_code": typed_code,
             "phone": raw_phone,
             "business_name": business_name,
             "accept_terms": accept_terms,
@@ -254,11 +264,23 @@ def register_view(request):
                         business_name=business_name,
                     )
                     record_legal_acceptances(user, request)
+                    # Meme transaction que le compte ; ne leve jamais, ne change
+                    # rien a la reponse (code valide ou non).
+                    partner_attribution.attribute_referral(
+                        seller=user.seller_profile,
+                        partner_code=referral_code,
+                        signup_phone=phone,
+                        source=referral_source,
+                        ip_hash=partner_attribution.request_ip_hash(request),
+                    )
                 login(request, user, backend="accounts.backends.PhoneAuthBackend")
                 messages.success(
                     request, f"Bienvenue ! Votre boutique '{business_name}' est prete."
                 )
-                return redirect("seller_home")
+                response = redirect("seller_home")
+                if partner_attribution.COOKIE_NAME in request.COOKIES:
+                    response.delete_cookie(partner_attribution.COOKIE_NAME)
+                return response
             except IntegrityError:
                 # Course sur le numero unique (deux inscriptions simultanees) :
                 # meme reponse que « numero deja pris » (F-16).
