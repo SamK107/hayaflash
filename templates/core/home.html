@@ -238,6 +238,18 @@
   </div>
 </nav>
 
+{% if partner_banner %}
+<aside id="partner-banner" style="background:#FFF7ED; border-bottom:1px solid #FED7AA; padding:.875rem 1rem;">
+  <div style="max-width:54rem; margin:0 auto; display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:.75rem 1.25rem; text-align:center;">
+    <div>
+      <p class="T" style="margin:0; color:#1A1A2E; font-size:1rem;">Pour utiliser HayaFlash, créez votre compte</p>
+      {% if partner_banner.first_name %}<p style="margin:.15rem 0 0; color:#6B7280; font-size:.8rem;">Vous êtes arrivé par le lien de {{ partner_banner.first_name }}.</p>{% endif %}
+    </div>
+    <a href="{% url 'register' %}" class="btn btn-flash" style="padding:.6rem 1.4rem; font-size:.9rem;">Créer mon compte</a>
+  </div>
+</aside>
+{% endif %}
+
 
 <!-- ════════════════════════════════
      HERO

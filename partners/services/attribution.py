@@ -50,6 +50,26 @@ def find_partner_for_new_referral(raw_code) -> Partner | None:
     return partner
 
 
+def landing_banner(request) -> dict | None:
+    """Données de la bannière d'inscription de l'accueil (F-122), ou None.
+
+    Seulement pour un visiteur non connecté dont le cookie ``hf_ref`` désigne un partenaire qui
+    peut encore recevoir des inscriptions. Rien de personnel : le prénom (premier mot du nom)
+    seulement, jamais le nom de famille, le téléphone ni la boutique. Ne lève jamais : l'accueil
+    doit toujours s'afficher."""
+    try:
+        if request.user.is_authenticated:
+            return None
+        partner = find_partner_for_new_referral(request.COOKIES.get(COOKIE_NAME, ""))
+        if partner is None:
+            return None
+        parts = (partner.name or "").split()
+        return {"first_name": parts[0] if parts else ""}
+    except Exception as exc:
+        logger.error("Bannière partenaire ignorée (%s)", type(exc).__name__)
+        return None
+
+
 def _flag_same_ip_group(partner: Partner, ip_hash: str) -> None:
     if not ip_hash:
         return
