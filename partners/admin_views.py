@@ -11,7 +11,7 @@ from datetime import datetime, time
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.exceptions import ValidationError
-from django.http import HttpResponse, HttpResponseBadRequest
+from django.http import Http404, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -30,7 +30,7 @@ from partners.models import (
     Referral,
 )
 from partners.services import messages as messages_service
-from partners.services import payouts, reporting
+from partners.services import payouts, qr, reporting, verification
 from partners.services.access_links import create_link
 from partners.services.access_links import revoke as revoke_link
 from partners.services.acceptance import accept_document, pending_document, places_left
@@ -80,6 +80,8 @@ def partner_list(request):
 def partner_detail(request, pk: int):
     partner = get_object_or_404(Partner, pk=pk)
     period = _period(request)
+    referral_url = qr.referral_url(request, partner)
+    qr_unavailable = qr.unavailable_reason(partner)
     referrals = list(
         Referral.objects.filter(partner=partner)
         .select_related("seller__user")
@@ -108,8 +110,32 @@ def partner_detail(request, pk: int):
                 legal_docs.DOCS[d]["label"] if (d := pending_document(partner)) else ""
             ),
             "doc_choices": [(k, v["label"]) for k, v in legal_docs.DOCS.items()],
+            "referral_url": referral_url,
+            "referral_qr": "" if qr_unavailable else verification.qr_svg(referral_url),
+            "qr_unavailable": qr_unavailable,
         },
     )
+
+
+@staff_member_required
+@require_GET
+def referral_qr(request, pk: int, fmt: str):
+    """QR du lien de recommandation en PNG ou SVG (téléchargement), généré à la volée."""
+    if fmt not in ("png", "svg"):
+        raise Http404
+    partner = get_object_or_404(Partner, pk=pk)
+    reason = qr.unavailable_reason(partner)
+    if reason:
+        response = HttpResponse(reason, status=403, content_type="text/plain; charset=utf-8")
+    else:
+        url = qr.referral_url(request, partner)
+        if fmt == "png":
+            response = HttpResponse(qr.png_bytes(url), content_type="image/png")
+        else:
+            response = HttpResponse(qr.svg_document(url), content_type="image/svg+xml")
+        response["Content-Disposition"] = f'attachment; filename="{qr.file_name(partner, fmt)}"'
+    response["Cache-Control"] = "private, no-store"
+    return response
 
 
 @staff_member_required

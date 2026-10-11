@@ -49,6 +49,11 @@ urlpatterns = [
     ),
     path("platform-admin/partenaires/<int:pk>/offrir-pro/", admin_views.offer_pro, name="partners_offer_pro"),
     path("platform-admin/partenaires/<int:pk>/", admin_views.partner_detail, name="partners_detail"),
+    path(
+        "platform-admin/partenaires/<int:pk>/qr/<str:fmt>/",
+        admin_views.referral_qr,
+        name="partners_referral_qr",
+    ),
     path("platform-admin/partenaires/<int:pk>/liberer/", admin_views.release, name="partners_release"),
     path("platform-admin/partenaires/<int:pk>/valider/", admin_views.validate, name="partners_validate"),
     path(

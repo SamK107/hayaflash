@@ -10,12 +10,12 @@ from __future__ import annotations
 import hmac
 import re
 
-import qrcode
 import qrcode.image.svg
 from django.urls import reverse
 
 from partners import legal_docs
 from partners.models import PartnerAcceptance
+from partners.services.qr import make_qr
 
 CODE_RE = re.compile(r"^(\d{1,9})-([0-9a-f]{12})$")
 TOP_MAX_CHARS = 26  # au-delà, le texte du haut est réduit pour rester dans l'arc
@@ -30,12 +30,7 @@ def qr_svg(url: str) -> str:
 
     Le fond blanc et la taille viennent de la classe ``hf-qr-svg`` (écran 140 px, impression
     32 mm) : le SVG n'a ni largeur ni hauteur propres."""
-    qr = qrcode.QRCode(
-        error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=10, border=4
-    )
-    qr.add_data(url)
-    qr.make(fit=True)
-    image = qr.make_image(image_factory=qrcode.image.svg.SvgPathImage)
+    image = make_qr(url).make_image(image_factory=qrcode.image.svg.SvgPathImage)
     svg = image.to_string(encoding="unicode")
     svg = re.sub(r"^<\?xml[^>]*\?>\s*", "", svg)
     root = re.match(r"<svg[^>]*>", svg).group(0)
