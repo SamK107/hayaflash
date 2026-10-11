@@ -18,7 +18,7 @@ from partners.services.attribution import attribute_referral
 from partners.tests_models import make_partner, make_seller
 
 User = get_user_model()
-REGISTER = "/register/"
+LANDING = "/"  # cible du lien /r/<code>/ : l'accueil (F-122)
 
 
 def signup(client, phone="+22370000201", **extra):
@@ -33,7 +33,7 @@ class ReferralLinkTests(TestCase):
     def test_valid_code_records_click_sets_cookie_and_redirects(self):
         resp = self.client.get("/r/AWA2026/", REMOTE_ADDR="196.200.1.1")
         self.assertEqual(resp.status_code, 302)
-        self.assertEqual(resp["Location"], REGISTER)
+        self.assertEqual(resp["Location"], LANDING)
         cookie = resp.cookies["hf_ref"]
         self.assertEqual(cookie.value, "AWA2026")
         self.assertEqual(int(cookie["max-age"]), 30 * 24 * 3600)
@@ -73,7 +73,7 @@ class ReferralLinkTests(TestCase):
             with self.subTest(code=code):
                 resp = self.client.get(f"/r/{code}/")
                 self.assertEqual(resp.status_code, 302)
-                self.assertEqual(resp["Location"], REGISTER)
+                self.assertEqual(resp["Location"], LANDING)
                 self.assertNotIn("hf_ref", resp.cookies)
                 self.assertEqual(resp.content, b"")
         self.assertEqual(PartnerClick.objects.count(), 0)
@@ -88,7 +88,7 @@ class ReferralLinkTests(TestCase):
     def test_redirect_target_is_fixed(self):
         for qs in ("?next=https://evil.example/", "?url=//evil.example", "?redirect=/admin/"):
             resp = self.client.get(f"/r/AWA2026/{qs}")
-            self.assertEqual(resp["Location"], REGISTER)
+            self.assertEqual(resp["Location"], LANDING)
 
     def test_post_is_not_allowed(self):
         self.assertEqual(self.client.post("/r/AWA2026/").status_code, 405)
@@ -99,7 +99,7 @@ class ReferralLinkTests(TestCase):
             self.client.get("/r/AWA2026/", REMOTE_ADDR="196.200.9.9")
         resp = self.client.get("/r/AWA2026/", REMOTE_ADDR="196.200.9.9")
         self.assertEqual(resp.status_code, 302)
-        self.assertEqual(resp["Location"], REGISTER)
+        self.assertEqual(resp["Location"], LANDING)
         self.assertNotIn("hf_ref", resp.cookies)
         self.assertEqual(PartnerClick.objects.count(), 3)
         other = self.client.get("/r/AWA2026/", REMOTE_ADDR="196.200.9.10")

@@ -106,7 +106,9 @@ def _phone_errors(
 def home(request):
     # La page marketing est accessible à tous (vendeur connecté ou simple visiteur).
     # Le template adapte la navbar selon l'état d'authentification.
-    return render(request, "core/home.html")
+    return render(
+        request, "core/home.html", {"partner_banner": partner_attribution.landing_banner(request)}
+    )
 
 
 def _post_login_redirect_target(user) -> str:

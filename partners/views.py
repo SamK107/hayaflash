@@ -1,4 +1,4 @@
-"""Lien public personnel d'un partenaire /r/<code>/."""
+"""Lien public personnel d'un partenaire /r/<code>/ : atterrissage sur l'accueil."""
 
 from __future__ import annotations
 
@@ -18,13 +18,14 @@ from partners.services.attribution import (
 
 @require_GET
 def referral_link_view(request, code: str):
-    """Enregistre le clic, pose le cookie, puis renvoie vers l'inscription.
+    """Enregistre le clic, pose le cookie, puis renvoie vers l'accueil (F-122).
 
     Code inconnu, partenaire inactif ou contrat expiré : même réponse (302 vers
-    l'inscription), sans cookie ni message. Cible fixe : aucune redirection ouverte.
-    Au-delà de la limite par IP, même réponse, sans clic ni cookie.
+    l'accueil), sans cookie ni message ni clic. Cible fixe : aucune redirection ouverte.
+    Au-delà de la limite par IP, même réponse, sans clic ni cookie. L'accueil affiche une
+    bannière d'inscription seulement si le cookie désigne un partenaire éligible.
     """
-    response = HttpResponseRedirect(reverse("register"))
+    response = HttpResponseRedirect(reverse("home"))
     if rate_limit.referral_ip_limited(request):
         return response
     partner = find_partner_for_new_referral(code)
