@@ -16,33 +16,44 @@ logger = logging.getLogger(__name__)
 # URLs Orange Money Mali
 OM_TOKEN_URL = "https://api.orange.com/oauth/v3/token"
 OM_PAYMENT_URL = "https://api.orange.com/orange-money-webpay/ml/v1/webpayment"
-OM_CURRENCY = "XOF"  # Devise Orange Money Mali (FCFA)
+OM_CURRENCY = "XOF"  # Devise par defaut (Mali, FCFA) ; reglage ORANGE_MONEY_CURRENCY
+OM_TIMEOUT = 20  # Secondes, par defaut ; reglage ORANGE_MONEY_TIMEOUT
 OM_LANG = "fr"
 
 
 class OrangeMoneyError(Exception):
-    """Erreur provenant de l'API Orange Money."""
+    """Erreur provenant de l'API Orange Money (jamais de secret dans le message)."""
+
+
+def _missing(*suffixes: str) -> str:
+    """Message d'erreur nommant les deux familles de variables acceptees (aucune valeur)."""
+    return " / ".join(f"ORANGE_ML_{s} (ou ORANGE_MONEY_{s})" for s in suffixes) + " manquant."
+
+
+def _timeout() -> int:
+    return getattr(settings, "ORANGE_MONEY_TIMEOUT", OM_TIMEOUT) or OM_TIMEOUT
+
+
+def _currency() -> str:
+    return getattr(settings, "ORANGE_MONEY_CURRENCY", OM_CURRENCY) or OM_CURRENCY
 
 
 def _get_access_token() -> str:
     """Obtient un Bearer token OAuth2 via client_credentials."""
-    client_id = settings.ORANGE_MONEY_CLIENT_ID
-    client_secret = settings.ORANGE_MONEY_CLIENT_SECRET
+    client_id = getattr(settings, "ORANGE_MONEY_CLIENT_ID", "")
+    client_secret = getattr(settings, "ORANGE_MONEY_CLIENT_SECRET", "")
     if not client_id or not client_secret:
-        raise OrangeMoneyError(
-            "ORANGE_MONEY_CLIENT_ID / ORANGE_MONEY_CLIENT_SECRET manquants."
-        )
+        raise OrangeMoneyError(_missing("CLIENT_ID", "CLIENT_SECRET"))
 
     resp = requests.post(
         OM_TOKEN_URL,
         data={"grant_type": "client_credentials"},
         auth=(client_id, client_secret),
-        timeout=15,
+        timeout=_timeout(),
     )
     if resp.status_code != 200:
-        raise OrangeMoneyError(
-            f"Échec obtention token Orange ({resp.status_code}): {resp.text[:200]}"
-        )
+        # Le corps de la reponse n'est pas repris : il peut citer les identifiants.
+        raise OrangeMoneyError(f"Échec obtention token Orange ({resp.status_code}).")
     return resp.json()["access_token"]
 
 
@@ -90,9 +101,9 @@ def initiate_payment(
         - payment_url: URL vers laquelle rediriger le client
         - raw: réponse complete d'Orange Money
     """
-    merchant_key = settings.ORANGE_MONEY_MERCHANT_KEY
+    merchant_key = getattr(settings, "ORANGE_MONEY_MERCHANT_KEY", "")
     if not merchant_key:
-        raise OrangeMoneyError("ORANGE_MONEY_MERCHANT_KEY manquant.")
+        raise OrangeMoneyError(_missing("MERCHANT_KEY"))
 
     # Valider order_id ≤ 24 caractères
     if len(order_id) > 24:
@@ -105,7 +116,7 @@ def initiate_payment(
 
     payload = {
         "merchant_key": merchant_key,
-        "currency": OM_CURRENCY,
+        "currency": _currency(),
         "order_id": order_id,
         "notif_token": notif_token,  # Token pour le webhook
         "amount": amount,
@@ -126,7 +137,7 @@ def initiate_payment(
             "Content-Type": "application/json",
             "Accept": "application/json",
         },
-        timeout=20,
+        timeout=_timeout(),
         verify=True,  # Explicitement activer pour documenter la sécurité
     )
 
@@ -138,15 +149,13 @@ def initiate_payment(
     )
 
     if resp.status_code not in (200, 201):
-        raise OrangeMoneyError(
-            f"Initiation paiement échouée ({resp.status_code}): {resp.text[:300]}"
-        )
+        raise OrangeMoneyError(f"Initiation paiement échouée ({resp.status_code}).")
 
     data = resp.json()
     payment_url = data.get("payment_url") or data.get("paymentUrl") or ""
 
     if not payment_url:
-        raise OrangeMoneyError(f"Pas d'URL de paiement dans la réponse: {data}")
+        raise OrangeMoneyError("Pas d'URL de paiement dans la réponse d'Orange Money.")
 
     return {
         "payment_url": payment_url,
@@ -247,13 +256,11 @@ def get_transaction_status(*, order_id: str, amount: int, pay_token: str) -> dic
             "Content-Type": "application/json",
             "Accept": "application/json",
         },
-        timeout=15,
+        timeout=_timeout(),
         verify=True,  # jamais desactive (CLAUDE.md, Orange Money regle 6)
     )
     if resp.status_code not in (200, 201):
-        raise OrangeMoneyError(
-            f"transactionstatus échoué ({resp.status_code}): {resp.text[:300]}"
-        )
+        raise OrangeMoneyError(f"transactionstatus échoué ({resp.status_code}).")
     data = resp.json()
     logger.info(
         "Orange Money transactionstatus — order_id=%s status=%s",
