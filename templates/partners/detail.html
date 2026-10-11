@@ -21,6 +21,21 @@
   </div>
 
   <div class="hf-p-card">
+    <h2 class="hf-p-section-title">QR du lien partenaire</h2>
+    <p class="hf-p-meta"><span>{{ referral_url }}</span></p>
+    {% if qr_unavailable %}
+      <p>{{ qr_unavailable }}</p>
+    {% else %}
+      <div class="hf-qr">{{ referral_qr|safe }}</div>
+      <p class="hf-p-meta">À afficher en live : le QR n'encode que le lien ci-dessus (aucun nom, aucun téléphone).</p>
+      <p>
+        <a class="hf-p-btn" href="{% url 'partners_referral_qr' partner.pk 'png' %}">Télécharger en PNG</a>
+        <a class="hf-p-btn" href="{% url 'partners_referral_qr' partner.pk 'svg' %}">Télécharger en SVG</a>
+      </p>
+    {% endif %}
+  </div>
+
+  <div class="hf-p-card">
     <h2 class="hf-p-section-title">Documents</h2>
     <p class="hf-p-meta">
       <span>Phase : {{ partner.get_phase_display }}</span>
