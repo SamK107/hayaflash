@@ -539,21 +539,25 @@ ORANGE_SMS_BASE_URL = (
 ).strip()
 
 # ── Orange Money Paiement (abonnements) ───────────────────────────────────────
-ORANGE_MONEY_CLIENT_ID = (os.environ.get("ORANGE_ML_CLIENT_ID") or "").strip()
-ORANGE_MONEY_CLIENT_SECRET = (os.environ.get("ORANGE_ML_CLIENT_SECRET") or "").strip()
-ORANGE_MONEY_MERCHANT_KEY = (os.environ.get("ORANGE_ML_MERCHANT_KEY") or "").strip()
+from ._orange import orange_settings  # noqa: E402
+
+# ORANGE_ML_* (documentees dans .env.example) ou ORANGE_MONEY_* : ORANGE_ML_* l'emporte (_orange.py).
+_ORANGE = orange_settings(os.environ)
+ORANGE_MONEY_CLIENT_ID = _ORANGE["ORANGE_MONEY_CLIENT_ID"]
+ORANGE_MONEY_CLIENT_SECRET = _ORANGE["ORANGE_MONEY_CLIENT_SECRET"]
+ORANGE_MONEY_MERCHANT_KEY = _ORANGE["ORANGE_MONEY_MERCHANT_KEY"]
 # URLs de callback Orange Money — stables entre dev (ngrok) et prod (VPS).
 # En dev : ORANGE_ML_BASE_URL=https://xxxx.ngrok-free.app
 # En prod : les 3 URLs specifiques ci-dessous prennent le dessus.
-ORANGE_MONEY_BASE_URL = (os.environ.get("ORANGE_ML_BASE_URL") or "").strip().rstrip("/")
+ORANGE_MONEY_BASE_URL = _ORANGE["ORANGE_MONEY_BASE_URL"]
 # URLs fixes de retour/annulation/webhook (doivent etre HTTPS publiques)
 # Si definies, elles remplacent les URLs calculees dynamiquement.
-ORANGE_MONEY_RETURN_URL = (os.environ.get("ORANGE_ML_RETURN_URL") or "").strip()
-ORANGE_MONEY_CANCEL_URL = (os.environ.get("ORANGE_ML_CANCEL_URL") or "").strip()
-ORANGE_MONEY_NOTIFY_URL = (os.environ.get("ORANGE_ML_NOTIFY_URL") or "").strip()
-ORANGE_MONEY_RETURN_URL = (os.environ.get("ORANGE_ML_RETURN_URL") or "").strip()
-ORANGE_MONEY_CANCEL_URL = (os.environ.get("ORANGE_ML_CANCEL_URL") or "").strip()
-ORANGE_MONEY_NOTIFY_URL = (os.environ.get("ORANGE_ML_NOTIFY_URL") or "").strip()
+ORANGE_MONEY_RETURN_URL = _ORANGE["ORANGE_MONEY_RETURN_URL"]
+ORANGE_MONEY_CANCEL_URL = _ORANGE["ORANGE_MONEY_CANCEL_URL"]
+ORANGE_MONEY_NOTIFY_URL = _ORANGE["ORANGE_MONEY_NOTIFY_URL"]
+# Timeout des appels a l'API Orange (secondes) et devise (XOF pour le Mali).
+ORANGE_MONEY_TIMEOUT = _ORANGE["ORANGE_MONEY_TIMEOUT"]
+ORANGE_MONEY_CURRENCY = _ORANGE["ORANGE_MONEY_CURRENCY"]
 
 # ── Sentry DSN (production uniquement) ───────────────────────────────────────
 SENTRY_DSN = (os.environ.get("SENTRY_DSN") or "").strip()
