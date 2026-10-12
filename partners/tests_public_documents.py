@@ -293,7 +293,7 @@ class ProgramTermsAcceptanceTests(Base):
         )
 
     def test_full_places_refuse_in_french(self):
-        for i in range(20):
+        for i in range(8):
             make_partner(code=f"FND{i:03d}", phone=f"+2236100{i:04d}", is_founder=True)
         resp = self.terms()
         self.assertContains(resp, "Les places sont actuellement toutes attribuées.")
@@ -302,7 +302,7 @@ class ProgramTermsAcceptanceTests(Base):
         self.assertEqual(PartnerAcceptance.objects.filter(partner=self.prospect, doc_type="program_terms").count(), 0)
 
     def test_trial_partners_do_not_use_places(self):
-        for i in range(19):
+        for i in range(7):
             make_partner(code=f"FND{i:03d}", phone=f"+2236100{i:04d}", is_founder=True)
         self.assertContains(self.client.get(page(self.token2)), "conditions générales")
         self.assertEqual(self.terms().status_code, 200)
