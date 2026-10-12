@@ -211,25 +211,49 @@ def create_orange_payment(
     return payment
 
 
+def _log_commission_outcome(payment: SubscriptionPayment, outcome) -> None:
+    """Une ligne de journal par sortie du crochet (F-128) : créée, ou ignorée avec la raison.
+
+    Identifiants du paiement, du partenaire et du lien, plus l'empreinte du téléphone : jamais le numéro.
+    Ne lève jamais : un journal défaillant ne peut ni bloquer un paiement ni annuler une commission."""
+    try:
+        from core.services.rate_limit import phone_fingerprint
+
+        referral = outcome.referral
+        logger.info(
+            "Commission partenaire %s — paiement=%s partenaire=%s lien=%s%s %s",
+            outcome.message,
+            payment.pk,
+            referral.partner_id if referral else "-",
+            referral.pk if referral else "-",
+            f" commission={outcome.entry.commission_fcfa}" if outcome.created else "",
+            phone_fingerprint(payment.phone),
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _record_partner_commission(payment: SubscriptionPayment) -> None:
     """Commission du partenaire dont le lien a servi a l'inscription (programme partenaires), sans jamais gener.
 
     Point d'accroche unique : activate_subscription_from_payment est appele par le
     webhook, le retour navigateur et la tache de verification (via
     sync_orange_payment_status). Un point de sauvegarde isole la creation : une
-    panne (meme SQL) ne fait ni echouer ni annuler l'activation. Le journal ne
-    contient jamais de numero (empreinte seulement).
+    panne (meme SQL) ne fait ni echouer ni annuler l'activation. Chaque sortie
+    laisse une ligne de journal (creee, ou ignoree avec la raison : F-128) ; le
+    journal ne contient jamais de numero (empreinte seulement).
     """
     try:
         from partners.models import Referral
-        from partners.services.commissions import record_for_payment
+        from partners.services.commissions import Outcome, record_for_payment
 
         with transaction.atomic():
             # Court-circuit : un vendeur sans inscription via un lien partenaire (le cas
             # courant) ne coute qu'une requete, et rien d'autre n'est lu ni verrouille.
             if not Referral.objects.filter(seller_id=payment.seller_id).exists():
+                _log_commission_outcome(payment, Outcome(None, "no_referral"))
                 return
-            record_for_payment(payment)
+            record_for_payment(payment, report=lambda outcome: _log_commission_outcome(payment, outcome))
     except Exception as exc:
         # La journalisation ne doit jamais lever : elle ne peut pas annuler l'activation.
         try:
