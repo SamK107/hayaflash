@@ -156,7 +156,7 @@ class BriefTests(Base):
     def test_brief_is_a_draft_with_remaining_places(self):
         resp = self.client.get(reverse("partners_brief"))
         self.assertContains(resp, "Brouillon")
-        self.assertContains(resp, "Il reste 20 places")
+        self.assertContains(resp, "Il reste 8 places")
         self.assertContains(resp, "ENTREPRISE TEST SARL")
 
 

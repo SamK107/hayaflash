@@ -164,7 +164,7 @@ class SendTests(Base):
     def test_places_variable(self):
         self.send(template_key="envoi_conditions", message=msg.TEMPLATES["envoi_conditions"])
         stored = OutboundMessage.objects.get()
-        self.assertIn("Il reste 20 places.", stored.body_text)
+        self.assertIn("Il reste 8 places.", stored.body_text)
 
     def test_ton_nom_is_filled_with_the_staff_name_and_detail_must_be_completed(self):
         raw = msg.TEMPLATES["invitation_essai"]

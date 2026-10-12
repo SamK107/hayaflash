@@ -22,7 +22,7 @@ désigne le plan Pro). Les identifiants du code (`Referral`, `referral_id`) ne c
 | `PARTNER_COMMISSION_MONTHS` | 12 | Durée des commissions par vendeur inscrit via le lien, depuis son premier paiement |
 | `PARTNER_CONTRACT_MONTHS` | 12 | Durée du contrat (1 an, non renouvelable) |
 | `PARTNER_TRIAL_DAYS` | 30 | Durée de l'essai et de l'accès Pro offert |
-| `PARTNER_FOUNDER_SLOTS` | 20 | Places de fondateur (sous contrat, actives ou en pause) |
+| `PARTNER_FOUNDER_SLOTS` | 8 | Places de fondateur (sous contrat, actives ou en pause) |
 | `PARTNER_MIN_PAYOUT_FCFA` | 2 000 | Minimum de versement, cumulable d'un mois à l'autre |
 | `PARTNER_PAYOUT_DEADLINE_DAY` | 10 | Versement avant le 10 du mois suivant |
 | `PARTNER_REFERRAL_COOKIE_DAYS` | 30 | Durée du cookie `hf_ref` |
@@ -116,7 +116,7 @@ s'annule pas sans contrepartie). La validation du mois est toujours un geste hum
 
 ## Contrat, places, seuil trimestriel
 
-- 20 places de fondateur au plus, **sous contrat**, actives ou en pause ; une place libérée ne compte plus ;
+- 8 places de fondateur au plus, **sous contrat**, actives ou en pause ; une place libérée ne compte plus ;
   un prospect ou un partenaire en essai n'en occupe pas.
 - Trimestres de 3 mois **à partir du début du contrat** ; un prospect ou un partenaire en essai n'est jamais
   jugé. Premier trimestre jamais manqué ; 1 manqué = avertissement ; 2 consécutifs = place libérable

@@ -145,7 +145,7 @@ class DashboardTests(Base):
         Partner.objects.all().delete()
         page = self.client.get(self.url("partners_dashboard"))
         self.assertContains(page, "Aucun partenaire")
-        self.assertContains(page, "0 / 20")
+        self.assertContains(page, "0 / 8")
 
     def test_kpis(self):
         for i in range(7):
@@ -156,7 +156,7 @@ class DashboardTests(Base):
         self.entry(r, commission=2500, status="validated")
         self.entry(self.referral(), commission=600, status="pending")
         page = self.client.get(self.url("partners_dashboard"))
-        self.assertContains(page, "7 / 20")
+        self.assertContains(page, "7 / 8")
         self.assertEqual(page.context["stats"]["clicks"], 2)
         self.assertEqual(page.context["stats"]["referrals"], 2)
         self.assertEqual(page.context["stats"]["payers"], 2)

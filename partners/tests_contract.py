@@ -176,10 +176,10 @@ class ReleaseSlotTests(Base):
         log = AuditLog.objects.get(action="partner.slot_released")
         self.assertEqual(log.entity_id, self.partner.pk)
 
-    def test_released_slot_no_longer_counts_for_the_twenty(self):
-        for i in range(19):
+    def test_released_slot_no_longer_counts_for_the_eight(self):
+        for i in range(7):
             make_partner(code=f"FND{i:03d}", phone=f"+2236100{i:04d}", is_founder=True)
-        self.make_founder()  # 20e
+        self.make_founder()  # 8e
         with self.assertRaises(ValidationError):
             make_partner(code="FND900", phone="+223619999900", is_founder=True)
         release_slot(self.partner, today=date(2026, 10, 20))

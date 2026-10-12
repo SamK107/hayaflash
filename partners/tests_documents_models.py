@@ -54,7 +54,7 @@ class PartnerPhaseTests(TestCase):
         self.assertEqual(p.trial_end, date(2026, 11, 4))
 
     def test_prospect_does_not_count_for_places_nor_attribution(self):
-        for i in range(20):
+        for i in range(8):
             make_partner(code=f"FND{i:03d}", phone=f"+2236100{i:04d}", is_founder=True)
         prospect = make_partner(
             code="PROS001", phone="+22360099001", status="prospect", phase="none", is_founder=True
@@ -63,7 +63,7 @@ class PartnerPhaseTests(TestCase):
         make_partner(code="PROS002", phone="+22360099002", status="prospect", phase="none", is_founder=True)
 
     def test_trial_partner_takes_no_place_but_accepts_referrals(self):
-        for i in range(20):
+        for i in range(8):
             make_partner(code=f"FND{i:03d}", phone=f"+2236100{i:04d}", is_founder=True)
         trial = make_partner(
             code="ESSAI01", phone="+22360099003", phase="trial", is_founder=True, trial_start=timezone.localdate()

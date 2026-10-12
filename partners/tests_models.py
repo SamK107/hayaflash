@@ -188,17 +188,17 @@ class PayoutTests(TestCase):
 
 
 class FoundersSlotsTests(TestCase):
-    def test_21st_founder_is_refused_in_french(self):
-        for i in range(20):
+    def test_9th_founder_is_refused_in_french(self):
+        for i in range(8):
             make_partner(code=f"FND{i:03d}", phone=f"+2236100{i:04d}", is_founder=True)
         with self.assertRaises(ValidationError) as ctx:
             make_partner(code="FND999", phone="+223619999999", is_founder=True)
-        self.assertIn("20", " ".join(ctx.exception.messages))
+        self.assertIn("8", " ".join(ctx.exception.messages))
         self.assertIn("places", " ".join(ctx.exception.messages))
-        self.assertEqual(Partner.objects.filter(is_founder=True).count(), 20)
+        self.assertEqual(Partner.objects.filter(is_founder=True).count(), 8)
 
     def test_paused_counts_released_does_not(self):
-        ps = [make_partner(code=f"FND{i:03d}", phone=f"+2236100{i:04d}", is_founder=True) for i in range(20)]
+        ps = [make_partner(code=f"FND{i:03d}", phone=f"+2236100{i:04d}", is_founder=True) for i in range(8)]
         ps[0].status = "paused"
         ps[0].save()
         with self.assertRaises(ValidationError):
