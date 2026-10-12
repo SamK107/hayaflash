@@ -13,6 +13,7 @@ la fin ou à la libération de la place du partenaire.
 from __future__ import annotations
 
 import logging
+from typing import NamedTuple
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -28,6 +29,7 @@ from partners.models import (
     Referral,
 )
 from partners.services.dates import add_months
+from subscriptions.models import PaymentStatus, SubscriptionPayment
 from subscriptions.services.platform_reporting import revenue_payments
 
 logger = logging.getLogger(__name__)
@@ -40,39 +42,98 @@ def compute_amounts(gross_fcfa: int, percent: int) -> tuple[int, int]:
     return net, commission
 
 
-def _terms_in_force(partner, paid_at) -> bool:
-    """Un paiement ne génère une commission que si les conditions du programme sont acceptées.
+# Raisons d'une sortie sans commission : texte lisible repris tel quel dans le journal (F-128).
+REASONS = {
+    "created": "créée",
+    "no_referral": "aucun lien partenaire",
+    "not_collected": "paiement non encaissé",
+    "test_payment": "paiement de test",
+    "zero_amount": "montant nul",
+    "already_recorded": "commission déjà créée",
+    "trial": "partenaire en essai",
+    "no_contract": "partenaire sans contrat",
+    "terms_not_accepted": "conditions du programme non acceptées",
+    "paid_before_terms": "paiement antérieur à l'acceptation des conditions du programme",
+    "outside_window": "hors de la fenêtre de 12 mois",
+}
+
+
+class Outcome(NamedTuple):
+    """Résultat de l'examen d'un paiement : la ligne créée (ou existante) et pourquoi."""
+
+    entry: CommissionEntry | None
+    code: str
+    referral: Referral | None = None
+
+    @property
+    def created(self) -> bool:
+        return self.code == "created"
+
+    @property
+    def message(self) -> str:
+        return REASONS[self.code] if self.created else f"ignorée : {REASONS[self.code]}"
+
+
+def _terms_reason(partner, paid_at) -> str:
+    """Pourquoi les conditions du programme ne s'appliquent pas à ce paiement ; vide si elles s'appliquent.
 
     - le partenaire doit être sous contrat (ou, une fois le contrat terminé, avoir été sous
       contrat : droits acquis, article 6.3) : jamais en essai, jamais « aucune » ;
     - une acceptation « program_terms » doit exister ;
     - le paiement doit avoir été encaissé À PARTIR de l'acceptation (jamais avant).
     """
+    if partner.phase == PartnerPhase.TRIAL:
+        return "trial"
     if partner.phase not in (PartnerPhase.CONTRACT, PartnerPhase.ENDED):
-        return False
+        return "no_contract"
     acceptance = (
         PartnerAcceptance.objects.filter(partner=partner, doc_type="program_terms")
         .order_by("accepted_at")
         .first()
     )
-    return acceptance is not None and paid_at >= acceptance.accepted_at
+    if acceptance is None:
+        return "terms_not_accepted"
+    return "" if paid_at >= acceptance.accepted_at else "paid_before_terms"
 
 
-def record_for_payment(payment) -> CommissionEntry | None:
+def _terms_in_force(partner, paid_at) -> bool:
+    return not _terms_reason(partner, paid_at)
+
+
+def record_for_payment(payment, report=None) -> CommissionEntry | None:
     """Crée (une seule fois) la commission d'un paiement d'abonnement réellement encaissé.
 
     Ignore : vendeur sans inscription via un lien, paiement de test (RM-17), montant nul, paiement
     non réussi EN BASE (l'objet en mémoire ne suffit pas), ligne déjà existante,
     paiement hors fenêtre de 12 mois, partenaire sans contrat accepté ou paiement encaissé avant
     l'acceptation des conditions (bloc H6). Idempotent. À appeler sous le verrou du paiement.
+
+    ``report`` (facultatif) reçoit l'``Outcome`` : créée ou ignorée, et pourquoi (F-128). Une erreur
+    levée par ``report`` est ignorée : elle ne doit jamais annuler la commission.
     """
+    outcome = evaluate_payment(payment)
+    if report is not None:
+        try:
+            report(outcome)
+        except Exception:  # noqa: BLE001 -- le compte rendu ne doit jamais faire échouer le paiement
+            pass
+    return outcome.entry
+
+
+def evaluate_payment(payment) -> Outcome:
+    """Examine le paiement et crée la commission si toutes les conditions sont réunies."""
     with transaction.atomic():
         fresh = revenue_payments().filter(pk=payment.pk).first()
-        if fresh is None or fresh.amount <= 0:
-            return None
+        if fresh is None:
+            current = SubscriptionPayment.objects.filter(pk=payment.pk).first()
+            if current is not None and current.status == PaymentStatus.SUCCESS:
+                return Outcome(None, "test_payment")
+            return Outcome(None, "not_collected")
+        if fresh.amount <= 0:
+            return Outcome(None, "zero_amount")
         existing = CommissionEntry.objects.filter(payment_id=fresh.pk).first()
         if existing is not None:
-            return existing
+            return Outcome(existing, "already_recorded", existing.referral)
         referral = (
             Referral.objects.select_for_update(of=("self",))
             .select_related("partner")
@@ -80,19 +141,20 @@ def record_for_payment(payment) -> CommissionEntry | None:
             .first()
         )
         if referral is None:
-            return None
+            return Outcome(None, "no_referral")
         when = fresh.paid_at or timezone.now()
-        if not _terms_in_force(referral.partner, when):
-            return None
+        reason = _terms_reason(referral.partner, when)
+        if reason:
+            return Outcome(None, reason, referral)
         if referral.first_paid_at is None:
             referral.first_paid_at = when
             referral.commission_ends_at = add_months(when, settings.PARTNER_COMMISSION_MONTHS)
             referral.save(update_fields=["first_paid_at", "commission_ends_at"])
         elif when > referral.commission_ends_at:
-            return None
+            return Outcome(None, "outside_window", referral)
         percent = referral.partner.commission_percent
         net, commission = compute_amounts(fresh.amount, percent)
-        return CommissionEntry.objects.create(
+        entry = CommissionEntry.objects.create(
             referral=referral,
             payment=fresh,
             gross_fcfa=fresh.amount,
@@ -100,6 +162,7 @@ def record_for_payment(payment) -> CommissionEntry | None:
             percent=percent,
             commission_fcfa=commission,
         )
+        return Outcome(entry, "created", referral)
 
 
 def cancel_entry(entry: CommissionEntry, reason: str, *, actor=None) -> CommissionEntry:
