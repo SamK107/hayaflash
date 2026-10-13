@@ -162,8 +162,17 @@ class SendTests(Base):
         self.assertEqual(PartnerAccessLink.objects.count(), 0)
 
     def test_places_variable(self):
+        # F-134 : le modèle « conditions » n'est plus envoyé à un numéro inconnu ni à un partenaire sans
+        # lettre d'essai acceptée. On vise donc un partenaire connu dont la lettre est acceptée (le
+        # comportement testé, la variable {places}, est inchangé).
+        from partners.services.acceptance import accept_document
+
+        partner = make_partner(code="LETTRE1", phone="+22370000001", phase="trial", accept=False)
+        accept_document(
+            partner, "trial_letter", signer_name="Awa", method="written_manual", manual_reference="Fixture"
+        )
         self.send(template_key="envoi_conditions", message=msg.TEMPLATES["envoi_conditions"])
-        stored = OutboundMessage.objects.get()
+        stored = OutboundMessage.objects.get(template_key="envoi_conditions")
         self.assertIn("Il reste 8 places.", stored.body_text)
 
     def test_ton_nom_is_filled_with_the_staff_name_and_detail_must_be_completed(self):

@@ -11,6 +11,7 @@ from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.test import TestCase, override_settings
 
+from partners.models import Partner
 from partners.services import messages as msg
 from partners.services.acceptance import FULL_PLACES_MESSAGE, accept_document, places_left
 from partners.tests_documents import FACTICE
@@ -22,6 +23,12 @@ def message_with_places(staff_name="Alex") -> str:
         display_name = staff_name
         pk = None
 
+    # F-134 : le modèle « conditions » ne s'envoie qu'à un partenaire connu dont la lettre est acceptée.
+    known = Partner.objects.filter(phone="+22370000001").first() or make_partner(
+        code="MSG0001", phone="+22370000001", phase="trial", accept=False
+    )
+    if not known.acceptances.filter(doc_type="trial_letter").exists():
+        accept_document(known, "trial_letter", signer_name="Awa")
     return msg.prepare(
         staff=Staff(), country="223", national="70 00 00 01", first_name="Awa", shop_name="",
         template_key="envoi_conditions", text=msg.TEMPLATES["envoi_conditions"],
@@ -39,6 +46,7 @@ class CohortOfEightTests(TestCase):
 
     def enrol(self, n):
         partner = self.trial_partner(n)
+        accept_document(partner, "trial_letter", signer_name=f"Partenaire {n}")  # prérequis (F-134)
         accept_document(partner, "program_terms", signer_name=f"Partenaire {n}")
         return partner
 
@@ -71,6 +79,7 @@ class CohortOfEightTests(TestCase):
             self.enrol(n)
         self.assertEqual(places_left(), 0)
         ninth = self.trial_partner(9)
+        accept_document(ninth, "trial_letter", signer_name="Partenaire 9")  # la lettre ne prend pas de place
         with self.assertRaises(ValidationError) as ctx:
             accept_document(ninth, "program_terms", signer_name="Partenaire 9")
         self.assertIn(FULL_PLACES_MESSAGE, ctx.exception.messages)
