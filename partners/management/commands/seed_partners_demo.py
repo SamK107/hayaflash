@@ -120,6 +120,13 @@ class Command(BaseCommand):
             )
             partners[code] = partner
             if not partner.acceptances.filter(doc_type="program_terms").exists():
+                # La lettre d'essai est un prérequis des conditions (F-134) : acceptée avant elles.
+                if not partner.acceptances.filter(doc_type="trial_letter").exists():
+                    accept_document(
+                        partner, "trial_letter", signer_name=name.split(" (")[0],
+                        method="written_manual", manual_reference="Démo : message WhatsApp",
+                        accepted_at=now - timedelta(days=110),
+                    )
                 # Conditions acceptées il y a 100 jours (avant tous les paiements démo).
                 accept_document(
                     partner, "program_terms", signer_name=name.split(" (")[0],

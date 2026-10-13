@@ -31,6 +31,7 @@ from partners.services.dates import add_months
 FULL_PLACES_MESSAGE = "Les places sont actuellement toutes attribuées."
 NAME_MESSAGE = "Indiquez votre nom complet."
 CHECKBOX_MESSAGE = "Cochez la case pour confirmer que vous avez lu et accepté le document."
+LETTER_REQUIRED_MESSAGE = "La lettre d'essai doit être acceptée avant les conditions du programme."
 
 
 def places_left() -> int:
@@ -47,11 +48,19 @@ def has_accepted(partner: Partner, doc_type: str) -> bool:
     ).exists()
 
 
+def has_valid_letter(partner: Partner) -> bool:
+    """La lettre d'essai a été acceptée (n'importe quelle version) et son acceptation n'est pas invalidée."""
+    return PartnerAcceptance.objects.filter(
+        partner=partner, doc_type=AcceptanceDocType.TRIAL_LETTER, invalidation__isnull=True
+    ).exists()
+
+
 def pending_document(partner: Partner) -> str | None:
     """Document que le partenaire doit lire et accepter maintenant, ou None.
 
     - prospect ou phase « aucune » : la lettre d'essai ;
-    - phase essai, invitation envoyée (message « envoi_conditions ») : les conditions.
+    - phase essai, invitation envoyée (message « envoi_conditions ») ET lettre d'essai acceptée :
+      les conditions (sans lettre, rien n'est proposé : la lettre est un prérequis).
     """
     if partner.status in (PartnerStatus.ENDED, PartnerStatus.SLOT_RELEASED):
         return None
@@ -59,7 +68,7 @@ def pending_document(partner: Partner) -> str | None:
         return None if has_accepted(partner, "trial_letter") else "trial_letter"
     if partner.phase == PartnerPhase.TRIAL:
         invited = OutboundMessage.objects.filter(partner=partner, template_key="envoi_conditions").exists()
-        if invited and not has_accepted(partner, "program_terms"):
+        if invited and has_valid_letter(partner) and not has_accepted(partner, "program_terms"):
             return "program_terms"
     return None
 
@@ -114,8 +123,12 @@ def accept_document(
         ).first()
         if existing is not None:
             return existing, False
-        if doc_type == AcceptanceDocType.PROGRAM_TERMS and places_left() <= 0:
-            raise ValidationError(FULL_PLACES_MESSAGE)
+        if doc_type == AcceptanceDocType.PROGRAM_TERMS:
+            # Prérequis sans exception, en ligne comme en écrit : rien n'est créé ni modifié.
+            if not has_valid_letter(locked):
+                raise ValidationError(LETTER_REQUIRED_MESSAGE)
+            if places_left() <= 0:
+                raise ValidationError(FULL_PLACES_MESSAGE)
         snapshot = legal_docs.canonical_text(legal_docs.render_document(doc_type, locked))
         try:
             with transaction.atomic():

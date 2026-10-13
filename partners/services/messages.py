@@ -26,7 +26,7 @@ from partners.models import (
     PartnerStatus,
 )
 from partners.services.access_links import create_link
-from partners.services.acceptance import places_left
+from partners.services.acceptance import has_valid_letter, places_left
 
 MAX_LENGTH = 1000
 MASKED_TOKEN = "(jeton non conservé)"
@@ -143,6 +143,18 @@ def prepare(
     }
     if shop_name:
         values["boutique"] = shop_name
+    if template_key == "envoi_conditions":
+        known = Partner.objects.filter(phone=phone).first()
+        if known is None:
+            raise ValidationError(
+                "Ce numéro n'est pas encore connu : envoyez d'abord la lettre d'essai "
+                "(modèle « Envoi de la lettre d'essai »). Les conditions ne s'envoient qu'après son acceptation."
+            )
+        if not has_valid_letter(known):
+            raise ValidationError(
+                "Ce partenaire n'a pas encore accepté la lettre d'essai : envoyez-la d'abord "
+                "(modèle « Envoi de la lettre d'essai »). Les conditions ne s'envoient qu'après son acceptation."
+            )
     has_link = "{lien}" in text
     check = _fill(text, {**values, "lien": PREVIEW_LINK})
     missing = _unresolved(check)

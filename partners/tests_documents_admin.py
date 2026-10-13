@@ -219,6 +219,9 @@ class WrittenAcceptanceTests(Base):
         self.assertTrue(AuditLog.objects.filter(action="partner.document_accepted").exists())
 
     def test_terms_start_the_contract(self):
+        # F-134 : la lettre d'essai est un prérequis. Le contrat démarre toujours à l'acceptation des
+        # conditions, mais seulement après celle de la lettre (voir tests_letter_prerequisite.py pour le refus).
+        self.post(doc_type="trial_letter", accepted_on="2026-10-01")
         self.post(doc_type="program_terms")
         self.prospect.refresh_from_db()
         self.assertEqual(self.prospect.phase, "contract")

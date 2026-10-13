@@ -104,7 +104,8 @@ class SeedDocumentsTests(TestCase):
         contract = Partner.objects.get(code="DEMOAWA")
         self.assertEqual(contract.phase, "contract")
         self.assertTrue(contract.acceptances.filter(doc_type="program_terms").exists())
-        self.assertEqual(PartnerAcceptance.objects.count(), 4)  # 3 contrats + 1 lettre d essai
+        # 3 contrats + leurs 3 lettres d'essai (prérequis des conditions, F-134) + 1 lettre d'essai du partenaire en essai
+        self.assertEqual(PartnerAcceptance.objects.count(), 7)
 
     def test_demo_consultation_link_works_and_is_announced(self):
         from django.test import Client
