@@ -20,7 +20,7 @@ from partners.tests_models import make_partner
 User = get_user_model()
 PLATFORM = "/platform-admin/"
 WA_RE = re.compile(r'href="(https://wa\.me/[^"]+)"')
-GOOD_TEXT = "Bonjour {prénom}, voici la lettre d'essai à lire et accepter : {lien}"
+GOOD_TEXT = "Bonjour {prénom}, voici la lettre d'évaluation à lire et accepter : {lien}"
 
 
 class Base(TestCase):
@@ -66,9 +66,11 @@ class TemplatesTests(TestCase):
             self.assertIn(piece, text)
 
     def test_other_templates(self):
-        self.assertIn("Voici la lettre d'essai à lire et accepter : {lien}", msg.TEMPLATES["envoi_lettre_essai"])
+        self.assertIn("Voici la lettre d'évaluation à lire et accepter : {lien}", msg.TEMPLATES["envoi_lettre_essai"])
         self.assertIn("Voici les conditions du programme partenaire : {lien}", msg.TEMPLATES["envoi_conditions"])
-        self.assertIn("Il reste {places} places.", msg.TEMPLATES["envoi_conditions"])
+        # F-135 : le modèle n'annonce plus de compteur de places (le compteur reste en logique).
+        self.assertIn("Places limitées, sélection à l'issue de la phase.", msg.TEMPLATES["envoi_conditions"])
+        self.assertNotIn("{places}", msg.TEMPLATES["envoi_conditions"])
         self.assertIn("{lien}", msg.TEMPLATES["relance"])
 
     def test_whatsapp_url_is_encoded_and_has_no_plus(self):
@@ -124,7 +126,7 @@ class SendTests(Base):
         parsed = urlparse(url)
         self.assertEqual(parsed.path, "/22370000001")
         body = parse_qs(parsed.query)["text"][0]
-        self.assertTrue(body.startswith("Bonjour Awa, voici la lettre d'essai à lire et accepter : http"))
+        self.assertTrue(body.startswith("Bonjour Awa, voici la lettre d'évaluation à lire et accepter : http"))
         self.assertIn("/partenaires/d/", body)
         self.assertNotIn("{", body)
 
@@ -163,7 +165,7 @@ class SendTests(Base):
 
     def test_places_variable(self):
         # F-134 : le modèle « conditions » n'est plus envoyé à un numéro inconnu ni à un partenaire sans
-        # lettre d'essai acceptée. On vise donc un partenaire connu dont la lettre est acceptée (le
+        # lettre d'évaluation acceptée. On vise donc un partenaire connu dont la lettre est acceptée (le
         # comportement testé, la variable {places}, est inchangé).
         from partners.services.acceptance import accept_document
 
@@ -171,7 +173,9 @@ class SendTests(Base):
         accept_document(
             partner, "trial_letter", signer_name="Awa", method="written_manual", manual_reference="Fixture"
         )
-        self.send(template_key="envoi_conditions", message=msg.TEMPLATES["envoi_conditions"])
+        # F-135 : le modèle par défaut n'affiche plus {places} ; la variable reste prise en charge par
+        # le moteur, on la teste donc avec un texte qui la contient.
+        self.send(template_key="envoi_conditions", message="Conditions : {lien}. Il reste {places} places.")
         stored = OutboundMessage.objects.get(template_key="envoi_conditions")
         self.assertIn("Il reste 8 places.", stored.body_text)
 

@@ -1,8 +1,10 @@
 """Documents versionnés du programme partenaires et identité de l'éditeur.
 
-Chaque version publiée a son gabarit FIGÉ (``templates/partners/legal/*_v1_0.html``) :
-pour changer un texte publié, créer une nouvelle version (v1_1...) ; jamais éditer l'ancienne.
-Le test ``VersionLockTests`` verrouille l'empreinte de chaque texte publié.
+Chaque version publiée a son gabarit FIGÉ (``templates/partners/legal/*_v1_0.html``, ``*_v1_1.html``) :
+pour changer un texte publié, créer une nouvelle version ; jamais éditer l'ancienne. ``PUBLISHED`` liste
+toutes les versions publiées (type, version, gabarit) ; ``DOCS`` pointe sur la version courante, celle que
+l'on propose à un nouveau partenaire. Les anciennes versions restent rendables (``version=...``) et
+valides. Les tests ``VersionLockTests`` et ``tests_letter_v1_1`` verrouillent l'empreinte de chaque texte publié.
 
 L'identité de l'éditeur vient de l'environnement (``LEGAL_ENTITY_*``) : jamais de valeur
 inventée. Un document dont une valeur utilisée est vide est « incomplet » : l'acceptation
@@ -17,9 +19,9 @@ import re
 from django.conf import settings
 from django.template.loader import render_to_string
 
-TRIAL_LETTER_VERSION = "1.0"
+TRIAL_LETTER_VERSION = "1.1"  # « lettre de phase d'évaluation » (F-135) ; la 1.0 « lettre d'essai » reste valide
 PROGRAM_TERMS_VERSION = "1.0"
-BRIEF_VERSION = "1.0"
+BRIEF_VERSION = "1.1"
 BRIEF_STATUS = "brouillon"  # le brief est informatif : ce n'est pas un document à accepter
 
 PLACEHOLDER = "(à renseigner)"
@@ -44,13 +46,24 @@ def _template(name: str, version: str) -> str:
     return f"partners/legal/{name}_v{version.replace('.', '_')}.html"
 
 
+# Toutes les versions publiées : type -> {version: gabarit}. Jamais de retrait ni de modification.
+PUBLISHED = {
+    "trial_letter": {
+        "1.0": _template("trial_letter", "1.0"),
+        "1.1": _template("trial_letter", "1.1"),
+    },
+    "program_terms": {
+        "1.0": _template("program_terms", "1.0"),
+    },
+}
+
 DOCS = {
     "trial_letter": {
         "version": TRIAL_LETTER_VERSION,
         "template": _template("trial_letter", TRIAL_LETTER_VERSION),
-        "label": "Lettre d'essai",
+        "label": "Lettre d'évaluation",
         "fields": REQUIRED_FIELDS,
-        "ack": f"J'ai lu et j'accepte la lettre d'essai version {TRIAL_LETTER_VERSION}",
+        "ack": f"J'ai lu et j'accepte la lettre de phase d'évaluation version {TRIAL_LETTER_VERSION}",
     },
     "program_terms": {
         "version": PROGRAM_TERMS_VERSION,
@@ -94,17 +107,20 @@ def acceptance_allowed(doc_type: str) -> bool:
     return is_complete(doc_type) or getattr(settings, "ENVIRONMENT", "") == "dev"
 
 
-def render_document(doc_type: str, partner) -> str:
+def render_document(doc_type: str, partner, version: str | None = None) -> str:
     """Texte intégral du document (fragment HTML), tel qu'il est figé à l'acceptation.
+
+    ``version`` : une version publiée (``PUBLISHED``) ; par défaut la courante (``DOCS``). KeyError
+    si la version n'existe pas.
 
     Il s'arrête à la ligne d'identification : le cadre « Acceptation », le formulaire et la
     preuve d'acceptation sont rendus par les pages, jamais dans le texte figé."""
-    return render_to_string(
-        DOCS[doc_type]["template"], {"entity": entity_context(), "partner": partner}
-    )
+    template = DOCS[doc_type]["template"] if version is None else PUBLISHED[doc_type][version]
+    return render_to_string(template, {"entity": entity_context(), "partner": partner})
 
 
 def render_brief(*, places: int) -> str:
+    # ``places`` reste fourni au gabarit mais le brief v1.1 ne l'affiche plus (F-135).
     return render_to_string(BRIEF["template"], {"entity": entity_context(), "places": places})
 
 

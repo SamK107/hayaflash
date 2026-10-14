@@ -25,7 +25,7 @@ from partners.services.access_links import create_link, revoke
 from partners.tests_documents import FACTICE
 from partners.tests_models import make_partner
 
-LETTER_ACK = "J'ai lu et j'accepte la lettre d'essai version 1.0"
+LETTER_ACK = "J'ai lu et j'accepte la lettre de phase d'évaluation version 1.1"
 TERMS_ACK = "J'ai lu et j'accepte les conditions du programme partenaire version 1.0"
 
 
@@ -63,7 +63,7 @@ class AccessTests(Base):
     def test_valid_link_shows_the_letter_with_the_form(self):
         resp = self.client.get(page(self.token))
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "lettre d'essai")
+        self.assertContains(resp, "lettre de phase d'évaluation")
         self.assertContains(resp, "Awa Diarra")
         self.assertContains(resp, LETTER_ACK)
         self.assertContains(resp, 'name="signer_name"')
@@ -146,7 +146,7 @@ class TrialLetterAcceptanceTests(Base):
         resp = self.accept_letter()
         self.assertEqual(resp.status_code, 200)
         acc = PartnerAcceptance.objects.get()
-        self.assertEqual((acc.doc_type, acc.doc_version, acc.method), ("trial_letter", "1.0", "online_checkbox"))
+        self.assertEqual((acc.doc_type, acc.doc_version, acc.method), ("trial_letter", "1.1", "online_checkbox"))
         self.assertEqual(acc.signer_name, "Awa Diarra")
         self.prospect.refresh_from_db()
         self.assertEqual((self.prospect.status, self.prospect.phase), ("active", "trial"))
@@ -176,7 +176,7 @@ class TrialLetterAcceptanceTests(Base):
     def test_snapshot_and_hash_are_stored(self):
         self.accept_letter()
         acc = PartnerAcceptance.objects.get()
-        self.assertIn("lettre d'essai", acc.text_snapshot)
+        self.assertIn("lettre de phase d'évaluation", acc.text_snapshot)
         self.assertIn("Awa Diarra", acc.text_snapshot)
         self.assertEqual(acc.text_sha256, legal_docs.sha256_of(acc.text_snapshot))
         self.assertEqual(len(acc.ip_hash), 16)
@@ -216,7 +216,7 @@ class TrialLetterAcceptanceTests(Base):
     def test_confirmation_page(self):
         resp = self.accept_letter()
         self.assertContains(resp, "Imprimer")
-        self.assertContains(resp, "1.0")
+        self.assertContains(resp, "1.1")
         self.assertContains(resp, "Awa Diarra")
         self.assertIn("no-store", resp["Cache-Control"])
 
@@ -331,7 +331,7 @@ class ClosingBlockPageTests(Base):
         self.assertIn("Accepter et envoyer", html)
         self.assertIn("hf-p-btn--lg", html)
         self.assertIn(
-            "En envoyant, vous acceptez ce document dans sa version 1.0. Pour preuve de votre "
+            "En envoyant, vous acceptez ce document dans sa version 1.1. Pour preuve de votre "
             "acceptation, HayaFlash conserve la date, l&#x27;heure, le texte accepté et des données "
             "techniques de connexion.",
             html.replace("l'heure", "l&#x27;heure"),
@@ -366,7 +366,7 @@ class ClosingBlockPageTests(Base):
         self.accept_letter()
         snap = PartnerAcceptance.objects.get().text_snapshot
         self.assertIn("Fin du document", snap)
-        self.assertTrue(snap.endswith("Version 1.0.</p></div>"))
+        self.assertTrue(snap.endswith("Version 1.1.</p></div>"))
         for forbidden in (
             "hf-doc-accept", "<h3>Acceptation</h3>", "En envoyant, vous acceptez", "<form", "<input",
             "<button", "csrfmiddlewaretoken", "Accepter et envoyer",
@@ -405,7 +405,7 @@ class FinalPageTests(Base):
             self.assertIn("heure de Bamako (UTC)", html)
             self.assertIn(acc.accepted_at.astimezone(dt_timezone.utc).strftime("%d/%m/%Y"), html)
             self.assertIn(acc.accepted_at.astimezone(dt_timezone.utc).strftime("%H:%M"), html)
-            self.assertIn("Version 1.0", html)
+            self.assertIn("Version 1.1", html)
             self.assertIn(reference, html)
             self.assertIn("Fin du document", html)  # texte figé
 

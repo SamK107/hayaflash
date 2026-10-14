@@ -29,6 +29,7 @@ BLANK = {k: "" for k in FACTICE}
 # changer la constante.
 LOCKED_HASHES = {
     ("trial_letter", "1.0"): "187ca2e0d84a84a4cf77eeb024c73f1143a6d8a6444380f84ada6b2a0583b019",
+    ("trial_letter", "1.1"): "fa42e8d4e19121527aab44d5593898e39014c8694a50f26e8e4beb9409acb166",
     ("program_terms", "1.0"): "3084d462f872c77ace9ace8a5aea70283812d1ba46d78a2b98da970d8d7c55e6",
 }
 BANNED_RE = re.compile(r"parrain|filleul|recommand", re.IGNORECASE)
@@ -83,9 +84,10 @@ class RenderTests(SimpleTestCase):
         self.assertNotIn("<script>", html)
 
     @override_settings(**FACTICE)
-    def test_brief_is_a_draft_and_shows_remaining_places(self):
+    def test_brief_is_a_draft_and_no_longer_shows_remaining_places(self):
         brief = legal_docs.render_brief(places=7)
-        self.assertIn("Il reste 7 places", brief)
+        self.assertIn("Places limitées, sélection à l'issue de la phase", brief)  # F-135
+        self.assertNotIn("Il reste", brief)
         self.assertIn("ENTREPRISE TEST SARL", brief)
         self.assertEqual(legal_docs.BRIEF_STATUS, "brouillon")
 
@@ -218,13 +220,14 @@ class ClosingBlockTests(SimpleTestCase):
     def test_end_marker_and_identification_in_the_three_documents(self):
         ident = (
             "ENTREPRISE TEST SARL, société à responsabilité limitée unipersonnelle, "
-            "RCCM ML-BKO-2026-B-00000, 12 rue de Test, Bamako. Version 1.0."
+            "RCCM ML-BKO-2026-B-00000, 12 rue de Test, Bamako. Version {}."
         )
+        versions = {"trial_letter": "1.1", "program_terms": "1.0", "brief": "1.1"}
         for doc_type in ("trial_letter", "program_terms", "brief"):
             html = self.render(doc_type)
             self.assertIn("Fin du document", html, doc_type)
-            self.assertIn(ident, html, doc_type)
-            self.assertLess(html.index("Fin du document"), html.index(ident), doc_type)
+            self.assertIn(ident.format(versions[doc_type]), html, doc_type)
+            self.assertLess(html.index("Fin du document"), html.index(ident.format(versions[doc_type])), doc_type)
 
     @override_settings(**FACTICE)
     def test_closing_comes_after_the_last_article(self):
@@ -240,7 +243,7 @@ class ClosingBlockTests(SimpleTestCase):
             self.assertNotIn("hf-doc-accept", html, doc_type)
             self.assertNotIn("<h3>Acceptation</h3>", html, doc_type)
             self.assertNotIn("En envoyant, vous acceptez", html, doc_type)
-            self.assertTrue(html.endswith("Version 1.0.</p></div>"), doc_type)
+            self.assertTrue(html.endswith(f"Version {legal_docs.DOCS[doc_type]['version']}.</p></div>"), doc_type)
         self.assertNotIn("hf-doc-accept", self.render("brief"))
 
     @override_settings(**FACTICE)
@@ -267,7 +270,7 @@ class ClosingBlockTests(SimpleTestCase):
             html = legal_docs.canonical_text(
                 render_to_string(legal_docs.DOCS[doc_type]["template"], {"entity": empty, "partner": fake_partner()})
             )
-            self.assertIn("ENTREPRISE TEST. Version 1.0.", html, doc_type)
+            self.assertIn(f"ENTREPRISE TEST. Version {legal_docs.DOCS[doc_type]['version']}.", html, doc_type)
             html = html.split("Fin du document")[1]
             self.assertNotIn(", ,", html)
             self.assertNotIn(",,", html)
@@ -276,7 +279,7 @@ class ClosingBlockTests(SimpleTestCase):
         brief = legal_docs.canonical_text(
             render_to_string(legal_docs.BRIEF["template"], {"entity": empty, "places": 3})
         )
-        self.assertIn("ENTREPRISE TEST. Version 1.0.", brief)
+        self.assertIn(f"ENTREPRISE TEST. Version {legal_docs.BRIEF_VERSION}.", brief)
         self.assertNotIn(", .", brief)
 
     @override_settings(**BLANK)
@@ -312,14 +315,14 @@ class ClosingBlockTests(SimpleTestCase):
 
 class VersionLockTests(SimpleTestCase):
     def test_versions_are_declared(self):
-        self.assertEqual(legal_docs.TRIAL_LETTER_VERSION, "1.0")
+        self.assertEqual(legal_docs.TRIAL_LETTER_VERSION, "1.1")  # F-135 : la 1.0 reste publiée
         self.assertEqual(legal_docs.PROGRAM_TERMS_VERSION, "1.0")
 
     @override_settings(**FACTICE)
     def test_published_texts_never_change(self):
         for (doc_type, version), expected in LOCKED_HASHES.items():
-            self.assertEqual(legal_docs.DOCS[doc_type]["version"], version)
-            html = legal_docs.render_document(doc_type, fake_partner())
+            self.assertIn(version, legal_docs.PUBLISHED[doc_type])
+            html = legal_docs.render_document(doc_type, fake_partner(), version=version)
             actual = legal_docs.sha256_of(legal_docs.canonical_text(html))
             self.assertEqual(
                 actual,
@@ -332,6 +335,12 @@ class VersionLockTests(SimpleTestCase):
         for doc_type, doc in legal_docs.DOCS.items():
             self.assertIn("_v" + doc["version"].replace(".", "_"), doc["template"])
             self.assertTrue((Path(settings.BASE_DIR) / "templates" / doc["template"]).exists())
+            self.assertEqual(legal_docs.PUBLISHED[doc_type][doc["version"]], doc["template"])
+
+    def test_every_published_version_is_locked(self):
+        locked = set(LOCKED_HASHES)
+        published = {(t, v) for t, versions in legal_docs.PUBLISHED.items() for v in versions}
+        self.assertEqual(locked, published)
 
 
 class VocabularyTests(TestCase):

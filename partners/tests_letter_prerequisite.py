@@ -1,7 +1,7 @@
-"""F-134 : la lettre d'essai est un prérequis des conditions du programme.
+"""F-134 : la lettre d'évaluation est un prérequis des conditions du programme.
 
 Règles :
-1. `accept_document` refuse `program_terms` si la lettre d'essai n'est pas acceptée (en ligne comme en
+1. `accept_document` refuse `program_terms` si la lettre d'évaluation n'est pas acceptée (en ligne comme en
    écrit), en français, sans acceptation créée ni changement de phase ;
 2. le modèle « conditions » est refusé à l'envoi pour un numéro inconnu ou un partenaire sans lettre
    acceptée, avec un message clair pour l'équipe ;
@@ -29,7 +29,7 @@ from partners.tests_documents import FACTICE
 from partners.tests_documents_admin import Base as StaffBase
 from partners.tests_models import make_partner
 
-LETTER_REQUIRED = "La lettre d'essai doit être acceptée avant les conditions du programme."
+LETTER_REQUIRED = "La lettre d'évaluation doit être acceptée avant les conditions du programme."
 
 
 def trial_partner_without_letter(code="ESSAI01", phone="+22360050001"):
@@ -189,7 +189,7 @@ class SendConditionsTests(StaffBase):
     def test_unknown_number_is_refused_and_creates_no_prospect(self):
         before = Partner.objects.count()
         resp = self.send()
-        self.assertContains(resp, "lettre d&#x27;essai")
+        self.assertContains(resp, "lettre d&#x27;évaluation")
         self.assertNotRegex(resp.content.decode(), WA_RE)
         self.assertEqual(Partner.objects.count(), before)
         self.assertNothingCreated()
@@ -198,13 +198,13 @@ class SendConditionsTests(StaffBase):
         phone_national = self.prospect.phone[4:]
         resp = self.send(phone_national=phone_national, first_name="Fanta")
         text = resp.content.decode()
-        self.assertIn("pas encore accepté la lettre d&#x27;essai", text)
-        self.assertIn("Envoi de la lettre d&#x27;essai", text)  # indique quoi envoyer à la place
+        self.assertIn("pas encore accepté la lettre d&#x27;évaluation", text)
+        self.assertIn("Envoi de la lettre d&#x27;évaluation", text)  # indique quoi envoyer à la place
         self.assertNothingCreated()
 
     def test_preview_is_refused_too(self):
         resp = self.send(action="preview")
-        self.assertContains(resp, "lettre d&#x27;essai")
+        self.assertContains(resp, "lettre d&#x27;évaluation")
 
     def test_partner_with_the_letter_can_receive_the_conditions(self):
         partner = trial_partner_without_letter(code="ESSAI09", phone="+22360050009")
