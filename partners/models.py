@@ -401,7 +401,7 @@ SEAL_MONTHS = ["JAN", "FÉV", "MAR", "AVR", "MAI", "JUN", "JUL", "AOÛ", "SEP", 
 
 
 class AcceptanceDocType(models.TextChoices):
-    TRIAL_LETTER = "trial_letter", "Lettre d'essai"
+    TRIAL_LETTER = "trial_letter", "Lettre d'évaluation"
     PROGRAM_TERMS = "program_terms", "Conditions du programme partenaire"
 
 
@@ -467,7 +467,7 @@ class PartnerAcceptance(models.Model):
 
     @property
     def cite_shop(self) -> bool | None:
-        """Autorisation de citer la boutique (lettre d'essai seulement)."""
+        """Autorisation de citer la boutique (lettre d'évaluation seulement)."""
         if self.doc_type != AcceptanceDocType.TRIAL_LETTER:
             return None
         return bool((self.optional_consents or {}).get("cite_shop"))

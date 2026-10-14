@@ -31,7 +31,7 @@ from partners.services.dates import add_months
 FULL_PLACES_MESSAGE = "Les places sont actuellement toutes attribuées."
 NAME_MESSAGE = "Indiquez votre nom complet."
 CHECKBOX_MESSAGE = "Cochez la case pour confirmer que vous avez lu et accepté le document."
-LETTER_REQUIRED_MESSAGE = "La lettre d'essai doit être acceptée avant les conditions du programme."
+LETTER_REQUIRED_MESSAGE = "La lettre d'évaluation doit être acceptée avant les conditions du programme."
 
 
 def places_left() -> int:
@@ -48,8 +48,15 @@ def has_accepted(partner: Partner, doc_type: str) -> bool:
     ).exists()
 
 
+def has_accepted_letter(partner: Partner) -> bool:
+    """La lettre a déjà été acceptée, dans n'importe quelle version publiée (1.0 « d'essai », 1.1)."""
+    return PartnerAcceptance.objects.filter(
+        partner=partner, doc_type=AcceptanceDocType.TRIAL_LETTER
+    ).exists()
+
+
 def has_valid_letter(partner: Partner) -> bool:
-    """La lettre d'essai a été acceptée (n'importe quelle version) et son acceptation n'est pas invalidée."""
+    """La lettre d'évaluation a été acceptée (n'importe quelle version) et son acceptation n'est pas invalidée."""
     return PartnerAcceptance.objects.filter(
         partner=partner, doc_type=AcceptanceDocType.TRIAL_LETTER, invalidation__isnull=True
     ).exists()
@@ -58,14 +65,15 @@ def has_valid_letter(partner: Partner) -> bool:
 def pending_document(partner: Partner) -> str | None:
     """Document que le partenaire doit lire et accepter maintenant, ou None.
 
-    - prospect ou phase « aucune » : la lettre d'essai ;
-    - phase essai, invitation envoyée (message « envoi_conditions ») ET lettre d'essai acceptée :
+    - prospect ou phase « aucune » : la lettre d'évaluation (version courante), sauf si une lettre est
+      déjà acceptée, quelle que soit sa version : la v1.0 suffit, personne ne réaccepte (F-135) ;
+    - phase essai, invitation envoyée (message « envoi_conditions ») ET lettre d'évaluation acceptée :
       les conditions (sans lettre, rien n'est proposé : la lettre est un prérequis).
     """
     if partner.status in (PartnerStatus.ENDED, PartnerStatus.SLOT_RELEASED):
         return None
     if partner.phase == PartnerPhase.NONE or partner.status == PartnerStatus.PROSPECT:
-        return None if has_accepted(partner, "trial_letter") else "trial_letter"
+        return None if has_accepted_letter(partner) else "trial_letter"
     if partner.phase == PartnerPhase.TRIAL:
         invited = OutboundMessage.objects.filter(partner=partner, template_key="envoi_conditions").exists()
         if invited and has_valid_letter(partner) and not has_accepted(partner, "program_terms"):

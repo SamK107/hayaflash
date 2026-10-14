@@ -18,6 +18,11 @@ from partners.tests_documents import FACTICE
 from partners.tests_models import make_partner
 
 
+# F-135 : le modèle « conditions » n'affiche plus le compteur. La variable {places} reste calculée
+# (places_left) : ce texte la contient pour continuer à vérifier le décompte.
+COUNTDOWN_TEXT = "Voici les conditions du programme partenaire : {lien}. Il reste {places} places."
+
+
 def message_with_places(staff_name="Alex") -> str:
     class Staff:
         display_name = staff_name
@@ -31,7 +36,7 @@ def message_with_places(staff_name="Alex") -> str:
         accept_document(known, "trial_letter", signer_name="Awa")
     return msg.prepare(
         staff=Staff(), country="223", national="70 00 00 01", first_name="Awa", shop_name="",
-        template_key="envoi_conditions", text=msg.TEMPLATES["envoi_conditions"],
+        template_key="envoi_conditions", text=COUNTDOWN_TEXT,
         link_builder=lambda token: f"https://exemple.test/partenaires/d/{token}/", preview=True,
     ).body
 
