@@ -20,7 +20,7 @@ from partners.tests_models import make_partner
 User = get_user_model()
 PLATFORM = "/platform-admin/"
 WA_RE = re.compile(r'href="(https://wa\.me/[^"]+)"')
-GOOD_TEXT = "Bonjour {prénom}, voici la lettre d'évaluation à lire et accepter : {lien}"
+GOOD_TEXT = "Bonjour {prénom}, voici la lettre d'essai à lire et accepter : {lien}"
 
 
 class Base(TestCase):
@@ -56,20 +56,18 @@ class TemplatesTests(TestCase):
     def test_invitation_is_the_provided_text(self):
         text = msg.TEMPLATES["invitation_essai"]
         for piece in (
-            "Bonjour {prénom},",
-            "J'ai suivi ton live, bravo pour {détail à compléter par le staff}.",
-            "Je suis {ton nom}, j'ai créé HayaFlash",
-            "plan Pro offert",
-            "{lien}",
-            "Ça t'intéresse ?",
+            "Bonjour {prénom}, c'est {ton nom} de HayaFlash.",
+            "un essai de 30 jours : accès gratuit au plan Pro et accompagnement pour votre première vente.",
+            "je vous envoie la lettre à lire et à accepter. Répondez-moi ici.",
         ):
             self.assertIn(piece, text)
+        self.assertNotIn("{lien}", text)  # F-135 : l'invitation ne porte pas de lien, la lettre suit séparément
 
     def test_other_templates(self):
-        self.assertIn("Voici la lettre d'évaluation à lire et accepter : {lien}", msg.TEMPLATES["envoi_lettre_essai"])
+        self.assertIn("Voici la lettre d'essai à lire et accepter : {lien}", msg.TEMPLATES["envoi_lettre_essai"])
         self.assertIn("Voici les conditions du programme partenaire : {lien}", msg.TEMPLATES["envoi_conditions"])
         # F-135 : le modèle n'annonce plus de compteur de places (le compteur reste en logique).
-        self.assertIn("Places limitées, sélection à l'issue de la phase.", msg.TEMPLATES["envoi_conditions"])
+        self.assertIn("Places limitées, sélection à l'issue de l'essai.", msg.TEMPLATES["envoi_conditions"])
         self.assertNotIn("{places}", msg.TEMPLATES["envoi_conditions"])
         self.assertIn("{lien}", msg.TEMPLATES["relance"])
 
@@ -126,7 +124,7 @@ class SendTests(Base):
         parsed = urlparse(url)
         self.assertEqual(parsed.path, "/22370000001")
         body = parse_qs(parsed.query)["text"][0]
-        self.assertTrue(body.startswith("Bonjour Awa, voici la lettre d'évaluation à lire et accepter : http"))
+        self.assertTrue(body.startswith("Bonjour Awa, voici la lettre d'essai à lire et accepter : http"))
         self.assertIn("/partenaires/d/", body)
         self.assertNotIn("{", body)
 
@@ -165,7 +163,7 @@ class SendTests(Base):
 
     def test_places_variable(self):
         # F-134 : le modèle « conditions » n'est plus envoyé à un numéro inconnu ni à un partenaire sans
-        # lettre d'évaluation acceptée. On vise donc un partenaire connu dont la lettre est acceptée (le
+        # lettre d'essai acceptée. On vise donc un partenaire connu dont la lettre est acceptée (le
         # comportement testé, la variable {places}, est inchangé).
         from partners.services.acceptance import accept_document
 
@@ -179,8 +177,10 @@ class SendTests(Base):
         stored = OutboundMessage.objects.get(template_key="envoi_conditions")
         self.assertIn("Il reste 8 places.", stored.body_text)
 
-    def test_ton_nom_is_filled_with_the_staff_name_and_detail_must_be_completed(self):
-        raw = msg.TEMPLATES["invitation_essai"]
+    def test_ton_nom_is_filled_with_the_staff_name_and_a_placeholder_must_be_completed(self):
+        # F-135 : l'invitation n'a plus de {détail à compléter par le staff} ; la règle « un champ à
+        # compléter bloque l'envoi » est testée avec un texte qui en contient un.
+        raw = "Bonjour {prénom}, bravo pour {détail à compléter par le staff}. C'est {ton nom}."
         refused = self.send(template_key="invitation_essai", message=raw)
         self.assertContains(refused, "détail à compléter par le staff")
         self.assertEqual(OutboundMessage.objects.count(), 0)
@@ -190,8 +190,16 @@ class SendTests(Base):
         )
         self.assertEqual(ok.status_code, 200)
         body = OutboundMessage.objects.get().body_text
-        self.assertIn("Je suis Alex Équipe", body)
+        self.assertIn("C'est Alex Équipe", body)
         self.assertIn("ton dernier live sur les pagnes", body)
+
+    def test_the_final_invitation_is_sent_as_is_with_name_and_first_name_filled(self):
+        ok = self.send(template_key="invitation_essai", message=msg.TEMPLATES["invitation_essai"])
+        self.assertEqual(ok.status_code, 200)
+        stored = OutboundMessage.objects.get(template_key="invitation_essai")
+        self.assertTrue(stored.body_text.startswith("Bonjour Awa, c'est Alex Équipe de HayaFlash."))
+        self.assertNotIn("{", stored.body_text)
+        self.assertFalse(stored.partner.access_links.exists())  # pas de lien dans l'invitation
 
     def test_missing_first_name_is_refused(self):
         for name in ("", "  "):

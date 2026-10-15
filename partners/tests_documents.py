@@ -30,7 +30,10 @@ BLANK = {k: "" for k in FACTICE}
 LOCKED_HASHES = {
     ("trial_letter", "1.0"): "187ca2e0d84a84a4cf77eeb024c73f1143a6d8a6444380f84ada6b2a0583b019",
     ("trial_letter", "1.1"): "fa42e8d4e19121527aab44d5593898e39014c8694a50f26e8e4beb9409acb166",
+    ("trial_letter", "1.2"): "e1207c5a5baa80b033ae73215739bcc10a766157ffb93e3eae1eeee4a568f1eb",
     ("program_terms", "1.0"): "3084d462f872c77ace9ace8a5aea70283812d1ba46d78a2b98da970d8d7c55e6",
+    ("brief", "1.1"): "71707884c060ee058f49a36188f1a98f1502922491374b8afeb00a8f4d3bf52b",
+    ("brief", "1.2"): "e595d332a88c27683a1865000ba4f72c57bc70f585c4d287487c452a934e6c3a",
 }
 BANNED_RE = re.compile(r"parrain|filleul|recommand", re.IGNORECASE)
 
@@ -45,8 +48,10 @@ class RenderTests(SimpleTestCase):
         html = legal_docs.render_document("trial_letter", fake_partner())
         for expected in ("ENTREPRISE TEST SARL", "12 rue de Test, Bamako", "ML-BKO-2026-B-00000",
                          "Awa Diarra", "+22370000001", "Boutique Test", "contact@test.example",
-                         "le tribunal de commerce de Bamako", "1 000 000 FCFA"):
+                         "1 000 000 FCFA"):
             self.assertIn(expected, html)
+        # F-135 : la v1.2 n'a plus d'article « Droit applicable » : la juridiction n'y figure plus.
+        self.assertNotIn("le tribunal de commerce de Bamako", html)
         terms = legal_docs.render_document("program_terms", fake_partner())
         self.assertIn("ENTREPRISE TEST SARL", terms)
         self.assertIn("Article 8 bis", terms)
@@ -86,7 +91,7 @@ class RenderTests(SimpleTestCase):
     @override_settings(**FACTICE)
     def test_brief_is_a_draft_and_no_longer_shows_remaining_places(self):
         brief = legal_docs.render_brief(places=7)
-        self.assertIn("Places limitées, sélection à l'issue de la phase", brief)  # F-135
+        self.assertIn("Places limitées, sélection à l'issue de l'essai", brief)  # F-135
         self.assertNotIn("Il reste", brief)
         self.assertIn("ENTREPRISE TEST SARL", brief)
         self.assertEqual(legal_docs.BRIEF_STATUS, "brouillon")
@@ -105,9 +110,13 @@ class CompletenessTests(SimpleTestCase):
         self.assertIn("LEGAL_ENTITY_RCCM", legal_docs.missing_fields("program_terms"))
 
     def test_one_missing_value_is_enough(self):
+        # F-141 : la lettre v1.2 n'utilise plus la juridiction ; les conditions l'exigent toujours.
         with override_settings(**{**FACTICE, "LEGAL_JURISDICTION": "  "}):
+            self.assertFalse(legal_docs.is_complete("program_terms"))
+            self.assertEqual(legal_docs.missing_fields("program_terms"), ["LEGAL_JURISDICTION"])
+        with override_settings(**{**FACTICE, "LEGAL_ENTITY_RCCM": "  "}):
             self.assertFalse(legal_docs.is_complete("trial_letter"))
-            self.assertEqual(legal_docs.missing_fields("trial_letter"), ["LEGAL_JURISDICTION"])
+            self.assertEqual(legal_docs.missing_fields("trial_letter"), ["LEGAL_ENTITY_RCCM"])
 
     def test_acceptance_blocked_outside_dev_only(self):
         with override_settings(**BLANK, ENVIRONMENT="prod"):
@@ -222,7 +231,7 @@ class ClosingBlockTests(SimpleTestCase):
             "ENTREPRISE TEST SARL, société à responsabilité limitée unipersonnelle, "
             "RCCM ML-BKO-2026-B-00000, 12 rue de Test, Bamako. Version {}."
         )
-        versions = {"trial_letter": "1.1", "program_terms": "1.0", "brief": "1.1"}
+        versions = {"trial_letter": "1.2", "program_terms": "1.0", "brief": "1.2"}
         for doc_type in ("trial_letter", "program_terms", "brief"):
             html = self.render(doc_type)
             self.assertIn("Fin du document", html, doc_type)
@@ -232,7 +241,7 @@ class ClosingBlockTests(SimpleTestCase):
     @override_settings(**FACTICE)
     def test_closing_comes_after_the_last_article(self):
         letter = self.render("trial_letter")
-        self.assertLess(letter.index("7. Droit applicable"), letter.index("Fin du document"))
+        self.assertLess(letter.index("6. Données personnelles"), letter.index("Fin du document"))
         terms = self.render("program_terms")
         self.assertLess(terms.index("Article 14."), terms.index("Fin du document"))
 
@@ -315,14 +324,17 @@ class ClosingBlockTests(SimpleTestCase):
 
 class VersionLockTests(SimpleTestCase):
     def test_versions_are_declared(self):
-        self.assertEqual(legal_docs.TRIAL_LETTER_VERSION, "1.1")  # F-135 : la 1.0 reste publiée
+        self.assertEqual(legal_docs.TRIAL_LETTER_VERSION, "1.2")  # F-135 : les 1.0 et 1.1 restent publiées
         self.assertEqual(legal_docs.PROGRAM_TERMS_VERSION, "1.0")
 
     @override_settings(**FACTICE)
     def test_published_texts_never_change(self):
         for (doc_type, version), expected in LOCKED_HASHES.items():
             self.assertIn(version, legal_docs.PUBLISHED[doc_type])
-            html = legal_docs.render_document(doc_type, fake_partner(), version=version)
+            if doc_type == "brief":
+                html = legal_docs.render_brief(places=5, version=version)
+            else:
+                html = legal_docs.render_document(doc_type, fake_partner(), version=version)
             actual = legal_docs.sha256_of(legal_docs.canonical_text(html))
             self.assertEqual(
                 actual,

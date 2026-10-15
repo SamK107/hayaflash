@@ -50,15 +50,16 @@ def v1_0_letter(partner):
 
 @override_settings(**FACTICE)
 class PublishedVersionsTests(SimpleTestCase):
-    def test_the_current_letter_is_v1_1_and_the_terms_stay_v1_0(self):
-        self.assertEqual(legal_docs.TRIAL_LETTER_VERSION, "1.1")
-        self.assertEqual(legal_docs.DOCS["trial_letter"]["version"], "1.1")
+    def test_v1_1_stays_published_even_though_v1_2_is_now_current(self):
+        # La v1.1 a été fusionnée (PR #73) : elle reste publiée, rendable et verrouillée (F-135).
+        self.assertIn("1.1", legal_docs.PUBLISHED["trial_letter"])
         self.assertEqual(legal_docs.PROGRAM_TERMS_VERSION, "1.0")
 
-    def test_published_versions_table_lists_both_letters(self):
+    def test_published_versions_table_lists_every_letter(self):
         self.assertEqual(legal_docs.PUBLISHED["trial_letter"], {
             "1.0": "partners/legal/trial_letter_v1_0.html",
             "1.1": "partners/legal/trial_letter_v1_1.html",
+            "1.2": "partners/legal/trial_letter_v1_2.html",
         })
         self.assertEqual(
             legal_docs.PUBLISHED["program_terms"], {"1.0": "partners/legal/program_terms_v1_0.html"}
@@ -88,8 +89,6 @@ class LetterTextTests(SimpleTestCase):
         html = self.html()
         self.assertIn("lettre de phase d'évaluation. Version 1.1.", html)
         self.assertIn(LETTER_V1_1_ACK, html)
-        self.assertEqual(legal_docs.DOCS["trial_letter"]["ack"], LETTER_V1_1_ACK)
-        self.assertEqual(legal_docs.DOCS["trial_letter"]["label"], "Lettre d'évaluation")
 
     def test_text_speaks_of_an_evaluation_phase_not_a_trial(self):
         html = self.html()
@@ -134,38 +133,8 @@ class NewPartnerGetsV1_1Tests(TestCase):
         self.link, self.token = create_link(self.prospect, "accept", days=30)
         self.client = Client(enforce_csrf_checks=True)
 
-    def test_v1_1_is_proposed_to_a_new_partner(self):
-        self.assertEqual(pending_document(self.prospect), "trial_letter")
-        resp = self.client.get(reverse("partner_doc_page", args=[self.token]))
-        self.assertContains(resp, LETTER_V1_1_ACK)
-        self.assertContains(resp, "lettre de phase d'évaluation")
-        self.assertNotContains(resp, "version 1.0")
-
-    def test_online_acceptance_is_recorded_as_v1_1(self):
-        self.client.get(reverse("partner_doc_page", args=[self.token]))
-        csrf = self.client.cookies["csrftoken"].value
-        resp = self.client.post(
-            reverse("partner_doc_accept", args=[self.token]),
-            {"csrfmiddlewaretoken": csrf, "accept_terms": "1", "signer_name": "Awa Diarra"},
-        )
-        self.assertEqual(resp.status_code, 200)
-        acc = PartnerAcceptance.objects.get(partner=self.prospect)
-        self.assertEqual((acc.doc_type, acc.doc_version, acc.method), ("trial_letter", "1.1", "online_checkbox"))
-        self.assertIn("lettre de phase d'évaluation. Version 1.1.", acc.text_snapshot)
-        self.assertEqual(acc.text_sha256, legal_docs.sha256_of(acc.text_snapshot))
-
-    def test_written_acceptance_is_recorded_as_v1_1(self):
-        acc, created = accept_document(
-            self.prospect, "trial_letter", signer_name="Awa Diarra",
-            method="written_manual", manual_reference="Message WhatsApp du 03/10",
-        )
-        self.assertTrue(created)
-        self.assertEqual(acc.doc_version, "1.1")
-        self.assertEqual(acc.method, "written_manual")
-        self.assertTrue(has_valid_letter(self.prospect))
-
     def test_enum_label_is_the_evaluation_letter(self):
-        self.assertEqual(AcceptanceDocType.TRIAL_LETTER.label, "Lettre d'évaluation")
+        self.assertEqual(AcceptanceDocType.TRIAL_LETTER.label, "Lettre d'essai")  # F-135 : revenu à « essai » (0003)
 
 
 @override_settings(**FACTICE)
@@ -195,6 +164,19 @@ class ExistingV1_0StaysValidTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(PartnerAcceptance.objects.get(pk=acc.pk).doc_version, "1.0")
 
+    def test_a_v1_1_letter_is_valid_and_not_asked_again(self):
+        partner = make_partner(
+            code="OLD0005", phone="+22360050025", status="prospect", phase="none", accept=False
+        )
+        PartnerAcceptance.objects.create(
+            partner=partner, doc_type="trial_letter", doc_version="1.1",
+            text_snapshot="<p>Lettre v1.1</p>", text_sha256=LETTER_V1_1_SHA,
+            signer_name=partner.name, accepted_at=datetime(2026, 10, 14, tzinfo=timezone.utc),
+            method="written_manual", manual_reference="Fixture de test",
+        )
+        self.assertTrue(has_valid_letter(partner))
+        self.assertIsNone(pending_document(partner))
+
     def test_the_v1_0_text_is_still_renderable_for_the_lock(self):
         html = legal_docs.render_document("trial_letter", fake_partner(), version="1.0")
         self.assertIn("lettre d'essai. Version 1.0.", html)
@@ -219,10 +201,14 @@ class TermsAfterEitherLetterTests(TestCase):
 
     def test_terms_are_acceptable_after_a_v1_1_letter(self):
         partner = make_partner(
-            code="TRM0002", phone="+22360050032", status="prospect", phase="none", accept=False
+            code="TRM0002", phone="+22360050032", phase="trial", accept=False
         )
-        accept_document(partner, "trial_letter", signer_name="Awa")
-        partner.refresh_from_db()
+        PartnerAcceptance.objects.create(
+            partner=partner, doc_type="trial_letter", doc_version="1.1",
+            text_snapshot="<p>Lettre v1.1</p>", text_sha256=LETTER_V1_1_SHA,
+            signer_name=partner.name, accepted_at=datetime(2026, 10, 14, tzinfo=timezone.utc),
+            method="written_manual", manual_reference="Fixture de test",
+        )
         self.invite(partner)
         self.assertEqual(pending_document(partner), "program_terms")
         acc, created = accept_document(partner, "program_terms", signer_name="Awa")
@@ -233,7 +219,7 @@ class TermsAfterEitherLetterTests(TestCase):
 @override_settings(**FACTICE)
 class BriefAndConditionsMessageTests(TestCase):
     def test_brief_v1_1_has_no_remaining_places_counter(self):
-        html = legal_docs.render_brief(places=5)
+        html = legal_docs.render_brief(places=5, version="1.1")  # F-135 : texte publié, gardé tel quel
         self.assertIn("Places limitées, sélection à l'issue de la phase", html)
         self.assertNotIn("Il reste", html)
         self.assertNotIn("5 places", html)
@@ -248,13 +234,13 @@ class BriefAndConditionsMessageTests(TestCase):
 
     def test_conditions_message_no_longer_counts_places(self):
         text = msg.TEMPLATES["envoi_conditions"]
-        self.assertIn("Places limitées, sélection à l'issue de la phase", text)
+        # Remplacé par « l'issue de l'essai » avec la v1.2 (tests_letter_v1_2.py) ; le compteur reste absent.
+        self.assertIn("Places limitées, sélection à l'issue de", text)
         self.assertNotIn("Il reste", text)
         self.assertNotIn("{places}", text)
 
-    def test_visible_strings_say_evaluation_letter(self):
-        for key in ("invitation_essai", "envoi_lettre_essai"):
-            self.assertNotIn("lettre d'essai", msg.TEMPLATES[key])
-            self.assertIn("lettre d'évaluation", msg.TEMPLATES[key])
-        self.assertIn("lettre d'évaluation", msg.TEMPLATES["envoi_lettre_essai"])
-        self.assertEqual(msg.LABELS["envoi_lettre_essai"], "Envoi de la lettre d'évaluation")
+    def test_visible_strings_say_trial_letter_again_with_v1_2(self):
+        # F-135 (v1.2) : le vocabulaire « évaluation » de la v1.1 est abandonné ; l'invitation est remplacée
+        # (tests_letter_v1_2.py). Le modèle d'envoi de la lettre dit de nouveau « lettre d'essai ».
+        self.assertIn("lettre d'essai", msg.TEMPLATES["envoi_lettre_essai"])
+        self.assertEqual(msg.LABELS["envoi_lettre_essai"], "Envoi de la lettre d'essai")
