@@ -66,6 +66,17 @@ def _entries(partner: Partner):
     return CommissionEntry.objects.filter(referral__partner=partner)
 
 
+def waiting_validation(partner: Partner, period: str) -> int:
+    """Commissions encore « À valider » (jamais validées automatiquement), jusqu'à la fin du mois."""
+    _, end = period_bounds(period)
+    return (
+        _entries(partner)
+        .filter(status=CommissionStatus.PENDING, payment__paid_at__lt=end)
+        .aggregate(t=Sum("commission_fcfa"))["t"]
+        or 0
+    )
+
+
 def _unversed(partner: Partner, end: datetime):
     return _entries(partner).filter(
         status=CommissionStatus.VALIDATED, payout__isnull=True, payment__paid_at__lt=end
@@ -225,7 +236,11 @@ def statement_text(partner: Partner, period: str) -> str:
         )
         month_total += entry.commission_fcfa
     cumul = carried_over(partner, period)
-    lines += ["", f"Commission du mois : {fmt(month_total)} FCFA", f"Cumul non versé : {fmt(cumul)} FCFA"]
+    waiting = waiting_validation(partner, period)
+    cumul_line = f"Cumul non versé (commissions validées) : {fmt(cumul)} FCFA"
+    if waiting:
+        cumul_line += f", hors {fmt(waiting)} FCFA en attente de validation"
+    lines += ["", f"Commission du mois : {fmt(month_total)} FCFA", cumul_line]
 
     payout = Payout.objects.filter(partner=partner, period=period).first()
     if payout is not None and payout.status == PayoutStatus.PAID:
