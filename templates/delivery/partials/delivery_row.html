@@ -29,7 +29,7 @@
       <i data-lucide="mic" class="w-3 h-3"></i>Message vocal du client
     </p>
     <audio controls class="w-full h-8">
-      <source src="{{ row.delivery.audio_note.url }}" type="audio/webm">
+      <source src="{% url 'orders:seller_delivery_audio' row.delivery.id %}" type="audio/webm">
     </audio>
   </div>
   {% endif %}
