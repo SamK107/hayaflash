@@ -19,9 +19,9 @@ import re
 from django.conf import settings
 from django.template.loader import render_to_string
 
-TRIAL_LETTER_VERSION = "1.1"  # « lettre de phase d'évaluation » (F-135) ; la 1.0 « lettre d'essai » reste valide
+TRIAL_LETTER_VERSION = "1.2"  # F-135 : courante ; les 1.0 et 1.1 restent publiées, valides et verrouillées
 PROGRAM_TERMS_VERSION = "1.0"
-BRIEF_VERSION = "1.1"
+BRIEF_VERSION = "1.2"
 BRIEF_STATUS = "brouillon"  # le brief est informatif : ce n'est pas un document à accepter
 
 PLACEHOLDER = "(à renseigner)"
@@ -40,6 +40,9 @@ ALL_FIELDS = tuple(ENTITY_SETTINGS)
 # Le capital est FACULTATIF (entreprise individuelle) : exclu de la complétude, omis du texte s'il est vide.
 OPTIONAL_FIELDS = ("capital",)
 REQUIRED_FIELDS = tuple(k for k in ALL_FIELDS if k not in OPTIONAL_FIELDS)
+# F-141 : la complétude n'exige que les valeurs que le gabarit utilise. La lettre v1.2 n'a plus d'article
+# « Droit applicable » : elle n'exige plus la juridiction ; les conditions continuent de l'exiger.
+LETTER_FIELDS = tuple(k for k in REQUIRED_FIELDS if k != "jurisdiction")
 
 
 def _template(name: str, version: str) -> str:
@@ -51,9 +54,15 @@ PUBLISHED = {
     "trial_letter": {
         "1.0": _template("trial_letter", "1.0"),
         "1.1": _template("trial_letter", "1.1"),
+        "1.2": _template("trial_letter", "1.2"),
     },
     "program_terms": {
         "1.0": _template("program_terms", "1.0"),
+    },
+    # Brief informatif (pas de preuve d'acceptation) : ses versions sont aussi figées et verrouillées.
+    "brief": {
+        "1.1": _template("partner_brief", "1.1"),
+        "1.2": _template("partner_brief", "1.2"),
     },
 }
 
@@ -61,9 +70,9 @@ DOCS = {
     "trial_letter": {
         "version": TRIAL_LETTER_VERSION,
         "template": _template("trial_letter", TRIAL_LETTER_VERSION),
-        "label": "Lettre d'évaluation",
-        "fields": REQUIRED_FIELDS,
-        "ack": f"J'ai lu et j'accepte la lettre de phase d'évaluation version {TRIAL_LETTER_VERSION}",
+        "label": "Lettre d'essai",
+        "fields": LETTER_FIELDS,
+        "ack": f"J'ai lu et j'accepte la lettre d'essai version {TRIAL_LETTER_VERSION}",
     },
     "program_terms": {
         "version": PROGRAM_TERMS_VERSION,
@@ -119,9 +128,10 @@ def render_document(doc_type: str, partner, version: str | None = None) -> str:
     return render_to_string(template, {"entity": entity_context(), "partner": partner})
 
 
-def render_brief(*, places: int) -> str:
+def render_brief(*, places: int, version: str | None = None) -> str:
     # ``places`` reste fourni au gabarit mais le brief v1.1 ne l'affiche plus (F-135).
-    return render_to_string(BRIEF["template"], {"entity": entity_context(), "places": places})
+    template = BRIEF["template"] if version is None else PUBLISHED["brief"][version]
+    return render_to_string(template, {"entity": entity_context(), "places": places})
 
 
 def canonical_text(html: str) -> str:

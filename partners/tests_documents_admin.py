@@ -89,7 +89,7 @@ class ListTests(Base):
     def test_table_columns(self):
         self.acceptance(signer_name="Awa Diarra Traoré", ip_hash="b" * 16)
         resp = self.client.get(reverse("partners_documents"))
-        for expected in ("Awa Diarra", escape("Lettre d'évaluation"), "1.0", "Awa Diarra Traoré", "En ligne"):
+        for expected in ("Awa Diarra", escape("Lettre d'essai"), "1.0", "Awa Diarra Traoré", "En ligne"):
             self.assertContains(resp, expected)
         self.assertContains(resp, hashlib.sha256(b"<p>Texte</p>").hexdigest())
         self.assertContains(resp, "hf-p-scroll")
@@ -156,7 +156,7 @@ class BriefTests(Base):
     def test_brief_is_a_draft_with_remaining_places(self):
         resp = self.client.get(reverse("partners_brief"))
         self.assertContains(resp, "Brouillon")
-        self.assertContains(resp, "Places limitées, sélection à l'issue de la phase")
+        self.assertContains(resp, "Places limitées, sélection à l'issue de l'essai")
         self.assertNotContains(resp, "Il reste")
         self.assertContains(resp, "ENTREPRISE TEST SARL")
 
@@ -189,7 +189,7 @@ class LinkTests(Base):
         self.acceptance()
         html = self.client.get(reverse("partners_detail", args=[self.partner.pk])).content.decode()
         self.assertIn("Documents", html)
-        self.assertIn(escape("Lettre d'évaluation"), html)
+        self.assertIn(escape("Lettre d'essai"), html)
         self.assertIn("Générer un lien de consultation", html)
         self.assertIn("Enregistrer une acceptation écrite", html)
         prospect_html = self.client.get(reverse("partners_detail", args=[self.prospect.pk])).content.decode()
@@ -220,7 +220,7 @@ class WrittenAcceptanceTests(Base):
         self.assertTrue(AuditLog.objects.filter(action="partner.document_accepted").exists())
 
     def test_terms_start_the_contract(self):
-        # F-134 : la lettre d'évaluation est un prérequis. Le contrat démarre toujours à l'acceptation des
+        # F-134 : la lettre d'essai est un prérequis. Le contrat démarre toujours à l'acceptation des
         # conditions, mais seulement après celle de la lettre (voir tests_letter_prerequisite.py pour le refus).
         self.post(doc_type="trial_letter", accepted_on="2026-10-01")
         self.post(doc_type="program_terms")

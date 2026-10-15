@@ -210,9 +210,9 @@ class Command(BaseCommand):
         if not OutboundMessage.objects.filter(partner=prospect).exists():
             OutboundMessage.objects.create(
                 partner=prospect, phone_e164=prospect.phone, template_key="envoi_lettre_essai",
-                body_text="Voici la lettre d'évaluation à lire et accepter : (jeton non conservé)",
+                body_text="Voici la lettre d'essai à lire et accepter : (jeton non conservé)",
             )
-        self.stdout.write(f"Lien de démonstration (lettre d'évaluation du prospect) : /partenaires/d/{DEMO_TOKEN}/")
+        self.stdout.write(f"Lien de démonstration (lettre d'essai du prospect) : /partenaires/d/{DEMO_TOKEN}/")
 
     @staticmethod
     def _ensure_activity(seller, now):

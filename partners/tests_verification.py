@@ -24,7 +24,7 @@ def verify_path(code):
 
 
 class Accepted(Base):
-    """Une lettre d'évaluation acceptée, page finale rouverte."""
+    """Une lettre d'essai acceptée, page finale rouverte."""
 
     def setUp(self):
         super().setUp()
@@ -50,7 +50,7 @@ class SealTests(Accepted):
         date = f"{day.day:02d} {MONTHS[day.month - 1]} {day.year}"
         self.assertIn("HAYAFLASH · ENTREPRISE TEST SARL", seal)
         self.assertIn(f"ACCEPTÉ · {date}", seal)
-        self.assertIn("v1.1", seal)
+        self.assertIn("v1.2", seal)
         self.assertIn(self.acc.reference, seal)
 
     def test_slight_rotation_between_two_and_three_degrees(self):
@@ -225,8 +225,8 @@ class VerifyPageTests(Accepted):
         self.assertEqual(resp.status_code, 200)
         html = resp.content.decode()
         self.assertIn("Document authentique", html)
-        self.assertIn("Lettre d&#x27;évaluation", html)
-        self.assertIn("<dt>Version</dt><dd>1.1</dd>", html)
+        self.assertIn("Lettre d&#x27;essai", html)
+        self.assertIn("<dt>Version</dt><dd>1.2</dd>", html)
         self.assertIn("heure de Bamako (UTC)", html)
         self.assertIn(self.acc.accepted_at_utc.strftime("%d/%m/%Y"), html)
         self.assertIn(self.acc.text_sha256, html)  # empreinte complète

@@ -35,20 +35,14 @@ VAR_RE = re.compile(r"\{([^{}]+)\}")
 
 TEMPLATES = {
     "invitation_essai": (
-        "Bonjour {prénom},\n"
-        "J'ai suivi ton live, bravo pour {détail à compléter par le staff}.\n"
-        "Je suis {ton nom}, j'ai créé HayaFlash : une application malienne qui range les commandes "
-        "de tes ventes en direct. Le client commande par un lien, avec son adresse, ou un vocal, ou "
-        "sa position. Tu vois tout au même endroit, étape par étape.\n"
-        "Je cherche quelques vendeurs pour l'essayer gratuitement pendant 30 jours (plan Pro offert), "
-        "avec un accompagnement de ma part. En échange, je te demande un avis honnête chaque semaine.\n"
-        "Si tu veux, je t'envoie la lettre d'évaluation à lire et accepter en ligne : {lien}\n"
-        "Ça t'intéresse ?"
+        "Bonjour {prénom}, c'est {ton nom} de HayaFlash. Je propose à quelques vendeurs de live un essai "
+        "de 30 jours : accès gratuit au plan Pro et accompagnement pour votre première vente. Si cela vous "
+        "intéresse, je vous envoie la lettre à lire et à accepter. Répondez-moi ici."
     ),
-    "envoi_lettre_essai": "Voici la lettre d'évaluation à lire et accepter : {lien}",
+    "envoi_lettre_essai": "Voici la lettre d'essai à lire et accepter : {lien}",
     "envoi_conditions": (
         "Voici les conditions du programme partenaire : {lien}. "
-        "Places limitées, sélection à l'issue de la phase."
+        "Places limitées, sélection à l'issue de l'essai."
     ),
     "relance": (
         "Bonjour {prénom}, je reviens vers toi au sujet de HayaFlash. "
@@ -57,7 +51,7 @@ TEMPLATES = {
 }
 LABELS = {
     "invitation_essai": "Invitation à l'essai",
-    "envoi_lettre_essai": "Envoi de la lettre d'évaluation",
+    "envoi_lettre_essai": "Envoi de la lettre d'essai",
     "envoi_conditions": "Envoi des conditions du programme",
     "relance": "Relance (une seule, 3 jours après)",
 }
@@ -148,13 +142,13 @@ def prepare(
         known = Partner.objects.filter(phone=phone).first()
         if known is None:
             raise ValidationError(
-                "Ce numéro n'est pas encore connu : envoyez d'abord la lettre d'évaluation "
-                "(modèle « Envoi de la lettre d'évaluation »). Les conditions ne s'envoient qu'après son acceptation."
+                "Ce numéro n'est pas encore connu : envoyez d'abord la lettre d'essai "
+                "(modèle « Envoi de la lettre d'essai »). Les conditions ne s'envoient qu'après son acceptation."
             )
         if not has_valid_letter(known):
             raise ValidationError(
-                "Ce partenaire n'a pas encore accepté la lettre d'évaluation : envoyez-la d'abord "
-                "(modèle « Envoi de la lettre d'évaluation »). Les conditions ne s'envoient qu'après son acceptation."
+                "Ce partenaire n'a pas encore accepté la lettre d'essai : envoyez-la d'abord "
+                "(modèle « Envoi de la lettre d'essai »). Les conditions ne s'envoient qu'après son acceptation."
             )
     has_link = "{lien}" in text
     check = _fill(text, {**values, "lien": PREVIEW_LINK})
