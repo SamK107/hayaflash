@@ -151,7 +151,16 @@ class SettingsTests(AudioBase):
         for env in ("dev", "staging", "prod"):
             out = subprocess.run(
                 [sys.executable, "-c", code],
-                env={**os.environ, "DJANGO_SETTINGS_MODULE": "config.settings.base", "ENVIRONMENT": env, "DEBUG": "False", "SECRET_KEY": "x" * 40},
+                # Hermétique : staging et production exigent une base (DATABASE_URL), que le .env local fournit mais
+                # pas la CI ; aucune connexion n'est ouverte, les réglages sont seulement chargés.
+                env={
+                    **os.environ,
+                    "DJANGO_SETTINGS_MODULE": "config.settings.base",
+                    "ENVIRONMENT": env,
+                    "DEBUG": "False",
+                    "SECRET_KEY": "x" * 40,
+                    "DATABASE_URL": "postgres://hf:hf@localhost:5432/hf",
+                },
                 cwd=settings.BASE_DIR, capture_output=True, text=True, check=True, timeout=120,
             ).stdout
             results[env] = json.loads(out.strip().splitlines()[-1])
