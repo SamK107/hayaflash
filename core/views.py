@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -456,6 +457,13 @@ def _legal_context() -> dict:
         "cgu_version": LEGAL_CGU_VERSION,
         "privacy_version": LEGAL_PRIVACY_VERSION,
         "legal_last_updated": LEGAL_LAST_UPDATED,
+        # Identite de l'editeur et de l'hebergeur : lue dans les reglages, jamais en dur.
+        "legal_entity_name": settings.LEGAL_ENTITY_NAME,
+        "legal_entity_address": settings.LEGAL_ENTITY_ADDRESS,
+        "legal_entity_rccm": settings.LEGAL_ENTITY_RCCM,
+        "legal_host_name": settings.LEGAL_HOST_NAME,
+        "legal_host_address": settings.LEGAL_HOST_ADDRESS,
+        "legal_host_phone": settings.LEGAL_HOST_PHONE,
     }
 
 

@@ -416,6 +416,10 @@ LEGAL_ENTITY_ADDRESS = os.environ.get("LEGAL_ENTITY_ADDRESS", "").strip()
 LEGAL_ENTITY_RCCM = os.environ.get("LEGAL_ENTITY_RCCM", "").strip()
 LEGAL_ENTITY_CONTACT = os.environ.get("LEGAL_ENTITY_CONTACT", "").strip()
 LEGAL_JURISDICTION = os.environ.get("LEGAL_JURISDICTION", "").strip()
+# Hebergeur affiche dans les mentions legales (vide = mention generique, jamais de valeur en dur)
+LEGAL_HOST_NAME = os.environ.get("LEGAL_HOST_NAME", "").strip()
+LEGAL_HOST_ADDRESS = os.environ.get("LEGAL_HOST_ADDRESS", "").strip()
+LEGAL_HOST_PHONE = os.environ.get("LEGAL_HOST_PHONE", "").strip()
 # F-59 : delai (heures) apres lequel une commande jamais confirmee est annulee et
 # son stock restitue (decision du mainteneur, 48 h). Lu par orders/services/expiration.py.
 ORDER_PENDING_EXPIRY_HOURS = 48

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import re
 from datetime import timedelta
+from pathlib import Path
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase, modify_settings, override_settings
 from django.urls import reverse
@@ -193,3 +196,124 @@ class AcceptanceIpTests(TestCase):
             "/", REMOTE_ADDR="172.18.0.5", HTTP_X_REAL_IP="41.73.1.1"
         )
         self.assertEqual(acceptance_ip(request), "41.73.1.1")
+
+
+# ── F-107 : identité de l'éditeur (entreprise individuelle) dans les pages légales ──
+
+IDENTITE = {
+    "LEGAL_ENTITY_NAME": "EXPLOITATION-TEST",
+    "LEGAL_ENTITY_RCCM": "MA.TST.2099.A.00001",
+    "LEGAL_ENTITY_ADDRESS": "Quartier Test, Commune Z, Ville-Test, Pays",
+    "LEGAL_HOST_NAME": "HEBERGEUR TEST SA",
+    "LEGAL_HOST_ADDRESS": "1 rue de l'Hôte, 99999 Hostville",
+    "LEGAL_HOST_PHONE": "+99 (0)9 99 99 99 99",
+}
+ANCIENNE_IDENTITE = ("SUARL", "ACI 2000", "BKO.2022.A.4291")
+
+
+def _section(html: str, start_id: str, end_id: str) -> str:
+    match = re.search(rf'id="{start_id}"(.*?)id="{end_id}"', html, re.DOTALL)
+    assert match, (start_id, end_id)
+    return match.group(1)
+
+
+@override_settings(**IDENTITE)
+class LegalIdentityTests(TestCase):
+    def get(self, name: str) -> str:
+        return self.client.get(reverse(name)).content.decode()
+
+    def test_no_page_mentions_the_old_identity(self):
+        for name in ("legal_notice", "legal_privacy", "legal_terms"):
+            html = self.get(name)
+            for old in ANCIENNE_IDENTITE:
+                with self.subTest(page=name, old=old):
+                    self.assertNotIn(old, html)
+
+    def test_notice_reads_entity_from_settings(self):
+        html = self.get("legal_notice")
+        editeur = _section(html, "editeur", "publication")
+        self.assertIn("EXPLOITATION-TEST", editeur)
+        self.assertIn("MA.TST.2099.A.00001", editeur)
+        self.assertIn("Quartier Test, Commune Z, Ville-Test, Pays", editeur)
+        self.assertIn("entreprise individuelle", editeur)
+        self.assertIn("sans capital social", editeur)
+        self.assertNotIn("société", editeur.lower())
+
+    @override_settings(LEGAL_ENTITY_CAPITAL="1 000 000 FCFA")
+    def test_notice_never_shows_a_share_capital(self):
+        editeur = _section(self.get("legal_notice"), "editeur", "publication")
+        self.assertNotIn("1 000 000", editeur)
+
+    def test_publication_director_is_the_company_not_a_person(self):
+        publication = _section(self.get("legal_notice"), "publication", "contact")
+        self.assertIn(
+            "EXPLOITATION-TEST, entreprise individuelle, éditrice de HayaFlash", publication
+        )
+        self.assertNotIn("équipe", publication)
+
+    def test_notice_shows_host_from_settings(self):
+        hebergement = _section(self.get("legal_notice"), "hebergement", "documents")
+        self.assertIn("HEBERGEUR TEST SA", hebergement)
+        self.assertIn("1 rue de l&#x27;Hôte, 99999 Hostville", hebergement)
+        self.assertIn("+99 (0)9 99 99 99 99", hebergement)
+
+    @override_settings(LEGAL_HOST_NAME="", LEGAL_HOST_ADDRESS="", LEGAL_HOST_PHONE="")
+    def test_notice_without_host_settings_stays_valid_and_blank_free(self):
+        response = self.client.get(reverse("legal_notice"))
+        self.assertEqual(response.status_code, 200)
+        hebergement = _section(response.content.decode(), "hebergement", "documents")
+        self.assertNotIn("Tél", hebergement)
+        self.assertNotIn("None", hebergement)
+
+    @override_settings(LEGAL_ENTITY_RCCM="", LEGAL_ENTITY_ADDRESS="")
+    def test_notice_with_missing_values_does_not_crash_nor_show_empty_rows(self):
+        response = self.client.get(reverse("legal_notice"))
+        self.assertEqual(response.status_code, 200)
+        editeur = _section(response.content.decode(), "editeur", "publication")
+        self.assertNotIn("RCCM", editeur)
+        self.assertNotIn("Siège", editeur)
+
+    def test_no_civil_name_nor_phone_in_notice(self):
+        """Décision fondateur (F-143) : ni nom civil ni téléphone de l'exploitant."""
+        html = self.get("legal_notice")
+        editeur = _section(html, "editeur", "contact")
+        self.assertNotIn("Tél", editeur)
+        self.assertNotIn("+", editeur)
+
+    def test_privacy_and_terms_name_the_entity_from_settings(self):
+        privacy = self.get("legal_privacy")
+        terms = self.get("legal_terms")
+        self.assertIn("EXPLOITATION-TEST, entreprise individuelle", privacy)
+        self.assertIn("EXPLOITATION-TEST, entreprise individuelle", terms)
+
+    def test_privacy_recipients_mention_a_host_established_in_france(self):
+        destinataires = _section(self.get("legal_privacy"), "destinataires", "conservation")
+        self.assertIn("hébergeur établi en France", destinataires)
+        self.assertNotRegex(destinataires, r"serveur[s]? (est|sont|situé|localisé)")
+
+    def test_privacy_retention_section_is_untouched(self):
+        conservation = _section(self.get("legal_privacy"), "conservation", "droits")
+        self.assertIn("dix ans, droit comptable OHADA", conservation)
+        self.assertIn("cinq ans, délai de prescription du droit commercial OHADA", conservation)
+
+
+class LegalHostSettingsTests(TestCase):
+    KEYS = ("LEGAL_HOST_NAME", "LEGAL_HOST_ADDRESS", "LEGAL_HOST_PHONE")
+
+    def test_settings_exist_in_test_settings(self):
+        for key in self.KEYS:
+            self.assertTrue(hasattr(settings, key), key)
+
+    def test_base_defaults_are_empty(self):
+        import importlib
+        import os
+
+        base = importlib.import_module("config.settings.base")
+        for key in self.KEYS:
+            expected = os.environ.get(key, "").strip()
+            self.assertEqual(getattr(base, key), expected, key)
+
+    def test_env_example_lists_host_variables(self):
+        text = (Path(settings.BASE_DIR) / ".env.example").read_text(encoding="utf-8")
+        for key in self.KEYS:
+            self.assertRegex(text, rf"(?m)^{key}=$", key)
