@@ -135,11 +135,60 @@ class RegisterAttributionTests(TestCase):
         signup(self.client, partner_code="BOB2026")
         self.assertEqual(self.referral_of("+22370000201").partner, other)
 
-    def test_typed_invalid_code_wins_over_valid_cookie_and_attributes_nothing(self):
+    def test_typed_invalid_code_falls_back_on_the_valid_cookie(self):
+        # F-133 : ce test affirmait « code saisi invalide > cookie valide = aucune attribution ». La règle
+        # devient « code saisi valide > cookie valide > rien » : un code saisi invalide ou inéligible est
+        # ignoré et le cookie du lien d'origine sert de repli (le visiteur ne voit aucune différence).
         self.client.cookies["hf_ref"] = "AWA2026"
         resp = signup(self.client, partner_code="NOSUCH1")
         self.assertEqual(resp.status_code, 302)
+        ref = self.referral_of("+22370000201")
+        self.assertEqual((ref.partner, ref.source), (self.partner, "link"))
+
+    def test_typed_ineligible_code_falls_back_on_the_valid_cookie(self):
+        make_partner(code="PAUSE01", phone="+22360000011", status="paused")
+        make_partner(code="FREE001", phone="+22360000013", status="slot_released")
+        expired = make_partner(code="OLD0001", phone="+22360000014")
+        Partner.objects.filter(pk=expired.pk).update(contract_end=timezone.localdate() - timedelta(days=1))
+        for i, code in enumerate(("PAUSE01", "FREE001", "OLD0001", "@@@", "x" * 40)):
+            with self.subTest(code=code):
+                phone = f"+2237000050{i}"
+                self.client.cookies["hf_ref"] = "AWA2026"
+                resp = signup(self.client, phone=phone, partner_code=code)
+                self.assertEqual(resp.status_code, 302)
+                ref = self.referral_of(phone)
+                self.assertEqual((ref.partner, ref.source), (self.partner, "link"))
+                self.client.logout()
+
+    def test_typed_valid_code_still_wins_over_a_valid_cookie(self):
+        other = make_partner(code="BOB2026", phone="+22360000003")
+        self.client.cookies["hf_ref"] = "AWA2026"
+        signup(self.client, partner_code="BOB2026")
+        ref = self.referral_of("+22370000201")
+        self.assertEqual((ref.partner, ref.source), (other, "code"))
+
+    def test_invalid_typed_code_and_invalid_cookie_attribute_nothing(self):
+        self.client.cookies["hf_ref"] = "NOSUCH2"
+        resp = signup(self.client, partner_code="NOSUCH1")
+        self.assertEqual(resp.status_code, 302)
         self.assertIsNone(self.referral_of("+22370000201"))
+
+    def test_typed_code_of_the_seller_own_partner_account_falls_back_on_the_cookie(self):
+        # Auto-recommandation refusée pour le code saisi : le cookie d'un autre partenaire sert de repli.
+        mine = make_partner(code="ME00001", phone="+22370000201")
+        self.client.cookies["hf_ref"] = "AWA2026"
+        signup(self.client, partner_code=mine.code)
+        ref = self.referral_of("+22370000201")
+        self.assertEqual(ref.partner, self.partner)
+
+    def test_the_response_does_not_reveal_the_fallback(self):
+        results = []
+        for i, (typed, cookie) in enumerate((("NOSUCH1", "AWA2026"), ("NOSUCH1", "NOSUCH2"), ("AWA2026", "AWA2026"))):
+            self.client.cookies["hf_ref"] = cookie
+            resp = signup(self.client, phone=f"+2237000060{i}", partner_code=typed)
+            results.append((resp.status_code, resp["Location"], resp.content))
+            self.client.logout()
+        self.assertEqual(len(set(results)), 1)
 
     def test_signup_without_code_is_unchanged(self):
         resp = signup(self.client)

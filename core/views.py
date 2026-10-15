@@ -197,10 +197,9 @@ def register_view(request):
         password2 = request.POST.get("password2", "")
         business_name = request.POST.get("business_name", "").strip()
         accept_terms = bool(request.POST.get("accept_terms"))
-        # Programme partenaires : le champ saisi l'emporte sur le cookie hf_ref.
+        # Programme partenaires (F-133) : code saisi valide > cookie hf_ref valide > rien.
         typed_code = request.POST.get("partner_code", "").strip()
-        referral_code = typed_code or request.COOKIES.get(partner_attribution.COOKIE_NAME, "")
-        referral_source = "code" if typed_code else "link"
+        cookie_referral_code = request.COOKIES.get(partner_attribution.COOKIE_NAME, "")
 
         form_data = {
             "partner_code": typed_code,
@@ -269,11 +268,11 @@ def register_view(request):
                     record_legal_acceptances(user, request)
                     # Meme transaction que le compte ; ne leve jamais, ne change
                     # rien a la reponse (code valide ou non).
-                    partner_attribution.attribute_referral(
+                    partner_attribution.attribute_registration(
                         seller=user.seller_profile,
-                        partner_code=referral_code,
+                        typed_code=typed_code,
+                        cookie_code=cookie_referral_code,
                         signup_phone=phone,
-                        source=referral_source,
                         ip_hash=partner_attribution.request_ip_hash(request),
                     )
                 login(request, user, backend="accounts.backends.PhoneAuthBackend")
