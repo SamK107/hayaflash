@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import re
 from datetime import timedelta
+from pathlib import Path
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase, modify_settings, override_settings
 from django.urls import reverse
@@ -196,11 +199,6 @@ class AcceptanceIpTests(TestCase):
 
 
 # ── F-107 : identité de l'éditeur (entreprise individuelle) dans les pages légales ──
-
-import re
-from pathlib import Path
-
-from django.conf import settings
 
 IDENTITE = {
     "LEGAL_ENTITY_NAME": "EXPLOITATION-TEST",
