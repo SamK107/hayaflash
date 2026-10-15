@@ -41,6 +41,10 @@ else:
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
+    # F-109 : le jeton des liens privés (/partenaires/d/<jeton>/) ne doit jamais figurer dans un journal.
+    "filters": {
+        "mask_private_tokens": {"()": "core.logging_mask.MaskPrivateTokensFilter"},
+    },
     "formatters": {
         "verbose": {
             "format": "{levelname} {asctime} {module} {process:d} {message}",
@@ -55,6 +59,7 @@ LOGGING = {
         "console": {
             "class": "logging.StreamHandler",
             "formatter": "verbose",
+            "filters": ["mask_private_tokens"],
         },
     },
     "root": {"handlers": ["console"], "level": "INFO"},

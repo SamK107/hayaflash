@@ -76,5 +76,6 @@ CMD ["sh", "-c", "gunicorn config.wsgi:application \
   --timeout 120 \
   --keep-alive 5 \
   --log-level info \
+  --logger-class config.gunicorn_logging.MaskedLogger \
   --access-logfile - \
   --error-logfile -"]

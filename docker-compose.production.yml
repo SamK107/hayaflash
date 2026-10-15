@@ -93,6 +93,7 @@ services:
         --timeout 60
         --max-requests 1000
         --max-requests-jitter 100
+        --logger-class config.gunicorn_logging.MaskedLogger
         --access-logfile -
         --error-logfile -
     expose:
