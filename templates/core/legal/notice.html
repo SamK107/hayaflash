@@ -20,26 +20,26 @@
 </nav>
 
 <h2 id="editeur">1. Éditeur du site</h2>
-<p>HayaFlash est édité par ABEXPERTISES SUARL.</p>
+<p>HayaFlash est édité par {{ legal_entity_name }}, entreprise individuelle.</p>
 <dl>
   <dt>Forme juridique</dt>
-  <dd>Société unipersonnelle à responsabilité limitée (SUARL)</dd>
-  <dt>Siège social</dt>
-  <dd>Bamako, ACI 2000</dd>
-  <dt>RCCM</dt>
-  <dd>BKO.2022.A.4291</dd>
+  <dd>Entreprise individuelle, sans capital social</dd>
+  {% if legal_entity_address %}<dt>Siège</dt>
+  <dd>{{ legal_entity_address }}</dd>{% endif %}
+  {% if legal_entity_rccm %}<dt>RCCM</dt>
+  <dd>{{ legal_entity_rccm }}</dd>{% endif %}
   <dt>NIF</dt>
   <dd>0861566188</dd>
 </dl>
 
 <h2 id="publication">2. Directeur de la publication</h2>
-<p>L'équipe HayaFlash</p>
+<p>{{ legal_entity_name }}, entreprise individuelle, éditrice de HayaFlash</p>
 
 <h2 id="contact">3. Contact</h2>
 <p>L'équipe HayaFlash : <a href="mailto:contact@hayaflash.com">contact@hayaflash.com</a></p>
 
 <h2 id="hebergement">4. Hébergement</h2>
-<p>Le site est hébergé par un prestataire d'hébergement technique.</p>
+{% if legal_host_name %}<p>Le site est hébergé par {{ legal_host_name }}{% if legal_host_address %}, {{ legal_host_address }}{% endif %}.{% if legal_host_phone %} Tél. : {{ legal_host_phone }}{% endif %}</p>{% else %}<p>Le site est hébergé par un prestataire d'hébergement technique.</p>{% endif %}
 
 <h2 id="documents">5. Autres documents</h2>
 <ul>
