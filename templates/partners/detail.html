@@ -15,7 +15,7 @@
       <span>Code : <strong>{{ partner.code }}</strong></span>
       <span>Lien : /r/{{ partner.code }}/</span>
       <span>Contrat : {{ partner.contract_start|date:"d/m/Y" }} au {{ partner.contract_end|date:"d/m/Y" }}</span>
-      <span>Commission : {{ partner.commission_percent }} %</span>
+      <span>Commission : {{ partner.commission_percent }} %{% if partner.phase == 'none' or partner.phase == 'trial' %} (applicable après acceptation des conditions du programme){% endif %}</span>
       <span>{{ partner.get_kind_display }}</span>
     </p>
   </div>
@@ -39,7 +39,7 @@
     <h2 class="hf-p-section-title">Documents</h2>
     <p class="hf-p-meta">
       <span>Phase : {{ partner.get_phase_display }}</span>
-      {% if partner.trial_end %}<span>Essai jusqu'au {{ partner.trial_end|date:"d/m/Y" }}</span>{% endif %}
+      {% if partner.trial_end and partner.phase != 'contract' %}<span>Essai jusqu'au {{ partner.trial_end|date:"d/m/Y" }}</span>{% endif %}
       {% if partner.cite_shop_consent %}<span>Autorise à citer sa boutique</span>{% endif %}
       {% if pending_doc %}<span class="hf-p-pill hf-p-pill--amber">En attente : {{ pending_doc }}</span>{% endif %}
     </p>

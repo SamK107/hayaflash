@@ -90,6 +90,26 @@ def _create_referral(*, partner, seller, source, ip_hash) -> Referral:
     return referral
 
 
+def attribute_registration(
+    *, seller, typed_code, cookie_code, signup_phone, ip_hash: str = ""
+) -> Referral | None:
+    """Règle d'inscription (F-133) : code saisi valide > cookie ``hf_ref`` valide > rien.
+
+    Un code saisi invalide ou inéligible (inconnu, en pause, expiré, place libérée, auto-recommandation)
+    est ignoré et le cookie du lien d'origine sert de repli. Rien n'est signalé au visiteur. Ne lève jamais.
+    """
+    referral = None
+    if (typed_code or "").strip():
+        referral = attribute_referral(
+            seller=seller, partner_code=typed_code, signup_phone=signup_phone, source="code", ip_hash=ip_hash
+        )
+    if referral is None and (cookie_code or "").strip():
+        referral = attribute_referral(
+            seller=seller, partner_code=cookie_code, signup_phone=signup_phone, source="link", ip_hash=ip_hash
+        )
+    return referral
+
+
 def attribute_referral(
     *, seller, partner_code, signup_phone, source: str = "link", ip_hash: str = ""
 ) -> Referral | None:

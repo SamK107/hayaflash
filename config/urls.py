@@ -1,8 +1,11 @@
+import re
+
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.sitemaps.views import sitemap
-from django.urls import include, path
+from django.http import HttpResponseNotFound
+from django.urls import include, path, re_path
 from django.views.generic import RedirectView, TemplateView
 
 from config.api_urls import health
@@ -42,6 +45,13 @@ urlpatterns = [
     path("", include("partners.urls")),
     path("", include("analytics.urls")),
     path("", include("core.urls")),
+] + [
+    # E4 : en développement, /media/ est servi par Django ; les notes vocales n'y sont jamais accessibles en direct
+    # (en production Nginx refuse /media/delivery/audio/ et la vue authentifiée seller_delivery_audio les sert).
+    re_path(
+        r"^" + re.escape(settings.MEDIA_URL.lstrip("/")) + r"delivery/audio/",
+        lambda request, *args, **kwargs: HttpResponseNotFound(),
+    ),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:

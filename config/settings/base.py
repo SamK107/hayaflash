@@ -41,6 +41,10 @@ else:
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
+    # F-109 : le jeton des liens privés (/partenaires/d/<jeton>/) ne doit jamais figurer dans un journal.
+    "filters": {
+        "mask_private_tokens": {"()": "core.logging_mask.MaskPrivateTokensFilter"},
+    },
     "formatters": {
         "verbose": {
             "format": "{levelname} {asctime} {module} {process:d} {message}",
@@ -55,6 +59,7 @@ LOGGING = {
         "console": {
             "class": "logging.StreamHandler",
             "formatter": "verbose",
+            "filters": ["mask_private_tokens"],
         },
     },
     "root": {"handlers": ["console"], "level": "INFO"},
@@ -337,6 +342,11 @@ MEDIA_ROOT = (
     if (os.environ.get("MEDIA_ROOT") or "").strip()
     else BASE_DIR / "media"
 )
+# E4 : les notes vocales des clients (delivery/audio/) ne sont lisibles que par une vue authentifiée du vendeur
+# propriétaire. Staging et production : Nginx sert le fichier (X-Accel-Redirect vers /_protected_media/) ;
+# développement : Django (FileResponse). Aucune variable d'environnement : dérivé de ENVIRONMENT.
+PROTECTED_MEDIA_X_ACCEL_REDIRECT = ENVIRONMENT in ("staging", "prod")
+PROTECTED_MEDIA_URL_PREFIX = "/_protected_media/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "accounts.User"

@@ -155,6 +155,8 @@ PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 DEFAULT_FILE_STORAGE = "django.core.files.storage.InMemoryStorage"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media_test"
+PROTECTED_MEDIA_X_ACCEL_REDIRECT = False  # miroir de base.py en développement
+PROTECTED_MEDIA_URL_PREFIX = "/_protected_media/"
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"

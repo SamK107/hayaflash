@@ -55,6 +55,11 @@ urlpatterns = [
         name="seller_deliveries_list",
     ),
     path(
+        "seller/deliveries/<uuid:delivery_id>/audio/",
+        delivery_views.seller_delivery_audio,
+        name="seller_delivery_audio",
+    ),
+    path(
         "seller/deliveries/<uuid:delivery_id>/action/",
         delivery_views.seller_delivery_action,
         name="seller_delivery_action",

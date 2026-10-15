@@ -227,18 +227,18 @@ class StatementTests(Base):
 
     def test_cumulative_and_reference_after_payment(self):
         text = statement_text(self.partner, "2026-10")
-        self.assertIn("Cumul non versé : 2 079 FCFA", text)
+        self.assertIn("Cumul non versé (commissions validées) : 2 079 FCFA", text)  # F-129 : libellé précisé
         payout = build_payout(self.partner, "2026-10")
         mark_paid(payout, "OM-9")
         text = statement_text(self.partner, "2026-10")
         self.assertIn("OM-9", text)
-        self.assertIn("Cumul non versé : 0 FCFA", text)
+        self.assertIn("Cumul non versé (commissions validées) : 0 FCFA", text)  # F-129 : libellé précisé
 
     def test_below_minimum_statement_shows_carry_over(self):
         CommissionEntry.objects.all().delete()
         self.entry(seller=self.s1, commission=800)
         text = statement_text(self.partner, "2026-10")
-        self.assertIn("Cumul non versé : 800 FCFA", text)
+        self.assertIn("Cumul non versé (commissions validées) : 800 FCFA", text)  # F-129 : libellé précisé
         self.assertIn("2 000 FCFA", text)  # minimum de versement rappelé
 
     def test_anonymous_ids_are_stable_across_months(self):

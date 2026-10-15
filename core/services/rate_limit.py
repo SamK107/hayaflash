@@ -4,7 +4,7 @@ Principe : ne jamais bloquer un vrai vendeur a tort.
 - fail-open : si le cache est indisponible (Redis tombe), on journalise et on
   laisse passer ;
 - cles prefixees ``rl:`` ; un numero de telephone n'apparait jamais en clair
-  dans une cle (sha256 tronque, voir ``phone_key``).
+  dans une cle (HMAC-SHA256 tronque, voir ``phone_key``).
 
 Modele de reference : ``orders/services/client_order.py``
 (``enforce_public_order_rate_limit``), lu mais ni importe ni modifie.
@@ -34,11 +34,19 @@ ORDER_RATE_LIMIT_MESSAGE = "Trop de commandes avec ce numéro. Réessayez dans q
 
 
 def _phone_digest(phone: str | None) -> str:
-    return hashlib.sha256((phone or "").encode("utf-8")).hexdigest()[:16]
+    """Condensat SALE d'un numero : HMAC-SHA256 avec la cle secrete de Django, tronque a 16 hex (F-98).
+
+    Un numero malien tient sur 8 chiffres : un SHA-256 sans cle se retrouve par enumeration. Meme cle que
+    ``ip_fingerprint`` (SECRET_KEY, prefixe de domaine ``phone:``) ; en staging/production elle est exigee au
+    demarrage, et Django refuse une cle vide (ImproperlyConfigured) : jamais de condensat calcule sans cle.
+    Changer SECRET_KEY rend les anciennes empreintes incomparables (et remet les compteurs de limitation a zero).
+    """
+    mac = hmac.new(settings.SECRET_KEY.encode("utf-8"), f"phone:{phone or ''}".encode("utf-8"), hashlib.sha256)
+    return mac.hexdigest()[:16]
 
 
 def phone_fingerprint(phone: str | None) -> str:
-    """Empreinte ``tel:<sha256 tronque>`` d'un numero, pour les journaux (F-36).
+    """Empreinte ``tel:<hmac-sha256 tronque>`` d'un numero, pour les journaux (F-36, F-98).
 
     A utiliser dans tout ``logger.*`` / ``print`` a la place du numero : meme
     empreinte que dans ``phone_key``, donc un incident se recoupe avec les
@@ -60,7 +68,7 @@ def ip_fingerprint(ip: str | None) -> str:
 
 
 def phone_key(scope: str, normalized_phone: str) -> str:
-    """Cle ``<scope>:phone:<sha256 tronque>`` : jamais le numero en clair."""
+    """Cle ``<scope>:phone:<hmac-sha256 tronque>`` : jamais le numero en clair."""
     return f"{scope}:phone:{_phone_digest(normalized_phone)}"
 
 

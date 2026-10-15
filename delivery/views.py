@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from pathlib import PurePosixPath
 from urllib.parse import quote
 from uuid import UUID
 
@@ -9,7 +10,10 @@ from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.conf import settings
 from django.http import (
+    FileResponse,
+    Http404,
     HttpResponse,
     HttpResponseBadRequest,
     HttpResponseForbidden,
@@ -18,7 +22,7 @@ from django.http import (
 from django.shortcuts import render
 from django.urls import reverse
 from django.template.loader import render_to_string
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_POST, require_safe
 
 from accounts.access import redirect_without_seller_profile
 from accounts.models import SellerProfile
@@ -32,6 +36,15 @@ from delivery.services.seller_dashboard import (
 )
 
 PARTIAL_MIN_INTERVAL_SECONDS = 3.0
+
+AUDIO_PREFIX = "delivery/audio/"
+AUDIO_CONTENT_TYPES = {
+    ".webm": "audio/webm",
+    ".ogg": "audio/ogg",
+    ".mp3": "audio/mpeg",
+    ".m4a": "audio/mp4",
+    ".wav": "audio/wav",
+}
 
 
 def _require_seller(user) -> bool:
@@ -219,6 +232,53 @@ def _first_validation_message(exc: ValidationError) -> str:
                 flat.append(str(v))
         return flat[0] if flat else str(exc)
     return "; ".join(str(m) for m in getattr(exc, "messages", [str(exc)]))
+
+
+def _safe_audio_name(name: str) -> bool:
+    """Nom de fichier sous delivery/audio/, sans remontée de répertoire ni chemin absolu."""
+    return (
+        bool(name)
+        and name.startswith(AUDIO_PREFIX)
+        and "\\" not in name
+        and ".." not in PurePosixPath(name).parts
+    )
+
+
+@require_safe
+def seller_delivery_audio(request, delivery_id: UUID):
+    """Note vocale d'un client (E4) : réservée au vendeur propriétaire de la livraison.
+
+    404 pour tous les autres (anonyme, autre vendeur, équipe non propriétaire, livraison inconnue ou sans audio) :
+    rien ne révèle l'existence d'une note. En staging et production, le fichier est servi par Nginx (X-Accel-Redirect
+    vers la location interne /_protected_media/) ; en développement, par Django (FileResponse).
+    """
+    if not request.user.is_authenticated:
+        raise Http404
+    delivery = (
+        Delivery.objects.filter(pk=delivery_id, order__flash_sale__owner__user=request.user)
+        .exclude(audio_note="")
+        .exclude(audio_note__isnull=True)
+        .first()
+    )
+    if delivery is None:
+        raise Http404
+    name = delivery.audio_note.name
+    if not _safe_audio_name(name) or not delivery.audio_note.storage.exists(name):
+        raise Http404
+    content_type = AUDIO_CONTENT_TYPES.get(PurePosixPath(name).suffix.lower(), "application/octet-stream")
+    if settings.PROTECTED_MEDIA_X_ACCEL_REDIRECT:
+        response = HttpResponse(content_type=content_type)
+        response["X-Accel-Redirect"] = settings.PROTECTED_MEDIA_URL_PREFIX + quote(name)
+    else:
+        try:
+            handle = delivery.audio_note.open("rb")
+        except (OSError, ValueError):
+            raise Http404 from None
+        response = FileResponse(handle, content_type=content_type)
+        response["Content-Disposition"] = "inline"  # nom neutre : jamais de nom ni de numéro dans l'en-tête
+    response["Cache-Control"] = "private, no-store"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 @login_required
