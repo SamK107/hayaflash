@@ -29,7 +29,9 @@ class GuidePremiereVenteTests(TestCase):
         self.assertNotContains(resp, "Lance ta prochaine vente flash")
 
     def test_bouton_fin_connectee(self):
-        user = get_user_model().objects.create_user(phone="+22370009999", password="Test-guide-2026")
+        user = get_user_model().objects.create_user(
+            phone="+22370009999", password="Test-guide-2026", display_name="Awa Style"
+        )
         self.client.force_login(user)
         resp = self.client.get(self.url)
         self.assertContains(resp, "Lance ta prochaine vente flash")
