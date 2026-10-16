@@ -1,5 +1,6 @@
 /* HayaFlash Service Worker — cache assets statiques, offline gracieux */
-const CACHE = 'hayaflash-v10'; // v10 (26/09) : JS inline -> static/js/hf-base.js (CSP), pre-cache hors ligne
+const CACHE = 'hayaflash-v11'; // v11 (16/10) : videos exclues du cache (lecture par plages)
+// ancien commentaire v10 : // v10 (26/09) : JS inline -> static/js/hf-base.js (CSP), pre-cache hors ligne
 const STATIC_ASSETS = [
   '/static/manifest.json',
   '/static/js/hf-components.js',
@@ -52,6 +53,9 @@ self.addEventListener('fetch', event => {
     );
     return;
   }
+
+  // Videos : jamais interceptees (le navigateur les lit par plages, Range/206)
+  if (url.pathname.startsWith('/static/video/')) return;
 
   // Autres assets statiques (images, polices, CSS vendorise) : cache-first
   if (url.pathname.startsWith('/static/')) {
