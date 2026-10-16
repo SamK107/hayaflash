@@ -484,6 +484,13 @@ def legal_notice(request):
     return render(request, "core/legal/notice.html", _legal_context())
 
 
+def guide_premiere_vente(request):
+    """Guide public illustré « Ta première vente flash, étape par étape » (carrousel)."""
+    from core.guide import SLIDES
+
+    return render(request, "core/guide_premiere_vente.html", {"slides": SLIDES})
+
+
 def service_worker(request):
     """
     Sert le service worker a la RACINE (/sw.js).

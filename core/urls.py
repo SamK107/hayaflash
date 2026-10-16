@@ -22,4 +22,5 @@ urlpatterns = [
     path("confidentialite/", views.legal_privacy, name="legal_privacy"),
     path("cgu/", views.legal_terms, name="legal_terms"),
     path("mentions-legales/", views.legal_notice, name="legal_notice"),
+    path("guide/premiere-vente/", views.guide_premiere_vente, name="guide_premiere_vente"),
 ]
