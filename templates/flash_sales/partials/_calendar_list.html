@@ -1,4 +1,4 @@
-{% load hf_countries %}
+{% load hf_countries hf_filters %}
 {# Le Marche HayaFlash (/ventes/) — rendu seul lors des rafraichissements HTMX. Aucune donnee d'acheteur ici. #}
 {% if ticker %}
 <div class="hfc-ticker" role="region" aria-label="Ventes en direct et imminentes">
@@ -22,42 +22,35 @@
 </div>
 {% endif %}
 
-{% if stats.visible %}
-<section class="hfc-stats" aria-label="Le marché aujourd'hui">
-  <h2 class="hfc-group-title">Le marché aujourd'hui</h2>
-  <div class="hfc-tiles">
-    {% if stats.orders_last_hour %}
-    <div class="hfc-tile">
-      <span class="hfc-tile-num">{{ stats.orders_last_hour }}</span>
-      <span class="hfc-tile-label">Commandes cette dernière heure</span>
-    </div>
-    {% endif %}
-    {% if stats.top_categories %}
-    <div class="hfc-tile">
-      <span class="hfc-tile-label">Les plus demandées</span>
-      <ol class="hfc-tile-rank">{% for name in stats.top_categories %}<li>{{ name }}</li>{% endfor %}</ol>
-    </div>
-    {% endif %}
-    {% if stats.deliveries_in_transit %}
-    <div class="hfc-tile">
-      <span class="hfc-tile-num">{{ stats.deliveries_in_transit }}</span>
-      <span class="hfc-tile-label">En cours de livraison</span>
-    </div>
-    {% endif %}
+{% if moment %}
+<section class="hfc-moment" aria-label="Produits du moment"
+         x-show="cat === 'all' || $el.dataset.cats.split(' ').includes(cat)"
+         data-cats="{{ moment_cats }}">
+  <h2 class="hfc-group-title">Produits du moment</h2>
+  <div class="hfc-moment-wrap">
+    <button type="button" class="hfc-arrow hfc-arrow--prev" aria-label="Produits précédents"
+            @click="$el.parentElement.querySelector('.hfc-track').scrollBy({ left: -320, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })">&lsaquo;</button>
+    <ul class="hfc-track">
+      {% for m in moment %}
+      <li class="hfc-mi" x-show="cat === 'all' || cat === '{{ m.category }}'">
+        <a href="{% url 'public_flash_sale' slug=m.slug %}#p-{{ m.id }}">
+          <span class="hfc-mi-img">
+            {% if m.image %}<img src="{{ m.image.url }}" width="{{ m.image.width }}" height="{{ m.image.height }}" alt="" loading="lazy" decoding="async">{% else %}<span class="hfc-ph hfc-ph-{{ m.ph }}" aria-hidden="true">{{ m.initials }}</span>{% endif %}
+            {% if m.discount %}<span class="hfc-off">&minus;{{ m.discount }} %</span>{% endif %}
+          </span>
+          <span class="hfc-mi-name">{{ m.name }}</span>
+          <span class="hfc-mi-price">{{ m.price|thousands }} FCFA{% if m.old_price %} <s>{{ m.old_price|thousands }}</s>{% endif %}</span>
+          <span class="hfc-mi-shop">{{ m.shop_name|default:"Boutique" }}</span>
+          <span class="hfc-mi-timer">Finit dans <span data-tk-end="{{ m.end_time.isoformat }}">{{ m.end_time|time:"H:i" }}</span></span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    <button type="button" class="hfc-arrow hfc-arrow--next" aria-label="Produits suivants"
+            @click="$el.parentElement.querySelector('.hfc-track').scrollBy({ left: 320, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })">&rsaquo;</button>
   </div>
-  {% if stats.sparkline %}
-  <div class="hfc-spark">
-    <svg viewBox="0 0 {{ stats.sparkline.width }} {{ stats.sparkline.height }}" preserveAspectRatio="none"
-         role="img" aria-label="Commandes par heure, de 0 h à {{ stats.spark_to_hour }} h (maximum {{ stats.sparkline.peak }} par heure)">
-      <polygon class="hfc-spark-area" points="{{ stats.sparkline.area }}"></polygon>
-      <polyline class="hfc-spark-line" points="{{ stats.sparkline.points }}" fill="none" vector-effect="non-scaling-stroke"></polyline>
-    </svg>
-    <p class="hfc-spark-caption">Commandes par heure, de 0 h à {{ stats.spark_to_hour }} h</p>
-  </div>
-  {% endif %}
 </section>
 {% endif %}
-
 {% if categories|length > 1 %}
 <div class="hfc-chips" role="group" aria-label="Filtrer par catégorie"
      x-init="if (cat !== 'all' && !'{{ category_slugs }}'.split(' ').includes(cat)) cat = 'all'">
@@ -103,33 +96,42 @@
     {% for sale in group.sales %}
     <li x-show="cat === 'all' || cat === '{{ sale.effective_category }}'">
       {% if group.key == 'live' %}
-      <a class="hfc-row hfc-card" href="{% url 'public_flash_sale' slug=sale.public_slug %}"
-         data-slug="{{ sale.public_slug }}" data-end="{{ sale.end_time.isoformat }}"
-         data-pct="{{ sale.market.percent_sold|default_if_none:'' }}">
-        <span class="hfc-card-top">
-          {% if sale.owner.avatar %}
-          <img class="hfc-av" src="{{ sale.owner.avatar.url }}" alt="" width="40" height="40" loading="lazy" decoding="async">
-          {% else %}
-          <span class="hfc-av" aria-hidden="true">{{ sale.owner.business_name|default:"?"|slice:":1"|upper }}</span>
+      {% with sc=sale.showcase %}{% with main=sc.main %}
+      <article class="hfc-card hfc-vcard" data-slug="{{ sale.public_slug }}" data-end="{{ sale.end_time.isoformat }}"
+               data-pct="{{ sale.market.percent_sold|default_if_none:'' }}">
+        <a class="hfc-media" href="{% url 'public_flash_sale' slug=sale.public_slug %}">
+          {% if main.image %}<img src="{{ main.image.url }}" width="{{ main.image.width }}" height="{{ main.image.height }}" alt="{{ main.name }}" loading="lazy" decoding="async">{% else %}<span class="hfc-ph hfc-ph-{{ main.ph|default:0 }}" aria-hidden="true">{% if main %}{{ main.initials }}{% else %}{{ sale.title|slice:":1"|upper }}{% endif %}</span>{% endif %}
+          <span class="hfc-live-badge"><span class="hfc-dot" aria-hidden="true"></span>En direct <span data-clock>--:--:--</span></span>
+          {% if main %}
+          <span class="hfc-media-cap"><span class="hfc-media-name">{{ main.name }}</span> <b>{{ main.price|thousands }} FCFA</b>{% if main.discount %} <span class="hfc-off hfc-off--inline">&minus;{{ main.discount }} %</span>{% endif %}</span>
           {% endif %}
-          <span class="hfc-main">
-            <span class="hfc-shop">{{ sale.owner.business_name|default:"Boutique" }}</span>
-            <span class="hfc-meta"><b>{{ sale.effective_category_label }}</b></span>
+        </a>
+        {% if sc.thumbs %}{% include "flash_sales/partials/_calendar_thumbs.html" with sc=sc slug=sale.public_slug show_price=True linked=True %}{% endif %}
+        <a class="hfc-vbody" href="{% url 'public_flash_sale' slug=sale.public_slug %}">
+          <span class="hfc-card-top">
+            {% if sale.owner.avatar %}
+            <img class="hfc-av" src="{{ sale.owner.avatar.url }}" alt="" width="40" height="40" loading="lazy" decoding="async">
+            {% else %}
+            <span class="hfc-av" aria-hidden="true">{{ sale.owner.business_name|default:"?"|slice:":1"|upper }}</span>
+            {% endif %}
+            <span class="hfc-main">
+              <span class="hfc-shop">{{ sale.owner.business_name|default:"Boutique" }}</span>
+              <span class="hfc-meta"><b>{{ sale.effective_category_label }}</b></span>
+            </span>
           </span>
-          <span class="hfc-pill">En direct</span>
-        </span>
-        <span class="hfc-card-title">{{ sale.title }}</span>
-        <span class="hfc-card-clock"><span data-clock>--:--:--</span> <small>restant</small></span>
-        {% if sale.market.percent_sold %}
-        <span class="hfc-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ sale.market.percent_sold }}">
-          <span class="hfc-bar-fill" style="width: {{ sale.market.percent_sold }}%"></span>
-        </span>
-        <span class="hfc-bar-label">{{ sale.market.percent_sold }} % vendu</span>
-        {% endif %}
-        {% if sale.market.orders_visible %}
-        <span class="hfc-badge">{{ sale.market.orders_visible }} commande{{ sale.market.orders_visible|pluralize }}</span>
-        {% endif %}
-      </a>
+          <span class="hfc-card-title">{{ sale.title }}</span>
+          {% if sale.market.percent_sold %}
+          <span class="hfc-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ sale.market.percent_sold }}">
+            <span class="hfc-bar-fill" style="width: {{ sale.market.percent_sold }}%"></span>
+          </span>
+          <span class="hfc-bar-label">{{ sale.market.percent_sold }} % vendu</span>
+          {% endif %}
+          {% if sale.market.orders_visible %}
+          <span class="hfc-badge">{{ sale.market.orders_visible }} commande{{ sale.market.orders_visible|pluralize }}</span>
+          {% endif %}
+        </a>
+      </article>
+      {% endwith %}{% endwith %}
       {% else %}
       <div class="hfc-row hfc-card hfc-card--calm" data-slug="{{ sale.public_slug }}"
            data-start="{{ sale.start_time.isoformat }}"{% if group.key != 'soon' %} data-later="1"{% endif %}>
@@ -151,6 +153,7 @@
           {% if group.key == 'soon' %}<span class="hfc-pill" data-clock>--:--:--</span>{% else %}<span class="hfc-pill">{{ sale.start_time|time:"H:i" }}</span>{% endif %}
           <button type="button" class="hfc-btn hfc-btn--small" data-hf-alert="{{ sale.public_slug }}" data-hf-alert-shop="{{ sale.owner.business_name|default:'la boutique' }}">M'alerter</button>
         </span>
+        {% if sale.showcase.thumbs %}{% include "flash_sales/partials/_calendar_thumbs.html" with sc=sale.showcase slug=sale.public_slug show_price=True linked=False %}{% endif %}
       </div>
       {% endif %}
     </li>
@@ -179,6 +182,7 @@
             <span class="hfc-meta"><b>{{ item.category_label }}</b> · {{ item.title }}</span>
           </span>
         </span>
+        {% if item.showcase.thumbs %}{% include "flash_sales/partials/_calendar_thumbs.html" with sc=item.showcase slug=item.public_slug show_price=False linked=False %}{% endif %}
         <span class="hfc-time">{% if item.sold_out %}Épuisé{% else %}Terminée{% endif %} · {{ item.ago|cut:"Terminée " }}</span>
         <span class="hfc-card-side">
           <button type="button" class="hfc-btn hfc-btn--small" data-hf-alert="{{ item.public_slug }}" data-hf-alert-shop="{{ item.shop_name|default:'la boutique' }}">M'alerter</button>
@@ -188,6 +192,42 @@
     </li>
     {% endfor %}
   </ul>
+</section>
+{% endif %}
+
+{% if stats.visible %}
+<section class="hfc-stats hfc-stats--compact" aria-label="Tendances du jour">
+  <h2 class="hfc-group-title">Tendances du jour</h2>
+  <div class="hfc-tiles">
+    {% if stats.orders_last_hour %}
+    <div class="hfc-tile">
+      <span class="hfc-tile-num">{{ stats.orders_last_hour }}</span>
+      <span class="hfc-tile-label">Commandes cette dernière heure</span>
+    </div>
+    {% endif %}
+    {% if stats.top_categories %}
+    <div class="hfc-tile">
+      <span class="hfc-tile-label">Les plus demandées</span>
+      <ol class="hfc-tile-rank">{% for name in stats.top_categories %}<li>{{ name }}</li>{% endfor %}</ol>
+    </div>
+    {% endif %}
+    {% if stats.deliveries_in_transit %}
+    <div class="hfc-tile">
+      <span class="hfc-tile-num">{{ stats.deliveries_in_transit }}</span>
+      <span class="hfc-tile-label">En cours de livraison</span>
+    </div>
+    {% endif %}
+  </div>
+  {% if stats.sparkline %}
+  <div class="hfc-spark">
+    <svg viewBox="0 0 {{ stats.sparkline.width }} {{ stats.sparkline.height }}" preserveAspectRatio="none"
+         role="img" aria-label="Commandes par heure, de 0 h à {{ stats.spark_to_hour }} h (maximum {{ stats.sparkline.peak }} par heure)">
+      <polygon class="hfc-spark-area" points="{{ stats.sparkline.area }}"></polygon>
+      <polyline class="hfc-spark-line" points="{{ stats.sparkline.points }}" fill="none" vector-effect="non-scaling-stroke"></polyline>
+    </svg>
+    <p class="hfc-spark-caption">Commandes par heure, de 0 h à {{ stats.spark_to_hour }} h</p>
+  </div>
+  {% endif %}
 </section>
 {% endif %}
 

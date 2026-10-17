@@ -50,7 +50,7 @@ class MarketAccessLinksTests(ViralGrowthFixture):
 
     def test_home_menu_has_market_entry_for_visitors_and_sellers(self) -> None:
         resp = self.client.get(reverse("home"))
-        self.assertContains(resp, 'class="nav-market"')
-        self.assertContains(resp, ">Le Marché</a>")
+        self.assertContains(resp, 'class="nav-market ')
+        self.assertContains(resp, "Le Marché · 1 en direct</a>")
         self.client.force_login(self.seller_user)
-        self.assertContains(self.client.get(reverse("home")), 'class="nav-market"')
+        self.assertContains(self.client.get(reverse("home")), 'class="nav-market ')

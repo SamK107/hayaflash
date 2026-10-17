@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import os
 import random
+import unicodedata
 from datetime import timedelta
 from decimal import Decimal
 from io import BytesIO
@@ -31,9 +32,8 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
-DEMO_PHONE_PREFIX = "+22379990"    # comptes vendeurs
-DEMO_CLIENT_PREFIX = "+22378880"   # telephones clients des commandes de demo
-ALLOW_ENV_VAR = "HAYAFLASH_ALLOW_DEMO_SEED"
+from core.demo_data import ALLOW_ENV_VAR, DEMO_CLIENT_PREFIX, DEMO_PHONE_PREFIX
+
 PRODUCTION_HOSTS = frozenset({"hayaflash.com", "www.hayaflash.com"})
 
 # (nom, categorie, couleur d'avatar)
@@ -118,7 +118,8 @@ class Command(BaseCommand):
         from accounts.models import SellerProfile
         from flash_sales.models import FlashSale
         from orders.models import Order
-        from products.models import Product
+        from core.services.thumbnails import delete_thumbnails
+        from products.models import Product, ProductMedia
 
         User = get_user_model()
         users = User.objects.filter(phone__startswith=DEMO_PHONE_PREFIX)
@@ -128,6 +129,10 @@ class Command(BaseCommand):
             # en cascade) -> ventes -> produits -> boutiques -> comptes.
             Order.service_objects.filter(flash_sale__owner__in=sellers).delete()
             FlashSale.objects.filter(owner__in=sellers).delete()
+            for media in ProductMedia.objects.filter(product__owner__in=sellers):
+                if media.file:
+                    delete_thumbnails(media.file)
+                    media.file.delete(save=False)
             Product.objects.filter(owner__in=sellers).delete()
             for seller in sellers:
                 if seller.avatar:
@@ -137,6 +142,50 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"Démo supprimée ({deleted} objets, comptes inclus)."))
 
     # ── Creation ──────────────────────────────────────────────────────
+    @staticmethod
+    def _product_image(name: str, index: int) -> ContentFile:
+        """JPEG 600x450 : fond colore, forme propre au produit, nom du produit (sans reseau)."""
+        from PIL import Image, ImageDraw, ImageFont
+
+        palette = ["#E63946", "#2563EB", "#15803D", "#7C3AED", "#C2410C", "#0891B2", "#DB2777", "#B45309"]
+        bg = palette[index % len(palette)]
+        accent = palette[(index + 3) % len(palette)]
+        img = Image.new("RGB", (600, 450), bg)
+        draw = ImageDraw.Draw(img)
+        shape = index % 5
+        light = "#FFFFFF"
+        if shape == 0:
+            draw.ellipse((170, 50, 430, 310), fill=accent, outline=light, width=6)
+        elif shape == 1:
+            draw.rounded_rectangle((150, 60, 450, 300), radius=40, fill=accent, outline=light, width=6)
+        elif shape == 2:
+            draw.polygon([(300, 40), (460, 310), (140, 310)], fill=accent, outline=light)
+        elif shape == 3:
+            draw.polygon([(300, 40), (450, 175), (300, 310), (150, 175)], fill=accent, outline=light)
+        else:
+            for k in range(5):
+                draw.rectangle((120 + k * 70, 70, 160 + k * 70, 300), fill=accent if k % 2 else light)
+        font = ImageFont.load_default(size=40)
+        # La police integree de Pillow n'a pas les accents : on les retire (image seulement).
+        name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
+        words, lines, line = name.split(), [], ""
+        for w in words:
+            trial = (line + " " + w).strip()
+            if draw.textlength(trial, font=font) > 520 and line:
+                lines.append(line)
+                line = w
+            else:
+                line = trial
+        lines.append(line)
+        y = 335
+        for text in lines[:2]:
+            width = draw.textlength(text, font=font)
+            draw.text(((600 - width) / 2, y), text, fill=light, font=font)
+            y += 48
+        buf = BytesIO()
+        img.save(buf, "JPEG", quality=85)
+        return ContentFile(buf.getvalue())
+
     @staticmethod
     def _avatar(name: str, color: str) -> ContentFile:
         """PNG carre : couleur unie + initiales (aucun telechargement)."""
@@ -162,7 +211,7 @@ class Command(BaseCommand):
         from flash_sales.market_stats import compute_market_stats
         from flash_sales.models import FlashSale, FlashSaleStatus
         from orders.models import Order, OrderItem, OrderStatus
-        from products.models import FlashSaleProduct, Product
+        from products.models import FlashSaleProduct, Product, ProductMedia
 
         User = get_user_model()
         if User.objects.filter(phone__startswith=DEMO_PHONE_PREFIX).exists():
@@ -207,6 +256,13 @@ class Command(BaseCommand):
                     FlashSaleProduct.objects.create(
                         flash_sale=sale, product=product, display_order=display_order
                     )
+                    media = ProductMedia(
+                        product=product, media_type=ProductMedia.MediaType.IMAGE, order=0, alt_text=pname
+                    )
+                    media.file.save(
+                        f"demo-{product.pk}.jpg", self._product_image(pname, product.pk), save=False
+                    )
+                    media.save()
                     linked.append((product, cap))
                 total = sum(c for _, c in linked)
                 target = round(total * pct / 100) if pct is not None else round(total * rng.uniform(*sold_range))

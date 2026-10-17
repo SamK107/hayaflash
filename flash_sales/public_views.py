@@ -11,6 +11,7 @@ from .models import FlashSale
 from .services.ordering import live_now_q, upcoming_q
 
 SOON_WINDOW = timedelta(hours=1)
+MOMENT_MIN_ITEMS = 4
 UPCOMING_LIMIT = 40
 _WEEKDAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
 
@@ -69,8 +70,12 @@ def _market_context(now):
     snapshot = get_market_snapshot(now)
     groups = _calendar_groups(now)
     live = next((g["sales"] for g in groups if g["key"] == "live"), [])
+    showcase = snapshot["showcase"]
     for sale in live:
         sale.market = snapshot["sales"].get(sale.pk, {})
+    for group in groups:
+        for sale in group["sales"]:
+            sale.showcase = showcase.get(sale.pk)
 
     # Etat calme : aucune vente en direct -> la prochaine vente en vedette
     # (retiree de sa liste pour ne pas apparaitre deux fois).
@@ -91,7 +96,14 @@ def _market_context(now):
     ended = []
     for item in snapshot["recently_ended"]:
         minutes = max(0, int((now - item["end_time"]).total_seconds() // 60))
-        ended.append({**item, "ago": _ago_label(minutes)})
+        ended.append({**item, "ago": _ago_label(minutes), "showcase": showcase.get(item["id"])})
+
+    # « Produits du moment » : seulement les ventes encore en direct (le snapshot
+    # a jusqu'a 30 s), masque sous MOMENT_MIN_ITEMS produits.
+    live_ids = {s.pk for s in live}
+    moment = [m for m in snapshot["moment"] if m["sale_id"] in live_ids]
+    if len(moment) < MOMENT_MIN_ITEMS:
+        moment = []
 
     # Puces de filtre : categories presentes parmi les ventes affichees.
     present = {s.effective_category for g in groups for s in g["sales"]}
@@ -104,6 +116,8 @@ def _market_context(now):
         "stats": get_market_stats(now),
         "groups": groups,
         "hero": hero,
+        "moment": moment,
+        "moment_cats": " ".join(sorted({m["category"] for m in moment})),
         "ticker": ticker,
         "ended": ended,
         "categories": categories,

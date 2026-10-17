@@ -219,6 +219,16 @@
 <!-- ════════════════════════════════
      NAVBAR
 ════════════════════════════════ -->
+<style>
+  .nav-market { color:rgba(255,255,255,.85); font-size:.875rem; font-weight:700; text-decoration:none; padding:.5rem .5rem;
+    white-space:nowrap; display:inline-flex; align-items:center; gap:.4rem; max-width:11.5rem; overflow:hidden; text-overflow:ellipsis; }
+  .nav-market--live { color:#fff; }
+  .nav-market--idle { font-weight:600; color:rgba(255,255,255,.7); }
+  .hf-livedot { width:.55rem; height:.55rem; border-radius:50%; background:#FF3B30; flex-shrink:0; box-shadow:0 0 0 0 rgba(255,59,48,.6); animation:hf-livedot 1.6s infinite; }
+  @keyframes hf-livedot { 70% { box-shadow:0 0 0 .5rem rgba(255,59,48,0); } 100% { box-shadow:0 0 0 0 rgba(255,59,48,0); } }
+  @media (prefers-reduced-motion: reduce) { .hf-livedot { animation:none; } }
+  @media (min-width:640px) { .nav-market { max-width:none; } }
+</style>
 <nav style="background:#1A1A2E; position:sticky; top:0; z-index:50; border-bottom:1px solid rgba(255,255,255,.06);">
   <div style="max-width:72rem; margin:0 auto; padding:0 1rem; height:3.75rem;
               display:flex; align-items:center; justify-content:space-between;">
@@ -227,7 +237,7 @@
       <span class="T" style="font-size:1.3rem; color:#fff;">Haya<span style="color:#FF4D2E;">Flash</span></span>
     </a>
     <div style="display:flex; align-items:center; gap:.75rem;">
-      <a href="{% url 'flash_sale_calendar' %}" class="nav-market" style="color:rgba(255,255,255,.85); font-size:.875rem; font-weight:700; text-decoration:none; padding:.5rem .5rem; white-space:nowrap;">Le Marché</a>
+      <a href="{% url 'flash_sale_calendar' %}" class="nav-market nav-market--{{ market_entry.state }}">{% if market_entry.state == 'live' %}<span class="hf-livedot" aria-hidden="true"></span>{% endif %}{{ market_entry.label }}</a>
       {% if user.is_authenticated %}
       <span class="hf-nav-user" style="color:rgba(255,255,255,.3); font-size:.8rem;">{{ user.get_short_name|default:user.phone }}</span>
       <a href="{% url 'seller_home' %}" class="btn btn-flash hf-nav-dash" style="padding:.55rem 1.25rem; font-size:.875rem;">
@@ -297,8 +307,8 @@
         Lancer ma première vente flash →
       </a>
       <a href="{% url 'flash_sale_calendar' %}" class="btn btn-ghost">
-        <i data-lucide="calendar" style="width:1rem;height:1rem;"></i>
-        Voir les ventes en cours
+        {% if market_entry.state == 'live' %}<span class="hf-livedot" aria-hidden="true"></span>{% else %}<i data-lucide="calendar" style="width:1rem;height:1rem;"></i>{% endif %}
+        {{ market_entry.label }}
       </a>
     </div>
 

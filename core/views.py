@@ -29,6 +29,7 @@ from core.services.rate_limit import (
     REGISTER_RATE_LIMIT_MESSAGE,
 )
 from core.services.client_ip import get_client_ip
+from flash_sales.market_entry import get_market_entry
 from partners.services import attribution as partner_attribution
 
 logger = logging.getLogger(__name__)
@@ -108,7 +109,12 @@ def home(request):
     # La page marketing est accessible à tous (vendeur connecté ou simple visiteur).
     # Le template adapte la navbar selon l'état d'authentification.
     return render(
-        request, "core/home.html", {"partner_banner": partner_attribution.landing_banner(request)}
+        request,
+        "core/home.html",
+        {
+            "partner_banner": partner_attribution.landing_banner(request),
+            "market_entry": get_market_entry(),
+        },
     )
 
 

@@ -114,11 +114,65 @@
   .hfc-empty .hfc-btn { margin-top: 12px; }
   .hfc-new { animation: hfc-in .45s ease-out; }
   @keyframes hfc-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  /* ── Vitrine : cartes visuelles, vignettes, carrousel « Produits du moment » ── */
+  .hfc-ph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 800; color: rgba(255,255,255,.92); font-size: 28px; letter-spacing: .02em; }
+  .hfc-ph-0 { background: #E63946; } .hfc-ph-1 { background: #2563EB; } .hfc-ph-2 { background: #15803D; }
+  .hfc-ph-3 { background: #7C3AED; } .hfc-ph-4 { background: #C2410C; } .hfc-ph-5 { background: #0891B2; }
+  .hfc-off { position: absolute; top: 6px; right: 6px; background: #FFB800; color: #1A1A2E; font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 999px; line-height: 1.3; }
+  .hfc-off--inline { position: static; display: inline-block; margin-left: 4px; }
+  .hfc-off--sm { top: 3px; right: 3px; font-size: 10px; padding: 1px 5px; }
+  .hfc-vcard { display: flex; flex-direction: column; padding: 0; overflow: hidden; background: #fff; border: 1px solid #EEF0F3;
+    border-radius: 16px; transition: box-shadow .15s; }
+  .hfc-vcard:hover { box-shadow: 0 6px 20px rgba(26,26,46,.10); }
+  .hfc-media { position: relative; display: block; flex-shrink: 0; aspect-ratio: 4 / 3; background: #F3F4F6; overflow: hidden; text-decoration: none; }
+  .hfc-media > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .hfc-live-badge { position: absolute; top: 8px; left: 8px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
+    border-radius: 999px; background: rgba(26,26,46,.82); color: #fff; font-size: 11.5px; font-weight: 800; letter-spacing: .03em;
+    text-transform: uppercase; font-variant-numeric: tabular-nums; }
+  .hfc-vcard[data-urgency="warn"] .hfc-live-badge { background: #F59E0B; color: #1A1A2E; }
+  .hfc-vcard[data-urgency="hot"] .hfc-live-badge { background: #DC2626; animation: hfc-breathe 1.8s ease-in-out infinite; }
+  .hfc-media-cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 10px 8px; color: #fff; font-size: 13px;
+    background: linear-gradient(to top, rgba(0,0,0,.62), rgba(0,0,0,0)); display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 6px; }
+  .hfc-media-name { font-weight: 600; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hfc-thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 8px 10px 0; box-sizing: border-box; }
+  .hfc-th { display: flex; flex-direction: column; gap: 3px; text-decoration: none; color: inherit; min-width: 0; }
+  .hfc-th-img { position: relative; display: block; aspect-ratio: 1 / 1; border-radius: 10px; overflow: hidden; background: #F3F4F6; }
+  .hfc-th-img > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .hfc-th-img .hfc-ph { font-size: 16px; }
+  .hfc-th-price { font-size: 11.5px; font-weight: 700; color: #1A1A2E; font-variant-numeric: tabular-nums; }
+  .hfc-more { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(26,26,46,.55); color: #fff; font-size: 15px; font-weight: 800; }
+  .hfc-vbody { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 14px; text-decoration: none; color: inherit; }
+  .hfc-card--calm { flex-wrap: wrap; }
+  .hfc-card--calm .hfc-thumbs { flex-basis: 100%; padding: 8px 0 0; }
+  .hfc-card--ended .hfc-thumbs { padding: 0; }
+  .hfc-moment { margin-bottom: 14px; }
+  .hfc-moment-wrap { position: relative; }
+  .hfc-track { display: flex; gap: 10px; list-style: none; margin: 0; padding: 2px 2px 6px; overflow-x: auto; scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none; overscroll-behavior-x: contain; }
+  .hfc-track::-webkit-scrollbar { display: none; }
+  .hfc-mi { flex: 0 0 150px; scroll-snap-align: start; }
+  .hfc-mi > a { display: flex; flex-direction: column; gap: 3px; text-decoration: none; color: inherit; }
+  .hfc-mi-img { position: relative; display: block; aspect-ratio: 1 / 1; border-radius: 14px; overflow: hidden; background: #F3F4F6; }
+  .hfc-mi-img > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .hfc-mi-name { font-size: 13px; font-weight: 700; color: #1A1A2E; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.5em; }
+  .hfc-mi-price { font-size: 13px; font-weight: 800; color: #B42D12; }
+  .hfc-mi-price s { font-weight: 500; color: #9CA3AF; font-size: 11.5px; }
+  .hfc-mi-shop { font-size: 11.5px; color: #6B7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hfc-mi-timer { font-size: 11.5px; font-weight: 700; color: #D93A1C; font-variant-numeric: tabular-nums; }
+  .hfc-arrow { display: none; position: absolute; top: 40%; z-index: 2; width: 36px; height: 36px; border-radius: 50%; border: 1px solid #E5E7EB;
+    background: rgba(255,255,255,.95); color: #1A1A2E; font-size: 22px; line-height: 1; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+  .hfc-arrow--prev { left: -10px; } .hfc-arrow--next { right: -10px; }
+  @media (min-width: 768px) { .hfc-arrow { display: block; } .hfc-mi { flex-basis: 170px; } }
+  .hfc-stats--compact { margin-top: 8px; }
+  .hfc-stats--compact .hfc-tile { padding: 8px 12px; }
+  .hfc-stats--compact .hfc-tile-num { font-size: 22px; }
+  .hfc-stats--compact .hfc-spark svg { height: 44px; }
   .drawer-overlay { transition: opacity .25s ease; }
   .drawer-panel { transition: transform .3s cubic-bezier(.32,.72,0,1); }
   .drawer-panel.open { transform: translateY(0) !important; }
   @media (prefers-reduced-motion: reduce) {
-    .hfc-dot, .hfc-ticker-track, .hfc-card[data-urgency="hot"] .hfc-bar-fill, .hfc-new { animation: none; }
+    .hfc-dot, .hfc-ticker-track, .hfc-card[data-urgency="hot"] .hfc-bar-fill, .hfc-vcard[data-urgency="hot"] .hfc-live-badge, .hfc-new { animation: none; }
+    .hfc-track { scroll-behavior: auto; }
     .hfc-ticker { overflow-x: auto; }
     .hfc-row, .hfc-bar-fill, .drawer-panel { transition: none; }
   }

@@ -156,7 +156,7 @@ class SeedContentTests(TestCase):
             resp = self.client.get(reverse("flash_sale_calendar"))
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Démo Awa Mode")
-        self.assertContains(resp, "Le marché aujourd'hui")
+        self.assertContains(resp, "Tendances du jour")
         self.assertContains(resp, "Vient de se terminer")
 
     def test_second_run_without_reset_refused_reset_recreates(self) -> None:
