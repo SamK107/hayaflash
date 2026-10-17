@@ -61,6 +61,18 @@
   .hfc-tk-tag { font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; background: #F59E0B; color: #1A1A2E; margin-right: 4px; }
   .hfc-tk-tag--live { background: #FF4D2E; color: #fff; }
   @keyframes hfc-marquee { to { transform: translateX(-50%); } }
+  .hfc-stats { margin-bottom: 18px; }
+  .hfc-tiles { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  @media (min-width: 640px) { .hfc-tiles { grid-template-columns: repeat(3, 1fr); } }
+  .hfc-tile { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; background: #fff; border: 1px solid #EEF0F3; border-radius: 14px; }
+  .hfc-tile-num { font-size: 28px; font-weight: 800; color: #1A1A2E; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .hfc-tile-label { font-size: 12.5px; font-weight: 600; color: #6B7280; }
+  .hfc-tile-rank { margin: 2px 0 0; padding-left: 20px; font-size: 15px; font-weight: 700; color: #1A1A2E; }
+  .hfc-spark { margin-top: 8px; padding: 10px 14px 8px; background: #fff; border: 1px solid #EEF0F3; border-radius: 14px; }
+  .hfc-spark svg { display: block; width: 100%; height: 56px; }
+  .hfc-spark-line { stroke: #E63946; stroke-width: 2; stroke-linejoin: round; }
+  .hfc-spark-area { fill: rgba(230,57,70,.12); }
+  .hfc-spark-caption { margin: 4px 0 0; font-size: 11.5px; color: #6B7280; }
   .hfc-chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 14px; scrollbar-width: none; }
   .hfc-chip { flex-shrink: 0; border: 1px solid #E5E7EB; background: #fff; color: #374151; border-radius: 999px;
     padding: 7px 14px; min-height: 36px; font-size: 13px; font-weight: 700; cursor: pointer; }

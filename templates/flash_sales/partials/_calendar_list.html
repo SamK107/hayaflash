@@ -21,6 +21,42 @@
 </div>
 {% endif %}
 
+{% if stats.visible %}
+<section class="hfc-stats" aria-label="Le marché aujourd'hui">
+  <h2 class="hfc-group-title">Le marché aujourd'hui</h2>
+  <div class="hfc-tiles">
+    {% if stats.orders_last_hour %}
+    <div class="hfc-tile">
+      <span class="hfc-tile-num">{{ stats.orders_last_hour }}</span>
+      <span class="hfc-tile-label">Commandes cette dernière heure</span>
+    </div>
+    {% endif %}
+    {% if stats.top_categories %}
+    <div class="hfc-tile">
+      <span class="hfc-tile-label">Les plus demandées</span>
+      <ol class="hfc-tile-rank">{% for name in stats.top_categories %}<li>{{ name }}</li>{% endfor %}</ol>
+    </div>
+    {% endif %}
+    {% if stats.deliveries_in_transit %}
+    <div class="hfc-tile">
+      <span class="hfc-tile-num">{{ stats.deliveries_in_transit }}</span>
+      <span class="hfc-tile-label">En cours de livraison</span>
+    </div>
+    {% endif %}
+  </div>
+  {% if stats.sparkline %}
+  <div class="hfc-spark">
+    <svg viewBox="0 0 {{ stats.sparkline.width }} {{ stats.sparkline.height }}" preserveAspectRatio="none"
+         role="img" aria-label="Commandes par heure, de 0 h à {{ stats.spark_to_hour }} h (maximum {{ stats.sparkline.peak }} par heure)">
+      <polygon class="hfc-spark-area" points="{{ stats.sparkline.area }}"></polygon>
+      <polyline class="hfc-spark-line" points="{{ stats.sparkline.points }}" fill="none" vector-effect="non-scaling-stroke"></polyline>
+    </svg>
+    <p class="hfc-spark-caption">Commandes par heure, de 0 h à {{ stats.spark_to_hour }} h</p>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
 {% if categories|length > 1 %}
 <div class="hfc-chips" role="group" aria-label="Filtrer par catégorie"
      x-init="if (cat !== 'all' && !'{{ category_slugs }}'.split(' ').includes(cat)) cat = 'all'">
