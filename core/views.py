@@ -451,6 +451,66 @@ def platform_admin_dashboard(request):
     return render(request, "core/platform_admin.html", context)
 
 
+@staff_member_required
+def platform_admin_shops(request):
+    """Liste des boutiques par ordre d'inscription (staff only, lecture seule)."""
+    from analytics.services import monthly_report
+
+    search = (request.GET.get("q") or "").strip()[:80]
+    newest_first = request.GET.get("ordre") == "recent"
+    return render(
+        request,
+        "core/platform_admin_shops.html",
+        {
+            "shops": monthly_report.list_shops(
+                search=search, newest_first=newest_first
+            ),
+            "q": search,
+            "newest_first": newest_first,
+        },
+    )
+
+
+@staff_member_required
+def platform_admin_shop_report(request, pk: int):
+    """Fiche de résultats mensuelle d'une boutique (staff only, lecture seule)."""
+    from django.shortcuts import get_object_or_404
+    from django.utils import timezone
+
+    from analytics.services import monthly_report as mr
+
+    seller = get_object_or_404(
+        SellerProfile.objects.select_related("user", "subscription"), pk=pk
+    )
+    reg = timezone.localtime(seller.created_at)
+    first = (reg.year, reg.month)
+    cur = mr.current_month()
+    # Mois demandé ; sinon (ou hors bornes) dernier mois complet, ramené au
+    # mois d'inscription pour une boutique créée ce mois-ci.
+    chosen = mr.parse_month(request.GET.get("mois"))
+    if chosen is None or not (first <= chosen <= cur):
+        chosen = max(mr.default_month(), first)
+    year, month = chosen
+    prev_m = mr.previous_month(year, month)
+    next_m = mr.next_month(year, month)
+    return render(
+        request,
+        "core/platform_admin_shop_report.html",
+        {
+            "seller": seller,
+            "shop_name": seller.business_name or seller.user.display_name,
+            "plan": mr.effective_plan(seller),
+            "wa_url": mr.wa_link(seller.user.phone),
+            "report": mr.shop_month_report(seller, year, month),
+            "selected": f"{year}-{month:02d}",
+            "choices": mr.month_choices(seller.created_at),
+            "prev_value": f"{prev_m[0]}-{prev_m[1]:02d}" if prev_m >= first else "",
+            "next_value": f"{next_m[0]}-{next_m[1]:02d}" if next_m <= cur else "",
+            "last_sale": mr.shop_last_sale(seller),
+        },
+    )
+
+
 def _legal_context() -> dict:
     return {
         "cgu_version": LEGAL_CGU_VERSION,

@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Bilan {{ shop_name }} — Administration HayaFlash{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8">
+
+    <p class="mb-3"><a href="{% url 'platform_admin_shops' %}" class="text-sm font-semibold text-primary hover:underline">← Boutiques</a></p>
+
+    <div class="flex flex-wrap items-center gap-3 mb-1">
+        <h1 class="text-2xl font-black text-gray-900">{{ shop_name }}</h1>
+        <span class="px-2.5 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-full uppercase">Réservé à l'équipe</span>
+    </div>
+    <p class="text-sm text-gray-500 mb-5">
+        {% if wa_url %}<a href="{{ wa_url }}" target="_blank" rel="noopener" class="text-green-600 hover:underline">{{ seller.user.phone }}</a>{% else %}—{% endif %}
+        · Plan {{ plan|upper }} · inscrite le {{ seller.created_at|date:"d/m/Y" }}
+    </p>
+
+    <form method="get" class="flex flex-wrap items-center gap-2 mb-5">
+        {% if prev_value %}<a href="?mois={{ prev_value }}" class="px-3 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700">← mois précédent</a>{% endif %}
+        <select name="mois" class="rounded-xl border border-gray-200 px-3 py-2 text-sm">
+            {% for c in choices %}<option value="{{ c.value }}"{% if c.value == selected %} selected{% endif %}>{{ c.label }}</option>{% endfor %}
+        </select>
+        <button type="submit" class="px-4 py-2 rounded-xl bg-primary text-white text-sm font-bold">Afficher</button>
+        {% if next_value %}<a href="?mois={{ next_value }}" class="px-3 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700">mois suivant →</a>{% endif %}
+    </form>
+
+    <h2 class="text-lg font-bold text-gray-900 mb-3">{{ report.label|capfirst }}{% if report.is_current %} (en cours){% endif %}</h2>
+
+    {% if report.is_empty %}
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-sm text-gray-600">
+        <p class="font-semibold text-gray-900">Aucune vente ce mois-ci</p>
+        <p>Dernière vente : {% if last_sale %}{{ last_sale|date:"d/m/Y" }}{% else %}—{% endif %}</p>
+    </div>
+    {% else %}
+
+    <!-- Bloc 1 — Activité -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
+        <h3 class="text-sm font-bold text-gray-700 mb-3">Activité du mois</h3>
+        {% if report.pending_alert %}
+        <p class="mb-3 inline-block px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold">Statuts de livraison non mis à jour</p>
+        {% endif %}
+        <ul class="text-sm space-y-1 text-gray-700">
+            <li>Ventes flash réalisées : <strong>{{ report.sales_count }}</strong></li>
+            <li>Commandes passées : <strong>{{ report.orders_placed }}</strong></li>
+            <li class="pl-4">Réalisées (livrées et payées) : <strong>{{ report.orders_realized }}</strong></li>
+            <li class="pl-4">Annulées : <strong>{{ report.orders_cancelled }}</strong></li>
+            <li class="pl-4">Échec de livraison : <strong>{{ report.orders_failed }}</strong></li>
+            <li class="pl-4">Livrées, paiement non encaissé : <strong>{{ report.orders_delivered_unpaid }}</strong></li>
+            <li class="pl-4">En attente de mise à jour : <strong>{{ report.orders_pending_update }}</strong></li>
+            <li>Taux de réalisation : <strong>{% if report.realization_rate is None %}—{% else %}{{ report.realization_rate }} %{% endif %}</strong></li>
+        </ul>
+    </div>
+
+    <!-- Bloc 2 — CA -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
+        <h3 class="text-sm font-bold text-gray-700 mb-3">Chiffre d'affaires du mois</h3>
+        <p class="text-2xl font-black text-green-600 mb-2">{{ report.revenue|floatformat:"0g" }} FCFA</p>
+        <ul class="text-sm space-y-1 text-gray-700">
+            <li>Articles vendus : <strong>{{ report.items_sold }}</strong></li>
+            <li>Panier moyen : <strong>{{ report.average_basket|floatformat:"0g" }} FCFA</strong></li>
+        </ul>
+    </div>
+
+    <!-- Bloc 3 — Produits -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 overflow-x-auto">
+        <h3 class="text-sm font-bold text-gray-700 mb-3">Produits</h3>
+        {% if report.products %}
+        <table class="w-full text-sm">
+            <thead class="text-xs text-gray-400 text-left">
+                <tr><th class="py-1 pr-2">Produit</th><th class="py-1 pr-2">Quantité vendue</th><th class="py-1 pr-2">Recette</th><th class="py-1 pr-2">% des recettes</th><th class="py-1">% cumulé</th></tr>
+            </thead>
+            <tbody>
+            {% for p in report.products %}
+                <tr class="border-t border-gray-50">
+                    <td class="py-1 pr-2 font-semibold text-gray-900">{{ p.name }}</td>
+                    <td class="py-1 pr-2">{{ p.quantity }}</td>
+                    <td class="py-1 pr-2 whitespace-nowrap">{{ p.revenue|floatformat:"0g" }} FCFA</td>
+                    <td class="py-1 pr-2">{{ p.share|floatformat:"1" }} %</td>
+                    <td class="py-1">{{ p.cumulative|floatformat:"1" }} %</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-sm text-gray-400">Aucun produit vendu (commande réalisée) ce mois-ci.</p>
+        {% endif %}
+    </div>
+
+    <!-- Bloc 4 — Clientes -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
+        <h3 class="text-sm font-bold text-gray-700 mb-3">Clientes</h3>
+        <ul class="text-sm space-y-1 text-gray-700">
+            <li>Clientes distinctes : <strong>{{ report.customers }}</strong></li>
+            <li>Déjà clientes avant ce mois : <strong>{{ report.customers_returning }}</strong></li>
+        </ul>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
