@@ -18,12 +18,15 @@ Boutiques : les categories « enfants » et « accessoires » n'existent pas dan
 
 from __future__ import annotations
 
+import csv
+import math
 import os
 import random
 import unicodedata
 from datetime import timedelta
 from decimal import Decimal
 from io import BytesIO
+from pathlib import Path
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -42,11 +45,18 @@ SHOPS = [
     ("Démo Fanta Beauté", "beaute", "#C2410C"),
     ("Démo Moussa Tech", "electronique", "#2563EB"),
     ("Démo Saveurs du Mali", "alimentation", "#15803D"),
-    ("Démo Maison Kala", "maison", "#7C3AED"),
-    ("Démo Petits Pas", "mode", "#0891B2"),       # enfants
-    ("Démo Bijoux Nafi", "beaute", "#DB2777"),    # accessoires
+    ("Démo Souliers Kala", "chaussures", "#7C3AED"),
+    ("Démo Petits Pas", "mode", "#0891B2"),            # enfants
+    ("Démo Délices de Kayes", "alimentation", "#DB2777"),
     ("Démo Pieds Légers", "chaussures", "#B45309"),
 ]
+
+# Photos de demo OPTIONNELLES : core/demo_assets/produits/catalogue.csv (absent par defaut :
+# aucune photo tierce n'est versionnee, le seed genere ses images avec Pillow). Si present :
+# chemin (relatif a ce dossier), categorie, nom affiche, prix FCFA entier ; les images ne sont
+# jamais servies ni collectees, elles sont copiees dans media/ comme un upload normal.
+DEMO_ASSETS_DIR = Path(__file__).resolve().parents[2] / "demo_assets" / "produits"
+CATALOGUE_FILE = "catalogue.csv"
 
 PRODUCTS = {
     "mode": [("Robe wax", 18000), ("Boubou brodé", 25000), ("Chemise bogolan", 12000), ("Pagne 6 yards", 9000), ("Ensemble femme", 22000)],
@@ -64,12 +74,49 @@ QUARTIERS = ["ACI 2000", "Hamdallaye", "Badalabougou", "Lafiabougou", "Magnambou
 CLIENT_NAMES = ["Awa", "Fatoumata", "Mariam", "Oumou", "Aïssata", "Kadiatou", "Ibrahim", "Moussa", "Seydou", "Bakary"]
 
 # Ventes en direct : (boutique, fin dans N min, duree min, % vendu cible, nb produits)
-LIVE_SALES = [(0, 4, 120, 85, 4), (1, 12, 105, 62, 5), (2, 45, 90, 38, 3), (3, 100, 120, 21, 4)]
+LIVE_SALES = [(0, 4, 120, 85, 4), (4, 12, 105, 62, 5), (3, 45, 90, 38, 3), (2, 100, 120, 21, 4)]
 # Terminees recemment : (boutique, finie il y a N min, duree min)
 ENDED_SALES = [(7, 10, 120), (6, 50, 90), (5, 100, 100)]
 # Poids des commandes par heure (0 = derniere heure) : pics et creux.
 HOUR_WEIGHTS = [9, 5, 2, 1.5, 6, 3]
 HISTORY_HOURS = (6, 4)  # vente historique de chaque boutique : de -6 h a -4 h
+
+
+def load_catalogue(directory: Path | None = None) -> tuple[list[dict], list[str]]:
+    """Lit ``catalogue.csv`` : ``(lignes valides, avertissements)``.
+
+    Ligne ignoree (avec avertissement) si la categorie n'est pas une valeur de
+    ``SaleCategory``, si le prix n'est pas un entier > 0, si l'image est absente
+    ou hors du dossier. Fichier absent : liste vide (le seed utilise alors les
+    images generees avec Pillow).
+    """
+    from core.choices import SaleCategory
+
+    directory = Path(directory or DEMO_ASSETS_DIR)
+    csv_path = directory / CATALOGUE_FILE
+    if not csv_path.is_file():
+        return [], []
+    valid_categories = {value for value, _label in SaleCategory.choices}
+    rows, warnings = [], []
+    with csv_path.open(encoding="utf-8-sig", newline="") as fh:
+        for line_no, row in enumerate(csv.DictReader(fh), start=2):
+            try:
+                path = (directory / row["chemin"].strip()).resolve()
+                category = row["categorie"].strip()
+                name = row["nom"].strip()
+                price = int(row["prix"].strip())
+            except (KeyError, AttributeError, ValueError):
+                warnings.append(f"catalogue.csv ligne {line_no} : ligne illisible, ignoree.")
+                continue
+            if category not in valid_categories:
+                warnings.append(f"catalogue.csv ligne {line_no} : categorie inconnue « {category} », ignoree.")
+            elif price <= 0 or not name:
+                warnings.append(f"catalogue.csv ligne {line_no} : nom ou prix invalide, ignoree.")
+            elif directory.resolve() not in path.parents or not path.is_file():
+                warnings.append(f"catalogue.csv ligne {line_no} : image introuvable, ignoree.")
+            else:
+                rows.append({"path": path, "category": category, "name": name, "price": price})
+    return rows, warnings
 
 
 class Command(BaseCommand):
@@ -238,6 +285,30 @@ class Command(BaseCommand):
                 seller.save()
                 sellers.append(seller)
 
+            catalogue, catalogue_warnings = load_catalogue()
+            photo_pool: dict[str, list[dict]] = {}
+            for entry in catalogue:
+                photo_pool.setdefault(entry["category"], []).append(entry)
+            shops_per_category: dict[str, int] = {}
+            for _name, category, _color in SHOPS:
+                shops_per_category[category] = shops_per_category.get(category, 0) + 1
+            # Une vente ne prend qu'une part des photos de sa categorie (reparties
+            # entre les boutiques et les ventes) ; le reste est complete par Pillow.
+            photo_cap = {
+                cat: math.ceil(len(photos) / shops_per_category.get(cat, 1))
+                for cat, photos in photo_pool.items()
+            }
+            stats["photos"] = 0
+
+            def pick_products(category: str, n_products: int) -> list[dict]:
+                pool = photo_pool.get(category, [])
+                chosen = [pool.pop(0) for _ in range(min(n_products, photo_cap.get(category, 0), len(pool)))]
+                taken = {c["name"] for c in chosen}
+                fallback = [(name, price) for name, price in PRODUCTS[category] if name not in taken]
+                for name, price in rng.sample(fallback, n_products - len(chosen)):
+                    chosen.append({"path": None, "category": category, "name": name, "price": price})
+                return chosen
+
             def make_sale(shop, title, start, end, status, n_products, pct=None, sold_range=(0, 0)):
                 seller = sellers[shop]
                 sale = FlashSale.objects.create(
@@ -245,23 +316,30 @@ class Command(BaseCommand):
                     delivery_zone="Bamako",
                 )
                 linked = []
-                for display_order, (pname, price) in enumerate(
-                    rng.sample(PRODUCTS[SHOPS[shop][1]], n_products)
-                ):
+                for display_order, entry in enumerate(pick_products(SHOPS[shop][1], n_products)):
                     cap = rng.randint(12, 30)
                     product = Product.objects.create(
-                        owner=seller, name=pname, price=Decimal(price),
+                        owner=seller, name=entry["name"], price=Decimal(entry["price"]),
                         stock_initial=cap, stock_available=cap,
                     )
                     FlashSaleProduct.objects.create(
                         flash_sale=sale, product=product, display_order=display_order
                     )
                     media = ProductMedia(
-                        product=product, media_type=ProductMedia.MediaType.IMAGE, order=0, alt_text=pname
+                        product=product, media_type=ProductMedia.MediaType.IMAGE, order=0,
+                        alt_text=entry["name"],
                     )
-                    media.file.save(
-                        f"demo-{product.pk}.jpg", self._product_image(pname, product.pk), save=False
-                    )
+                    if entry["path"] is not None:
+                        # Copie dans media/ comme un upload (redimensionnement 1600 px dans save()).
+                        media.file.save(
+                            f"demo-{entry['path'].stem}-{product.pk}{entry['path'].suffix}",
+                            ContentFile(entry["path"].read_bytes()), save=False,
+                        )
+                        stats["photos"] += 1
+                    else:
+                        media.file.save(
+                            f"demo-{product.pk}.jpg", self._product_image(entry["name"], product.pk), save=False
+                        )
                     media.save()
                     linked.append((product, cap))
                 total = sum(c for _, c in linked)
@@ -269,13 +347,6 @@ class Command(BaseCommand):
                 plans.append((sale, linked, start, end, target))
                 stats["sales"] += 1
 
-            # Historique (invisible : fini depuis plus de 2 h) : porte les commandes anciennes.
-            for shop in range(len(SHOPS)):
-                make_sale(
-                    shop, f"{SALE_TITLES[SHOPS[shop][1]]} (hier soir)",
-                    now - HISTORY_HOURS[0] * hour, now - HISTORY_HOURS[1] * hour,
-                    FlashSaleStatus.COMPLETED, 3, sold_range=(0.6, 0.9),
-                )
             for shop, ends_in, duration, pct, n_products in LIVE_SALES:
                 end = now + ends_in * minute
                 make_sale(
@@ -293,10 +364,18 @@ class Command(BaseCommand):
             if tonight < now + 2 * hour:
                 tonight = now + 2 * hour + 15 * minute
             tomorrow = (local_now + timedelta(days=1)).replace(hour=10, minute=0, second=0, microsecond=0)
-            for shop, start in ((4, now + 20 * minute), (2, tonight), (3, tomorrow)):
+            for shop, start in ((1, now + 20 * minute), (6, tonight), (7, tomorrow)):
                 make_sale(
                     shop, f"{SALE_TITLES[SHOPS[shop][1]]} — à venir", start, start + 90 * minute,
                     FlashSaleStatus.SCHEDULED, 4,
+                )
+
+            # Historique (invisible : fini depuis plus de 2 h) : porte les commandes anciennes.
+            for shop in range(len(SHOPS)):
+                make_sale(
+                    shop, f"{SALE_TITLES[SHOPS[shop][1]]} (hier soir)",
+                    now - HISTORY_HOURS[0] * hour, now - HISTORY_HOURS[1] * hour,
+                    FlashSaleStatus.COMPLETED, 3, sold_range=(0.6, 0.9),
                 )
 
             # ── Commandes : quantites planifiees par vente, horodatees dans sa fenetre ──
@@ -381,12 +460,14 @@ class Command(BaseCommand):
                 for product, cap in linked:
                     Product.objects.filter(pk=product.pk).update(stock_available=cap - sold[product.pk])
 
+        for warning in catalogue_warnings:
+            self.stdout.write(self.style.WARNING(warning))
         indices = compute_market_stats(now)
         masked = [k for k in ("orders_last_hour", "deliveries_in_transit", "sparkline", "top_categories") if not indices[k]]
         self.stdout.write(self.style.SUCCESS(
             f"Démo créée : {len(SHOPS)} boutiques, {stats['sales']} ventes "
             f"({len(LIVE_SALES)} en direct, 3 à venir, {len(ENDED_SALES)} terminées récemment, "
-            f"{len(SHOPS)} historiques), {stats['orders']} commandes. "
+            f"{len(SHOPS)} historiques), {stats['orders']} commandes, {stats['photos']} produits avec une vraie photo. "
             "Supprime tout avec : python manage.py seed_marche_demo --clear"
         ))
         if masked:

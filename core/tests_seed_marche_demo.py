@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import hashlib
+import tempfile
+from pathlib import Path
 from unittest import mock
 from zoneinfo import ZoneInfo
 
@@ -20,12 +23,13 @@ from core.management.commands.seed_marche_demo import (
     ALLOW_ENV_VAR,
     DEMO_CLIENT_PREFIX,
     DEMO_PHONE_PREFIX,
+    load_catalogue,
 )
 from flash_sales.market_stats import compute_market_stats
 from flash_sales.models import FlashSale, FlashSaleStatus
 from flash_sales.services.ordering import live_now_q, recently_ended_q, upcoming_q
 from orders.models import Order, OrderItem, OrderStatus
-from products.models import Product
+from products.models import Product, ProductMedia
 
 User = get_user_model()
 # 14 h 30 a Bamako (UTC+0) : la journee compte assez d'heures pour la sparkline.
@@ -99,7 +103,7 @@ class SeedContentTests(TestCase):
         for shop in shops:
             self.assertTrue(shop.business_name.startswith("Démo "), shop.business_name)
             self.assertTrue(shop.avatar)
-        self.assertGreaterEqual(len({s.category for s in shops}), 6)
+        self.assertGreaterEqual(len({s.category for s in shops}), 5)
 
     def test_sales_by_state_and_rules(self) -> None:
         sales = self.demo_sales()
@@ -187,3 +191,146 @@ class SeedContentTests(TestCase):
         self.assertTrue(Product.objects.filter(pk=real_product.pk).exists())
         self.assertTrue(SellerProfile.objects.filter(pk=real.pk).exists())
         seed()  # le cleanup final attend une demo a supprimer
+
+
+def _tree_hashes(root: Path) -> dict[str, str]:
+    return {
+        str(f.relative_to(root)): hashlib.sha256(f.read_bytes()).hexdigest()
+        for f in sorted(root.rglob("*")) if f.is_file()
+    }
+
+
+def make_assets(root: Path) -> None:
+    """Faux jeu de photos (WebP generes) + catalogue.csv : le depot n'embarque aucune photo tierce."""
+    from PIL import Image
+
+    entries = [
+        ("mode", "robe-test-bleue", "Robe test bleue", 18000, "#2563EB"),
+        ("mode", "robe-test-rouge", "Robe test rouge", 22000, "#E63946"),
+        ("chaussures", "sandale-test", "Sandale test", 8500, "#B45309"),
+        ("chaussures", "derby-test", "Derby test", 28000, "#7C3AED"),
+        ("alimentation", "plat-test", "Plat test", 2500, "#15803D"),
+        ("alimentation", "sardines-test", "Sardines test", 3500, "#0891B2"),
+    ]
+    lines = ["chemin,categorie,nom,prix"]
+    for cat, slug, name, price, color in entries:
+        (root / cat).mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (640, 480), color).save(root / cat / (slug + ".webp"), "WEBP", quality=80)
+        lines.append(f"{cat}/{slug}.webp,{cat},{name},{price}")
+    (root / "catalogue.csv").write_text(chr(10).join(lines) + chr(10), encoding="utf-8")
+
+
+@override_settings(DEBUG=True)
+class SeedPhotosTests(TestCase):
+    def setUp(self) -> None:
+        cache.clear()
+        self.addCleanup(lambda: seed("--clear"))
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.assets = Path(tmp.name)
+        make_assets(self.assets)
+        patcher = mock.patch("core.management.commands.seed_marche_demo.DEMO_ASSETS_DIR", self.assets)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _photo_products(self):
+        # Les photos du catalogue sont des .webp ; les images generees par Pillow, des .jpg.
+        return ProductMedia.objects.filter(
+            product__owner__user__phone__startswith=DEMO_PHONE_PREFIX, file__endswith=".webp"
+        )
+
+    def test_repository_ships_no_third_party_photo(self) -> None:
+        """Le dossier versionne ne contient aucune photo : seules des images verifiees pourraient y entrer."""
+        from PIL import Image
+
+        repo_assets = Path(__file__).resolve().parent / "demo_assets" / "produits"
+        for f in repo_assets.rglob("*"):
+            if f.is_file() and "_ecartees" not in f.parts:
+                self.assertTrue(f.suffix in (".webp", ".csv"), f)
+                if f.suffix == ".webp":  # garde-fou si des images libres y sont ajoutees un jour
+                    self.assertLess(f.stat().st_size, 300 * 1024, f.name)
+                    with Image.open(f) as img:
+                        self.assertLessEqual(max(img.size), 1200)
+                        self.assertFalse(img.getexif())
+        self.assertTrue((Path(__file__).resolve().parent / "demo_assets" / "CREDITS.md").is_file())
+
+    def test_seed_uses_catalogue_photos_spread_across_shops_with_thumbnails(self) -> None:
+        seed()
+        rows, warnings = load_catalogue(self.assets)
+        self.assertEqual(warnings, [])
+        photos = self._photo_products()
+        self.assertEqual(photos.count(), len(rows))  # chaque photo utilisee une fois
+        names = set(
+            Product.objects.filter(owner__user__phone__startswith=DEMO_PHONE_PREFIX).values_list("name", flat=True)
+        )
+        for row in rows:
+            self.assertIn(row["name"], names)
+        for cat in {r["category"] for r in rows}:  # >= 2 boutiques par categorie photographiee
+            self.assertGreaterEqual(
+                SellerProfile.objects.filter(user__phone__startswith=DEMO_PHONE_PREFIX, category=cat).count(), 2
+            )
+        snap = compute_market_snapshot(NOW)
+        mains = [sc["main"] for sc in snap["showcase"].values() if sc["main"]]
+        self.assertTrue(any(m["image"] for m in mains))  # miniatures 480 px generees
+        for media in photos:  # copies dans media/, format d'origine conserve
+            self.assertTrue(media.file.name.endswith(".webp"))
+            self.assertTrue(media.file.storage.exists(media.file.name))
+
+    def test_seed_without_catalogue_uses_generated_images(self) -> None:
+        with tempfile.TemporaryDirectory() as empty, mock.patch(
+            "core.management.commands.seed_marche_demo.DEMO_ASSETS_DIR", Path(empty)
+        ):
+            seed()
+        self.assertEqual(self._photo_products().count(), 0)
+        total = ProductMedia.objects.filter(product__owner__user__phone__startswith=DEMO_PHONE_PREFIX)
+        self.assertGreater(total.count(), 20)
+        self.assertTrue(all(m.file.name.endswith(".jpg") for m in total))
+        stats = compute_market_stats(NOW)
+        self.assertIsNotNone(stats["sparkline"])
+
+    def test_clear_never_touches_demo_assets(self) -> None:
+        before = _tree_hashes(self.assets)
+        self.assertTrue(before)
+        seed()
+        seed("--reset")
+        seed("--clear")
+        self.assertEqual(_tree_hashes(self.assets), before)
+        self.assertEqual(ProductMedia.objects.count(), 0)
+
+    def test_invalid_catalogue_rows_are_skipped_with_warnings(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "mode").mkdir()
+            (root / "mode" / "ok.webp").write_bytes(b"x")
+            (root.parent / "dehors.webp").write_bytes(b"x")
+            (root / "catalogue.csv").write_text(
+                "chemin,categorie,nom,prix\n"
+                "mode/ok.webp,mode,Bon produit,5000\n"
+                "mode/ok.webp,plats,Categorie inconnue,5000\n"
+                "mode/ok.webp,mode,Prix decimal,12.5\n"
+                "mode/absent.webp,mode,Image absente,5000\n"
+                "../dehors.webp,mode,Hors dossier,5000\n"
+                "mode/ok.webp,mode,Prix nul,0\n",
+                encoding="utf-8",
+            )
+            rows, warnings = load_catalogue(root)
+            (root.parent / "dehors.webp").unlink()
+        self.assertEqual([r["name"] for r in rows], ["Bon produit"])
+        self.assertEqual(len(warnings), 5)
+
+    def test_missing_catalogue_file_is_not_an_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(load_catalogue(Path(tmp)), ([], []))
+
+    def test_demo_assets_are_neither_served_nor_collected(self) -> None:
+        from django.conf import settings
+        from django.contrib.staticfiles import finders
+
+        for directory in settings.STATICFILES_DIRS:
+            self.assertNotIn("demo_assets", str(directory))
+        self.assertNotIn("demo_assets", str(settings.MEDIA_ROOT))
+        self.assertIsNone(finders.find("produits/catalogue.csv"))
+        self.assertIsNone(finders.find("demo_assets/produits/catalogue.csv"))
+        for finder in finders.get_finders():
+            for path, _storage in finder.list([]):
+                self.assertNotIn("demo_assets", str(path))
