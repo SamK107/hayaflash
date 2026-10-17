@@ -68,7 +68,7 @@ class ThresholdTests(MarketStatsBase):
         for _ in range(MARKET_MIN_ORDERS_HOUR - 1):
             self.order(sale)
         self.assertIsNone(compute_market_stats(NOW)["orders_last_hour"])
-        self.order(sale)
+        self.order(self.shop("B"))
         self.assertEqual(compute_market_stats(NOW)["orders_last_hour"], MARKET_MIN_ORDERS_HOUR)
 
     def test_orders_older_than_one_hour_not_counted_in_last_hour(self) -> None:
@@ -84,7 +84,7 @@ class ThresholdTests(MarketStatsBase):
         self.transit(sale, Delivery.Status.DELIVERED)  # ne compte pas
         self.transit(sale, Delivery.Status.PENDING)  # ne compte pas
         self.assertIsNone(compute_market_stats(NOW)["deliveries_in_transit"])
-        self.transit(sale)
+        self.transit(self.shop("B"))
         self.assertEqual(compute_market_stats(NOW)["deliveries_in_transit"], MARKET_MIN_DELIVERIES)
 
     def test_cancelled_orders_and_deliveries_not_counted(self) -> None:
@@ -130,9 +130,9 @@ class CategoryTests(MarketStatsBase):
 
 class SparklineTests(MarketStatsBase):
     def test_one_point_per_elapsed_hour_and_counts(self) -> None:
-        sale = self.shop("A")
-        for h in (0, 0, 9, 13, 14):
-            self.order(sale, at=NOW.replace(hour=h, minute=5))
+        shops = (self.shop("A"), self.shop("B"))
+        for i, h in enumerate((0, 0, 9, 13, 14)):
+            self.order(shops[i % 2], at=NOW.replace(hour=h, minute=5))
         spark = compute_market_stats(NOW)["sparkline"]
         self.assertEqual(len(spark["hours"]), 15)  # 0 h .. 14 h
         self.assertEqual(len(spark["points"].split()), 15)
@@ -150,6 +150,44 @@ class SparklineTests(MarketStatsBase):
         for _ in range(8):
             self.order(sale, at=NOW - timedelta(days=1))
         self.assertIsNone(compute_market_stats(NOW)["sparkline"])
+
+
+class SingleShopTests(MarketStatsBase):
+    """Assez de volume mais une seule boutique : indicateur masque."""
+
+    def test_orders_last_hour_hidden_with_one_shop(self) -> None:
+        sale = self.shop("A")
+        for _ in range(MARKET_MIN_ORDERS_HOUR + 5):
+            self.order(sale)
+        self.assertIsNone(compute_market_stats(NOW)["orders_last_hour"])
+        self.order(self.shop("B"))
+        self.assertEqual(compute_market_stats(NOW)["orders_last_hour"], MARKET_MIN_ORDERS_HOUR + 6)
+
+    def test_deliveries_hidden_with_one_shop(self) -> None:
+        sale = self.shop("A")
+        for _ in range(MARKET_MIN_DELIVERIES + 3):
+            self.transit(sale)
+        self.assertIsNone(compute_market_stats(NOW)["deliveries_in_transit"])
+        self.transit(self.shop("B"))
+        self.assertEqual(compute_market_stats(NOW)["deliveries_in_transit"], MARKET_MIN_DELIVERIES + 4)
+
+    def test_sparkline_hidden_with_one_shop_over_the_day(self) -> None:
+        sale = self.shop("A")
+        for h in (1, 3, 5, 8, 9, 10, 11):
+            self.order(sale, at=NOW.replace(hour=h, minute=5))
+        self.assertGreaterEqual(MARKET_MIN_ORDERS_DAY, 1)
+        self.assertIsNone(compute_market_stats(NOW)["sparkline"])
+        # Une 2e boutique la veille ne compte pas pour la journee.
+        self.order(self.shop("B"), at=NOW - timedelta(days=1))
+        self.assertIsNone(compute_market_stats(NOW)["sparkline"])
+        self.order(self.shop("C"), at=NOW.replace(hour=12, minute=5))
+        self.assertIsNotNone(compute_market_stats(NOW)["sparkline"])
+
+    def test_all_hidden_means_block_not_visible(self) -> None:
+        sale = self.shop("A")
+        for _ in range(10):
+            self.order(sale)
+        self.assertFalse(compute_market_stats(NOW)["visible"])
 
 
 class CacheAndQueriesTests(MarketStatsBase):
@@ -176,6 +214,7 @@ class CacheAndQueriesTests(MarketStatsBase):
             self.order(other)
         self.transit(sale)
         self.assertEqual(cold(), base)
+        self.assertLessEqual(cold(), 4)
 
 
 class MarketPageBlockTests(MarketStatsBase):

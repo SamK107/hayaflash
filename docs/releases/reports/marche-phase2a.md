@@ -10,3 +10,5 @@ Sparkline : un point par heure de 0 h à l'heure courante incluse (heure en cour
 Écarts au brief : chemins réels `flash_sales/services/ordering.py` ; le rafraîchissement HTMX est à 30 s (phase 1), pas 45 s ; le bloc affiche des noms de catégories sans effectifs.
 Branche `marche-phase2a` (worktree `../hayaflash-marche2a`, partie du commit `b1e87ca`) : le checkout principal est sur `feat/admin-bilans-a`, utilisé par une autre session.
 Tests : 14 nouveaux (`flash_sales/tests_market_stats.py`), suite complète 1620 passés, 4 ignorés.
+Correctif multi-boutiques : `MARKET_MIN_SHOPS` = 2 ; commandes de la dernière heure, livraisons en cours et sparkline (boutiques distinctes sur la journée) exigent ce nombre de boutiques en plus du seuil de volume (même constante pour les catégories). Toujours 4 requêtes à froid (comptages et boutiques distinctes agrégés ensemble).
+Tests : 4 cas « volume suffisant, une seule boutique » ajoutés ; suite complète relancée, ruff propre sur les fichiers touchés.

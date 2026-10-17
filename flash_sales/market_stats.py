@@ -6,7 +6,8 @@ cours, commandes par heure (sparkline). Aucune donnee par boutique, ni nom, ni
 volume, ni produit ; aucun chiffre invente : tout vient des requetes, un
 indicateur sous son seuil est masque (None / absent).
 
-Charge : ``get_market_stats`` = 4 requetes agregees a froid, 0 a chaud (cache
+Charge : ``get_market_stats`` = 4 requetes agregees a froid ; chaque indicateur exige aussi
+MARKET_MIN_SHOPS boutiques distinctes (anti-identification), 0 a chaud (cache
 ``MARKET_STATS_CACHE_SECONDS`` sous une seule cle par jour Africa/Bamako).
 
 Commandes comptees : tout statut sauf ``CANCELLED``. Il n'existe ni brouillon ni
@@ -19,7 +20,7 @@ from datetime import timedelta
 from typing import Any
 
 from django.core.cache import cache
-from django.db.models import Count, Value
+from django.db.models import Count, Q, Value
 from django.db.models.functions import Coalesce, NullIf, TruncHour
 from django.utils import timezone
 
@@ -27,7 +28,8 @@ from core.choices import SaleCategory
 
 # ── Seuils d'affichage (sous le seuil : indicateur masque) ────────────────
 MARKET_MIN_ORDERS_HOUR = 3      # commandes de la derniere heure
-MARKET_MIN_SHOPS_PER_CATEGORY = 2  # boutiques distinctes pour citer une categorie
+MARKET_MIN_SHOPS = 2            # boutiques distinctes derriere un indicateur
+MARKET_MIN_SHOPS_PER_CATEGORY = MARKET_MIN_SHOPS  # idem pour citer une categorie
 MARKET_MIN_DELIVERIES = 3       # livraisons en cours
 MARKET_MIN_ORDERS_DAY = 5       # commandes du jour pour tracer la sparkline
 MARKET_TOP_CATEGORIES = 3
@@ -85,10 +87,19 @@ def compute_market_stats(now=None) -> dict[str, Any]:
     hourly = [by_hour.get(h, 0) for h in range(local_now.hour + 1)]
     orders_today = sum(hourly)
 
-    # 2. Commandes de la derniere heure (peut deborder sur la veille a minuit).
-    last_hour = valid.filter(
-        created_at__gte=now - timedelta(hours=1), created_at__lte=now
-    ).count()
+    # 2. Commandes de la derniere heure + boutiques distinctes (heure et jour),
+    # en une seule requete (la fenetre peut deborder sur la veille a minuit).
+    recent = Q(created_at__gte=now - timedelta(hours=1))
+    window = valid.filter(
+        created_at__gte=min(day_start, now - timedelta(hours=1)), created_at__lte=now
+    ).aggregate(
+        hour=Count("id", filter=recent),
+        hour_shops=Count("flash_sale__owner", distinct=True, filter=recent),
+        day_shops=Count(
+            "flash_sale__owner", distinct=True, filter=Q(created_at__gte=day_start)
+        ),
+    )
+    last_hour = window["hour"]
 
     # 3. Categories : celle de la vente, sinon celle de la boutique, sinon "autre".
     category = Coalesce(
@@ -108,19 +119,30 @@ def compute_market_stats(now=None) -> dict[str, Any]:
     top_categories = [labels.get(r["cat"], r["cat"]) for r in rows]
 
     # 4. Livraisons en cours (statut Delivery.IN_TRANSIT ; pas de champ ville).
-    in_transit = (
+    transit = (
         Delivery.objects.filter(status=Delivery.Status.IN_TRANSIT)
         .exclude(order__status=OrderStatus.CANCELLED)
-        .count()
+        .aggregate(n=Count("id"), shops=Count("order__flash_sale__owner", distinct=True))
     )
+    in_transit = transit["n"]
 
     stats: dict[str, Any] = {
-        "orders_last_hour": last_hour if last_hour >= MARKET_MIN_ORDERS_HOUR else None,
+        "orders_last_hour": (
+            last_hour
+            if last_hour >= MARKET_MIN_ORDERS_HOUR and window["hour_shops"] >= MARKET_MIN_SHOPS
+            else None
+        ),
         "top_categories": top_categories,
-        "deliveries_in_transit": in_transit if in_transit >= MARKET_MIN_DELIVERIES else None,
+        "deliveries_in_transit": (
+            in_transit
+            if in_transit >= MARKET_MIN_DELIVERIES and transit["shops"] >= MARKET_MIN_SHOPS
+            else None
+        ),
         "sparkline": (
             _sparkline(hourly)
-            if orders_today >= MARKET_MIN_ORDERS_DAY and len(hourly) >= 2
+            if orders_today >= MARKET_MIN_ORDERS_DAY
+            and window["day_shops"] >= MARKET_MIN_SHOPS
+            and len(hourly) >= 2
             else None
         ),
         "spark_to_hour": local_now.hour,
