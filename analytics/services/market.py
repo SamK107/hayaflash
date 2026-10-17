@@ -25,11 +25,13 @@ from django.db.models import Count, Sum
 from django.utils import timezone
 
 from analytics.services.live_pulse import PROOF_MIN_ORDERS
+from analytics.services.market_showcase import build_showcase
 
 MARKET_CACHE_KEY = "hf:market:v1"
 MARKET_CACHE_SECONDS = 30
 MIN_PERCENT_SHOWN = 5
 ENDED_LIMIT = 6
+UPCOMING_LIMIT = 40
 
 
 def _percent_sold(items_sold: int, stock: int | None) -> int | None:
@@ -43,13 +45,22 @@ def _percent_sold(items_sold: int, stock: int | None) -> int | None:
 def compute_market_snapshot(now=None) -> dict[str, Any]:
     """Calcule le snapshot (sans cache)."""
     from flash_sales.models import FlashSale
-    from flash_sales.services.ordering import live_now_q, recently_ended_q
+    from flash_sales.services.ordering import live_now_q, recently_ended_q, upcoming_q
     from orders.models import Order, OrderItem, OrderStatus
     from products.models import FlashSaleProduct
 
     now = now or timezone.now()
 
-    live_ids = list(FlashSale.objects.filter(live_now_q(now)).values_list("pk", flat=True))
+    live_sales = list(
+        FlashSale.objects.filter(live_now_q(now))
+        .select_related("owner")
+        .only(
+            "title", "public_slug", "end_time", "category",
+            "owner__business_name", "owner__category",
+        )
+        .order_by("end_time")
+    )
+    live_ids = [s.pk for s in live_sales]
     ended = list(
         FlashSale.objects.filter(recently_ended_q(now))
         .select_related("owner")
@@ -116,7 +127,19 @@ def compute_market_snapshot(now=None) -> dict[str, Any]:
             }
         )
 
-    return {"sales": sales, "recently_ended": recently_ended}
+    upcoming_ids = list(
+        FlashSale.objects.filter(upcoming_q(now))
+        .order_by("start_time")
+        .values_list("pk", flat=True)[:UPCOMING_LIMIT]
+    )
+    showcase, moment = build_showcase(live_sales, upcoming_ids + ended_ids, now)
+
+    return {
+        "sales": sales,
+        "recently_ended": recently_ended,
+        "showcase": showcase,
+        "moment": moment,
+    }
 
 
 def get_market_snapshot(now=None) -> dict[str, Any]:

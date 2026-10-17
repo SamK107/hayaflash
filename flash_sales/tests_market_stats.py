@@ -222,7 +222,7 @@ class MarketPageBlockTests(MarketStatsBase):
 
     def test_block_absent_when_everything_below_thresholds(self) -> None:
         resp = self.client.get(self.url)
-        self.assertNotContains(resp, "Le marché aujourd'hui")
+        self.assertNotContains(resp, "Tendances du jour")
         self.assertContains(resp, "Les prochaines ventes arrivent bientôt.")
 
     def test_block_shown_without_shop_data(self) -> None:
@@ -232,10 +232,10 @@ class MarketPageBlockTests(MarketStatsBase):
             self.order(s, at=now - timedelta(minutes=5))
         # created_at dans la fenetre meme apres minuit : ces 4 commandes sont recentes.
         resp = self.client.get(self.url)
-        self.assertContains(resp, "Le marché aujourd'hui")
+        self.assertContains(resp, "Tendances du jour")
         self.assertContains(resp, "Commandes cette dernière heure")
         html = resp.content.decode()
-        block = html[html.index('class="hfc-stats"'):html.index("</section>", html.index('class="hfc-stats"'))]
+        block = html[html.index('class="hfc-stats '):html.index("</section>", html.index('class="hfc-stats '))]
         for forbidden in ("Boutique Alpha", "Boutique Beta", "Secret Acheteur", "Vente "):
             self.assertNotIn(forbidden, block)
         part = self.client.get(self.url, HTTP_HX_REQUEST="true")

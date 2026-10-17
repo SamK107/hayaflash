@@ -13,6 +13,11 @@
 .countdown-urgence { animation: urgence-pulse 1s ease-in-out infinite; }
 .product-card { transition: box-shadow .15s; }
 .product-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.10); }
+/* Lien depuis le Marche (#p-<id>) : defile jusqu'au produit sous l'en-tete collant et le met brievement en evidence. */
+.product-card { scroll-margin-top: 76px; }
+.product-card:target { animation: hf-target 1.8s ease-out; }
+@keyframes hf-target { 0% { box-shadow: 0 0 0 4px #FFB800; } 100% { box-shadow: 0 0 0 0 rgba(255,184,0,0); } }
+@media (prefers-reduced-motion: reduce) { .product-card:target { animation: none; outline: 3px solid #FFB800; } }
 .stock-bar-fill { transition: width .6s ease; }
 @keyframes btn-speak-pulse { 0%,100%{opacity:1;} 50%{opacity:.5;} }
 .btn-speaking { animation: btn-speak-pulse 1s ease-in-out infinite; }
@@ -335,7 +340,7 @@
     <div class="mt-3 space-y-3 px-3">
       {% for row in product_links %}
       {% with p=row.product %}
-      <div class="product-card bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div id="p-{{ p.pk }}" class="product-card bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {% with img=p.media.all.0 %}
         {% if img and img.file %}
         <div class="relative">

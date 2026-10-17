@@ -29,3 +29,8 @@ Claude outputs/
 
 # Certificats HTTPS locaux (mkcert, runserver_https) : propres a chaque poste
 .certs/
+
+core/demo_assets/produits/_ecartees/
+core/demo_assets/produits_libre/
+core/demo_assets/_inventaire_licences.csv
+core/demo_assets/_planche_contact.html

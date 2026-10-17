@@ -426,6 +426,14 @@ function hfSpeak(btn, text) {
     });
   }
   markCards(false);
+  // Reponse identique a la precedente : pas de remplacement du DOM (les images
+  // deja chargees ne clignotent pas, le carrousel garde sa position de defilement).
+  var lastHtml = null;
+  root.addEventListener('htmx:beforeSwap', function (e) {
+    var html = e.detail.serverResponse;
+    if (lastHtml !== null && html === lastHtml) { e.detail.shouldSwap = false; return; }
+    lastHtml = html;
+  });
   root.addEventListener('htmx:afterSwap', function () { markCards(true); tick(); });
 
   // « M'alerter » : un seul tiroir pour toute la page, clone depuis le

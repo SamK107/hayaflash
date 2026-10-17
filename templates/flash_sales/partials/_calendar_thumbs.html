@@ -1,0 +1,14 @@
+{% load hf_filters %}
+{# Rangee de vignettes (max 3) d'une vente : miniatures WebP 200 px, jamais l'original. sc, slug, show_price, linked #}
+<span class="hfc-thumbs">
+  {% for t in sc.thumbs %}
+  {% if linked %}<a class="hfc-th" href="{% url 'public_flash_sale' slug=slug %}#p-{{ t.id }}">{% else %}<span class="hfc-th">{% endif %}
+    <span class="hfc-th-img">
+      {% if t.image %}<img src="{{ t.image.url }}" width="{{ t.image.width }}" height="{{ t.image.height }}" alt="{{ t.name }}" loading="lazy" decoding="async">{% else %}<span class="hfc-ph hfc-ph-{{ t.ph }}" aria-hidden="true">{{ t.initials }}</span>{% endif %}
+      {% if show_price and t.discount %}<span class="hfc-off hfc-off--sm">&minus;{{ t.discount }} %</span>{% endif %}
+      {% if forloop.last and sc.more %}<span class="hfc-more">+{{ sc.more }}</span>{% endif %}
+    </span>
+    {% if show_price %}<span class="hfc-th-price">{{ t.price|thousands }}</span>{% endif %}
+  {% if linked %}</a>{% else %}</span>{% endif %}
+  {% endfor %}
+</span>
