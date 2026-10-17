@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.contrib.staticfiles import finders
 from django.test import TestCase
 from django.urls import reverse
 
@@ -39,9 +41,10 @@ class GuidePremiereVenteTests(TestCase):
         self.assertNotContains(resp, "Commence gratuitement")
 
     def test_images_presentes(self):
+        guide_dir = Path(settings.BASE_DIR) / "static" / "guide"
         for s in SLIDES:
             if s["img"]:
-                self.assertIsNotNone(finders.find(f"guide/{s['img']}"), s["img"])
+                self.assertTrue((guide_dir / s["img"]).is_file(), s["img"])
 
     def test_lien_depuis_accueil(self):
         resp = self.client.get(reverse("home"))
