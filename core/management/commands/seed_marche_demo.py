@@ -1,47 +1,117 @@
-"""Donnees de demo pour tester /ventes/ (Le Marche) en local.
+"""Donnees de demo pour montrer /ventes/ (Le Marche) : local ou staging.
 
     python manage.py seed_marche_demo            # cree la demo
+    python manage.py seed_marche_demo --reset    # --clear puis creation (remet la demo « en direct »)
     python manage.py seed_marche_demo --clear    # supprime tout ce qu'elle a cree
 
-Refuse de tourner si DEBUG=False. Tout est repere par le prefixe de telephone
-``DEMO_PHONE_PREFIX`` (comptes vendeurs) : --clear ne touche rien d'autre.
+Les heures sont relatives au lancement : les comptes a rebours vieillissent, il
+suffit de relancer avec --reset.
+
+Garde-fous : refuse si DEBUG=False, sauf si ``HAYAFLASH_ALLOW_DEMO_SEED=1`` ET
+qu'aucun hote de production n'est dans ALLOWED_HOSTS. Tout est repere par le
+prefixe de telephone vendeur ``DEMO_PHONE_PREFIX`` (comptes) et le prefixe client
+``DEMO_CLIENT_PREFIX`` : --clear ne touche rien d'autre.
+
+Boutiques : les categories « enfants » et « accessoires » n'existent pas dans
+``SaleCategory`` : elles sont rattachees a « Mode » et « Beauté ».
 """
 
 from __future__ import annotations
 
+import os
+import random
 from datetime import timedelta
 from decimal import Decimal
+from io import BytesIO
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
-DEMO_PHONE_PREFIX = "+22379990"
-# (nom, categorie, telephone)
+DEMO_PHONE_PREFIX = "+22379990"    # comptes vendeurs
+DEMO_CLIENT_PREFIX = "+22378880"   # telephones clients des commandes de demo
+ALLOW_ENV_VAR = "HAYAFLASH_ALLOW_DEMO_SEED"
+PRODUCTION_HOSTS = frozenset({"hayaflash.com", "www.hayaflash.com"})
+
+# (nom, categorie, couleur d'avatar)
 SHOPS = [
-    ("Demo Awa Mode", "mode", DEMO_PHONE_PREFIX + "001"),
-    ("Demo Fanta Beaute", "beaute", DEMO_PHONE_PREFIX + "002"),
-    ("Demo Moussa Tech", "electronique", DEMO_PHONE_PREFIX + "003"),
+    ("Démo Awa Mode", "mode", "#E63946"),
+    ("Démo Fanta Beauté", "beaute", "#C2410C"),
+    ("Démo Moussa Tech", "electronique", "#2563EB"),
+    ("Démo Saveurs du Mali", "alimentation", "#15803D"),
+    ("Démo Maison Kala", "maison", "#7C3AED"),
+    ("Démo Petits Pas", "mode", "#0891B2"),       # enfants
+    ("Démo Bijoux Nafi", "beaute", "#DB2777"),    # accessoires
+    ("Démo Pieds Légers", "chaussures", "#B45309"),
 ]
-ORDER_COUNT = 10
-IN_TRANSIT_COUNT = 3
+
+PRODUCTS = {
+    "mode": [("Robe wax", 18000), ("Boubou brodé", 25000), ("Chemise bogolan", 12000), ("Pagne 6 yards", 9000), ("Ensemble femme", 22000)],
+    "beaute": [("Beurre de karité", 3500), ("Huile de coco", 4000), ("Savon noir", 2500), ("Crème visage", 7500), ("Parfum 50 ml", 15000)],
+    "electronique": [("Écouteurs sans fil", 12000), ("Chargeur rapide", 6500), ("Batterie externe", 14000), ("Enceinte Bluetooth", 18000), ("Câble USB-C", 2500)],
+    "alimentation": [("Thé à la menthe", 2000), ("Miel local 500 g", 4500), ("Arachides grillées", 1500), ("Jus de bissap", 1000), ("Épices maison", 3000)],
+    "maison": [("Set de casseroles", 28000), ("Natte tressée", 8000), ("Lampe solaire", 9500), ("Seau et bassine", 4000), ("Rideau wax", 11000)],
+    "chaussures": [("Sandales cuir", 8500), ("Baskets légères", 16000), ("Babouches", 6000), ("Tongs", 2500), ("Mocassins", 19000)],
+}
+SALE_TITLES = {
+    "mode": "Fin de série mode", "beaute": "Soins et beauté", "electronique": "Accessoires high-tech",
+    "alimentation": "Saveurs du terroir", "maison": "Déco et cuisine", "chaussures": "Chaussures de saison",
+}
+QUARTIERS = ["ACI 2000", "Hamdallaye", "Badalabougou", "Lafiabougou", "Magnambougou", "Niamakoro", "Sogoniko", "Kalaban Coura"]
+CLIENT_NAMES = ["Awa", "Fatoumata", "Mariam", "Oumou", "Aïssata", "Kadiatou", "Ibrahim", "Moussa", "Seydou", "Bakary"]
+
+# Ventes en direct : (boutique, fin dans N min, duree min, % vendu cible, nb produits)
+LIVE_SALES = [(0, 4, 120, 85, 4), (1, 12, 105, 62, 5), (2, 45, 90, 38, 3), (3, 100, 120, 21, 4)]
+# Terminees recemment : (boutique, finie il y a N min, duree min)
+ENDED_SALES = [(7, 10, 120), (6, 50, 90), (5, 100, 100)]
+# Poids des commandes par heure (0 = derniere heure) : pics et creux.
+HOUR_WEIGHTS = [9, 5, 2, 1.5, 6, 3]
+HISTORY_HOURS = (6, 4)  # vente historique de chaque boutique : de -6 h a -4 h
 
 
 class Command(BaseCommand):
-    help = "Cree (ou supprime avec --clear) des donnees de demo pour /ventes/. DEBUG uniquement."
+    help = "Cree (ou supprime avec --clear / --reset) des donnees de demo pour /ventes/."
 
     def add_arguments(self, parser) -> None:
         parser.add_argument("--clear", action="store_true", help="Supprime les donnees de demo.")
+        parser.add_argument("--reset", action="store_true", help="--clear puis creation.")
 
     def handle(self, *args, **options) -> None:
-        if not settings.DEBUG:
-            raise CommandError("seed_marche_demo refuse de tourner avec DEBUG=False.")
+        self._check_allowed()
+        if options["clear"] and options["reset"]:
+            raise CommandError("Choisis --clear ou --reset, pas les deux.")
         if options["clear"]:
             self._clear()
-        else:
-            self._create()
+            return
+        if options["reset"]:
+            self._clear()
+        self._create()
+
+    # ── Garde-fous ────────────────────────────────────────────────────
+    @staticmethod
+    def _production_host_present() -> bool:
+        for host in settings.ALLOWED_HOSTS:
+            h = host.strip().lower()
+            if h == "*" or h.lstrip(".") in PRODUCTION_HOSTS:
+                return True
+        return False
+
+    def _check_allowed(self) -> None:
+        if settings.DEBUG:
+            return
+        if os.environ.get(ALLOW_ENV_VAR) != "1":
+            raise CommandError(
+                "seed_marche_demo refuse de tourner avec DEBUG=False. "
+                f"Sur un staging : définis {ALLOW_ENV_VAR}=1."
+            )
+        if self._production_host_present():
+            raise CommandError(
+                "seed_marche_demo refuse de tourner : ALLOWED_HOSTS contient un hôte de production "
+                "(hayaflash.com, www.hayaflash.com, .hayaflash.com ou *)."
+            )
 
     # ── Suppression ───────────────────────────────────────────────────
     def _clear(self) -> None:
@@ -59,79 +129,211 @@ class Command(BaseCommand):
             Order.service_objects.filter(flash_sale__owner__in=sellers).delete()
             FlashSale.objects.filter(owner__in=sellers).delete()
             Product.objects.filter(owner__in=sellers).delete()
+            for seller in sellers:
+                if seller.avatar:
+                    seller.avatar.delete(save=False)
             sellers.delete()
             deleted = users.delete()[0]
-        self.stdout.write(self.style.SUCCESS(f"Demo supprimee ({deleted} comptes et dependances)."))
+        self.stdout.write(self.style.SUCCESS(f"Démo supprimée ({deleted} objets, comptes inclus)."))
 
     # ── Creation ──────────────────────────────────────────────────────
+    @staticmethod
+    def _avatar(name: str, color: str) -> ContentFile:
+        """PNG carre : couleur unie + initiales (aucun telechargement)."""
+        from PIL import Image, ImageDraw, ImageFont
+
+        words = name.replace("Démo ", "").split()
+        initials = "".join(w[0] for w in words[:2]).upper()
+        img = Image.new("RGB", (256, 256), color)
+        draw = ImageDraw.Draw(img)
+        font = ImageFont.load_default(size=110)
+        box = draw.textbbox((0, 0), initials, font=font)
+        draw.text(
+            ((256 - (box[2] - box[0])) / 2 - box[0], (256 - (box[3] - box[1])) / 2 - box[1]),
+            initials, fill="#FFFFFF", font=font,
+        )
+        buf = BytesIO()
+        img.save(buf, "PNG")
+        return ContentFile(buf.getvalue())
+
     def _create(self) -> None:
         from accounts.models import SellerProfile
         from delivery.models import Delivery
+        from flash_sales.market_stats import compute_market_stats
         from flash_sales.models import FlashSale, FlashSaleStatus
         from orders.models import Order, OrderItem, OrderStatus
         from products.models import FlashSaleProduct, Product
 
         User = get_user_model()
         if User.objects.filter(phone__startswith=DEMO_PHONE_PREFIX).exists():
-            raise CommandError("La demo existe deja : lance d'abord --clear.")
+            raise CommandError("La démo existe déjà : relance avec --reset (ou --clear).")
 
+        rng = random.Random(20261017)  # deterministe : meme demo a chaque lancement
         now = timezone.now()
+        local_now = timezone.localtime(now)
+        minute = timedelta(minutes=1)
+        hour = timedelta(hours=1)
+
+        stats = {"sales": 0, "orders": 0}
+        # (vente, [(produit, capacite)], debut, fin, quantite a vendre)
+        plans: list[tuple] = []
+
         with transaction.atomic():
             sellers = []
-            for name, category, phone in SHOPS:
-                user = User.objects.create_user(phone=phone, password=None, display_name=name)
-                sellers.append(
-                    SellerProfile.objects.create(user=user, business_name=name, category=category)
+            for i, (name, category, color) in enumerate(SHOPS):
+                user = User.objects.create_user(
+                    phone=f"{DEMO_PHONE_PREFIX}{i + 1:03d}", password=None, display_name=name
+                )
+                seller = SellerProfile(user=user, business_name=name, category=category)
+                seller.avatar.save(f"demo-{i + 1}.png", self._avatar(name, color), save=False)
+                seller.save()
+                sellers.append(seller)
+
+            def make_sale(shop, title, start, end, status, n_products, pct=None, sold_range=(0, 0)):
+                seller = sellers[shop]
+                sale = FlashSale.objects.create(
+                    owner=seller, title=title, start_time=start, end_time=end, status=status,
+                    delivery_zone="Bamako",
+                )
+                linked = []
+                for display_order, (pname, price) in enumerate(
+                    rng.sample(PRODUCTS[SHOPS[shop][1]], n_products)
+                ):
+                    cap = rng.randint(12, 30)
+                    product = Product.objects.create(
+                        owner=seller, name=pname, price=Decimal(price),
+                        stock_initial=cap, stock_available=cap,
+                    )
+                    FlashSaleProduct.objects.create(
+                        flash_sale=sale, product=product, display_order=display_order
+                    )
+                    linked.append((product, cap))
+                total = sum(c for _, c in linked)
+                target = round(total * pct / 100) if pct is not None else round(total * rng.uniform(*sold_range))
+                plans.append((sale, linked, start, end, target))
+                stats["sales"] += 1
+
+            # Historique (invisible : fini depuis plus de 2 h) : porte les commandes anciennes.
+            for shop in range(len(SHOPS)):
+                make_sale(
+                    shop, f"{SALE_TITLES[SHOPS[shop][1]]} (hier soir)",
+                    now - HISTORY_HOURS[0] * hour, now - HISTORY_HOURS[1] * hour,
+                    FlashSaleStatus.COMPLETED, 3, sold_range=(0.6, 0.9),
+                )
+            for shop, ends_in, duration, pct, n_products in LIVE_SALES:
+                end = now + ends_in * minute
+                make_sale(
+                    shop, SALE_TITLES[SHOPS[shop][1]], end - duration * minute, end,
+                    FlashSaleStatus.LIVE, n_products, pct=pct,
+                )
+            for shop, ended_ago, duration in ENDED_SALES:
+                end = now - ended_ago * minute
+                make_sale(
+                    shop, f"{SALE_TITLES[SHOPS[shop][1]]} — terminée", end - duration * minute, end,
+                    FlashSaleStatus.COMPLETED, 3, sold_range=(0.7, 1.0),
+                )
+            # A venir : dans 20 min, « ce soir », demain (sans commandes).
+            tonight = local_now.replace(hour=20, minute=0, second=0, microsecond=0)
+            if tonight < now + 2 * hour:
+                tonight = now + 2 * hour + 15 * minute
+            tomorrow = (local_now + timedelta(days=1)).replace(hour=10, minute=0, second=0, microsecond=0)
+            for shop, start in ((4, now + 20 * minute), (2, tonight), (3, tomorrow)):
+                make_sale(
+                    shop, f"{SALE_TITLES[SHOPS[shop][1]]} — à venir", start, start + 90 * minute,
+                    FlashSaleStatus.SCHEDULED, 4,
                 )
 
-            def sale(owner, title, start, end, status, stock):
-                s = FlashSale.objects.create(
-                    owner=owner, title=title, start_time=now + start, end_time=now + end, status=status
-                )
-                p = Product.objects.create(
-                    owner=owner, name=title, stock_available=stock, stock_initial=20,
-                    price=Decimal(5000),
-                )
-                FlashSaleProduct.objects.create(flash_sale=s, product=p)
-                return s, p
+            # ── Commandes : quantites planifiees par vente, horodatees dans sa fenetre ──
+            seq = 0
 
-            live, live_product = sale(
-                sellers[0], "Demo robes wax", timedelta(minutes=-20), timedelta(minutes=40),
-                FlashSaleStatus.LIVE, 12,
-            )
-            sale(
-                sellers[1], "Demo soins visage", timedelta(minutes=30), timedelta(hours=1, minutes=30),
-                FlashSaleStatus.SCHEDULED, 20,
-            )
-            ended, ended_product = sale(
-                sellers[2], "Demo ecouteurs", timedelta(hours=-2), timedelta(hours=-1),
-                FlashSaleStatus.COMPLETED, 0,
-            )
+            def draw_time(start, end):
+                lo, hi = max(start, now - 6 * hour), min(end, now)
+                buckets, weights = [], []
+                for b in range(6):
+                    b_lo, b_hi = max(lo, now - (b + 1) * hour), min(hi, now - b * hour)
+                    if b_hi > b_lo:
+                        buckets.append((b_lo, b_hi))
+                        weights.append(HOUR_WEIGHTS[b] * (b_hi - b_lo).total_seconds() / 3600)
+                if not buckets:
+                    return None
+                b_lo, b_hi = rng.choices(buckets, weights=weights)[0]
+                return b_lo + (b_hi - b_lo) * rng.random()
 
-            # ~10 commandes sur 2 boutiques (vente en direct + vente terminee) dans
-            # la derniere heure ; les 3 premieres livraisons sont IN_TRANSIT.
-            for i in range(ORDER_COUNT):
-                sale_obj, product = (live, live_product) if i % 2 == 0 else (ended, ended_product)
+            def pick_status(age: timedelta) -> str:
+                r = rng.random()
+                if age < 15 * minute:
+                    return OrderStatus.PENDING if r < 0.7 else OrderStatus.CONFIRMED
+                if age < hour:
+                    if r < 0.45:
+                        return OrderStatus.CONFIRMED
+                    return OrderStatus.OUT_FOR_DELIVERY if r < 0.85 else OrderStatus.DELIVERED
+                return OrderStatus.OUT_FOR_DELIVERY if r < 0.06 else OrderStatus.DELIVERED
+
+            def make_order(sale, product, qty, created, status):
+                nonlocal seq
+                seq += 1
+                total = product.price * qty
                 order = Order.service_objects.create(
-                    flash_sale=sale_obj, customer_name=f"Client demo {i + 1}",
-                    customer_phone=f"+2237888{i:04d}", status=OrderStatus.PENDING,
-                    client_request_id=f"demo-marche-{i}", total_amount=product.price,
+                    flash_sale=sale, customer_name=f"{rng.choice(CLIENT_NAMES)} (démo)",
+                    customer_phone=f"{DEMO_CLIENT_PREFIX}{seq:04d}", status=status,
+                    client_request_id=f"demo-marche-{seq}", total_amount=total,
                 )
-                Order.service_objects.filter(pk=order.pk).update(
-                    created_at=now - timedelta(minutes=5 + i * 5)
-                )
+                Order.service_objects.filter(pk=order.pk).update(created_at=created, updated_at=created)
                 OrderItem.objects.create(
                     order=order, product=product, product_name_snapshot=product.name,
-                    price_snapshot=product.price, quantity=1,
+                    price_snapshot=product.price, quantity=qty,
                 )
-                if i < IN_TRANSIT_COUNT:
-                    Order.service_objects.filter(pk=order.pk).update(status=OrderStatus.OUT_FOR_DELIVERY)
-                    Delivery.objects.create(
-                        order=order, address_text="Demo, Bamako", cod_amount=product.price,
-                        status=Delivery.Status.IN_TRANSIT,
-                    )
+                d_status = {
+                    OrderStatus.OUT_FOR_DELIVERY: Delivery.Status.IN_TRANSIT,
+                    OrderStatus.DELIVERED: Delivery.Status.DELIVERED,
+                }.get(status, Delivery.Status.PENDING)
+                delivery = Delivery.objects.create(
+                    order=order, address_text=f"{rng.choice(QUARTIERS)}, Bamako",
+                    cod_amount=total, status=d_status,
+                )
+                if d_status == Delivery.Status.IN_TRANSIT:
+                    delivery.assigned_to = "Livreur démo"
+                    delivery.scheduled_at = min(now, created + 10 * minute)
+                elif d_status == Delivery.Status.DELIVERED:
+                    delivered_at = min(now, created + rng.randint(30, 90) * minute)
+                    delivery.delivered_at = delivered_at
+                    delivery.cod_collected = True
+                    delivery.cod_collected_at = delivered_at
+                delivery.save()
+                stats["orders"] += 1
 
+            for sale, linked, start, end, target in plans:
+                remaining = {p.pk: cap for p, cap in linked}
+                sold = {p.pk: 0 for p, _ in linked}
+                n_valid = 0
+                while target > 0 and any(v > 0 for v in remaining.values()):
+                    created = draw_time(start, end)
+                    if created is None:
+                        break
+                    product = rng.choice([p for p, _ in linked if remaining[p.pk] > 0])
+                    qty = min(rng.choice([1, 1, 2, 3]), target, remaining[product.pk])
+                    make_order(sale, product, qty, created, pick_status(now - created))
+                    remaining[product.pk] -= qty
+                    sold[product.pk] += qty
+                    target -= qty
+                    n_valid += 1
+                # Quelques annulees : le stock reste intact (comme dans l'application).
+                for _ in range(max(1, round(n_valid * 0.04)) if n_valid else 0):
+                    created = draw_time(start, end)
+                    if created is not None:
+                        make_order(sale, linked[0][0], 1, created, OrderStatus.CANCELLED)
+                for product, cap in linked:
+                    Product.objects.filter(pk=product.pk).update(stock_available=cap - sold[product.pk])
+
+        indices = compute_market_stats(now)
+        masked = [k for k in ("orders_last_hour", "deliveries_in_transit", "sparkline", "top_categories") if not indices[k]]
         self.stdout.write(self.style.SUCCESS(
-            f"Demo creee : {len(SHOPS)} boutiques, 3 ventes, {ORDER_COUNT} commandes "
-            f"dont {IN_TRANSIT_COUNT} en livraison. Ouvre /ventes/ ; supprime avec --clear."
+            f"Démo créée : {len(SHOPS)} boutiques, {stats['sales']} ventes "
+            f"({len(LIVE_SALES)} en direct, 3 à venir, {len(ENDED_SALES)} terminées récemment, "
+            f"{len(SHOPS)} historiques), {stats['orders']} commandes. "
+            "Supprime tout avec : python manage.py seed_marche_demo --clear"
         ))
+        if masked:
+            self.stdout.write(self.style.WARNING(
+                "Indices encore masqués (normal juste après minuit) : " + ", ".join(masked)
+            ))
