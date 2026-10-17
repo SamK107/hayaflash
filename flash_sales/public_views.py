@@ -6,6 +6,7 @@ from django.utils import timezone
 from analytics.services.market import get_market_snapshot
 from core.choices import SaleCategory
 
+from .market_stats import get_market_stats
 from .models import FlashSale
 from .services.ordering import live_now_q, upcoming_q
 
@@ -100,6 +101,7 @@ def _market_context(now):
     categories = [(v, label) for v, label in SaleCategory.choices if v in present]
 
     return {
+        "stats": get_market_stats(now),
         "groups": groups,
         "hero": hero,
         "ticker": ticker,
@@ -107,6 +109,8 @@ def _market_context(now):
         "categories": categories,
         "category_slugs": " ".join(v for v, _ in categories),
         "has_live": bool(live),
+        # Cartes avec bouton « M'alerter » : a venir, vedette, terminees.
+        "has_alert_cards": bool(hero or ended or any(g["key"] != "live" for g in groups)),
         "has_anything": bool(groups or hero or ended or live),
     }
 

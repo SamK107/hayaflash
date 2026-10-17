@@ -428,27 +428,43 @@ function hfSpeak(btn, text) {
   markCards(false);
   root.addEventListener('htmx:afterSwap', function () { markCards(true); tick(); });
 
-  // « M'alerter » : un seul tiroir pour toute la page, reutilise
-  // submitInterest() (POST /f/<slug>/interest/) avec le slug de la carte.
-  var drawer = document.getElementById('interest-drawer-m');
-  var overlay = document.getElementById('interest-overlay-m');
-  if (drawer && overlay) {
+  // « M'alerter » : un seul tiroir pour toute la page, clone depuis le
+  // <template id="hfc-drawer-tpl"> (present seulement s'il y a des boutons),
+  // reutilise submitInterest() (POST /f/<slug>/interest/) avec le slug de la
+  // carte. Ferme, il est inert + aria-hidden (ni focus clavier, ni lecteur d'ecran).
+  var drawer = null, overlay = null;
+  function ensureDrawer() {
+    if (drawer) return;
+    var tpl = document.getElementById('hfc-drawer-tpl');
+    if (!tpl) return;
+    document.body.appendChild(tpl.content.cloneNode(true));
+    drawer = document.getElementById('interest-drawer-m');
+    overlay = document.getElementById('interest-overlay-m');
     new MutationObserver(function () {
-      overlay.classList.toggle('hidden', !drawer.classList.contains('open'));
+      var open = drawer.classList.contains('open');
+      overlay.classList.toggle('hidden', !open);
+      drawer.inert = !open;
+      drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
     }).observe(drawer, { attributes: true, attributeFilter: ['class'] });
-    document.addEventListener('click', function (e) {
-      var btn = e.target.closest('[data-hf-alert]');
-      if (!btn) return;
-      var form = document.getElementById('interest-form-m');
-      form.dataset.hfInterest = btn.dataset.hfAlert;
-      document.getElementById('hfc-alert-shop').textContent = btn.dataset.hfAlertShop || 'La boutique';
-      form.classList.remove('hidden');
-      document.getElementById('interest-success-m').classList.add('hidden');
-      document.getElementById('interest-error-m').classList.add('hidden');
-      var submit = document.getElementById('interest-submit-m');
-      submit.disabled = false;
-      document.getElementById('interest-submit-text-m').textContent = '✓ Je veux être prévenu(e)';
-      drawer.classList.add('open');
-    });
   }
+  ensureDrawer();
+  root.addEventListener('htmx:afterSwap', ensureDrawer);
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-hf-alert]');
+    if (!btn) return;
+    ensureDrawer();
+    if (!drawer) return;
+    var form = document.getElementById('interest-form-m');
+    form.dataset.hfInterest = btn.dataset.hfAlert;
+    document.getElementById('hfc-alert-shop').textContent = btn.dataset.hfAlertShop || 'La boutique';
+    form.classList.remove('hidden');
+    document.getElementById('interest-success-m').classList.add('hidden');
+    document.getElementById('interest-error-m').classList.add('hidden');
+    document.getElementById('interest-submit-m').disabled = false;
+    document.getElementById('interest-submit-text-m').textContent = '✓ Je veux être prévenu(e)';
+    drawer.classList.add('open');
+    var name = document.getElementById('interest-name-m');
+    // L'observer retire inert apres le clic : on laisse passer ce tick.
+    if (name) setTimeout(function () { name.focus(); }, 50);
+  });
 })();
