@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import timedelta
+
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.utils import timezone
@@ -12,6 +14,9 @@ from flash_sales.models import FlashSale, FlashSaleStatus
 # prendre les commandes. Tout statut de fin (fermee par le vendeur, en
 # execution, terminee, annulee) bloque, meme dans la fenetre horaire.
 ORDERABLE_STATUSES = frozenset({FlashSaleStatus.LIVE, FlashSaleStatus.SCHEDULED})
+
+# Fenetre de la section « Vient de se terminer » du Marche (/ventes/).
+RECENTLY_ENDED_WINDOW = timedelta(hours=2)
 
 MSG_SALE_ENDED = (
     "Cette vente est terminée ou a été annulée : les commandes ne sont plus acceptées."
@@ -57,6 +62,23 @@ def upcoming_q(now=None) -> Q:
     """Ventes programmees pas encore commencees."""
     now = now or timezone.now()
     return Q(status=FlashSaleStatus.SCHEDULED, start_time__gt=now)
+
+
+def recently_ended_q(now=None, window=None) -> Q:
+    """Ventes terminees depuis moins de ``window`` (defaut : 2 h), hors annulees.
+
+    Complement exact de ``live_now_q`` : ``live_now_q`` retient
+    ``end_time >= now``, celle-ci ``end_time < now`` -> une vente ne peut jamais
+    etre a la fois en direct et recemment terminee. Une vente fermee tot par le
+    vendeur (statut CLOSED, fin theorique dans le futur) n'est pas "terminee"
+    ici : seul l'horaire compte, comme pour la visibilite publique. Les ventes
+    annulees sont exclues, y compris dans la fenetre.
+    """
+    now = now or timezone.now()
+    window = RECENTLY_ENDED_WINDOW if window is None else window
+    return Q(end_time__lt=now, end_time__gte=now - window) & ~Q(
+        status=FlashSaleStatus.CANCELLED
+    )
 
 
 def is_orderable_now(flash_sale: FlashSale) -> bool:

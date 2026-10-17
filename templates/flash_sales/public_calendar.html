@@ -1,13 +1,14 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Ventes flash en direct et à venir — HayaFlash{% endblock %}
+{% load hf_countries %}
+{% block title %}Le Marché HayaFlash — ventes flash en direct à Bamako{% endblock %}
 {% block meta_description %}Les ventes flash en direct et programmées des boutiques HayaFlash : commandez pendant le live, livraison rapide.{% endblock %}
 
 {% block content %}
 {# Styles locaux : le build Tailwind est fige (docs/FRONTEND_VENDORING.md). #}
 <style>
-  .hfc-wrap { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
-  .hfc-head h1 { margin: 0; font-size: 22px; font-weight: 800; color: #1A1A2E; }
+  .hfc-wrap { max-width: 1040px; margin: 0 auto; padding: 20px 16px 40px; }
+  .hfc-head h1 { margin: 0; font-size: 24px; font-weight: 800; color: #1A1A2E; }
   .hfc-head p { margin: 4px 0 18px; font-size: 14px; color: #6B7280; }
   .hfc-group { margin-bottom: 20px; }
   .hfc-group-title { display: flex; align-items: center; gap: 8px; margin: 0 0 8px;
@@ -24,16 +25,14 @@
   .hfc-shop { font-weight: 700; font-size: 15px; color: #1A1A2E; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .hfc-meta { font-size: 12.5px; color: #6B7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .hfc-meta b { font-weight: 600; }
-  .hfc-when { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
-  .hfc-pill { font-size: 12px; font-weight: 800; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
-  .hfc-time { font-size: 11.5px; color: #6B7280; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .hfc-pill { font-size: 12px; font-weight: 800; padding: 3px 9px; border-radius: 999px; white-space: nowrap; flex-shrink: 0; }
+  .hfc-time { font-size: 11.5px; color: #6B7280; font-variant-numeric: tabular-nums; }
   /* En direct : rouge-orange de la marque, point qui pulse (urgence) */
   .hfc-group--live .hfc-group-title { color: #D93A1C; }
   .hfc-group--live .hfc-count { background: #FFE4DE; color: #B42D12; }
   .hfc-group--live .hfc-row { border-left-color: #FF4D2E; }
   .hfc-group--live .hfc-av { background: #FFE4DE; color: #D93A1C; }
   .hfc-group--live .hfc-pill { background: #FF4D2E; color: #fff; }
-  .hfc-group--live .hfc-time { color: #B42D12; font-weight: 600; }
   .hfc-dot { width: 8px; height: 8px; border-radius: 50%; background: #FF4D2E; box-shadow: 0 0 0 0 rgba(255,77,46,.6);
     animation: hfc-pulse 1.6s infinite; }
   @keyframes hfc-pulse { 70% { box-shadow: 0 0 0 8px rgba(255,77,46,0); } 100% { box-shadow: 0 0 0 0 rgba(255,77,46,0); } }
@@ -51,20 +50,111 @@
   .hfc-group--later .hfc-pill { background: #EEF2FF; color: #3730A3; }
   .hfc-empty { text-align: center; padding: 56px 12px; color: #6B7280; font-size: 14px; }
   .hfc-empty-title { font-size: 17px; font-weight: 800; color: #1A1A2E; margin-bottom: 4px; }
-  @media (prefers-reduced-motion: reduce) { .hfc-dot { animation: none; } .hfc-row { transition: none; } }
+
+  /* ── Le Marche : bandeau, puces, cartes, etat calme ── */
+  .hfc-ticker { overflow: hidden; margin: 0 -16px 14px; background: #1A1A2E; color: #fff; }
+  .hfc-ticker-track { display: flex; width: max-content; animation: hfc-marquee 40s linear infinite; }
+  .hfc-ticker:hover .hfc-ticker-track { animation-play-state: paused; }
+  .hfc-ticker-set { display: flex; gap: 32px; list-style: none; margin: 0; padding: 9px 16px; min-width: 100vw; justify-content: space-around; }
+  .hfc-tk a { color: #fff; text-decoration: none; font-size: 13px; white-space: nowrap; }
+  .hfc-tk b { font-weight: 700; }
+  .hfc-tk-tag { font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; background: #F59E0B; color: #1A1A2E; margin-right: 4px; }
+  .hfc-tk-tag--live { background: #FF4D2E; color: #fff; }
+  @keyframes hfc-marquee { to { transform: translateX(-50%); } }
+  .hfc-chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 14px; scrollbar-width: none; }
+  .hfc-chip { flex-shrink: 0; border: 1px solid #E5E7EB; background: #fff; color: #374151; border-radius: 999px;
+    padding: 7px 14px; min-height: 36px; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .hfc-chip--on { background: #E63946; border-color: #E63946; color: #fff; }
+  .hfc-grid { grid-template-columns: 1fr; gap: 10px; }
+  @media (min-width: 640px) { .hfc-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 960px) { .hfc-grid { grid-template-columns: repeat(3, 1fr); } }
+  .hfc-grid > li { display: flex; }
+  .hfc-grid > li > .hfc-card { flex: 1; }
+  .hfc-card { flex-direction: column; align-items: stretch; gap: 8px; padding: 14px; box-sizing: border-box; }
+  .hfc-card-top { display: flex; align-items: center; gap: 10px; }
+  .hfc-card-title { font-weight: 700; font-size: 15px; color: #1A1A2E; }
+  .hfc-card-clock { font-size: 26px; font-weight: 800; color: #B42D12; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .hfc-card-clock small { font-size: 12px; font-weight: 600; color: #6B7280; }
+  .hfc-bar { display: block; height: 8px; border-radius: 999px; background: #F1F5F9; overflow: hidden; }
+  .hfc-bar-fill { display: block; height: 100%; border-radius: 999px; background: #22C55E; transition: width .6s; }
+  .hfc-bar-label { font-size: 12px; font-weight: 700; color: #4B5563; }
+  .hfc-card[data-urgency="warn"] .hfc-bar-fill { background: #F59E0B; }
+  .hfc-card[data-urgency="hot"] .hfc-bar-fill { background: #EF4444; animation: hfc-breathe 1.8s ease-in-out infinite; }
+  .hfc-card[data-urgency="hot"] { border-color: #FCA5A5; }
+  @keyframes hfc-breathe { 50% { opacity: .55; } }
+  .hfc-badge { align-self: flex-start; font-size: 12px; font-weight: 800; padding: 3px 9px; border-radius: 999px; background: #FFF1E6; color: #C2410C; }
+  .hfc-card--calm { flex-direction: row; align-items: center; padding: 10px 12px; }
+  .hfc-card-link { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
+  .hfc-card-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+  .hfc-btn { display: inline-block; border: 1px solid #E5E7EB; background: #fff; color: #1A1A2E; border-radius: 999px;
+    padding: 10px 18px; min-height: 44px; font-size: 14px; font-weight: 700; text-decoration: none; cursor: pointer; box-sizing: border-box; }
+  .hfc-btn--primary { background: #E63946; border-color: #E63946; color: #fff; }
+  .hfc-btn--small { padding: 6px 12px; min-height: 36px; font-size: 12.5px; }
+  .hfc-hero { text-align: center; padding: 22px 16px; margin-bottom: 20px; border-radius: 18px; background: #fff; border: 1px solid #FDE68A; }
+  .hfc-hero-kicker { margin: 0 0 10px; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #B45309; }
+  .hfc-hero-shop { display: inline-flex; align-items: center; gap: 10px; text-align: left; max-width: 100%; }
+  .hfc-hero-clock { margin: 14px 0 2px; font-size: 44px; font-weight: 800; color: #1A1A2E; font-variant-numeric: tabular-nums; }
+  .hfc-hero-when { margin: 0 0 14px; font-size: 13px; color: #6B7280; }
+  .hfc-hero-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .hfc-group--ended .hfc-group-title { color: #6B7280; }
+  .hfc-group--ended .hfc-count { background: #F3F4F6; color: #6B7280; }
+  .hfc-card--ended { opacity: .72; filter: grayscale(.6); background: #FAFAFA; border-left-color: #D1D5DB; }
+  .hfc-card--ended .hfc-btn { align-self: flex-start; }
+  .hfc-empty .hfc-btn { margin-top: 12px; }
+  .hfc-new { animation: hfc-in .45s ease-out; }
+  @keyframes hfc-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .drawer-overlay { transition: opacity .25s ease; }
+  .drawer-panel { transition: transform .3s cubic-bezier(.32,.72,0,1); }
+  .drawer-panel.open { transform: translateY(0) !important; }
+  @media (prefers-reduced-motion: reduce) {
+    .hfc-dot, .hfc-ticker-track, .hfc-card[data-urgency="hot"] .hfc-bar-fill, .hfc-new { animation: none; }
+    .hfc-ticker { overflow-x: auto; }
+    .hfc-row, .hfc-bar-fill, .drawer-panel { transition: none; }
+  }
 </style>
 
-<div class="hfc-wrap">
+<div class="hfc-wrap" x-data="{ cat: 'all' }">
   <header class="hfc-head">
-    <h1>Ventes flash</h1>
-    <p>En direct et à venir · touchez une vente pour voir les produits</p>
+    <h1>Le Marché HayaFlash</h1>
+    <p>Les ventes flash de Bamako, en direct</p>
   </header>
 
-  {# Rafraichi toutes les 45 s, et des qu'un compte a rebours franchit une limite (script ci-dessous). #}
-  <div id="hfc-sales" hx-get="{% url 'flash_sale_calendar' %}" hx-trigger="every 45s, hfc-refresh from:body" hx-swap="innerHTML">
+  {# Rafraichi toutes les 30 s (onglet visible seulement), des qu'un compte a rebours franchit une limite (hf-public.js) et des le retour sur l'onglet. #}
+  <div id="hfc-sales" hx-get="{% url 'flash_sale_calendar' %}"
+       hx-trigger="every 30s [document.visibilityState === 'visible'], hfc-refresh from:body, visibilitychange[document.visibilityState === 'visible'] from:document"
+       hx-swap="innerHTML">
     {% include "flash_sales/partials/_calendar_list.html" %}
   </div>
 </div>
+
+<!-- DRAWER "M'ALERTER" (partage par toutes les cartes ; le slug est pose par hf-public.js) -->
+<div id="interest-drawer-m"
+     class="drawer-panel fixed inset-x-0 bottom-0 z-[9998] bg-white rounded-t-3xl shadow-2xl border-t border-gray-100 px-5 pt-5 pb-8"
+     style="transform:translateY(100%)">
+  <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5 cursor-pointer" data-hf-close="#interest-drawer-m"></div>
+  <h2 class="text-lg font-black text-gray-900 mb-1">Me prévenir dès l'ouverture</h2>
+  <p class="text-sm text-gray-500 mb-5"><span id="hfc-alert-shop">La boutique</span> te préviendra sur WhatsApp dès que la vente s'ouvre.</p>
+  <form id="interest-form-m" data-hf-interest="" data-hf-interest-sfx="-m" class="space-y-4">
+    <div>
+      <label class="block text-sm font-semibold text-gray-700 mb-1.5">Ton nom</label>
+      <input type="text" id="interest-name-m" name="name" placeholder="Ex: Fatoumata Traoré"
+             class="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+    </div>
+    {% interest_phone_field "-m" %}
+    <div id="interest-error-m" class="hidden text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3"></div>
+    <button type="submit" id="interest-submit-m"
+            class="w-full bg-primary text-white font-bold py-4 rounded-xl text-base hover:bg-red-700 active:scale-[.98] transition-all shadow-sm">
+      <span id="interest-submit-text-m">✓ Je veux être prévenu(e)</span>
+    </button>
+  </form>
+  <div id="interest-success-m" class="hidden text-center py-6">
+    <p class="font-bold text-gray-900 mb-1">C'est noté !</p>
+    <p class="text-sm text-gray-500">Tu seras prévenu(e) sur WhatsApp dès l'ouverture.</p>
+    <button type="button" data-hf-close="#interest-drawer-m" class="mt-4 text-sm text-primary font-semibold">Fermer</button>
+  </div>
+</div>
+<div id="interest-overlay-m" class="drawer-overlay fixed inset-0 z-[9997] bg-black/40 hidden" data-hf-close="#interest-drawer-m"></div>
+
 {% include "partials/_legal_links.html" %}
 
 <script src="{% static 'js/hf-public.js' %}"></script>

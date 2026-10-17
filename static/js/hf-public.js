@@ -362,11 +362,10 @@ function hfSpeak(btn, text) {
 
 /* ── PWA : gere par static/js/hf-install.js (hfPwaInstall / hfInstallInvite) ── */
 
-/* ════════════════ /ventes/ : calendrier public ════════════════ */
+/* ════════════════ /ventes/ : Le Marche HayaFlash ════════════════ */
 (function () {
-  if (!document.getElementById('hfc-sales')) return;
-  // Comptes a rebours de la liste + rafraichissement quand une vente change
-  // de groupe (Bientot -> En direct, fin de vente, passage sous 1 h).
+  var root = document.getElementById('hfc-sales');
+  if (!root) return;
   var lastRefresh = 0;
   function refresh() {
     var now = Date.now();
@@ -374,27 +373,82 @@ function hfSpeak(btn, text) {
     lastRefresh = now;
     document.body.dispatchEvent(new Event('hfc-refresh'));
   }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function clock(ms) {
+    var t = Math.max(0, Math.floor(ms / 1000));
+    return pad(Math.floor(t / 3600)) + ':' + pad(Math.floor((t % 3600) / 60)) + ':' + pad(t % 60);
+  }
   function fmt(ms) {
     var m = Math.max(0, Math.ceil(ms / 60000));
     if (m < 60) return m + ' min';
     var h = Math.floor(m / 60), r = m % 60;
-    return h + ' h' + (r ? ' ' + (r < 10 ? '0' : '') + r : '');
+    return h + ' h' + (r ? ' ' + pad(r) : '');
+  }
+  function setClock(el, text) {
+    var c = el.matches('[data-clock]') ? el : el.querySelector('[data-clock]');
+    if (c) c.textContent = text;
   }
   function tick() {
     var now = Date.now();
-    document.querySelectorAll('#hfc-sales .hfc-row').forEach(function (row) {
-      var el = row.querySelector('[data-countdown]');
-      if (row.dataset.end) {
-        var left = Date.parse(row.dataset.end) - now;
-        if (left <= 0) { refresh(); return; }
-        if (el) el.textContent = 'finit dans ' + fmt(left);
-      } else if (row.dataset.start) {
-        var until = Date.parse(row.dataset.start) - now;
-        if (until <= 0 || (row.dataset.later && until <= 3600000)) { refresh(); return; }
-        if (el) el.textContent = 'dans ' + fmt(until);
-      }
+    root.querySelectorAll('[data-end]').forEach(function (card) {
+      var left = Date.parse(card.dataset.end) - now;
+      if (left <= 0) { refresh(); return; }
+      setClock(card, clock(left));
+      // Urgence : orange < 15 min ou > 70 % vendu, rouge < 5 min.
+      var pct = parseInt(card.dataset.pct, 10);
+      var u = left < 300000 ? 'hot' : (left < 900000 || pct > 70 ? 'warn' : '');
+      if (card.dataset.urgency !== u) card.dataset.urgency = u;
+    });
+    root.querySelectorAll('[data-start]').forEach(function (row) {
+      var until = Date.parse(row.dataset.start) - now;
+      if (until <= 0 || (row.dataset.later && until <= 3600000)) { refresh(); return; }
+      setClock(row, clock(until));
+      var m = row.querySelector('[data-until-min]');
+      if (m) m.textContent = 'dans ' + fmt(until);
+    });
+    root.querySelectorAll('[data-tk-end]').forEach(function (el) {
+      var left = Date.parse(el.dataset.tkEnd) - now;
+      if (left <= 0) { refresh(); return; }
+      el.textContent = fmt(left);
     });
   }
   tick();
   setInterval(tick, 1000);
+
+  // Apparition d'une carte nouvelle seulement (pas de flash de toute la liste
+  // a chaque rechargement) : on retient les ventes deja vues.
+  var seen = {};
+  function markCards(animate) {
+    root.querySelectorAll('.hfc-card[data-slug]').forEach(function (c) {
+      var k = c.dataset.slug;
+      if (!seen[k] && animate) c.classList.add('hfc-new');
+      seen[k] = true;
+    });
+  }
+  markCards(false);
+  root.addEventListener('htmx:afterSwap', function () { markCards(true); tick(); });
+
+  // « M'alerter » : un seul tiroir pour toute la page, reutilise
+  // submitInterest() (POST /f/<slug>/interest/) avec le slug de la carte.
+  var drawer = document.getElementById('interest-drawer-m');
+  var overlay = document.getElementById('interest-overlay-m');
+  if (drawer && overlay) {
+    new MutationObserver(function () {
+      overlay.classList.toggle('hidden', !drawer.classList.contains('open'));
+    }).observe(drawer, { attributes: true, attributeFilter: ['class'] });
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-hf-alert]');
+      if (!btn) return;
+      var form = document.getElementById('interest-form-m');
+      form.dataset.hfInterest = btn.dataset.hfAlert;
+      document.getElementById('hfc-alert-shop').textContent = btn.dataset.hfAlertShop || 'La boutique';
+      form.classList.remove('hidden');
+      document.getElementById('interest-success-m').classList.add('hidden');
+      document.getElementById('interest-error-m').classList.add('hidden');
+      var submit = document.getElementById('interest-submit-m');
+      submit.disabled = false;
+      document.getElementById('interest-submit-text-m').textContent = '✓ Je veux être prévenu(e)';
+      drawer.classList.add('open');
+    });
+  }
 })();

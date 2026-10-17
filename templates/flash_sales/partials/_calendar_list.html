@@ -1,44 +1,163 @@
-{# Liste compacte des ventes (calendrier public /ventes/) — rendue seule lors des rafraichissements HTMX. #}
+{# Le Marche HayaFlash (/ventes/) — rendu seul lors des rafraichissements HTMX. Aucune donnee d'acheteur ici. #}
+{% if ticker %}
+<div class="hfc-ticker" role="region" aria-label="Ventes en direct et imminentes">
+  <div class="hfc-ticker-track">
+    {% for copy in "ab" %}
+    <ul class="hfc-ticker-set"{% if copy == "b" %} aria-hidden="true"{% endif %}>
+      {% for item in ticker %}{% with sale=item.sale %}
+      <li class="hfc-tk">
+        <a href="{% url 'public_flash_sale' slug=sale.public_slug %}"{% if copy == "b" %} tabindex="-1"{% endif %}>
+          {% if item.live %}
+          <span class="hfc-tk-tag hfc-tk-tag--live">En direct</span> <b>{{ sale.owner.business_name|default:"Boutique" }}</b> · {{ sale.effective_category_label }} — se termine dans <span data-tk-end="{{ sale.end_time.isoformat }}">{{ sale.end_time|time:"H:i" }}</span>
+          {% else %}
+          <span class="hfc-tk-tag">Bientôt</span> <b>{{ sale.owner.business_name|default:"Boutique" }}</b> · {{ sale.effective_category_label }} — démarre à {{ sale.start_time|time:"H:i" }}
+          {% endif %}
+        </a>
+      </li>
+      {% endwith %}{% endfor %}
+    </ul>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if categories|length > 1 %}
+<div class="hfc-chips" role="group" aria-label="Filtrer par catégorie"
+     x-init="if (cat !== 'all' && !'{{ category_slugs }}'.split(' ').includes(cat)) cat = 'all'">
+  <button type="button" class="hfc-chip" :class="{ 'hfc-chip--on': cat === 'all' }" @click="cat = 'all'">Tout</button>
+  {% for value, label in categories %}
+  <button type="button" class="hfc-chip" :class="{ 'hfc-chip--on': cat === '{{ value }}' }" @click="cat = '{{ value }}'">{{ label }}</button>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if hero %}
+<section class="hfc-hero" x-show="cat === 'all' || cat === '{{ hero.effective_category }}'">
+  <p class="hfc-hero-kicker">Prochaine vente</p>
+  <div class="hfc-hero-shop">
+    {% if hero.owner.avatar %}
+    <img class="hfc-av" src="{{ hero.owner.avatar.url }}" alt="" width="40" height="40" loading="lazy" decoding="async">
+    {% else %}
+    <span class="hfc-av" aria-hidden="true">{{ hero.owner.business_name|default:"?"|slice:":1"|upper }}</span>
+    {% endif %}
+    <span class="hfc-main">
+      <span class="hfc-shop">{{ hero.owner.business_name|default:"Boutique" }}</span>
+      <span class="hfc-meta"><b>{{ hero.effective_category_label }}</b> · {{ hero.title }}</span>
+    </span>
+  </div>
+  <p class="hfc-hero-clock" data-start="{{ hero.start_time.isoformat }}" data-hero="1"><span data-clock>--:--:--</span></p>
+  <p class="hfc-hero-when">Démarre à {{ hero.start_time|time:"H:i" }}</p>
+  <div class="hfc-hero-actions">
+    <button type="button" class="hfc-btn hfc-btn--primary" data-hf-alert="{{ hero.public_slug }}" data-hf-alert-shop="{{ hero.owner.business_name|default:'la boutique' }}">M'alerter</button>
+    <a class="hfc-btn" href="{% url 'public_flash_sale' slug=hero.public_slug %}">Voir la vente</a>
+  </div>
+</section>
+{% endif %}
+
 {% for group in groups %}
-<section class="hfc-group hfc-group--{% if group.key == 'live' %}live{% elif group.key == 'soon' %}soon{% else %}later{% endif %}">
+<section class="hfc-group hfc-group--{% if group.key == 'live' %}live{% elif group.key == 'soon' %}soon{% else %}later{% endif %}"
+         x-show="cat === 'all' || $el.dataset.cats.split(' ').includes(cat)"
+         data-cats="{% for sale in group.sales %}{{ sale.effective_category }} {% endfor %}">
   <h2 class="hfc-group-title">
     {% if group.key == 'live' %}<span class="hfc-dot" aria-hidden="true"></span>{% endif %}
     {{ group.label }}<span class="hfc-count">{{ group.sales|length }}</span>
   </h2>
-  <ul class="hfc-list">
+  <ul class="hfc-list{% if group.key == 'live' %} hfc-grid{% endif %}">
     {% for sale in group.sales %}
-    <li>
-      <a class="hfc-row" href="{% url 'public_flash_sale' slug=sale.public_slug %}"
-         {% if group.key == 'live' %}data-end="{{ sale.end_time.isoformat }}"{% else %}data-start="{{ sale.start_time.isoformat }}"{% if group.key != 'soon' %} data-later="1"{% endif %}{% endif %}>
-        {% if sale.owner.avatar %}
-        <img class="hfc-av" src="{{ sale.owner.avatar.url }}" alt="" width="40" height="40" loading="lazy" decoding="async">
-        {% else %}
-        <span class="hfc-av" aria-hidden="true">{{ sale.owner.business_name|default:"?"|slice:":1"|upper }}</span>
-        {% endif %}
-        <span class="hfc-main">
-          <span class="hfc-shop">{{ sale.owner.business_name|default:"Boutique" }}</span>
-          <span class="hfc-meta"><b>{{ sale.effective_category_label }}</b> · {{ sale.title }}</span>
-        </span>
-        <span class="hfc-when">
-          {% if group.key == 'live' %}
-          <span class="hfc-pill">En direct</span>
-          <span class="hfc-time" data-countdown>jusqu’à {{ sale.end_time|time:"H:i" }}</span>
-          {% elif group.key == 'soon' %}
-          <span class="hfc-pill" data-countdown>Bientôt</span>
-          <span class="hfc-time">{{ sale.start_time|time:"H:i" }} – {{ sale.end_time|time:"H:i" }}</span>
+    <li x-show="cat === 'all' || cat === '{{ sale.effective_category }}'">
+      {% if group.key == 'live' %}
+      <a class="hfc-row hfc-card" href="{% url 'public_flash_sale' slug=sale.public_slug %}"
+         data-slug="{{ sale.public_slug }}" data-end="{{ sale.end_time.isoformat }}"
+         data-pct="{{ sale.market.percent_sold|default_if_none:'' }}">
+        <span class="hfc-card-top">
+          {% if sale.owner.avatar %}
+          <img class="hfc-av" src="{{ sale.owner.avatar.url }}" alt="" width="40" height="40" loading="lazy" decoding="async">
           {% else %}
-          <span class="hfc-pill">{{ sale.start_time|time:"H:i" }}</span>
-          <span class="hfc-time">jusqu’à {{ sale.end_time|time:"H:i" }}</span>
+          <span class="hfc-av" aria-hidden="true">{{ sale.owner.business_name|default:"?"|slice:":1"|upper }}</span>
           {% endif %}
+          <span class="hfc-main">
+            <span class="hfc-shop">{{ sale.owner.business_name|default:"Boutique" }}</span>
+            <span class="hfc-meta"><b>{{ sale.effective_category_label }}</b></span>
+          </span>
+          <span class="hfc-pill">En direct</span>
         </span>
+        <span class="hfc-card-title">{{ sale.title }}</span>
+        <span class="hfc-card-clock"><span data-clock>--:--:--</span> <small>restant</small></span>
+        {% if sale.market.percent_sold %}
+        <span class="hfc-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ sale.market.percent_sold }}">
+          <span class="hfc-bar-fill" style="width: {{ sale.market.percent_sold }}%"></span>
+        </span>
+        <span class="hfc-bar-label">{{ sale.market.percent_sold }} % vendu</span>
+        {% endif %}
+        {% if sale.market.orders_visible %}
+        <span class="hfc-badge">{{ sale.market.orders_visible }} commande{{ sale.market.orders_visible|pluralize }}</span>
+        {% endif %}
       </a>
+      {% else %}
+      <div class="hfc-row hfc-card hfc-card--calm" data-slug="{{ sale.public_slug }}"
+           data-start="{{ sale.start_time.isoformat }}"{% if group.key != 'soon' %} data-later="1"{% endif %}>
+        <a class="hfc-card-link" href="{% url 'public_flash_sale' slug=sale.public_slug %}">
+          {% if sale.owner.avatar %}
+          <img class="hfc-av" src="{{ sale.owner.avatar.url }}" alt="" width="40" height="40" loading="lazy" decoding="async">
+          {% else %}
+          <span class="hfc-av" aria-hidden="true">{{ sale.owner.business_name|default:"?"|slice:":1"|upper }}</span>
+          {% endif %}
+          <span class="hfc-main">
+            <span class="hfc-shop">{{ sale.owner.business_name|default:"Boutique" }}</span>
+            <span class="hfc-meta"><b>{{ sale.effective_category_label }}</b> · {{ sale.title }}</span>
+            <span class="hfc-time">
+              {{ sale.start_time|time:"H:i" }} – {{ sale.end_time|time:"H:i" }}{% if group.key == 'soon' %} · <span data-until-min></span>{% endif %}
+            </span>
+          </span>
+        </a>
+        <span class="hfc-card-side">
+          {% if group.key == 'soon' %}<span class="hfc-pill" data-clock>--:--:--</span>{% else %}<span class="hfc-pill">{{ sale.start_time|time:"H:i" }}</span>{% endif %}
+          <button type="button" class="hfc-btn hfc-btn--small" data-hf-alert="{{ sale.public_slug }}" data-hf-alert-shop="{{ sale.owner.business_name|default:'la boutique' }}">M'alerter</button>
+        </span>
+      </div>
+      {% endif %}
     </li>
     {% endfor %}
   </ul>
 </section>
-{% empty %}
-<div class="hfc-empty">
-  <p class="hfc-empty-title">Aucune vente en ce moment</p>
-  <p>Les prochaines ventes flash apparaîtront ici dès qu’elles seront programmées.</p>
-</div>
 {% endfor %}
+
+{% if ended %}
+<section class="hfc-group hfc-group--ended"
+         x-show="cat === 'all' || $el.dataset.cats.split(' ').includes(cat)"
+         data-cats="{% for item in ended %}{{ item.category }} {% endfor %}">
+  <h2 class="hfc-group-title">Vient de se terminer<span class="hfc-count">{{ ended|length }}</span></h2>
+  <ul class="hfc-list hfc-grid">
+    {% for item in ended %}
+    <li x-show="cat === 'all' || cat === '{{ item.category }}'">
+      <div class="hfc-row hfc-card hfc-card--ended" data-slug="{{ item.public_slug }}">
+        <span class="hfc-card-top">
+          {% if item.shop_avatar_url %}
+          <img class="hfc-av" src="{{ item.shop_avatar_url }}" alt="" width="40" height="40" loading="lazy" decoding="async">
+          {% else %}
+          <span class="hfc-av" aria-hidden="true">{{ item.shop_name|default:"?"|slice:":1"|upper }}</span>
+          {% endif %}
+          <span class="hfc-main">
+            <span class="hfc-shop">{{ item.shop_name|default:"Boutique" }}</span>
+            <span class="hfc-meta"><b>{{ item.category_label }}</b> · {{ item.title }}</span>
+          </span>
+        </span>
+        <span class="hfc-time">{% if item.sold_out %}Épuisé{% else %}Terminée{% endif %} · {{ item.ago|cut:"Terminée " }}</span>
+        <span class="hfc-card-side">
+          <button type="button" class="hfc-btn hfc-btn--small" data-hf-alert="{{ item.public_slug }}" data-hf-alert-shop="{{ item.shop_name|default:'la boutique' }}">M'alerter</button>
+          <a class="hfc-btn hfc-btn--small" href="{% url 'public_seller' slug=item.shop_slug %}">Voir sa prochaine vente</a>
+        </span>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if not has_anything %}
+<div class="hfc-empty">
+  <p class="hfc-empty-title">Les prochaines ventes arrivent bientôt.</p>
+  <p>Suis tes boutiques préférées pour être alertée.</p>
+  <p><a class="hfc-btn hfc-btn--primary" href="{% url 'register' %}">Tu vends en live ?</a></p>
+</div>
+{% endif %}
