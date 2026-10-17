@@ -12,3 +12,6 @@ Branche `marche-phase2a` (worktree `../hayaflash-marche2a`, partie du commit `b1
 Tests : 14 nouveaux (`flash_sales/tests_market_stats.py`), suite complète 1620 passés, 4 ignorés.
 Correctif multi-boutiques : `MARKET_MIN_SHOPS` = 2 ; commandes de la dernière heure, livraisons en cours et sparkline (boutiques distinctes sur la journée) exigent ce nombre de boutiques en plus du seuil de volume (même constante pour les catégories). Toujours 4 requêtes à froid (comptages et boutiques distinctes agrégés ensemble).
 Tests : 4 cas « volume suffisant, une seule boutique » ajoutés ; suite complète relancée, ruff propre sur les fichiers touchés.
+Tiroir « M'alerter » : modèle inerte (`<template>`) cloné une seule fois par le JS, rendu seulement si une carte a un bouton ; fermé il est `inert` + `aria-hidden` (testé, vérifié au navigateur). État calme : phrase « Suis tes boutiques… » remplacée par « Cette page se met à jour toute seule » (pas de suivi de boutiques).
+Commande de dev `python manage.py seed_marche_demo [--clear]` (`core/management/commands/`, DEBUG uniquement, comptes repérés par le préfixe `+22379990`) : 3 boutiques, 3 ventes (en direct, dans 30 min, terminée il y a 1 h), 10 commandes sur 2 boutiques dans l'heure dont 3 livraisons IN_TRANSIT ; testée.
+Suite complète et ruff relancés avant commit.

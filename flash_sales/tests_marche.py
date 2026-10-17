@@ -228,3 +228,38 @@ class MarketViewTests(ViralGrowthFixture):
             _sale(self.seller, f"Finie {i}", now - timedelta(hours=1), now - timedelta(minutes=5 + i),
                   FlashSaleStatus.COMPLETED)
         self.assertEqual(count(), base)
+
+
+class AlertDrawerTests(ViralGrowthFixture):
+    url = reverse("flash_sale_calendar")
+
+    def test_calm_state_has_no_drawer_form(self) -> None:
+        FlashSale.objects.all().delete()
+        resp = self.client.get(self.url)
+        self.assertNotContains(resp, 'id="interest-form-m"')
+        self.assertNotContains(resp, "hfc-drawer-tpl")
+        self.assertNotContains(resp, "Suis tes boutiques")
+
+    def test_live_only_page_has_no_drawer(self) -> None:
+        # Une vente en direct sans a-venir ni terminee : aucun bouton M'alerter.
+        resp = self.client.get(self.url)
+        self.assertNotContains(resp, "data-hf-alert=")
+        self.assertNotContains(resp, 'id="interest-form-m"')
+
+    def test_drawer_inert_template_when_alert_buttons_exist(self) -> None:
+        now = timezone.now()
+        _sale(self.seller, "Plus tard", now + timedelta(hours=3), now + timedelta(hours=4),
+              FlashSaleStatus.SCHEDULED)
+        for kwargs in ({}, {"HTTP_HX_REQUEST": "true"}):
+            resp = self.client.get(self.url, **kwargs)
+            self.assertContains(resp, 'id="hfc-drawer-tpl"')
+            self.assertContains(resp, 'id="interest-drawer-m"')
+            html = resp.content.decode()
+            tag = html[html.index('<div id="interest-drawer-m"'):]
+            tag = tag[: tag.index(">", tag.index("style="))]
+            self.assertIn(" inert", tag)
+            self.assertIn('aria-hidden="true"', tag)
+            # Le formulaire n'existe que dans le <template> (inerte, non rendu).
+            self.assertEqual(html.count('id="interest-form-m"'), 1)
+            self.assertLess(html.index('id="hfc-drawer-tpl"'), html.index('id="interest-form-m"'))
+

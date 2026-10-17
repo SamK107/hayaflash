@@ -109,6 +109,8 @@ def _market_context(now):
         "categories": categories,
         "category_slugs": " ".join(v for v, _ in categories),
         "has_live": bool(live),
+        # Cartes avec bouton « M'alerter » : a venir, vedette, terminees.
+        "has_alert_cards": bool(hero or ended or any(g["key"] != "live" for g in groups)),
         "has_anything": bool(groups or hero or ended or live),
     }
 
