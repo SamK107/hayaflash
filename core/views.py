@@ -491,6 +491,7 @@ def platform_admin_shop_report(request, pk: int):
     if chosen is None or not (first <= chosen <= cur):
         chosen = max(mr.default_month(), first)
     year, month = chosen
+    bilan = mr.shop_bilan(seller, year, month)
     prev_m = mr.previous_month(year, month)
     next_m = mr.next_month(year, month)
     return render(
@@ -501,7 +502,8 @@ def platform_admin_shop_report(request, pk: int):
             "shop_name": seller.business_name or seller.user.display_name,
             "plan": mr.effective_plan(seller),
             "wa_url": mr.wa_link(seller.user.phone),
-            "report": mr.shop_month_report(seller, year, month),
+            "report": bilan["report"],
+            "bilan": bilan,
             "selected": f"{year}-{month:02d}",
             "choices": mr.month_choices(seller.created_at),
             "prev_value": f"{prev_m[0]}-{prev_m[1]:02d}" if prev_m >= first else "",
