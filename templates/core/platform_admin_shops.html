@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Boutiques — Administration HayaFlash{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+
+    <div class="flex items-center gap-3 mb-2">
+        <h1 class="text-2xl font-black text-gray-900">Boutiques</h1>
+        <span class="px-2.5 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-full uppercase">Réservé à l'équipe</span>
+    </div>
+    <p class="mb-5"><a href="{% url 'platform_admin' %}" class="text-sm font-semibold text-primary hover:underline">← Administration</a></p>
+
+    <form method="get" class="flex flex-wrap items-center gap-2 mb-4">
+        <input type="search" name="q" value="{{ q }}" placeholder="Nom ou téléphone"
+               class="flex-1 min-w-[12rem] rounded-xl border border-gray-200 px-3 py-2 text-sm">
+        {% if newest_first %}<input type="hidden" name="ordre" value="recent">{% endif %}
+        <button type="submit" class="px-4 py-2 rounded-xl bg-primary text-white text-sm font-bold">Rechercher</button>
+        {% if newest_first %}
+        <a href="?{% if q %}q={{ q|urlencode }}{% endif %}" class="px-4 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700">Plus anciennes d'abord</a>
+        {% else %}
+        <a href="?ordre=recent{% if q %}&amp;q={{ q|urlencode }}{% endif %}" class="px-4 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700">Plus récentes d'abord</a>
+        {% endif %}
+    </form>
+
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="text-xs text-gray-400 text-left">
+                <tr>
+                    <th class="px-3 py-2">#</th>
+                    <th class="px-3 py-2">Boutique</th>
+                    <th class="px-3 py-2">Contact</th>
+                    <th class="px-3 py-2">Inscrite le</th>
+                    <th class="px-3 py-2">Plan</th>
+                    <th class="px-3 py-2">Dernière vente</th>
+                    <th class="px-3 py-2">Activité</th>
+                    <th class="px-3 py-2">Résultats</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for s in shops %}
+                <tr class="border-t border-gray-50">
+                    <td class="px-3 py-2 text-gray-400">{{ s.rank }}</td>
+                    <td class="px-3 py-2 font-semibold text-gray-900">{{ s.name }}</td>
+                    <td class="px-3 py-2">
+                        {% if s.wa_url %}<a href="{{ s.wa_url }}" target="_blank" rel="noopener" class="text-green-600 hover:underline">{{ s.phone }}</a>{% else %}—{% endif %}
+                    </td>
+                    <td class="px-3 py-2 whitespace-nowrap">{{ s.registered_at|date:"d/m/Y" }}</td>
+                    <td class="px-3 py-2">{{ s.plan|upper }}</td>
+                    <td class="px-3 py-2 whitespace-nowrap">{% if s.last_sale %}{{ s.last_sale|date:"d/m/Y" }}{% else %}—{% endif %}</td>
+                    <td class="px-3 py-2">
+                        {% if s.is_active %}<span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-bold">active</span>
+                        {% else %}<span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 text-xs font-bold">inactive</span>{% endif %}
+                    </td>
+                    <td class="px-3 py-2"><a href="{% url 'platform_admin_shop_report' s.seller.pk %}" class="font-semibold text-primary hover:underline">Voir</a></td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="8" class="px-3 py-6 text-center text-gray-400">Aucune boutique.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

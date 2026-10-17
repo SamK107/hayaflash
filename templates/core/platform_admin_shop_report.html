@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}Bilan {{ shop_name }} — Administration HayaFlash{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8">
+
+    <p class="mb-3"><a href="{% url 'platform_admin_shops' %}" class="text-sm font-semibold text-primary hover:underline">← Boutiques</a></p>
+
+    <div class="flex flex-wrap items-center gap-3 mb-1">
+        <h1 class="text-2xl font-black text-gray-900">{{ shop_name }}</h1>
+        <span class="px-2.5 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-full uppercase">Réservé à l'équipe</span>
+    </div>
+    <p class="text-sm text-gray-500 mb-5">
+        {% if wa_url %}<a href="{{ wa_url }}" target="_blank" rel="noopener" class="text-green-600 hover:underline">{{ seller.user.phone }}</a>{% else %}—{% endif %}
+        · Plan {{ plan|upper }} · inscrite le {{ seller.created_at|date:"d/m/Y" }}
+    </p>
+
+    <form method="get" class="flex flex-wrap items-center gap-2 mb-5">
+        {% if prev_value %}<a href="?mois={{ prev_value }}" class="px-3 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700">← mois précédent</a>{% endif %}
+        <select name="mois" class="rounded-xl border border-gray-200 px-3 py-2 text-sm">
+            {% for c in choices %}<option value="{{ c.value }}"{% if c.value == selected %} selected{% endif %}>{{ c.label }}</option>{% endfor %}
+        </select>
+        <button type="submit" class="px-4 py-2 rounded-xl bg-primary text-white text-sm font-bold">Afficher</button>
+        {% if next_value %}<a href="?mois={{ next_value }}" class="px-3 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700">mois suivant →</a>{% endif %}
+    </form>
+
+    <h2 class="text-lg font-bold text-gray-900 mb-3">{{ report.label|capfirst }}{% if report.is_current %} (en cours){% endif %}</h2>
+
+    {% if bilan.signals %}
+    <div class="bg-amber-50 rounded-2xl border border-amber-100 shadow-sm p-5 mb-4">
+        <h3 class="text-sm font-bold text-amber-800 mb-2">À regarder</h3>
+        <ul class="text-sm space-y-1 text-gray-800 list-disc pl-5">
+            {% for s in bilan.signals %}<li>{{ s.text }}</li>{% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if report.is_empty %}
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-sm text-gray-600">
+        <p class="font-semibold text-gray-900">Aucune vente ce mois-ci</p>
+        <p>Dernière vente : {% if last_sale %}{{ last_sale|date:"d/m/Y" }}{% else %}—{% endif %}</p>
+    </div>
+    {% else %}
+
+    <!-- Bloc 1 — Activité -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
+        <h3 class="text-sm font-bold text-gray-700 mb-3">Activité du mois</h3>
+        {% if report.pending_alert %}
+        <p class="mb-3 inline-block px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold">Statuts de livraison non mis à jour</p>
+        {% endif %}
+        <ul class="text-sm space-y-1 text-gray-700">
+            <li>Ventes flash réalisées : <strong>{{ report.sales_count }}</strong></li>
+            <li>Commandes passées : <strong>{{ report.orders_placed }}</strong></li>
+            <li class="pl-4">Réalisées (livrées et payées) : <strong>{{ report.orders_realized }}</strong></li>
+            <li class="pl-4">Annulées : <strong>{{ report.orders_cancelled }}</strong></li>
+            <li class="pl-4">Échec de livraison : <strong>{{ report.orders_failed }}</strong></li>
+            <li class="pl-4">Livrées, paiement non encaissé : <strong>{{ report.orders_delivered_unpaid }}</strong></li>
+            <li class="pl-4">En attente de mise à jour : <strong>{{ report.orders_pending_update }}</strong></li>
+            <li>Taux de réalisation : <strong>{% if report.realization_rate is None %}—{% else %}{{ report.realization_rate }} %{% endif %}</strong></li>
+        </ul>
+    </div>
+
+    <!-- Bloc 2 — CA -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
+        <h3 class="text-sm font-bold text-gray-700 mb-3">Chiffre d'affaires du mois</h3>
+        <p class="text-2xl font-black text-green-600 mb-2">{{ report.revenue|floatformat:"0g" }} FCFA</p>
+        <ul class="text-sm space-y-1 text-gray-700">
+            <li>Articles vendus : <strong>{{ report.items_sold }}</strong></li>
+            <li>Panier moyen : <strong>{{ report.average_basket|floatformat:"0g" }} FCFA</strong></li>
+        </ul>
+    </div>
+
+    <!-- Bloc 3 — Produits -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 overflow-x-auto">
+        <h3 class="text-sm font-bold text-gray-700 mb-3">Produits</h3>
+        {% if report.products %}
+        <table class="w-full text-sm">
+            <thead class="text-xs text-gray-400 text-left">
+                <tr><th class="py-1 pr-2">Produit</th><th class="py-1 pr-2">Quantité vendue</th><th class="py-1 pr-2">Recette</th><th class="py-1 pr-2">% des recettes</th><th class="py-1">% cumulé</th></tr>
+            </thead>
+            <tbody>
+            {% for p in report.products %}
+                <tr class="border-t border-gray-50">
+                    <td class="py-1 pr-2 font-semibold text-gray-900">{{ p.name }}</td>
+                    <td class="py-1 pr-2">{{ p.quantity }}</td>
+                    <td class="py-1 pr-2 whitespace-nowrap">{{ p.revenue|floatformat:"0g" }} FCFA</td>
+                    <td class="py-1 pr-2">{{ p.share|floatformat:"1" }} %</td>
+                    <td class="py-1">{{ p.cumulative|floatformat:"1" }} %</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-sm text-gray-400">Aucun produit vendu (commande réalisée) ce mois-ci.</p>
+        {% endif %}
+    </div>
+
+    <!-- Bloc 4 — Clientes -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
+        <h3 class="text-sm font-bold text-gray-700 mb-3">Clientes</h3>
+        <ul class="text-sm space-y-1 text-gray-700">
+            <li>Clientes distinctes : <strong>{{ report.customers }}</strong></li>
+            <li>Déjà clientes avant ce mois : <strong>{{ report.customers_returning }}</strong></li>
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- C — Comparaison avec le mois précédent -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 overflow-x-auto">
+        <h3 class="text-sm font-bold text-gray-700 mb-3">Comparaison avec le mois précédent{% if bilan.comparison.has_previous %} ({{ bilan.comparison.previous_label }}){% endif %}</h3>
+        {% if not bilan.comparison.has_previous %}
+        <p class="text-sm text-gray-400">Pas de mois précédent : la boutique est inscrite depuis ce mois.</p>
+        {% else %}
+        {% if bilan.comparison.weak %}<p class="mb-2 text-xs text-gray-500">Base trop faible pour comparer (mois précédent : moins de {{ bilan.comparison.min_realized }} commandes réalisées ou moins de {{ bilan.comparison.min_revenue|floatformat:"0g" }} de CA) : valeurs brutes seulement.</p>{% endif %}
+        <table class="w-full text-sm">
+            <thead class="text-xs text-gray-400 text-left">
+                <tr><th class="py-1 pr-2">Indicateur</th><th class="py-1 pr-2">Ce mois</th><th class="py-1 pr-2">Mois précédent</th><th class="py-1">Variation</th></tr>
+            </thead>
+            <tbody>
+            {% for row in bilan.comparison.rows %}
+                <tr class="border-t border-gray-50">
+                    <td class="py-1 pr-2 font-semibold text-gray-900">{{ row.label }}</td>
+                    <td class="py-1 pr-2 whitespace-nowrap">{% include "core/partials/_bilan_value.html" with value=row.value unit=row.unit %}</td>
+                    <td class="py-1 pr-2 whitespace-nowrap">{% include "core/partials/_bilan_value.html" with value=row.previous unit=row.unit %}</td>
+                    <td class="py-1 whitespace-nowrap">
+                        {% if row.variation.state == "weak" %}<span class="text-xs text-gray-400">base trop faible pour comparer</span>
+                        {% elif row.variation.state == "ok" %}
+                            {% if row.variation.direction == "up" %}<span class="text-green-600 font-bold">▲{% if row.variation.pct is not None %} +{{ row.variation.pct }} %{% elif row.variation.points is not None %} +{{ row.variation.points }} pts{% endif %}</span>
+                            {% elif row.variation.direction == "down" %}<span class="text-red-600 font-bold">▼{% if row.variation.pct is not None %} {{ row.variation.pct }} %{% elif row.variation.points is not None %} {{ row.variation.points }} pts{% endif %}</span>
+                            {% else %}<span class="text-gray-500">=</span>{% endif %}
+                        {% else %}<span class="text-gray-400">—</span>{% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+
+    <!-- D — Évolution sur 3 mois -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 overflow-x-auto">
+        <h3 class="text-sm font-bold text-gray-700 mb-3">Évolution sur {{ bilan.trend.rows|length }} mois</h3>
+        <table class="w-full text-sm mb-3">
+            <thead class="text-xs text-gray-400 text-left">
+                <tr><th class="py-1 pr-2">Mois</th><th class="py-1 pr-2">CA réalisé</th><th class="py-1 pr-2">Commandes réalisées</th><th class="py-1 pr-2">Articles vendus</th><th class="py-1">Panier moyen</th></tr>
+            </thead>
+            <tbody>
+            {% for t in bilan.trend.rows %}
+                <tr class="border-t border-gray-50">
+                    <td class="py-1 pr-2 font-semibold text-gray-900">{{ t.label|capfirst }}</td>
+                    <td class="py-1 pr-2 whitespace-nowrap">{{ t.revenue|floatformat:"0g" }} FCFA</td>
+                    <td class="py-1 pr-2">{{ t.orders_realized }}</td>
+                    <td class="py-1 pr-2">{{ t.items_sold }}</td>
+                    <td class="py-1 whitespace-nowrap">{{ t.average_basket|floatformat:"0g" }} FCFA</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <svg viewBox="0 0 300 125" class="w-full max-w-md" role="img" aria-label="CA réalisé par mois">
+            <line x1="20" y1="100" x2="290" y2="100" stroke="#d1d5db" stroke-width="1"/>
+            {% for b in bilan.trend.bars %}
+            <rect x="{{ b.x }}" y="{{ b.y }}" width="60" height="{{ b.h }}" rx="4" fill="#E63946"/>
+            <text x="{{ b.label_x }}" y="{{ b.value_y }}" text-anchor="middle" font-size="9" fill="#374151">{{ b.revenue|floatformat:"0g" }}</text>
+            <text x="{{ b.label_x }}" y="116" text-anchor="middle" font-size="10" fill="#6b7280">{{ b.short }}</text>
+            {% endfor %}
+        </svg>
+        {% if bilan.trend.movers_from %}
+        <div class="grid sm:grid-cols-2 gap-4 mt-3 text-sm">
+            <div>
+                <p class="text-xs font-bold text-gray-500 mb-1">Plus fortes hausses ({{ bilan.trend.movers_from }} → {{ bilan.trend.movers_to }})</p>
+                {% for m in bilan.trend.movers.up %}<p><span class="text-green-600 font-bold">▲ +{{ m.delta|floatformat:"0g" }} FCFA</span> {{ m.name }}</p>{% empty %}<p class="text-gray-400">Aucune</p>{% endfor %}
+            </div>
+            <div>
+                <p class="text-xs font-bold text-gray-500 mb-1">Plus fortes baisses</p>
+                {% for m in bilan.trend.movers.down %}<p><span class="text-red-600 font-bold">▼ {{ m.delta|floatformat:"0g" }} FCFA</span> {{ m.name }}</p>{% empty %}<p class="text-gray-400">Aucune</p>{% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- F — Résumé à copier -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
+        <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-bold text-gray-700">Résumé à copier</h3>
+            <button type="button" class="px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-bold" data-hf-copy-from="#bilan-resume">Copier le résumé</button>
+        </div>
+        <pre id="bilan-resume" class="whitespace-pre-wrap text-xs text-gray-700 bg-gray-50 rounded-xl p-3">{{ bilan.summary }}</pre>
+    </div>
+</div>
+{% endblock %}

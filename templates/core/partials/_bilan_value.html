@@ -1,0 +1,1 @@
+{% if value is None %}—{% elif unit == "fcfa" %}{{ value|floatformat:"0g" }} FCFA{% elif unit == "rate" %}{{ value }} %{% else %}{{ value }}{% endif %}
