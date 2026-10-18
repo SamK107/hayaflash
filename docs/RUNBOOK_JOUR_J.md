@@ -33,11 +33,13 @@ L'ancien `infra/scripts/deploy.sh` (images GHCR) ne sert plus tant que les jobs
 
 ---
 
-## Étape 1 — Audit initial + durcissement (catégorie 7)
+## Étape 1 — Audit en lecture seule du VPS (catégorie 7, F-39)
 
-> ⚠️ **NE PAS EXÉCUTER EN L'ÉTAT — VPS partagé avec services.symain.africa
-> (ufw/sshd communs), à réécrire en Phase 4.** Voir `GOVERNANCE_RELEASE.md`
-> et le suivi `docs/releases/v1.0.0-rc1.md` (finding F-39).
+> ℹ️ Le VPS est **partagé** avec `symain.africa` et `services.symain.africa` : le
+> pare-feu, SSH et HestiaCP sont communs. Cette étape ne **modifie rien** (l'ancienne
+> version installait ufw, fail2ban et durcissait `sshd` : supprimé, voir F-39). Toute
+> évolution du pare-feu ou de SSH est une décision séparée, validée par le mainteneur
+> pour cette action précise.
 
 - [ ] **1.1 Audit de départ (lecture seule)**
   ```bash
@@ -48,49 +50,28 @@ L'ancien `infra/scripts/deploy.sh` (images GHCR) ne sert plus tant que les jobs
   cette étape servent de liste de travail. Le script ne modifie rien.
   Retour arrière : aucun (lecture seule).
 
-- [ ] **1.2 Pare-feu**
+- [ ] **1.2 Prérequis de la production (lecture seule)**
   ```bash
-  sudo apt install -y ufw
-  sudo ufw default deny incoming && sudo ufw default allow outgoing
-  sudo ufw allow OpenSSH && sudo ufw allow 80/tcp && sudo ufw allow 443/tcp
-  sudo ufw enable
+  bash infra/scripts/check_prod_prereqs.sh
   ```
-  Attendu : `sudo ufw status verbose` affiche `Status: active` et
-  `deny (incoming)`.
-  ⚠️ **Avant `ufw enable`, garder une deuxième session SSH ouverte** : si SSH
-  est coupé, c'est elle qui permet de corriger.
-  Retour arrière : `sudo ufw disable`.
+  Attendu : aucun `ECHEC` (DNS de `hayaflash.com` et `www`, seuls 22/80/443/8083
+  ouverts au public, ports 8020/8021 en `127.0.0.1`, PostgreSQL d'hôte non exposé,
+  disque et mémoire suffisants, `symain.africa` et `services.symain.africa` en HTTPS).
+  Relire chaque `ATTENTION`. Le script ne modifie rien.
 
-- [ ] **1.3 fail2ban**
+- [ ] **1.3 Référence avant toute intervention sur l'hôte**
   ```bash
-  sudo apt install -y fail2ban && sudo systemctl enable --now fail2ban
+  sudo nginx -t
+  curl -s -o /dev/null -w '%{http_code}
+' https://symain.africa/
+  curl -s -o /dev/null -w '%{http_code}
+' https://services.symain.africa/
   ```
-  Attendu : `sudo fail2ban-client status sshd` liste la jail sshd.
-  Retour arrière : `sudo systemctl disable --now fail2ban`.
+  Attendu : `syntax is ok` / `test is successful` et deux `200`. À refaire **après**
+  toute action sur le nginx de HestiaCP.
 
-- [ ] **1.4 SSH par clé uniquement, root interdit**
-  Vérifier d'abord qu'une connexion **par clé** avec l'utilisateur
-  d'exploitation fonctionne, puis dans `/etc/ssh/sshd_config.d/99-hayaflash.conf` :
-  ```
-  PermitRootLogin no
-  PasswordAuthentication no
-  ```
-  ```bash
-  sudo sshd -t && sudo systemctl reload ssh
-  ```
-  Attendu : `sudo sshd -T | grep -Ei 'permitrootlogin|passwordauthentication'`
-  → `no` / `no`. Tester une **nouvelle** connexion SSH avant de fermer
-  l'ancienne.
-  Retour arrière : supprimer `99-hayaflash.conf`, puis `sudo systemctl reload ssh`.
-
-- [ ] **1.5 Mises à jour de sécurité automatiques**
-  ```bash
-  sudo apt install -y unattended-upgrades
-  sudo dpkg-reconfigure -plow unattended-upgrades   # répondre Oui
-  ```
-  Attendu : `/etc/apt/apt.conf.d/20auto-upgrades` contient
-  `APT::Periodic::Unattended-Upgrade "1";`.
-  Retour arrière : `sudo dpkg-reconfigure -plow unattended-upgrades` → Non.
+**Ce que ce runbook ne fait pas** : installer ou reconfigurer `ufw`, `fail2ban`,
+`unattended-upgrades` ou `sshd_config` sur ce serveur.
 
 ---
 

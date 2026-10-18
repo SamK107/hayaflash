@@ -49,7 +49,7 @@ class DeployWorkflowTests(SimpleTestCase):
                 self.assertRegex(_job(self.text, name), r"(?m)^    if: false$")
 
     def test_staging_smoke_test_gets_the_public_host(self):
-        """F-52 : deploy.sh vise 127.0.0.1:8010 ; sans SMOKE_HOST, Django refuse le
+        """F-52 : deploy.sh vise 127.0.0.1:8020 ; sans SMOKE_HOST, Django refuse le
         Host « 127.0.0.1 » (ALLOWED_HOSTS) et le smoke test echoue toujours."""
         job = _job(self.text, "deploy-staging")
         match = re.search(r"SMOKE_HOST=\"?\$\{\{\s*secrets\.\w+\s*\}\}\"?", job)

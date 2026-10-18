@@ -114,7 +114,14 @@ def send_pending_sale_reminders() -> None:
     Idempotent : un inscrit déjà relancé (`reminded_at`) n'est jamais renvoyé.
     """
     from flash_sales.models import FlashSaleStatus, SaleInterest
+    from notifications.services.sms import sms_enabled
     from notifications.tasks import send_sale_reminder
+
+    if not sms_enabled():
+        # D3 : pas de SMS au lancement. La vendeuse previent ses inscrites sur
+        # WhatsApp (liens wa.me de « Prevenir mes inscrites »). Aucun appel reseau
+        # (F-88 : jusqu'a 10 s par echec) tant que le SMS n'est pas active.
+        return
 
     now = timezone.now()
     window_end = now + timedelta(hours=1)

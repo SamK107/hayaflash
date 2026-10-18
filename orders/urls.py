@@ -25,6 +25,11 @@ urlpatterns = [
         name="seller_order_advance_status",
     ),
     path(
+        "seller/dashboard/orders/<int:order_id>/unblock-phone/",
+        views.seller_unblock_phone,
+        name="seller_unblock_phone",
+    ),
+    path(
         "seller/flash-sales/<int:pk>/export.csv",
         views.export_orders_csv,
         name="export_orders_csv",

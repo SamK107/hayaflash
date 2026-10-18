@@ -319,6 +319,11 @@ def advance_delivery(
                 )
             delivery.status = Delivery.Status.FAILED
             delivery.save(update_fields=["status", "updated_at"])
+            # F-59 / D2 : livraison refusee ou cliente injoignable = commande non
+            # honoree, comptee pour le blocage du numero apres 3 echecs en 30 jours.
+            from orders.services.unhonored import record_unhonored_order
+
+            record_unhonored_order(order)
 
         else:
             raise ValidationError({"action": f"Action inconnue : {action}."})

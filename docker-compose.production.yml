@@ -132,10 +132,14 @@ services:
     # démarre avec un ${PROD_DOMAIN} littéral dans le chemin du certificat
     # et plante au boot.
     env_file: .env
+    environment:
+      # IP(s) de confiance pour real_ip (F-26) : passerelle du reseau Docker de la
+      # pile. Plage bridge par defaut ; a resserrer (HF_REAL_IP_FROM dans le .env).
+      HF_REAL_IP_FROM: ${HF_REAL_IP_FROM:-172.16.0.0/12}
     # VPS partage avec services.symain.africa : le Nginx de l'HOTE (HestiaCP)
     # garde 80/443 et termine TLS. Ce conteneur n'ecoute qu'en HTTP et n'est
     # joignable que depuis l'hote, sur un port dedie en loopback (F-21).
-    # Port par defaut 8020 (staging ; 8010 occupe par bitiki-store sur le VPS),
+    # Port par defaut 8020 (staging ; 8010 est occupe par un autre site du VPS),
     # 8021 pour la pile prod via HAYAFLASH_HTTP_PORT. Le vhost HestiaCP fait
     # proxy_pass vers ce port.
     ports:

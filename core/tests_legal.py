@@ -291,10 +291,14 @@ class LegalIdentityTests(TestCase):
         self.assertIn("hébergeur établi en France", destinataires)
         self.assertNotRegex(destinataires, r"serveur[s]? (est|sont|situé|localisé)")
 
-    def test_privacy_retention_section_is_untouched(self):
+    def test_privacy_retention_matches_reality(self):
+        """F-37 : aucune purge automatique n'existe ; la politique ne la promet plus."""
         conservation = _section(self.get("legal_privacy"), "conservation", "droits")
-        self.assertIn("dix ans, droit comptable OHADA", conservation)
+        self.assertIn("Aucune suppression automatique n'est en place", conservation)
+        self.assertIn("dix ans (droit comptable OHADA)", conservation)
         self.assertIn("cinq ans, délai de prescription du droit commercial OHADA", conservation)
+        for promise in ("puis suppression ou anonymisation", "cinq ans au plus après la commande"):
+            self.assertNotIn(promise, conservation)
 
 
 class LegalHostSettingsTests(TestCase):

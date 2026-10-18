@@ -299,6 +299,19 @@ def _resolve_share_ref(request: HttpRequest) -> str:
     return link.token
 
 
+def _refuse_if_phone_blocked(payload: dict[str, Any]) -> None:
+    """F-59 / D2 : numero bloque apres des commandes non honorees (message neutre)."""
+    from orders.services.unhonored import PHONE_BLOCKED_MESSAGE, is_phone_blocked
+
+    seller_id = (
+        FlashSale.objects.filter(pk=payload["flash_sale_id"])
+        .values_list("owner_id", flat=True)
+        .first()
+    )
+    if is_phone_blocked(payload["customer_phone"], seller_id):
+        raise ValidationError({"detail": [PHONE_BLOCKED_MESSAGE]})
+
+
 def submit_public_order_api(
     request: HttpRequest, data: dict[str, Any]
 ) -> tuple[Order, bool]:
@@ -313,6 +326,8 @@ def submit_public_order_api(
     ).exists()
     # Par numero acheteur, et seulement pour une NOUVELLE commande : un rejeu
     # idempotent (meme client_request_id) ne consomme pas le quota.
+    if created_new:
+        _refuse_if_phone_blocked(payload)
     if created_new and rate_limit.order_phone_limited(payload["customer_phone"]):
         raise OrderRateLimited({"detail": [rate_limit.ORDER_RATE_LIMIT_MESSAGE]})
     order = create_order(payload)
