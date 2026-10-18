@@ -27,6 +27,19 @@ même VPS, chacune dans son propre clone git avec son propre `.env` :
 
 `symain.africa` et `services.symain.africa` tournent sur le même VPS : **aucune**
 commande de ce runbook ne doit les toucher (voir l'étape 5 bis).
+
+**Règles absolues sur ce serveur partagé** (valables pour tout le runbook) :
+
+- **Jamais** `docker compose down -v`, `docker volume rm`, `docker volume prune` ni
+  `docker system prune` (ni `docker image prune -a`) : ils détruisent des volumes ou des
+  images d'autres piles (staging, prod, sites voisins). Pour arrêter une pile : `docker compose stop`.
+- **`sudo nginx -t` avant tout rechargement** du nginx de HestiaCP (`systemctl reload nginx`),
+  puis **vérifier `symain.africa` et `services.symain.africa`** (code HTTP identique à celui
+  noté avant). Si `nginx -t` échoue : ne rien recharger, corriger ou annuler d'abord.
+- Le `.env` de la **prod** ne contient **jamais** `HAYAFLASH_ALLOW_DEMO_SEED` ; son
+  `ALLOWED_HOSTS` contient `localhost` (le healthcheck du conteneur interroge `localhost`).
+- Un `docker compose restart` **ne relit pas** le `.env` : pour appliquer un changement de
+  variable, recréer les conteneurs avec `deploy_vps.sh` (ou `up -d --force-recreate`).
 Déploiement : `infra/scripts/deploy_vps.sh <dossier_pile>` (manuel outillé).
 L'ancien `infra/scripts/deploy.sh` (images GHCR) ne sert plus tant que les jobs
 `deploy-*` de GitHub Actions sont en `if: false`.
@@ -124,7 +137,10 @@ vérification de `/health/` et affichage du retour arrière.
   bash infra/scripts/deploy_vps.sh /srv/hayaflash
   ```
   Attendu : liste des commits et des changements sensibles, confirmation à taper
-  (`oui`), puis `✓ Deploiement termine`. `docker compose ps` : tous les services
+  (`oui`), puis `✓ Deploiement termine`. À **chaque** déploiement, après la recréation de
+  `web`, le script crée le conteneur `nginx` s'il manque, puis lance `nginx -t` et
+  `nginx -s reload` dedans (si `nginx -t` échoue : aucun rechargement et échec clair —
+  c'est ce qui évite le 502 constaté le 18/10 quand le dépôt était déjà sur le commit cible). `docker compose ps` : tous les services
   `healthy` (web, worker) ; `beat` n'a volontairement pas de healthcheck.
 - [ ] **3.3 Vérification externe**
   ```bash
@@ -196,9 +212,12 @@ Tout est détaillé dans `docs/SAUVEGARDES.md`. Ordre imposé par l'ADR-0001
   bash /srv/hayaflash/infra/scripts/restore_test.sh /srv/backups/hayaflash/<AAAA-MM-JJ_HHMM>
   ```
   Attendu : `RESTAURATION OK` (base jetable isolée, supprimée ; aucune pile touchée).
-- [ ] **5.4 Copie vers le disque D: du PC** : `docs/SAUVEGARDES.md` § 5 (clé SSH dédiée,
-  `pull_backups.ps1`, tâche planifiée).
-  Attendu : la sauvegarde apparaît sur D: avec ses SHA256 validés.
+- [ ] **5.4 Copie chiffrée vers le disque D: du PC** : `docs/SAUVEGARDES.md` § 5 (paire de clés
+  `age` dont la clé privée est **hors du PC**, clé SSH dédiée, `pull_backups.ps1`, tâche
+  planifiée) puis le test manuel du § 8.
+  Attendu : `AAAA-MM-JJ_HHMM.tar.age` sur D: (SHA256 validés avant chiffrement), **aucun fichier
+  en clair** sur D:, `decrypt_backup.ps1` redonne `OK` avec la clé de secours. Les sauvegardes du
+  VPS restent en clair sur le VPS.
 - [ ] **5.5 Planification (prod seulement, après l'étape 5 bis)** : ligne `crontab` de
   `infra/cron/hayaflash-backup` (installation sans écraser la crontab de `sam`).
   Attendu : le lendemain, `/srv/backups/hayaflash-prod/backup.log` montre `OK`.
@@ -233,7 +252,7 @@ Tout est détaillé dans `docs/SAUVEGARDES.md`. Ordre imposé par l'ADR-0001
   ```
   Dans ce `.env` : `ENVIRONMENT=prod`, `HAYAFLASH_PROJECT=hayaflash-prod`,
   `HAYAFLASH_HTTP_PORT=8021`, `DOCKER_IMAGE=hayaflash-prod`, `IMAGE_TAG=latest`,
-  `PROD_DOMAIN=hayaflash.com`, `ALLOWED_HOSTS=hayaflash.com,www.hayaflash.com`,
+  `PROD_DOMAIN=hayaflash.com`, `ALLOWED_HOSTS=hayaflash.com,www.hayaflash.com,localhost`,
   `CSRF_TRUSTED_ORIGINS=https://hayaflash.com,https://www.hayaflash.com`, **nouveau**
   `SECRET_KEY`, **nouveaux** mots de passe `DB_PASSWORD` / `REDIS_PASSWORD`, clés
   Orange Money de production, `EMAIL_*`. **Sans `HAYAFLASH_ALLOW_DEMO_SEED`**
@@ -245,6 +264,12 @@ Tout est détaillé dans `docs/SAUVEGARDES.md`. Ordre imposé par l'ADR-0001
   ```
   Attendu : `✓ Isolation OK` deux fois ; prod = projet `hayaflash-prod`, port 8021,
   image `hayaflash-prod:latest`, volumes et réseau en `hayaflash-prod_*`.
+- [ ] **5b.3 bis Sauvegarde fraîche du staging, AVANT de démarrer la prod**
+  ```bash
+  bash /srv/hayaflash/infra/scripts/backup.sh /srv/hayaflash
+  ```
+  Attendu : `✓ Sauvegarde terminee` et un dossier `AAAA-MM-JJ_HHMM` tout récent dans
+  `/srv/backups/hayaflash/`. Ne pas démarrer la prod sans cette sauvegarde du staging.
 - [ ] **5b.4 Premier déploiement**
   ```bash
   bash /srv/hayaflash-prod/infra/scripts/deploy_vps.sh /srv/hayaflash-prod --dry-run
@@ -254,12 +279,34 @@ Tout est détaillé dans `docs/SAUVEGARDES.md`. Ordre imposé par l'ADR-0001
   `docker compose --project-directory /srv/hayaflash-prod -f /srv/hayaflash-prod/docker-compose.production.yml exec web python manage.py createsuperuser`.
   Attendu : pas de sauvegarde (aucune base encore), `/health/` OK sur `127.0.0.1:8021`.
   Test e-mail : `… exec web python manage.py send_test_email <votre-adresse>`.
+- [ ] **5b.4 bis Vérifier les volumes (8 attendus) — juste après ce premier démarrage**
+  ```bash
+  docker volume ls --format '{{.Name}}' | grep '^hayaflash' | sort
+  docker volume ls --format '{{.Name}}' | grep -c '^hayaflash'
+  ```
+  Attendu : **8** volumes — 4 de staging (`hayaflash_postgres_data`, `hayaflash_redis_data`,
+  `hayaflash_media_data`, `hayaflash_static_data`) et 4 de prod (`hayaflash-prod_postgres_data`,
+  `hayaflash-prod_redis_data`, `hayaflash-prod_media_data`, `hayaflash-prod_static_data`).
+  **Si le compte n'est pas 8 : arrêt immédiat** — ne rien supprimer, **jamais `-v`** —
+  (`docker compose … stop` de la pile prod seulement), puis analyse avec le mainteneur
+  (une pile partageant ou écrasant les volumes de l'autre est la panne la plus grave possible).
 - [ ] **5b.5 Sauvegarde et test de restauration AVANT l'ouverture** :
   étapes 5.2, 5.3 et 5.4 sur `/srv/hayaflash-prod` (chemin `/srv/backups/hayaflash-prod`).
   Attendu : `RESTAURATION OK` sur la sauvegarde de la prod. **Pas d'ouverture sans cela.**
-- [ ] **5b.6 Domaine** : vhost HestiaCP de `hayaflash.com` en `proxy_pass` vers
-  `127.0.0.1:8021` (modèle copié, sans `access_log`, F-65/F-145 ; aucun fichier
-  Hestia existant modifié). `sudo nginx -t` **avant** chaque rechargement.
+- [ ] **5b.6 Domaine** (F-65, F-145) : vhost HestiaCP de `hayaflash.com` en `proxy_pass` vers
+  `127.0.0.1:8021` (modèle copié, aucun fichier Hestia existant modifié).
+  1. Créer le domaine dans HestiaCP **sans `access_log`** (le journal d'accès de l'hôte
+     contiendrait les URL privées ; ne **pas** appliquer `hestia_masque_jeton.conf` tant que
+     l'hôte ne journalise pas) et ajouter l'alias `www.hayaflash.com` (étape 5 ter) ;
+  2. activer SSL (Let's Encrypt, `www` inclus) ;
+  3. relire le vhost **généré** (`/home/admin/conf/web/hayaflash.com/nginx.conf` et
+     `nginx.ssl.conf`) : Hestia a déjà réintroduit trois fois un bloc `location /media/ { alias … }`
+     parasite et remis `proxy_pass` sur un port par défaut (8002/8010) après chaque
+     modification faite dans le panneau — corriger vers `127.0.0.1:8021` et supprimer ce bloc ;
+  4. `sudo nginx -t` **avant** chaque rechargement ; vérifier `symain.africa` et
+     `services.symain.africa` juste après ;
+  5. **après toute future modification de ce domaine dans le panneau Hestia**, refaire les points
+     3 et 4 (le panneau régénère le vhost).
 - [ ] **5b.7 Contrôle de non-régression (après)**
   ```bash
   for u in https://symain.africa https://services.symain.africa; do curl -s -o /dev/null -w "%{http_code} $u\n" "$u"; done
@@ -271,6 +318,22 @@ Tout est détaillé dans `docs/SAUVEGARDES.md`. Ordre imposé par l'ADR-0001
   `nginx -t` OK, `/health/` de la prod `ok`, staging toujours isolé et en service.
   Retour arrière : `docker compose … stop` de la pile prod seulement (jamais `down -v`) ;
   retirer le vhost copié puis `sudo nginx -t && sudo systemctl reload nginx`.
+- [ ] **5b.8 IP réelle du client (F-26)** — de bout en bout :
+  ```bash
+  curl -s -o /dev/null -H 'X-Forwarded-For: 203.0.113.7' http://127.0.0.1:8021/health/
+  docker compose --project-directory /srv/hayaflash-prod -f /srv/hayaflash-prod/docker-compose.production.yml logs --tail 3 nginx
+  ```
+  Attendu : la ligne de journal commence par `203.0.113.7` (pas par l'adresse de la passerelle
+  Docker `172.x.0.1`). Puis, **depuis un téléphone sur le réseau mobile**, ouvrir le site et vérifier
+  que le journal du conteneur nginx montre l'IP publique du téléphone, pas celle du serveur.
+  Resserrer ensuite `HF_REAL_IP_FROM` dans le `.env` de la prod sur le sous-réseau réel
+  (`docker network inspect hayaflash-prod_default`) et recréer `nginx` avec `deploy_vps.sh`.
+  Sans cela, les limites par IP et les verrous partageraient une seule clé pour tous les clients.
+- [ ] **5b.9 Test fonctionnel des numéros hachés (F-98), sur le staging** : passer une
+  commande de test, puis `docker compose … logs web | grep 'tel:'` ne doit montrer que
+  `tel:<16 caractères hexadécimaux>` (jamais le numéro en clair) ; recommander plusieurs
+  fois avec le même numéro doit déclencher la limite par numéro. Consigner le résultat dans le
+  suivi (`v1.0.0-rc1.md`, F-98).
 
 ---
 
@@ -304,16 +367,28 @@ Tout est détaillé dans `docs/SAUVEGARDES.md`. Ordre imposé par l'ADR-0001
 
 ---
 
-## Étape 6 — Après N jours stables sur staging (décision explicite)
+## Étape 6 — Critères d'ouverture (décisions D12 et D15)
 
-Critères avant d'ouvrir la prod : au moins 7 jours sans erreur Sentry
-nouvelle non traitée, `/health/` vert en continu (UptimeRobot), une nuit de
-sauvegarde réussie, et **zéro violation CSP** remontée par `CSP_REPORT_URI`
-sur les parcours réels (acheteur + vendeur).
+Critères avant d'ouvrir la prod (D12 : **48 à 72 h** de stabilité sur le staging, au lieu de 7 jours) :
 
-- [ ] **6.1 Déploiement prod** : retirer `if: false` sur `deploy-prod` (PR).
-  Attendu : `deploy-staging → deploy-prod` au vert, `/health/` prod `ok`.
-  Retour arrière : remettre `if: false`, puis revenir à l'image précédente comme en 3.2.
+- 48 à 72 h sans erreur Sentry nouvelle non traitée, `/health/` vert en continu
+  (UptimeRobot), une nuit de sauvegarde réussie, et **zéro violation CSP** remontée par
+  `CSP_REPORT_URI` sur les parcours réels (acheteur + vendeur) ;
+- le **scénario complet joué sur de vrais téléphones** (inscription vendeuse, création d'une
+  vente, commande acheteuse, livraison, paiement d'abonnement Orange Money à 100 FCFA,
+  note vocale, QR code, « M'alerter ») ;
+- une **restauration réussie** : `restore_test.sh` sur une sauvegarde récente de la prod
+  (`RESTAURATION OK`) et le test de la copie chiffrée sur D: (`docs/SAUVEGARDES.md` § 8).
+
+**Ordre d'ouverture (D15)** : (1) les vendeuses pilotes d'abord, (2) puis le public, (3) puis le
+programme partenaires. Chaque étape est une décision explicite du mainteneur.
+
+- [ ] **6.1 Déploiement prod** : **manuel** (D11) avec
+  `bash infra/scripts/deploy_vps.sh /srv/hayaflash-prod`. Ne **pas** retirer `if: false` de
+  `deploy-prod` dans GitHub Actions : le job ferait `cd /srv/hayaflash` et déploierait sur la pile
+  staging.
+  Attendu : `/health/` prod `ok`, nginx rechargé après `nginx -t`.
+  Retour arrière : la commande imprimée par `deploy_vps.sh` (étape 3.3).
 - [ ] **6.2 CSP en mode bloquant** : **seulement si 0 violation** sur la
   période. Ajouter `CSP_REPORT_ONLY=false` dans le `.env` **prod**, puis
   redémarrer `web`.
