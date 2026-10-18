@@ -64,7 +64,9 @@ Inchangés : nom de projet `hayaflash`, port `8020`, image `hayaflash:latest`, v
 ## 4. Vérifications faites en local
 
 - `ruff check . --select E,F,W --ignore E501` : propre sur les fichiers suivis. (Le dépôt local contient un fichier non suivi `Telecharger-Images.py`, qui n'est pas du Python et génère 308 erreurs : il n'est pas à moi et n'est pas commité.)
-- Tests : voir le résultat final dans la conversation / ci-dessous.
+- Tests : `pytest --ds=config.settings.test` complet → **1720 passed, 4 skipped** (avant le dernier commit de documentation, sans effet sur le code).
+- **Essai réel en local** (Docker Desktop, projet jetable `hftest-prod`, supprimé ensuite ; la pile de développement `hayaflash` de ce poste n'a pas été touchée) : image construite avec le nouveau Dockerfile (`HOME=/home/hayaflash`, aucune erreur « Control server »), `worker` **healthy** en `CMD-SHELL`, `beat` sans statut, **F-83 prouvé** (IP de `web` changée 172.25.0.6 → .8 : nginx répond 200 sans redémarrage), `backup.sh` réel (dump `-Fc`, médias, SHA256) puis `restore_test.sh` → **RESTAURATION OK** (52 tables, conteneur jetable supprimé), sauvegarde corrompue → refus (`empreintes invalides`, code 1), `restore.sh` refuse une sauvegarde d'un autre projet, rétention vérifiée avec 41 dossiers factices.
+- `deploy_vps.sh` : seul `--dry-run` a été joué (sur un clone local), pas le déploiement réel ; un `git checkout` en cours de route ne peut pas casser le script (tout est dans une fonction).
 - `shellcheck` : non disponible sur ce poste (ni Windows, ni Git Bash) → relecture soignée, `bash -n` sur chaque script, et essais réels de `check_stack_isolation.sh`.
 - `pull_backups.ps1` : syntaxe validée par le parseur PowerShell ; **non exécuté de bout en bout** (il faut le VPS et la clé SSH).
 
