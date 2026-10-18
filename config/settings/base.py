@@ -353,11 +353,28 @@ AUTH_USER_MODEL = "accounts.User"
 
 # Public base URL f
 # ---------------------------------------------------------------------------
+# Console par defaut (dev, tests) ; en staging/prod, EMAIL_BACKEND=
+# django.core.mail.backends.smtp.EmailBackend + les variables EMAIL_* (SMTP LWS
+# mail.hayaflash.com, port 465 SSL). Aucune valeur secrete dans le depot.
 EMAIL_BACKEND = os.environ.get(
     "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
 )
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT") or 25)
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "false").lower() in ("1", "true", "yes")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "false").lower() in ("1", "true", "yes")
+if EMAIL_USE_SSL and EMAIL_USE_TLS:
+    # Django refuse ce couple (ValueError a l'envoi) : echouer des le demarrage.
+    raise ImproperlyConfigured("EMAIL_USE_SSL et EMAIL_USE_TLS sont exclusifs.")
+EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT") or 15)
 if os.environ.get("DEFAULT_FROM_EMAIL"):
     DEFAULT_FROM_EMAIL = os.environ["DEFAULT_FROM_EMAIL"]
+# Expediteur des e-mails d'erreur Django (par defaut : meme adresse que DEFAULT_FROM_EMAIL).
+SERVER_EMAIL = os.environ.get("SERVER_EMAIL") or globals().get(
+    "DEFAULT_FROM_EMAIL", "root@localhost"
+)
 
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True

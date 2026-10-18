@@ -168,7 +168,7 @@ class NginxContainerLogTests(SimpleTestCase):
         self.assertIsNotNone(match, "location ^~ /partenaires/d/ absente")
         body = match.group(1)
         self.assertRegex(body, r"error_log\s+/var/log/nginx/error\.log\s+crit\s*;")
-        self.assertIn("proxy_pass         http://django;", body)
+        self.assertIn("proxy_pass         http://$hf_upstream;", body)
         self.assertIn("limit_req zone=general", body)  # même limitation que « Tout le reste »
 
     def test_the_masking_map_does_not_touch_other_urls(self):

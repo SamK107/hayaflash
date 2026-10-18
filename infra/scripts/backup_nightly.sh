@@ -1,5 +1,8 @@
 #!/bin/bash
-# infra/scripts/backup_nightly.sh — enchainement quotidien lance par le cron
+# infra/scripts/backup_nightly.sh — OBSOLETE pour la prod : le cron utilise maintenant
+# directement backup.sh <dossier_pile> (voir infra/cron/hayaflash-backup et
+# docs/SAUVEGARDES.md). Conserve pour le flux « disque externe age » (ADR-0001).
+# Ancien commentaire : enchainement quotidien lance par le cron
 # (infra/cron/hayaflash-backup). Ne rien lancer a la main sur le VPS avant la
 # checklist de deploiement final (ADR-0001, decisions 3 et 4).
 #
@@ -31,7 +34,7 @@ fi
 
 echo "=== $(date -Is) backup_nightly : debut"
 
-bash "$SCRIPTS_DIR/backup.sh"
+bash "$SCRIPTS_DIR/backup.sh" "$(dirname "$ENV_FILE")"
 
 if [ -n "${OFFSITE_DIR:-}" ] && [ -f "$OFFSITE_DIR/.hayaflash_backup_target" ]; then
   bash "$SCRIPTS_DIR/copy_offsite.sh"

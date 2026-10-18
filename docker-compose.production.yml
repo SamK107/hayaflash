@@ -5,11 +5,21 @@
 # `name:` top-level de la Compose Specification). Sans ça, docker compose
 # derive le nom du projet du nom du dossier courant — fragile si un autre
 # projet sur le meme VPS est lance depuis un dossier au nom similaire.
-# Garantit que le reseau par defaut (hayaflash_default), les volumes et
-# `docker compose down/up` restent scopes a ce projet uniquement, meme
-# sans passer `-p hayaflash` explicitement a chaque invocation (deploy.sh
-# le passe quand meme, en ceinture-bretelles).
-name: hayaflash
+# Garantit que le reseau par defaut (<projet>_default), les volumes et
+# `docker compose down/up` restent scopes a ce projet uniquement.
+#
+# PLUSIEURS PILES SUR UN MEME VPS (PP-04) : ce fichier est unique, chaque pile
+# (clone git) a son propre `.env` A COTE de ce fichier. Compose lit ce `.env`
+# pour l'interpolation (name, port, image) ET le passe aux conteneurs :
+#   staging (/srv/hayaflash)      : valeurs par defaut ci-dessous (rien a poser)
+#   prod    (/srv/hayaflash-prod) : HAYAFLASH_PROJECT=hayaflash-prod
+#                                   HAYAFLASH_HTTP_PORT=8021
+#                                   DOCKER_IMAGE=hayaflash-prod
+# Les volumes (postgres_data...) et le reseau prennent le nom du projet :
+# `hayaflash_postgres_data` (staging) vs `hayaflash-prod_postgres_data` (prod).
+# Les valeurs par defaut = le staging actuel : ne JAMAIS les changer, la base
+# de staging repartirait vide. Controle : infra/scripts/check_stack_isolation.sh
+name: ${HAYAFLASH_PROJECT:-hayaflash}
 
 x-django-env: &django-env
   DJANGO_SETTINGS_MODULE: config.settings.prod
@@ -17,7 +27,7 @@ x-django-env: &django-env
 
 x-django-base: &django-base
   image: "${DOCKER_IMAGE:-hayaflash}:${IMAGE_TAG:-latest}"
-  env_file: /srv/hayaflash/.env
+  env_file: .env
   environment:
     <<: *django-env
   volumes:
@@ -45,7 +55,7 @@ services:
   # ── Base de données ──────────────────────────────────────────────────────────
   db:
     image: postgres:16-alpine
-    env_file: /srv/hayaflash/.env
+    env_file: .env
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
@@ -114,22 +124,22 @@ services:
     # `${VAR}` du compose file est résolue par le CLI docker compose depuis
     # l'environnement du shell hôte / un .env à côté de ce fichier, ce qui
     # n'est jamais garanti sur le VPS (nginx est démarré une fois puis jamais
-    # retouché par deploy.sh). En passant par le même /srv/hayaflash/.env que
-    # les autres services (voir x-django-base), PROD_DOMAIN atterrit
+    # retouché par deploy.sh). En passant par le même .env (à côté de ce fichier)
+    # que les autres services (voir x-django-base), PROD_DOMAIN atterrit
     # directement dans l'environnement du conteneur nginx, où l'entrypoint
     # envsubst le lit pour substituer server_name / ssl_certificate dans
     # prod.conf (monté en template ci-dessous). Sans cette variable, nginx
     # démarre avec un ${PROD_DOMAIN} littéral dans le chemin du certificat
     # et plante au boot.
-    env_file: /srv/hayaflash/.env
+    env_file: .env
     # VPS partage avec services.symain.africa : le Nginx de l'HOTE (HestiaCP)
     # garde 80/443 et termine TLS. Ce conteneur n'ecoute qu'en HTTP et n'est
     # joignable que depuis l'hote, sur un port dedie en loopback (F-21).
-    # Port 8020 confirme (Phase 4, P4-2 : 8010 occupe par bitiki-store sur le VPS).
-    # Le vhost HestiaCP fait proxy_pass vers ce port ;
-    # infra/scripts/deploy.sh (BASE_URL par defaut) doit rester coherent.
+    # Port par defaut 8020 (staging ; 8010 occupe par bitiki-store sur le VPS),
+    # 8021 pour la pile prod via HAYAFLASH_HTTP_PORT. Le vhost HestiaCP fait
+    # proxy_pass vers ce port.
     ports:
-      - "127.0.0.1:8020:80"
+      - "127.0.0.1:${HAYAFLASH_HTTP_PORT:-8020}:80"
     volumes:
       - ./infra/nginx/prod.conf:/etc/nginx/templates/default.conf.template:ro
       - static_data:/srv/static:ro
@@ -145,15 +155,27 @@ services:
     <<: *django-base
     command: celery -A config worker -l info -c 4 -Q default,flash_sales,notifications
     healthcheck:
-      test: ["CMD", "celery", "-A", "config", "inspect", "ping", "-d", "celery@$$HOSTNAME"]
+      # CMD-SHELL (et non CMD) : en forme CMD, `$$HOSTNAME` n'est jamais resolu
+      # par un shell et le ping cible un worker inexistant (F-63). `$$` = `$`
+      # litteral pour Compose ; le shell du conteneur developpe $HOSTNAME.
+      test: ["CMD-SHELL", "celery -A config inspect ping -t 10 -d celery@$$HOSTNAME || exit 1"]
       interval: 60s
-      timeout: 15s
+      timeout: 20s
       retries: 3
+      start_period: 40s
 
   # ── Celery Beat ───────────────────────────────────────────────────────────────
   beat:
     <<: *django-base
     command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    # Beat n'ecoute sur aucun port et n'a pas de commande de sonde fiable
+    # (pas de pidfile ; `inspect ping` ne cible que les workers). Sans cette
+    # ligne il heriterait du HEALTHCHECK curl :8000 du Dockerfile, qui echoue
+    # toujours ici (F-63/F-117). Sa vivacite est observee autrement : le
+    # battement `core.celery_heartbeat` (check « celery » de /health/) n'est
+    # emis que si beat tourne ET que le worker consomme.
+    healthcheck:
+      disable: true
 
 volumes:
   postgres_data:
