@@ -19,13 +19,12 @@ from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import F, Sum
 from django.utils import timezone
 
 from core.models import audit
 from orders.models import Order, OrderStatus
 from orders.services.dashboard import invalidate_seller_kpi_cache
-from products.models import Product, StockMovement
+from orders.services.stock_release import release_order_stock
 
 logger = logging.getLogger(__name__)
 
@@ -54,30 +53,7 @@ def _expire_one(order_id: int, cutoff: datetime) -> Order | None:
         if order is None:
             return None
 
-        net_by_product = {
-            row["product_id"]: row["net"]
-            for row in StockMovement.objects.filter(order=order)
-            .values("product_id")
-            .annotate(net=Sum("quantity_change"))
-        }
-        # Même ordre de verrouillage que create_order (produits triés) : pas d'interblocage.
-        released: dict[int, int] = {}
-        for product_id in sorted(net_by_product):
-            to_return = -int(net_by_product[product_id])
-            if to_return <= 0:
-                continue
-            Product.objects.select_for_update().filter(pk=product_id).first()
-            Product.objects.filter(pk=product_id).update(
-                stock_available=F("stock_available") + to_return
-            )
-            StockMovement.objects.create(
-                product_id=product_id,
-                order=order,
-                quantity_change=to_return,
-                movement_type=StockMovement.MovementType.RELEASE,
-                notes=EXPIRY_NOTE,
-            )
-            released[product_id] = to_return
+        released = release_order_stock(order, EXPIRY_NOTE)
 
         order.status = OrderStatus.CANCELLED
         order.save(update_fields=["status", "updated_at"])

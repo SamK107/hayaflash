@@ -119,7 +119,7 @@ class UnchangedBehaviourTests(CancelledDeliveryBase):
         self.assertEqual(int(s["total_cod_collected"]), 400)
         self.assertEqual(int(s["total_cod_pending"]), 100 + 200 + 800)
         self.assertEqual(len(self.rows()), 4)
-        self.assertEqual(self.nav()["deliveries_active_count"], 1)
+        self.assertEqual(self.nav()["deliveries_active_count"], 2)  # à livrer : confirmée + en livraison
 
     def test_failed_delivery_of_live_order_still_counted(self):
         self.make(OS.CONFIRMED, DS.FAILED)

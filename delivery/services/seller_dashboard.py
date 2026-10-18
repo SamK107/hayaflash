@@ -12,6 +12,7 @@ from delivery.models import Delivery
 from delivery.services.delivery import (
     advance_delivery,
     cancelled_deliveries_q,
+    ensure_deliveries_for_sale,
     live_deliveries_q,
 )
 from flash_sales.models import FlashSale
@@ -128,6 +129,7 @@ def get_delivery_summary(*, user, flash_sale_id: int) -> dict[str, Any]:
     if _get_owned_flash_sale(user=user, flash_sale_id=flash_sale_id) is None:
         raise PermissionDenied("Vente flash introuvable ou inaccessible.")
 
+    ensure_deliveries_for_sale(flash_sale_id)
     qs = _tenant_deliveries(user=user, flash_sale_id=flash_sale_id)
     _auto_sync_stale_deliveries(qs)
     pending = qs.filter(
@@ -170,20 +172,24 @@ def _action_flags(*, order: Order, delivery: Delivery) -> dict[str, bool]:
             "can_mark_failed": False,
             "can_cancel_order": False,
         }
+    # La confirmation et l'annulation se font dans Commandes (circuit unique) :
+    # cette page ne fait avancer que la livraison.
+    confirmed = order.status in (OrderStatus.CONFIRMED, OrderStatus.OUT_FOR_DELIVERY)
     return {
-        "can_confirm": order.status == OrderStatus.PENDING
-        and delivery.status == Delivery.Status.PENDING,
+        "can_confirm": False,
         "can_start_delivery": order.status == OrderStatus.CONFIRMED
         and delivery.status in (Delivery.Status.PENDING, Delivery.Status.ASSIGNED),
         "can_mark_delivered": order.status == OrderStatus.OUT_FOR_DELIVERY
         and delivery.status == Delivery.Status.IN_TRANSIT,
-        "can_mark_failed": delivery.status
+        "can_mark_failed": confirmed
+        and delivery.status
         in (
             Delivery.Status.PENDING,
             Delivery.Status.ASSIGNED,
             Delivery.Status.IN_TRANSIT,
         ),
         "can_cancel_order": False,
+        "awaiting_confirmation": order.status == OrderStatus.PENDING,
     }
 
 
@@ -242,6 +248,7 @@ def list_delivery_rows(
 
     # Filtre « Annulées » : lecture seule, jamais mélangé aux autres filtres (F-99).
     cancelled_only = status_filter == "cancelled"
+    ensure_deliveries_for_sale(flash_sale_id)
     base_qs = _tenant_deliveries(
         user=user, flash_sale_id=flash_sale_id, cancelled=cancelled_only
     )
@@ -296,6 +303,9 @@ def apply_delivery_action_from_form(
     form_data: dict[str, Any],
 ) -> Delivery:
     """Thin HTMX wrapper around ``advance_delivery()``."""
+    if action in ("confirm", "cancel"):
+        # Circuit unique : confirmer / annuler se fait dans Commandes.
+        raise ValidationError("Confirme ou annule la commande depuis la page Commandes.")
     payload: dict[str, Any] = {}
     if action == "start_delivery":
         assigned = form_data.get("assigned_to")

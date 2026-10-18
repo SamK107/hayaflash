@@ -120,7 +120,7 @@ class SellerDeliveriesDashboardTests(DeliveryTestFixture):
         self.assertContains(resp, "Moussa")
         self.assertNotContains(resp, "filt-b")
 
-    def test_htmx_confirm_action_swaps_row(self) -> None:
+    def test_confirm_is_refused_on_delivery_page_and_done_in_orders(self) -> None:
         order = self._create_order(client_request_id="htmx-confirm")
         delivery = Delivery.objects.get(order=order)
         self.client.force_login(self.seller_user)
@@ -129,6 +129,13 @@ class SellerDeliveriesDashboardTests(DeliveryTestFixture):
                 "orders:seller_delivery_action", kwargs={"delivery_id": delivery.pk}
             ),
             {"action": "confirm"},
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(resp.status_code, 400)
+        order.refresh_from_db()
+        self.assertEqual(order.status, OrderStatus.PENDING)
+        resp = self.client.post(
+            reverse("orders:seller_order_advance_status", args=[order.pk]),
             HTTP_HX_REQUEST="true",
         )
         self.assertEqual(resp.status_code, 200)

@@ -55,7 +55,11 @@ class DeliveryClosureWiringTests(DeliveryTestFixture):
         }
 
     def _start_delivery(self) -> None:
-        self.assertEqual(self._post({"action": "confirm"}).status_code, 200)
+        # Circuit unique : la confirmation se fait dans Commandes.
+        confirm = self.client.post(
+            reverse("orders:seller_order_advance_status", args=[self.delivery.order_id])
+        )
+        self.assertEqual(confirm.status_code, 200)
         resp = self._post({"action": "start_delivery", "assigned_to": "Moussa"})
         self.assertEqual(resp.status_code, 200, resp.content)
 
@@ -63,16 +67,16 @@ class DeliveryClosureWiringTests(DeliveryTestFixture):
         self._start_delivery()
         buttons = self._buttons()
         labels = list(buttons)
-        self.assertTrue(any(lb.startswith("Livrée") for lb in labels), labels)
+        self.assertTrue(any(lb.startswith("Livré") for lb in labels), labels)
         self.assertIn("Échec", labels)
 
     def test_closure_buttons_hidden_before_delivery_starts(self) -> None:
         labels = list(self._buttons())
-        self.assertFalse(any(lb.startswith("Livrée") for lb in labels), labels)
+        self.assertFalse(any(lb.startswith("Livré") for lb in labels), labels)
 
     def test_delivered_cod_collected_end_to_end(self) -> None:
         self._start_delivery()
-        vals = self._buttons()["Livrée · encaissée"]
+        vals = self._buttons()["Livré et payé"]
         self.assertEqual(vals["action"], "mark_delivered")
         resp = self._post(vals)
         self.assertEqual(resp.status_code, 200, resp.content)
@@ -99,12 +103,12 @@ class DeliveryClosureWiringTests(DeliveryTestFixture):
 
         # Une livraison close n'a plus de boutons de cloture.
         labels = list(self._buttons())
-        self.assertFalse(any(lb.startswith("Livrée") for lb in labels), labels)
+        self.assertFalse(any(lb.startswith("Livré") for lb in labels), labels)
         self.assertNotIn("Échec", labels)
 
     def test_delivered_cod_not_collected(self) -> None:
         self._start_delivery()
-        resp = self._post(self._buttons()["Livrée · non encaissée"])
+        resp = self._post(self._buttons()["Livré, pas encore payé"])
         self.assertEqual(resp.status_code, 200, resp.content)
         self.delivery.refresh_from_db()
         self.assertEqual(self.delivery.status, Delivery.Status.DELIVERED)

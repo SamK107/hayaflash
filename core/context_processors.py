@@ -7,9 +7,8 @@ from __future__ import annotations
 # - commandes a traiter  = commandes du vendeur au statut `pending` (jamais
 #   confirmees) ; les `confirmed` attendent la livraison, donc relevent du
 #   compteur « livraisons » ;
-# - livraisons en cours  = livraisons du vendeur aux statuts `assigned` ou
-#   `in_transit` (`pending` = pas encore prise en charge, `delivered` / `failed`
-#   = terminees) ;
+# - commandes a livrer   = commandes du vendeur confirmees ou en livraison dont la
+#   livraison n'est ni livree ni en echec (pastille de l'entree « Livraisons ») ;
 # - reservations         = SaleInterest du vendeur.
 # Les deux premiers COUNT sont mis en cache 5 s (meme ordre de grandeur que
 # KPI_CACHE_TTL_SECONDS) : au plus 5 s de retard, cout constant.
@@ -26,18 +25,18 @@ def format_nav_badge(count: int) -> str:
 
 def _compute_nav_counts(seller) -> dict:
     from delivery.models import Delivery
-    from delivery.services.delivery import live_deliveries_q
     from orders.models import Order, OrderStatus
 
     return {
         "orders_to_process_count": Order.service_objects.filter(
             flash_sale__owner=seller, status=OrderStatus.PENDING
         ).count(),
-        "deliveries_active_count": Delivery.objects.filter(
-            live_deliveries_q(),
-            order__flash_sale__owner=seller,
-            status__in=[Delivery.Status.ASSIGNED, Delivery.Status.IN_TRANSIT],
-        ).count(),
+        "deliveries_active_count": Order.service_objects.filter(
+            flash_sale__owner=seller,
+            status__in=[OrderStatus.CONFIRMED, OrderStatus.OUT_FOR_DELIVERY],
+        )
+        .exclude(delivery__status__in=[Delivery.Status.DELIVERED, Delivery.Status.FAILED])
+        .count(),
     }
 
 

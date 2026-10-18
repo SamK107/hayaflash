@@ -50,8 +50,11 @@ class UnhonoredBase(DeliveryTestFixture):
         return self.api.post(ORDERS_URL, body, format="json")
 
     def fail_delivery(self, order_id, client=None):
+        client = client or self.seller_client
+        # Circuit unique : on confirme dans Commandes, l'échec se déclare sur Livraison.
+        client.post(reverse("orders:seller_order_advance_status", args=[order_id]))
         delivery = Delivery.objects.get(order_id=order_id)
-        resp = (client or self.seller_client).post(
+        resp = client.post(
             reverse("orders:seller_delivery_action", args=[delivery.pk]),
             {"action": "mark_failed"},
             HTTP_HX_REQUEST="true",
