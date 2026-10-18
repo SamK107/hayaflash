@@ -14,7 +14,13 @@ def send_order_confirmation(order_id: int) -> None:
     """Envoie une confirmation SMS apres creation de commande."""
     from orders.models import Order
     from notifications.services.dispatcher import send_notification
+    from notifications.services.sms import sms_enabled
     from notifications.services.whatsapp import format_fcfa
+
+    if not sms_enabled():
+        # D3 : pas de SMS au lancement ; on ne garde pas non plus de ligne
+        # Notification (avec le numero de la cliente) pour un envoi qui n'aura pas lieu.
+        return
 
     try:
         order = (
@@ -46,6 +52,10 @@ def send_sale_reminder(flash_sale_id: int, phone: str) -> bool:
     from flash_sales.models import FlashSale
     from notifications.models import Notification
     from notifications.services.dispatcher import send_notification
+    from notifications.services.sms import sms_enabled
+
+    if not sms_enabled():
+        return False
 
     try:
         sale = FlashSale.objects.get(pk=flash_sale_id)

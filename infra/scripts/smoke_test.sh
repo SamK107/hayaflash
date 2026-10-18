@@ -2,8 +2,8 @@
 # Smoke test post-deploy HayaFlash
 # Usage: [SMOKE_HOST=<domaine>] bash infra/scripts/smoke_test.sh [BASE_URL]
 #
-# BASE_URL : par defaut le Nginx du conteneur en loopback (127.0.0.1:8010 en
-#   production, port PROVISOIRE a confirmer en Phase 4, cf. docker-compose.production.yml).
+# BASE_URL : par defaut le Nginx du conteneur en loopback, sur HAYAFLASH_HTTP_PORT
+#   (8020 pour la pile staging, 8021 pour la pile prod, cf. docker-compose.production.yml).
 # SMOKE_HOST : optionnel, valeur de l'en-tete Host (le domaine public) quand on
 #   teste par 127.0.0.1 : sinon Django refuse le Host (ALLOWED_HOSTS).
 #
@@ -11,7 +11,7 @@
 # erreur client ou serveur, ou une connexion impossible est un ECHEC (F-35).
 set -e
 
-BASE="${1:-http://127.0.0.1:8010}"
+BASE="${1:-http://127.0.0.1:${HAYAFLASH_HTTP_PORT:-8020}}"
 PASS=0
 FAIL=0
 

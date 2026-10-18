@@ -45,7 +45,6 @@ DEFAULT_FEATURES = {
     Plan.PRO: [
         "Statistiques et analyses avancées (historique complet)",
         "Tableau de bord LIVE temps réel",
-        "Notifications SMS automatiques",
         "Support prioritaire WhatsApp",
         "Accès aux nouvelles fonctionnalités en avant-première",
     ],

@@ -1,6 +1,6 @@
 {% extends "core/legal/_layout.html" %}
 {% load plan_tags %}
-{# Texte à faire valider par un juriste avant mise en production #}
+{# Textes alignés sur la réalité du service (décision D13) ; validation par un juriste possible après le lancement. #}
 
 {% block title %}Conditions générales d'utilisation — HayaFlash{% endblock %}
 {% block meta_description %}Conditions générales d'utilisation de HayaFlash pour les vendeurs (compte, abonnements, responsabilités) et pour les acheteurs (commandes, paiement à la livraison).{% endblock %}
@@ -57,10 +57,16 @@
 </ul>
 <p>Sont interdits notamment : les produits illicites, contrefaits ou dangereux, les contenus trompeurs, et toute utilisation du service pour tromper ou démarcher abusivement les acheteurs.</p>
 
-<h3>1.6 Suspension du compte</h3>
+<h3>1.6 Bilans et conseils</h3>
+<p>HayaFlash analyse les données de ventes de la boutique (commandes, produits, créneaux) pour fournir au vendeur des bilans mensuels et des conseils. Ces bilans sont indicatifs : ils aident à décider, sans garantir de résultat. Pour les produire, des résumés anonymisés (sans nom, numéro de téléphone ni adresse de cliente) peuvent être analysés avec des outils d'intelligence artificielle. Voir la <a href="{% url 'legal_privacy' %}">politique de confidentialité</a>.</p>
+
+<h3>1.7 Commandes non honorées</h3>
+<p>Le vendeur indique dans HayaFlash quand une livraison n'a pas abouti (livraison refusée ou acheteur injoignable). Après 3 livraisons non abouties en 30 jours, le numéro de l'acheteur ne peut plus passer de nouvelles commandes pour le moment. Le vendeur peut lever ce blocage pour sa boutique. Il ne doit marquer une livraison comme non aboutie que si c'est réellement le cas.</p>
+
+<h3>1.8 Suspension du compte</h3>
 <p>HayaFlash peut suspendre ou désactiver un compte ou une boutique, sans préavis en cas d'urgence, en cas de manquement à ces conditions, de fraude, de plainte sérieuse d'acheteurs ou de risque pour la sécurité du service. Le vendeur en est informé par tout moyen.</p>
 
-<h3>1.7 Résiliation</h3>
+<h3>1.9 Résiliation</h3>
 <p>Le vendeur peut cesser d'utiliser HayaFlash à tout moment et demander la fermeture de son compte en écrivant à l'équipe HayaFlash : <a href="mailto:contact@hayaflash.com">contact@hayaflash.com</a>. Une période d'abonnement déjà payée n'est pas remboursée. Exception : si un paiement a été débité sans que l'abonnement soit activé, ou a été débité deux fois, l'équipe HayaFlash active l'abonnement ou rembourse le montant concerné, sur demande à la même adresse.</p>
 
 <h2 id="acheteurs">Partie 2 — Acheteurs</h2>
@@ -77,6 +83,9 @@
 <h3>2.4 Réclamations</h3>
 <p>Toute réclamation concernant un produit, un prix, un retard ou une livraison doit être adressée au vendeur. Un comportement abusif d'un vendeur peut être signalé à l'équipe HayaFlash : <a href="mailto:contact@hayaflash.com">contact@hayaflash.com</a>.</p>
 
+<h3>2.5 Commandes non honorées</h3>
+<p>Une commande est passée avec l'intention de la recevoir et de la payer à la livraison. Si, sur 30 jours, 3 livraisons n'aboutissent pas (livraison refusée ou acheteur injoignable), le numéro ne peut plus commander pour le moment : le message « Ce numéro ne peut plus commander pour le moment. Contacte la boutique. » s'affiche alors. Le vendeur ou l'équipe HayaFlash peut lever ce blocage ; en cas d'erreur, écrivez à <a href="mailto:contact@hayaflash.com">contact@hayaflash.com</a>.</p>
+
 <h2 id="communes">Dispositions communes</h2>
 
 <h3>Propriété intellectuelle</h3>
@@ -92,6 +101,6 @@
 <p>Ces conditions peuvent être modifiées. La version en vigueur et sa date sont indiquées en haut de cette page. En cas de modification importante, les vendeurs pourront être invités à accepter la nouvelle version.</p>
 
 <h3>Droit applicable</h3>
-{# Clause à faire valider par un juriste avant mise en production #}
+{# Clause alignée sur la réalité du service (décision D13) #}
 <p>Ces conditions sont régies par le droit malien, y compris les textes de l'UEMOA et les actes uniformes de l'OHADA applicables au Mali. En cas de litige, les parties recherchent d'abord une solution amiable. À défaut, le litige est porté devant les juridictions compétentes de Bamako (Mali).</p>
 {% endblock %}

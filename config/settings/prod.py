@@ -56,6 +56,27 @@ if os.environ.get(ALLOW_ENV_VAR) == "1" and has_production_host(ALLOWED_HOSTS):
         "www.hayaflash.com, .hayaflash.com ou *). Retirer la variable du .env."
     )
 
+# Staging non indexable (D8) : sur tout hote qui n'est PAS un hote de production,
+# robots.txt interdit tout et chaque reponse porte X-Robots-Tag: noindex, nofollow.
+# Jamais en production : HAYAFLASH_NOINDEX=1 avec un hote de production = refus de
+# demarrer (le site disparaitrait des moteurs de recherche).
+if os.environ.get("HAYAFLASH_NOINDEX") == "1" and has_production_host(ALLOWED_HOSTS):
+    raise ImproperlyConfigured(
+        "HAYAFLASH_NOINDEX=1 interdit sur un hote de production : le site ne serait "
+        "plus indexable. Retirer la variable du .env."
+    )
+# Par defaut : noindex sur tout hote non production (staging) ; HAYAFLASH_NOINDEX=0
+# permet de le desactiver explicitement sur un hote de test.
+SITE_NOINDEX = (
+    False
+    if os.environ.get("HAYAFLASH_NOINDEX") == "0"
+    else not has_production_host(ALLOWED_HOSTS)
+)
+
+# www -> domaine nu, redirection permanente (D14). Le domaine www doit etre dans
+# ALLOWED_HOSTS, declare dans HestiaCP et couvert par le certificat.
+CANONICAL_HOST_REDIRECTS = {"www.hayaflash.com": "hayaflash.com"}
+
 CORS_ALLOW_ALL_ORIGINS = False
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -85,10 +106,14 @@ SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = False
 SESSION_COOKIE_SAMESITE = "Lax"
 
-# HSTS — 1 an, sous-domaines inclus, preload
-SECURE_HSTS_SECONDS = 31_536_000
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
+# HSTS (D14) : 180 jours au lancement, SANS includeSubDomains ni preload. Ces deux
+# options imposeraient HTTPS a tous les sous-domaines (staging, autres sites du
+# serveur) et le preload est quasi irreversible. A revoir apres plusieurs mois
+# stables. W005/W021 sont donc volontairement ignores.
+SECURE_HSTS_SECONDS = 15_552_000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+SECURE_HSTS_PRELOAD = False
+SILENCED_SYSTEM_CHECKS = ["security.W005", "security.W021"]
 
 # Divers headers sécurité
 SECURE_BROWSER_XSS_FILTER = True

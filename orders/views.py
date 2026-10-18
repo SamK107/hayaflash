@@ -19,6 +19,7 @@ from orders.services.dashboard import (
     advance_order_status,
     count_dashboard_orders,
     get_dashboard_kpis_cached,
+    _seller_orders_queryset,
     get_order_row_context,
     list_dashboard_order_rows,
     list_owned_flash_sales,
@@ -304,3 +305,37 @@ def bulk_mark_delivered(request):
         f"{updated} commande(s) marquée(s) livrée(s).",
         content_type="text/plain; charset=utf-8",
     )
+
+
+@login_required
+@require_POST
+def seller_unblock_phone(request, order_id: int):
+    """POST /orders/seller/dashboard/orders/<id>/unblock-phone/ — F-59 / D2.
+
+    La vendeuse debloque, pour SA boutique, le numero de cette commande (bloque
+    apres des livraisons refusees ou injoignables). Seuls les echecs posterieurs
+    comptent ensuite.
+    """
+    if not _require_seller(request.user):
+        return HttpResponseForbidden("Profil vendeur requis.")
+    order = _seller_orders_queryset(request.user).filter(pk=order_id).first()
+    if order is None:
+        return HttpResponseForbidden("Commande introuvable.")
+
+    from core.models import audit
+    from orders.services.unhonored import unblock_phone
+
+    unblock_phone(
+        order.customer_phone, by_user=request.user, seller=request.user.seller_profile
+    )
+    audit(
+        "order.phone_unblocked",
+        entity_type="Order",
+        entity_id=order.pk,
+        request=request,
+    )
+    row = get_order_row_context(request.user, order_id)
+    html = render_to_string(
+        "orders/partials/order_row.html", {"row": row}, request=request
+    )
+    return HttpResponse(html, content_type="text/html; charset=utf-8")

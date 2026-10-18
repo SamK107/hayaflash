@@ -270,7 +270,9 @@ class LegalIdentityTests(TestCase):
         response = self.client.get(reverse("legal_notice"))
         self.assertEqual(response.status_code, 200)
         editeur = _section(response.content.decode(), "editeur", "publication")
-        self.assertNotIn("RCCM", editeur)
+        # Sans numéro : la mention du greffe de Bamako reste, jamais de numéro inventé.
+        self.assertIn("RCCM) de Bamako", editeur)
+        self.assertNotIn("n°", editeur)
         self.assertNotIn("Siège", editeur)
 
     def test_no_civil_name_nor_phone_in_notice(self):
@@ -291,10 +293,14 @@ class LegalIdentityTests(TestCase):
         self.assertIn("hébergeur établi en France", destinataires)
         self.assertNotRegex(destinataires, r"serveur[s]? (est|sont|situé|localisé)")
 
-    def test_privacy_retention_section_is_untouched(self):
+    def test_privacy_retention_matches_reality(self):
+        """F-37 : aucune purge automatique n'existe ; la politique ne la promet plus."""
         conservation = _section(self.get("legal_privacy"), "conservation", "droits")
-        self.assertIn("dix ans, droit comptable OHADA", conservation)
+        self.assertIn("Aucune suppression automatique n'est en place", conservation)
+        self.assertIn("dix ans (droit comptable OHADA)", conservation)
         self.assertIn("cinq ans, délai de prescription du droit commercial OHADA", conservation)
+        for promise in ("puis suppression ou anonymisation", "cinq ans au plus après la commande"):
+            self.assertNotIn(promise, conservation)
 
 
 class LegalHostSettingsTests(TestCase):

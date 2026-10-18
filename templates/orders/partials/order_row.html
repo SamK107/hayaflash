@@ -38,6 +38,21 @@
     {% endif %}
   </div>
 
+  {% if row.phone_blocked %}
+  <div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+    <p class="font-semibold">Numéro bloqué pour les nouvelles commandes</p>
+    <p class="text-xs mt-0.5">Plusieurs livraisons n'ont pas abouti ces 30 derniers jours (refusées ou client injoignable).</p>
+    <button
+      type="button"
+      class="mt-2 text-xs font-bold text-amber-900 underline"
+      hx-post="{% url 'orders:seller_unblock_phone' order.id %}"
+      hx-target="#order-row-{{ order.pk }}"
+      hx-swap="outerHTML"
+      hx-confirm="Débloquer ce numéro pour votre boutique ?"
+    >Débloquer ce numéro pour ma boutique</button>
+  </div>
+  {% endif %}
+
   <!-- Action -->
   {% if row.can_advance %}
   <button

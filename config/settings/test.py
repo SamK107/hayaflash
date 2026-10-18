@@ -44,7 +44,9 @@ LOCAL_APPS = [
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
+    "core.middleware.CanonicalHostMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "core.middleware.NoIndexMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -53,6 +55,10 @@ MIDDLEWARE = [
     "django_htmx.middleware.HtmxMiddleware",
     "axes.middleware.AxesMiddleware",
 ]
+
+# D8 / D14 : inactifs par defaut, les tests les activent avec override_settings.
+SITE_NOINDEX = False
+CANONICAL_HOST_REDIRECTS: dict[str, str] = {}
 
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
@@ -218,6 +224,7 @@ VIRAL_STATS_CACHE_SECONDS = 0
 VIRAL_PAGE_VERSION_TTL_SECONDS = 0
 PAYMENTS_WEBHOOK_SECRET = "test-webhook-secret"
 PAYMENTS_MOCK_SIMULATE_FAILURE = False
+SMS_NOTIFICATIONS_ENABLED = True  # les tests du code SMS le surchargent au besoin
 ORANGE_SMS_API_KEY = ""
 ORANGE_SMS_BASE_URL = ""
 SENTRY_DSN = ""

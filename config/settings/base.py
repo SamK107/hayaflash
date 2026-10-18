@@ -235,8 +235,14 @@ PAYMENTS_MOCK_SIMULATE_FAILURE = _env_bool(
     default="false",
 )
 
+# Staging non indexable et redirection www (prod.py les active) : inactifs ailleurs.
+SITE_NOINDEX = False
+CANONICAL_HOST_REDIRECTS: dict[str, str] = {}
+
 MIDDLEWARE = [
+    "core.middleware.CanonicalHostMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "core.middleware.NoIndexMiddleware",
     "csp.middleware.CSPMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -564,6 +570,12 @@ REST_FRAMEWORK = {
 }
 
 # ── Notifications SMS ─────────────────────────────────────────────────────────
+# D3 (decision du 18/10) : AUCUN SMS au lancement. Le code d'envoi reste en place
+# mais inactif tant que cette variable n'est pas mise a true ET que les cles
+# Orange SMS sont renseignees. Voir notifications/services/sms.py:sms_enabled.
+SMS_NOTIFICATIONS_ENABLED = os.environ.get(
+    "SMS_NOTIFICATIONS_ENABLED", "false"
+).strip().lower() in ("1", "true", "yes")
 ORANGE_SMS_API_KEY = (os.environ.get("ORANGE_SMS_API_KEY") or "").strip()
 ORANGE_SMS_BASE_URL = (
     os.environ.get("ORANGE_SMS_BASE_URL") or "https://api.orange.com/smsmessaging/v1"

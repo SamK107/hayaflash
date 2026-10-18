@@ -154,25 +154,27 @@
 | 6.1 | « Retirer `if: false` sur `deploy-prod` » : **dangereux** tant que `deploy.yml:152` fait `cd /srv/hayaflash` (déploierait sur la pile staging) |
 | Absent | Création du domaine Hestia (F-145), pile prod séparée, vérification de symain, contrôle d'absence de données de démo |
 
-## 4. Décisions en attente du porteur du projet
+## 4. Décisions du porteur du projet (toutes prises le 18/10/2026)
 
-| # | Décision | Options |
+| # | Sujet | Décision |
 |---|---|---|
-| D1 | Garde-fou démo (PP-01) | Erreur au démarrage (recommandé) · avertissement journalisé seulement |
-| D2 | Plafond de commandes non honorées par numéro (F-59) | Valeur à fixer (ex. 3 en 48 h) · aucun plafond (expiration seule) |
-| D3 | SMS « M'alerter » (F-81, F-88) | Activer (clés Orange SMS, envoi en tâche séparée) · retirer la promesse SMS pour le lancement |
-| D4 | E-mail (F-01) | Câbler SMTP LWS avant ouverture · rester sans e-mail à l'ouverture |
-| D5 | Sentry | Projet distinct (recommandé) · même projet, étiquette par variable |
-| D6 | Healthchecks Celery (F-63) | Corriger worker + `disable` sur beat (recommandé) · tolérer le statut trompeur |
-| D7 | Nginx et IP de `web` (F-83) | Résolveur Docker + variable · `restart nginx` documenté |
-| D8 | Staging public (PP-13) | `noindex` seul · `noindex` + mot de passe avec exemption `/billing/` |
-| D9 | Pile prod | Compose généré par copie (jour J) · paramétrer le dépôt avant (PP-23) |
-| D10 | Sauvegardes | Disque hors-site chiffré `age` dès le lancement · local seul, limite assumée par écrit |
-| D11 | Déploiement | Rester manuel · réactiver l'automatique après correction de `deploy.yml:152` (+ F-11) |
-| D12 | Critères d'ouverture | Garder 7 jours stables sur staging (runbook étape 6) · réduire, avec justification |
-| D13 | Texte juridique | Attendre la validation avant le lancement · lancer avec textes alignés sur la réalité (F-37) |
-| D14 | Hôtes | `www` redirigé vers le domaine nu · servi tel quel ; HSTS `includeSubDomains; preload` impose HTTPS sur **tous** les sous-domaines |
-| D15 | Ordre public / partenaires | Ouvrir au public avant le programme partenaires · ou les deux ensemble |
+| D1 | Garde-fou démo (PP-01) | **Erreur au démarrage** (fait, #84) |
+| D2 | Commandes non honorées (F-59) | **Blocage d'un numéro après 3 livraisons refusées ou injoignables en 30 jours** ; déblocage par la vendeuse concernée (sa boutique) et par l'admin (global). Fait : `5e2099e` |
+| D3 | SMS « M'alerter » (F-81, F-88) | **Retirer toute promesse de SMS pour le lancement.** Fait : `5e2099e` (envoi inactif sauf `SMS_NOTIFICATIONS_ENABLED=true`) |
+| D4 | E-mail (F-01) | **SMTP LWS câblé** (fait, #84) |
+| D5 | Sentry | **Projet distinct pour la prod** ; DSN ajouté à la main dans le `.env` de prod (documenté : `RUNBOOK_JOUR_J.md` 4.1, `0486f5f`) |
+| D6 | Healthchecks Celery (F-63) | **Corrigés** (fait, #84) |
+| D7 | Nginx et IP de `web` (F-83) | **Résolveur Docker + variable** (fait, #84) ; complété par le rechargement systématique de `deploy_vps.sh` (`0486f5f`) |
+| D8 | Staging public (PP-13) | **`noindex` seul, sans mot de passe.** Fait : `88a5f85` |
+| D9 | Pile prod | **Dépôt paramétré par pile** (fait, #84) |
+| D10 | Sauvegardes hors VPS | **Disque D: du PC, chiffrées avec `age`.** Fait : `e372c14` |
+| D11 | Déploiement | **Manuel outillé par `deploy_vps.sh`** (fait) |
+| D12 | Critères d'ouverture | **48 à 72 h de stabilité sur le staging**, scénario complet sur vrais téléphones, restauration réussie (voir § 7) |
+| D13 | Texte juridique | **Lancer avec des textes alignés sur la réalité.** Fait : `88a5f85` |
+| D14 | Hôtes | **`www.hayaflash.com` → `hayaflash.com` (301) ; pas de HSTS `preload` ni `includeSubDomains`.** Fait : `88a5f85` |
+| D15 | Ordre d'ouverture | **Vendeuses pilotes, puis public, puis programme partenaires** (voir § 7) |
+| R1 | Failles `pip-audit` | Mettre à jour vers la version corrigée la plus proche. Constat du 18/10 : **aucune faille connue** (`pip-audit -r requirements.txt` : « No known vulnerabilities found »), rien à mettre à jour |
+| R2 | Couverture sous le seuil | **Écrire les tests manquants, ne pas abaisser le seuil.** Fait : `61f62f0` (63 tests) |
 | Connue | APDP | Régularisation après les premiers revenus (décision prise, non bloquante) |
 
 ### Risques
@@ -195,3 +197,57 @@ Statut : **fait dans la branche `fix/prod-isolation-sauvegardes`, à valider sur
 | F-63 = F-117 | Fait dans la branche, à valider sur le VPS | `docker-compose.production.yml` (worker `CMD-SHELL`, beat `disable: true`) |
 | F-118 | Fait dans la branche, à valider sur le VPS | `Dockerfile` (`HOME` de l'utilisateur applicatif) |
 | F-01 | Fait dans la branche, à valider sur le VPS | `config/settings/base.py`, `send_test_email`, tests |
+
+## 6. Statut après les lots « avant production » (18/10/2026)
+
+Branche `release/pre-prod-lots`, un commit par lot : A `0486f5f` · B `61f62f0` · C `5e2099e` · D `88a5f85` · E `e372c14` · F `56a2b00` · G (ce commit). Rien n'a été joué sur le VPS ni poussé. Détail : `docs/releases/reports/pre-prod-lots.md`. « À valider VPS » = code fait dans le dépôt, vérification à jouer par le porteur.
+
+### 6.1 Bloquants (§ 2.1)
+
+| ID | Statut | Preuve / raison |
+|---|---|---|
+| PP-01 | Fait | #84 (`core/tests_security_settings.py`) |
+| PP-02 | Action porteur | Contrôle « aucune donnée de démo » : `RUNBOOK_JOUR_J.md` + `PREREQUIS_PROD.md` § 7 |
+| PP-03 | Action porteur | `diff` du compose réel contre le dépôt, à lancer sur le VPS |
+| PP-04 | Fait, à valider VPS | #84 ; vérification des 8 volumes : `RUNBOOK_JOUR_J.md` 5b.4 bis (lot G) |
+| PP-05 | Documenté | Règles absolues du serveur partagé en tête du runbook (lot G) ; `check_prod_prereqs.sh` (lot F, `56a2b00`) |
+| F-145 / F-65 | Procédure écrite, action porteur | `RUNBOOK_JOUR_J.md` 5b.6 (lot G) |
+| F-26 | Fait côté dépôt, à valider VPS | `5e2099e` : `set_real_ip_from` actif ; test de bout en bout : runbook 5b.8 |
+| F-21 | Fait | `5e2099e` : plus de référence active au port 8010 |
+| F-83 | Fait, à valider VPS | #84 ; `0486f5f` (rechargement nginx à chaque déploiement) |
+| F-63 = F-117 | Fait, à valider VPS | #84 ; F-117 fermé comme doublon (lot G) |
+| F-59 | Fait | `5e2099e` (`orders/tests_unhonored.py`, 22 tests) |
+| F-37 / RM-33 | Fait | `5e2099e` (`privacy.html` § 6 aligné sur la réalité) |
+| F-98 | Procédure écrite, action porteur | Test fonctionnel staging : runbook 5b.9 |
+| PP-06 | Fait, test manuel porteur | #84 ; `e372c14` (copie chiffrée `age`) ; procédure `SAUVEGARDES.md` § 8 |
+| PP-07 | Action porteur | `PREREQUIS_PROD.md` § 2 (clés de production, URL `hayaflash.com`) |
+| PP-08 | Action porteur (DSN) | `0486f5f` + runbook 4.1 ; projet Sentry distinct à créer |
+| PP-09 | Partiel | `.env.example` corrigé (lot G) ; `.env` de prod à remplir par le porteur |
+| PP-10 | Fait en partie | `release_check` relancé (lot B / G, voir `v1.0.0-rc1.md` § Rapports) ; gitleaks et ZAP : porteur |
+| PP-11 | Décidé (D13) | Textes alignés, validation juridique non bloquante : `88a5f85` |
+| PP-12 | Fait | Runbook réaligné (lots A, D, E, F, G) |
+| F-39 | Fait | `5e2099e` (étape 1 en lecture seule) |
+
+### 6.2 Avant ouverture (§ 2.2) et autres
+
+| ID | Statut | Preuve / raison |
+|---|---|---|
+| PP-13 | Fait (à déployer sur staging) | `88a5f85` : `noindex` automatique hors hôte de production (`core/tests_seo_hosts.py`) |
+| PP-14 | Fait | `88a5f85` : bilans, IA anonymisée, blocage, Sentry, LWS (`core/tests_legal_reality.py`) |
+| PP-15 | Action porteur | Déployer sur staging F-115, F-121, F-122, F-127, F-137, F-141, F-142 ; **F-82 fermé comme doublon de F-115** |
+| F-81 / F-88 | Fait | `5e2099e` (D3) |
+| F-01 | Fait | #84 |
+| PP-23 | Fait | #84 (D9) |
+| Autres lignes (F-05, F-57, F-60, F-62, F-71, F-78, F-97, F-38, F-144, PP-16 à PP-22, partenaires) | Inchangées | Hors périmètre des lots |
+
+## 7. Critères d'ouverture (D12 et D15)
+
+**Avant d'ouvrir la production (D12)** — tous requis :
+
+1. **48 à 72 h de stabilité sur le staging** : `/health/` vert en continu, aucune nouvelle erreur Sentry non traitée, une nuit de sauvegarde réussie, zéro violation CSP sur les parcours réels.
+2. **Scénario complet sur de vrais téléphones** : inscription vendeuse, création et publication d'une vente, commande acheteuse, mise en livraison et livraison, paiement d'abonnement Orange Money à 100 FCFA (tarif spécial), note vocale, QR code, « M'alerter ».
+3. **Restauration réussie** : `restore_test.sh` → `RESTAURATION OK` sur une sauvegarde de la prod, et test de la copie chiffrée sur D: (`SAUVEGARDES.md` § 8).
+4. `check_prod_prereqs.sh` sans ÉCHEC ; `sudo nginx -t` OK et `symain.africa` / `services.symain.africa` inchangés.
+
+**Ordre d'ouverture (D15)** : (1) les **vendeuses pilotes** d'abord ; (2) puis le **public** ; (3) puis le **programme partenaires** (lot juriste, scan du QR sur staging, gel de la migration `0001` : voir « Partenaires » en § 2.2). Chaque passage est une décision explicite du mainteneur.
+

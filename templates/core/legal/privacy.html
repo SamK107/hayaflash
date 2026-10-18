@@ -58,8 +58,14 @@
   <li>Adresse IP enregistrée dans le journal de sécurité pour certaines actions sensibles.</li>
   <li>Pour limiter les abus (envois répétés, faux clics sur les liens de partage) : adresse IP et une empreinte technique (adresse IP + type de navigateur), gardées seulement en mémoire temporaire, de l'ordre d'une minute, et jamais dans la base de données.</li>
   <li>Statistiques de partage des ventes (clics, partages, commandes issues d'un lien), sans adresse IP.</li>
+  <li>Erreurs techniques du service : elles sont transmises à un outil de suivi d'erreurs (Sentry) <strong>sans données personnelles</strong> : les numéros de téléphone et les adresses e-mail sont masqués avant l'envoi.</li>
 </ul>
-<p>HayaFlash ne collecte pas de numéro de carte bancaire. Le paiement des commandes se fait à la livraison, directement auprès du vendeur.</p>
+
+<h3>Suivi des livraisons non abouties</h3>
+<ul>
+  <li>Quand un vendeur indique qu'une livraison n'a pas abouti (livraison refusée ou acheteur injoignable), HayaFlash enregistre ce fait avec le numéro de téléphone de l'acheteur (ses 8 derniers chiffres) et la boutique concernée.</li>
+</ul>
+<p>HayaFlash ne collecte pas de numéro de carte bancaire. Le paiement des commandes se fait à la livraison, directement auprès du vendeur, en espèces ou selon ce qu'ils conviennent entre eux. Les abonnements des vendeurs se paient par Orange Money.</p>
 
 <h2 id="finalites">3. Utilisation de ces données</h2>
 <ul>
@@ -67,32 +73,36 @@
   <li>Permettre les ventes flash, la prise de commandes et leur transmission au vendeur.</li>
   <li>Organiser la livraison et l'encaissement à la livraison.</li>
   <li>Gérer les abonnements et leur paiement par Orange Money.</li>
-  <li>Envoyer les notifications liées au service (par exemple le rappel d'une vente à laquelle vous vous êtes inscrit).</li>
+  <li>Permettre au vendeur de prévenir, par WhatsApp, les personnes qui se sont inscrites à sa prochaine vente.</li>
+  <li><strong>Bilans et conseils aux boutiques :</strong> HayaFlash analyse les données de ventes des boutiques (commandes, produits, créneaux) pour fournir aux vendeurs des bilans mensuels et des conseils. Pour cela, des résumés <strong>anonymisés</strong> (sans nom, numéro de téléphone ni adresse de cliente) peuvent être analysés avec des outils d'intelligence artificielle.</li>
+  <li><strong>Limiter les commandes non honorées :</strong> après 3 livraisons non abouties (refusées ou acheteur injoignable) en 30 jours, le numéro de téléphone concerné ne peut plus passer de nouvelles commandes pour le moment. Ce blocage est automatique ; le vendeur concerné ou l'équipe HayaFlash peut le lever, et vous pouvez demander sa révision à <a href="mailto:contact@hayaflash.com">contact@hayaflash.com</a>.</li>
   <li>Assurer la sécurité du service et lutter contre la fraude et les abus.</li>
   <li>Conserver la preuve de votre acceptation des CGU et de cette politique.</li>
 </ul>
 
 <h2 id="base-legale">4. Base légale</h2>
-<p>L'équipe HayaFlash traite vos données parce qu'elles sont nécessaires au service que vous demandez (compte, commande, livraison, abonnement), sur la base de votre consentement lorsque vous le donnez (position GPS, note vocale, inscription aux rappels), pour son intérêt légitime à sécuriser le service, et pour respecter ses obligations légales, par exemple sur les paiements.</p>
-{# Bases légales à faire valider par un juriste avant mise en production #}
+<p>L'équipe HayaFlash traite vos données parce qu'elles sont nécessaires au service que vous demandez (compte, commande, livraison, abonnement), sur la base de votre consentement lorsque vous le donnez (position GPS, note vocale, inscription aux rappels), pour son intérêt légitime à sécuriser le service et à limiter les commandes non honorées, et pour respecter ses obligations légales, par exemple sur les paiements.</p>
+{# Bases légales alignées sur la réalité du service (décision D13) #}
 
 <h2 id="destinataires">5. Qui reçoit ces données</h2>
 <ul>
   <li><strong>Le vendeur</strong> reçoit les données des commandes passées dans ses ventes (nom, téléphone, adresse, position, note vocale) pour préparer et livrer la commande, ainsi que les contacts des personnes inscrites à ses prochaines ventes.</li>
   <li><strong>Les personnes qui livrent</strong> pour le compte du vendeur, dans la mesure nécessaire à la livraison.</li>
   <li><strong>Orange Money</strong>, pour le paiement des abonnements des vendeurs.</li>
-  <li><strong>Orange (passerelle SMS)</strong>, pour l'envoi de SMS de notification lorsque ce service est activé.</li>
-  <li><strong>Les prestataires techniques de l'équipe HayaFlash</strong>, notamment son hébergeur établi en France.</li>
+  <li><strong>Sentry</strong> (suivi des erreurs techniques), qui ne reçoit pas de données personnelles.</li>
+  <li><strong>Des outils d'intelligence artificielle</strong>, qui ne reçoivent que des résumés anonymisés de ventes (sans nom, numéro de téléphone ni adresse de cliente), pour produire les bilans et conseils des boutiques.</li>
+  <li><strong>Les prestataires techniques de l'équipe HayaFlash</strong>, notamment son hébergeur établi en France (LWS).</li>
 </ul>
 <p>Les informations de boutique que le vendeur publie (nom, biographie, photo, ventes, produits) sont visibles par tous sur ses pages publiques.</p>
 <p>L'équipe HayaFlash ne vend pas vos données et ne les utilise pas à des fins publicitaires.</p>
 
 <h2 id="conservation">6. Durées de conservation</h2>
+<p><strong>Aucune suppression automatique n'est en place pour le moment.</strong> Vos données restent conservées tant qu'elles servent le service ou qu'une obligation légale l'exige, et l'équipe HayaFlash les supprime ou les anonymise à votre demande (voir « Vos droits »), sous réserve des obligations légales ci-dessous.</p>
 <ul>
-  <li>Compte vendeur et contenus publiés : conservés tant que le compte est ouvert, puis supprimés ou anonymisés après sa fermeture, la loi n°2013-015 interdisant de garder les données au-delà de ce qui est nécessaire. Seuls sont conservés, pendant la durée exigée par les textes : les pièces comptables des paiements d'abonnement (dix ans, droit comptable OHADA) et les éléments utiles en cas de litige commercial (cinq ans, délai de prescription du droit commercial OHADA).</li>
-  <li>Commandes et livraisons (y compris l'adresse, la position GPS et la note vocale) : cinq ans au plus après la commande (délai de prescription du droit commercial OHADA), puis suppression ou anonymisation.</li>
-  <li>Paiements d'abonnement : dix ans (droit comptable OHADA).</li>
-  <li>Journal de sécurité et preuves d'acceptation des CGU et de la politique : pendant toute la durée du compte, puis cinq ans après sa fermeture (délai de prescription du droit commercial OHADA).</li>
+  <li>Compte vendeur et contenus publiés : conservés tant que le compte est ouvert. Sur demande de fermeture, l'équipe supprime ou anonymise le compte et ses contenus, sauf ce que la loi impose de garder (paiements d'abonnement et éléments utiles en cas de litige, ci-dessous).</li>
+  <li>Commandes et livraisons (nom, téléphone, adresse, position GPS, note vocale) : conservées sans purge automatique. L'acheteur peut demander leur suppression ou leur anonymisation à l'adresse ci-dessous ; l'équipe y donne suite, sauf obligation de conservation liée à un litige commercial (cinq ans, délai de prescription du droit commercial OHADA).</li>
+  <li>Paiements d'abonnement : conservés dix ans (droit comptable OHADA).</li>
+  <li>Journal de sécurité et preuves d'acceptation des CGU et de la politique : conservés pendant la durée du compte.</li>
   <li>Données anti-abus en mémoire temporaire : de l'ordre d'une minute, puis effacement automatique.</li>
 </ul>
 

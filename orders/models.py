@@ -103,3 +103,69 @@ class OrderItem(models.Model):
 
     def __str__(self) -> str:
         return f"{self.product_name_snapshot} x{self.quantity}"
+
+
+class UnhonoredOrder(models.Model):
+    """Commande non honoree : livraison refusee ou cliente injoignable (F-59 / D2).
+
+    Une ligne est creee quand le vendeur marque la livraison « Echec ». Le
+    numero (8 derniers chiffres) cumule ces echecs sur une fenetre glissante :
+    voir ``orders.services.unhonored``. Une commande ensuite annulee par le
+    vendeur ne compte plus.
+    """
+
+    order = models.OneToOneField(
+        Order, on_delete=models.CASCADE, related_name="unhonored_record"
+    )
+    phone_key = models.CharField(max_length=16, db_index=True)
+    seller = models.ForeignKey(
+        "accounts.SellerProfile",
+        on_delete=models.CASCADE,
+        related_name="unhonored_orders",
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "Commande non honorée"
+        verbose_name_plural = "Commandes non honorées"
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"Non honorée #{self.order_id} ({self.phone_key})"
+
+
+class PhoneUnblock(models.Model):
+    """Deblocage d'un numero : par une vendeuse (sa boutique) ou l'admin (global).
+
+    Les echecs anterieurs au deblocage ne comptent plus pour la boutique
+    concernee (``seller``) ou, si ``seller`` est vide, pour toutes.
+    """
+
+    phone_key = models.CharField(max_length=16, db_index=True)
+    seller = models.ForeignKey(
+        "accounts.SellerProfile",
+        on_delete=models.CASCADE,
+        related_name="phone_unblocks",
+        null=True,
+        blank=True,
+        help_text="Vide = deblocage global (administration).",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Déblocage de numéro"
+        verbose_name_plural = "Déblocages de numéros"
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        scope = f"boutique {self.seller_id}" if self.seller_id else "global"
+        return f"Déblocage {self.phone_key} ({scope})"

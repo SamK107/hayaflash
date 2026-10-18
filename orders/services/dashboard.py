@@ -198,10 +198,13 @@ def _next_status(current: str) -> str | None:
     return None
 
 
-def _row_dict_for_order(order: Order) -> dict[str, Any]:
+def _row_dict_for_order(order: Order, blocked_keys: frozenset[str] = frozenset()) -> dict[str, Any]:
+    from orders.services.unhonored import phone_key
+
     nxt = _next_status(order.status)
     return {
         "order": order,
+        "phone_blocked": phone_key(order.customer_phone) in blocked_keys,
         "can_advance": nxt is not None,
         "next_status": nxt or "",
         "next_status_label": (dict(OrderStatus.choices).get(nxt, nxt) if nxt else ""),
@@ -212,10 +215,18 @@ def list_dashboard_order_rows(
     user, *, limit: int = DASHBOARD_PAGE_SIZE, flash_sale_id=None
 ) -> list[dict[str, Any]]:
     """Pre-built rows for templates (no branching logic in HTML)."""
-    return [
-        _row_dict_for_order(o)
-        for o in get_dashboard_orders(user, limit=limit, flash_sale_id=flash_sale_id)
-    ]
+    orders = list(get_dashboard_orders(user, limit=limit, flash_sale_id=flash_sale_id))
+    blocked = _blocked_keys_for(user, orders)
+    return [_row_dict_for_order(o, blocked) for o in orders]
+
+
+def _blocked_keys_for(user, orders) -> frozenset[str]:
+    """Numeros bloques (F-59) parmi ces commandes, pour la boutique du vendeur."""
+    from orders.services.unhonored import blocked_phone_keys, phone_key
+
+    seller = getattr(user, "seller_profile", None)
+    keys = {phone_key(o.customer_phone) for o in orders}
+    return frozenset(blocked_phone_keys(keys, seller.pk if seller else None))
 
 
 def get_order_row_context(user, order_id: int) -> dict[str, Any] | None:
@@ -223,7 +234,7 @@ def get_order_row_context(user, order_id: int) -> dict[str, Any] | None:
     order = _seller_orders_queryset(user).filter(pk=order_id).first()
     if order is None:
         return None
-    return _row_dict_for_order(order)
+    return _row_dict_for_order(order, _blocked_keys_for(user, [order]))
 
 
 def _sync_delivery_for_order(*, order: Order, new_status: str, user) -> None:
