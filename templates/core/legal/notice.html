@@ -1,5 +1,5 @@
 {% extends "core/legal/_layout.html" %}
-{# Texte à faire valider par un juriste avant mise en production #}
+{# Textes alignés sur la réalité du service (décision D13) ; validation par un juriste possible après le lancement. #}
 
 {% block title %}Mentions légales — HayaFlash{% endblock %}
 {% block meta_description %}Mentions légales de HayaFlash : éditeur, directeur de la publication, contact et hébergement.{% endblock %}
@@ -26,8 +26,8 @@
   <dd>Entreprise individuelle, sans capital social</dd>
   {% if legal_entity_address %}<dt>Siège</dt>
   <dd>{{ legal_entity_address }}</dd>{% endif %}
-  {% if legal_entity_rccm %}<dt>RCCM</dt>
-  <dd>{{ legal_entity_rccm }}</dd>{% endif %}
+  <dt>Immatriculation</dt>
+  <dd>Registre du commerce et du crédit mobilier (RCCM) de Bamako{% if legal_entity_rccm %}, n° {{ legal_entity_rccm }}{% endif %}</dd>
   <dt>NIF</dt>
   <dd>0861566188</dd>
 </dl>
@@ -39,7 +39,7 @@
 <p>L'équipe HayaFlash : <a href="mailto:contact@hayaflash.com">contact@hayaflash.com</a></p>
 
 <h2 id="hebergement">4. Hébergement</h2>
-{% if legal_host_name %}<p>Le site est hébergé par {{ legal_host_name }}{% if legal_host_address %}, {{ legal_host_address }}{% endif %}.{% if legal_host_phone %} Tél. : {{ legal_host_phone }}{% endif %}</p>{% else %}<p>Le site est hébergé par un prestataire d'hébergement technique.</p>{% endif %}
+{% if legal_host_name %}<p>Le site est hébergé par {{ legal_host_name }}{% if legal_host_address %}, {{ legal_host_address }}{% endif %}.{% if legal_host_phone %} Tél. : {{ legal_host_phone }}{% endif %}</p>{% else %}<p>Le site est hébergé par LWS (France).</p>{% endif %}
 
 <h2 id="documents">5. Autres documents</h2>
 <ul>

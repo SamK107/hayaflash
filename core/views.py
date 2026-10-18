@@ -10,6 +10,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 
@@ -590,3 +591,10 @@ def service_worker(request):
     # Le navigateur doit toujours revalider le SW pour recevoir les mises a jour.
     response["Cache-Control"] = "no-cache"
     return response
+
+
+def robots_txt(request):
+    """robots.txt. Staging (SITE_NOINDEX) : tout interdit, aucun sitemap annonce (D8)."""
+    template = "robots_noindex.txt" if settings.SITE_NOINDEX else "robots.txt"
+    body = render(request, template).content
+    return HttpResponse(body, content_type="text/plain; charset=utf-8")

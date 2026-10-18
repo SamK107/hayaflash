@@ -11,11 +11,11 @@ import datetime
 
 from django.utils import timezone
 
-LEGAL_CGU_VERSION = "2026-09"
-LEGAL_PRIVACY_VERSION = "2026-09"
+LEGAL_CGU_VERSION = "2026-10"
+LEGAL_PRIVACY_VERSION = "2026-10"
 
 # Date affichée « Dernière mise à jour » sur les pages légales.
-LEGAL_LAST_UPDATED = datetime.date(2026, 9, 27)
+LEGAL_LAST_UPDATED = datetime.date(2026, 10, 18)
 
 
 # Même message pour le formulaire web et l'API d'inscription.

@@ -270,7 +270,9 @@ class LegalIdentityTests(TestCase):
         response = self.client.get(reverse("legal_notice"))
         self.assertEqual(response.status_code, 200)
         editeur = _section(response.content.decode(), "editeur", "publication")
-        self.assertNotIn("RCCM", editeur)
+        # Sans numéro : la mention du greffe de Bamako reste, jamais de numéro inventé.
+        self.assertIn("RCCM) de Bamako", editeur)
+        self.assertNotIn("n°", editeur)
         self.assertNotIn("Siège", editeur)
 
     def test_no_civil_name_nor_phone_in_notice(self):

@@ -46,6 +46,9 @@ if not ALLOWED_HOSTS:
         "ALLOWED_HOSTS must be set (comma-separated) for staging."
     )
 
+# Staging jamais indexe (D8) : robots.txt interdit tout + X-Robots-Tag sur chaque reponse.
+SITE_NOINDEX = True
+
 CORS_ALLOW_ALL_ORIGINS = False
 
 csrf_origins = _csv("CSRF_TRUSTED_ORIGINS")

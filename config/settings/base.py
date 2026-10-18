@@ -235,8 +235,14 @@ PAYMENTS_MOCK_SIMULATE_FAILURE = _env_bool(
     default="false",
 )
 
+# Staging non indexable et redirection www (prod.py les active) : inactifs ailleurs.
+SITE_NOINDEX = False
+CANONICAL_HOST_REDIRECTS: dict[str, str] = {}
+
 MIDDLEWARE = [
+    "core.middleware.CanonicalHostMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "core.middleware.NoIndexMiddleware",
     "csp.middleware.CSPMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",

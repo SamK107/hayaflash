@@ -274,6 +274,36 @@ Tout est détaillé dans `docs/SAUVEGARDES.md`. Ordre imposé par l'ADR-0001
 
 ---
 
+## Étape 5 ter — Hôtes : `www`, HSTS prudent, staging non indexable (D8, D14)
+
+- [ ] **5 ter.1 `www.hayaflash.com` est redirigé vers `hayaflash.com`** (301, chemin et
+  requête conservés) par l'application (`core.middleware.CanonicalHostMiddleware`, réglage
+  `CANONICAL_HOST_REDIRECTS` de `config/settings/prod.py`). Pour que cela marche :
+  1. le domaine `www.hayaflash.com` doit être **déclaré dans HestiaCP** comme **alias** du
+     domaine `hayaflash.com` (même vhost → même `proxy_pass` vers `127.0.0.1:8021`) ;
+  2. le **certificat Let's Encrypt** du domaine doit **couvrir `www`** (cocher « SSL » pour
+     l'alias ; sinon le navigateur affiche une erreur de certificat avant la redirection) ;
+  3. `ALLOWED_HOSTS` de la prod contient `hayaflash.com`, `www.hayaflash.com` **et
+     `localhost`** (le healthcheck du conteneur interroge `localhost`) ;
+  4. enregistrement DNS `A` pour `www` (voir `docs/releases/PREREQUIS_PROD.md`).
+  Vérification : `curl -sI https://www.hayaflash.com/f/x/?a=1` → `301` et
+  `Location: https://hayaflash.com/f/x/?a=1`.
+  Après toute modification du vhost dans HestiaCP : `sudo nginx -t`, relire le vhost généré
+  (F-65), vérifier `symain.africa` et `services.symain.africa`.
+- [ ] **5 ter.2 HSTS prudent** : `max-age` de 180 jours, **sans** `includeSubDomains` ni
+  `preload` (Django et Nginx du conteneur). Vérification :
+  `curl -sI https://hayaflash.com/ | grep -i strict-transport` → `max-age=15552000` seul.
+  Ne pas soumettre le domaine à la liste de préchargement HSTS avant plusieurs mois stables.
+- [ ] **5 ter.3 Staging non indexable** : aucun réglage à faire. Sur tout hôte **qui n'est
+  pas** un hôte de production (`hayaflash.com`, `www.hayaflash.com`), l'application sert un
+  `robots.txt` qui interdit tout (sans `Sitemap`) et ajoute `X-Robots-Tag: noindex, nofollow`
+  à chaque réponse. Vérification sur le staging :
+  `curl -sI https://<hote-staging>/ | grep -i x-robots-tag` ; sur la prod, **aucune** ligne
+  `X-Robots-Tag`. Garde-fou : `HAYAFLASH_NOINDEX=1` avec un hôte de production empêche le
+  démarrage.
+
+---
+
 ## Étape 6 — Après N jours stables sur staging (décision explicite)
 
 Critères avant d'ouvrir la prod : au moins 7 jours sans erreur Sentry
