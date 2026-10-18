@@ -8,6 +8,8 @@ from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa: F403
 from .base import REST_FRAMEWORK as BASE_REST_FRAMEWORK
+from core.demo_data import ALLOW_ENV_VAR, has_production_host
+
 from ._sentry import init_sentry
 from .base import REDIS_URL, SECRET_KEY, SENTRY_DSN, _csv  # noqa: F401
 
@@ -42,6 +44,16 @@ ALLOWED_HOSTS = [h.strip() for h in raw_hosts.split(",") if h.strip()]
 if not ALLOWED_HOSTS:
     raise ImproperlyConfigured(
         "ALLOWED_HOSTS must contain at least one non-empty hostname."
+    )
+
+# Garde-fou demo (PP-01) : la variable de seed de demo rend visibles les
+# boutiques de demo (core/demo_data.py:demo_data_visible) ; sur un hote de
+# production elle exposerait de fausses donnees aux vrais clients.
+if os.environ.get(ALLOW_ENV_VAR) == "1" and has_production_host(ALLOWED_HOSTS):
+    raise ImproperlyConfigured(
+        f"Variable de démo interdite en production : {ALLOW_ENV_VAR}=1 alors que "
+        "ALLOWED_HOSTS contient un hôte de production (hayaflash.com, "
+        "www.hayaflash.com, .hayaflash.com ou *). Retirer la variable du .env."
     )
 
 CORS_ALLOW_ALL_ORIGINS = False

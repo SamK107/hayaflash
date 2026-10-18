@@ -12,9 +12,24 @@
 > - Le jour même, on colle les preuves (sorties de commande) dans
 >   `GOVERNANCE_SECURITE.md` et on met à jour « Dernière vérification ».
 
-Conventions : `hayaflash` désigne l'utilisateur d'exploitation (celui qui lance
-Docker) et `/srv/hayaflash` le dossier du dépôt déployé. Si l'un des deux
-diffère, l'adapter partout, y compris `HAYAFLASH_DIR` pour le script d'audit.
+Conventions : l'utilisateur d'exploitation est **`sam`** (celui qui lance Docker ;
+**il n'existe aucun utilisateur système `hayaflash`**). Deux piles vivent sur le
+même VPS, chacune dans son propre clone git avec son propre `.env` :
+
+| | Staging | Production |
+|---|---|---|
+| Dossier | `/srv/hayaflash` | `/srv/hayaflash-prod` |
+| Projet Compose | `hayaflash` | `hayaflash-prod` |
+| Port local | `127.0.0.1:8020` | `127.0.0.1:8021` |
+| Image | `hayaflash:latest` | `hayaflash-prod:latest` |
+| Volumes / réseau | `hayaflash_*` | `hayaflash-prod_*` |
+| Domaine | celui du staging | `hayaflash.com` (nginx de HestiaCP) |
+
+`symain.africa` et `services.symain.africa` tournent sur le même VPS : **aucune**
+commande de ce runbook ne doit les toucher (voir l'étape 5 bis).
+Déploiement : `infra/scripts/deploy_vps.sh <dossier_pile>` (manuel outillé).
+L'ancien `infra/scripts/deploy.sh` (images GHCR) ne sert plus tant que les jobs
+`deploy-*` de GitHub Actions sont en `if: false`.
 
 ---
 
@@ -83,19 +98,19 @@ diffère, l'adapter partout, y compris `HAYAFLASH_DIR` pour le script d'audit.
 
 - [ ] **2.1 Fichier de secrets du VPS**
   ```bash
-  sudo install -m 600 -o hayaflash -g hayaflash /dev/null /srv/hayaflash/.env
-  sudo -u hayaflash nano /srv/hayaflash/.env    # à partir de .env.example
+  install -m 600 /dev/null /srv/hayaflash/.env       # en tant que sam
+  nano /srv/hayaflash/.env                           # à partir de .env.example
   ```
   Minimum requis : `ENVIRONMENT=prod` (ou `staging`), `SECRET_KEY`,
   `ALLOWED_HOSTS`, `DATABASE_URL` ou `DB_*`, `REDIS_URL`, `PROD_DOMAIN`, les
-  clés Orange Money, `OFFSITE_DIR`, `BACKUP_HEARTBEAT_URL` (étape 5).
+  clés Orange Money, variables e-mail `EMAIL_*` (`.env.example`).
   **Ne pas** définir `CSP_REPORT_ONLY` (défaut `true`, voir étape 6).
-  Attendu : `stat -c '%a %U' /srv/hayaflash/.env` → `600 hayaflash`.
+  Attendu : `stat -c '%a %U' /srv/hayaflash/.env` → `600 sam`.
   Retour arrière : éditer le fichier. Il n'est jamais commité.
 
 - [ ] **2.2 Registre d'images**
   ```bash
-  sudo -u hayaflash docker login ghcr.io   # jeton GitHub read:packages
+  docker login ghcr.io   # jeton GitHub read:packages (seulement si le flux GHCR est réactivé)
   ```
   Attendu : `Login Succeeded`.
   Retour arrière : `docker logout ghcr.io`.
@@ -106,41 +121,46 @@ diffère, l'adapter partout, y compris `HAYAFLASH_DIR` pour le script d'audit.
   **dédiée au déploiement**, jamais la clé personnelle.
   Attendu : secrets visibles (valeurs masquées) dans chaque environnement.
   Retour arrière : supprimer le secret, puis retirer la clé publique de
-  `~hayaflash/.ssh/authorized_keys`.
+  `~sam/.ssh/authorized_keys`.
 
 ---
 
-## Étape 3 — Déploiement continu : **staging seulement** (catégorie 6)
+## Étape 3 — Déploiement : **manuel outillé** (catégorie 6)
 
-- [ ] **3.1** Dans `.github/workflows/deploy.yml`, retirer la ligne `if: false`
-  du job `deploy-staging` **uniquement**. `deploy-prod` garde `if: false`
-  (étape 6). Passer par une PR, comme d'habitude.
-  Attendu : au merge, le run `Deploy` enchaîne `test → build → deploy-staging`
-  et passe au vert. `deploy.sh` lance `smoke_test.sh` et fait un rollback
-  automatique en cas d'échec.
-- [ ] **3.2 Vérification**
+Le déploiement continu GitHub Actions reste en pause (`if: false`, voir CLAUDE.md
+point 10). On déploie à la main avec un script unique qui enchaîne contrôle
+d'isolation, sauvegarde, revue des changements, construction, migrations,
+vérification de `/health/` et affichage du retour arrière.
+
+- [ ] **3.1 Essai à blanc (staging)**
+  ```bash
+  cd /srv/hayaflash && git fetch origin
+  bash infra/scripts/deploy_vps.sh /srv/hayaflash --dry-run
+  ```
+  Attendu : les 7 étapes affichées, rien de modifié.
+- [ ] **3.2 Déploiement réel (staging)**
+  ```bash
+  bash infra/scripts/deploy_vps.sh /srv/hayaflash
+  ```
+  Attendu : liste des commits et des changements sensibles, confirmation à taper
+  (`oui`), puis `✓ Deploiement termine`. `docker compose ps` : tous les services
+  `healthy` (web, worker) ; `beat` n'a volontairement pas de healthcheck.
+- [ ] **3.3 Vérification externe**
   ```bash
   curl -s https://<domaine-staging>/health/
   ```
-  Attendu : `"status": "ok"`, `database` et `cache` à `ok`, et `celery` à
-  `ok` dans les ~2 minutes qui suivent le démarrage de worker et beat
-  (`missing` juste après le démarrage est normal).
-  Retour arrière : remettre `if: false` sur `deploy-staging` (PR). Pour
-  revenir à l'image précédente sur le VPS :
-  ```bash
-  cd /srv/hayaflash
-  DOCKER_IMAGE=ghcr.io/<org>/hayaflash HAYAFLASH_TAG=$(cat .deploy_last_good_tag) \
-    bash infra/scripts/deploy.sh http://127.0.0.1:8010
-  ```
-  ⚠️ Les migrations sont forward-only : un retour d'image ne défait pas une
-  migration.
+  Attendu : `"status": "ok"`, `database` et `cache` à `ok`, et `celery` à `ok`
+  dans les ~2 minutes (`missing` juste après le démarrage est normal).
+  Retour arrière : la commande exacte est imprimée à la fin de `deploy_vps.sh`
+  (retour au commit précédent + tag `<image>:previous`).
+  ⚠️ Les migrations sont forward-only : un retour d'image ne défait pas une migration.
 
 ---
 
 ## Étape 4 — Observabilité (catégories 1, 2, 4)
 
 - [ ] **4.1 Sentry** : `SENTRY_DSN=...` dans `/srv/hayaflash/.env`, puis
-  redéployer (ou `docker compose -f docker-compose.production.yml up -d web worker beat`).
+  redéployer (`deploy_vps.sh`).
   Attendu : l'événement de test apparaît dans Sentry avec la bonne étiquette
   `environment:` (staging/prod).
   Retour arrière : retirer `SENTRY_DSN`, puis redémarrer les services.
@@ -171,48 +191,99 @@ diffère, l'adapter partout, y compris `HAYAFLASH_DIR` pour le script d'audit.
 
 ## Étape 5 — Sauvegardes : manuel → restauration → cron (catégorie 5)
 
-Ordre imposé par l'ADR-0001 (décision 4) : on ne planifie rien tant qu'une
-restauration réelle n'a pas réussi.
+Tout est détaillé dans `docs/SAUVEGARDES.md`. Ordre imposé par l'ADR-0001
+(décision 4) : on ne planifie rien tant qu'une restauration réelle n'a pas réussi.
 
-- [ ] **5.1 Chiffrement** : `sudo apt install -y age`. Sur **ton poste**
-  (jamais sur le VPS) : `age-keygen -o hayaflash-backup.key` → gestionnaire
-  de mots de passe, puis `age-keygen -y hayaflash-backup.key` → copier la clé
-  **publique** dans `/srv/hayaflash/backup_recipients.txt`.
-  Attendu : l'audit (1.1) passe « Clé publique age présente, aucune clé
-  privée » à ✅.
-- [ ] **5.2 Disque hors-site** : brancher et monter le disque sur
-  `OFFSITE_DIR`, puis **une seule fois** :
-  `sudo -u hayaflash touch "$OFFSITE_DIR/.hayaflash_backup_target"`.
-  Attendu : `mountpoint "$OFFSITE_DIR"` → `is a mountpoint`.
-- [ ] **5.3 Sauvegarde manuelle**
+- [ ] **5.1 Dossier des sauvegardes** (une fois) :
+  `sudo install -d -o sam -m 700 /srv/backups /srv/backups/hayaflash /srv/backups/hayaflash-prod`
+- [ ] **5.2 Sauvegarde manuelle (staging d'abord)**
   ```bash
-  sudo -u hayaflash bash /srv/hayaflash/infra/scripts/backup_nightly.sh
+  bash /srv/hayaflash/infra/scripts/backup.sh /srv/hayaflash --dry-run
+  bash /srv/hayaflash/infra/scripts/backup.sh /srv/hayaflash
   ```
-  Attendu : `✓ Sauvegarde terminee`, des fichiers `.age` sur le disque
-  externe, et un ping reçu sur healthchecks.io si `BACKUP_HEARTBEAT_URL` est défini.
-- [ ] **5.4 Restauration réelle**
+  Attendu : `✓ Sauvegarde terminee`, un dossier `AAAA-MM-JJ_HHMM` en `700` avec
+  `db.dump`, `media.tar.gz`, `backup.info`, `SHA256SUMS`, une ligne `OK` dans
+  `backup.log`, et l'avertissement « sauvegarde locale uniquement » (voulu).
+- [ ] **5.3 Restauration réelle (test)**
   ```bash
-  cd /srv/hayaflash
-  DB_USER=hayaflash bash infra/scripts/restore_test.sh "$(ls -t backups/db_*.sql.gz | head -1)"
+  bash /srv/hayaflash/infra/scripts/restore_test.sh /srv/backups/hayaflash/<AAAA-MM-JJ_HHMM>
   ```
-  Attendu : restauration OK dans une base éphémère, supprimée à la fin (la base
-  servie n'est jamais touchée). Pour tester aussi une copie hors-site :
-  `age -d -i hayaflash-backup.key` sur ton poste, puis `restore_test.sh`.
-- [ ] **5.5 Planification + heartbeat**
-  ```bash
-  sudo install -m 644 -o root -g root infra/cron/hayaflash-backup /etc/cron.d/hayaflash-backup
-  sudo install -d -m 750 -o hayaflash -g hayaflash /srv/hayaflash/logs
-  ```
-  Attendu : le lendemain, `/srv/hayaflash/logs/backup.log` montre la nuit
-  passée, et healthchecks.io a reçu le ping (sinon il alerte).
-  Retour arrière : `sudo rm /etc/cron.d/hayaflash-backup`.
-
+  Attendu : `RESTAURATION OK` (base jetable isolée, supprimée ; aucune pile touchée).
+- [ ] **5.4 Copie vers le disque D: du PC** : `docs/SAUVEGARDES.md` § 5 (clé SSH dédiée,
+  `pull_backups.ps1`, tâche planifiée).
+  Attendu : la sauvegarde apparaît sur D: avec ses SHA256 validés.
+- [ ] **5.5 Planification (prod seulement, après l'étape 5 bis)** : ligne `crontab` de
+  `infra/cron/hayaflash-backup` (installation sans écraser la crontab de `sam`).
+  Attendu : le lendemain, `/srv/backups/hayaflash-prod/backup.log` montre `OK`.
+  Retour arrière : `crontab -l | grep -v '# hayaflash-prod-backup' | crontab -`.
 - [ ] **5.6 Audit de fin de journée**
   ```bash
   sudo bash infra/scripts/vps_audit.sh > audit-jourJ-$(date +%F).md
   ```
   Attendu : plus aucun ❌. Coller le rapport dans `GOVERNANCE_SECURITE.md`
   (catégories 2, 5, 7) et mettre à jour « Dernière vérification ».
+
+---
+
+## Étape 5 bis — Créer la pile de production isolée (PP-04)
+
+> Ne rien exécuter ici sans validation explicite du mainteneur pour chaque
+> action (CLAUDE.md « Release readiness »). Le staging n'est pas modifié par
+> cette étape ; `symain.africa` et `services.symain.africa` non plus.
+
+- [ ] **5b.1 Contrôle de référence (avant)**
+  ```bash
+  for u in https://symain.africa https://services.symain.africa; do curl -s -o /dev/null -w "%{http_code} $u\n" "$u"; done
+  sudo nginx -t
+  ```
+  Attendu : le code habituel pour les deux sites, `nginx -t` OK. Noter les codes.
+- [ ] **5b.2 Clone et `.env` propres à la prod**
+  ```bash
+  sudo install -d -o sam -m 755 /srv/hayaflash-prod
+  git clone <url-du-depot> /srv/hayaflash-prod
+  cd /srv/hayaflash-prod && git checkout --detach origin/main
+  install -m 600 /dev/null .env && nano .env     # à partir de .env.example
+  ```
+  Dans ce `.env` : `ENVIRONMENT=prod`, `HAYAFLASH_PROJECT=hayaflash-prod`,
+  `HAYAFLASH_HTTP_PORT=8021`, `DOCKER_IMAGE=hayaflash-prod`, `IMAGE_TAG=latest`,
+  `PROD_DOMAIN=hayaflash.com`, `ALLOWED_HOSTS=hayaflash.com,www.hayaflash.com`,
+  `CSRF_TRUSTED_ORIGINS=https://hayaflash.com,https://www.hayaflash.com`, **nouveau**
+  `SECRET_KEY`, **nouveaux** mots de passe `DB_PASSWORD` / `REDIS_PASSWORD`, clés
+  Orange Money de production, `EMAIL_*`. **Sans `HAYAFLASH_ALLOW_DEMO_SEED`**
+  (la prod refuse de démarrer s'il vaut `1`). Ne rien copier du `.env` du staging.
+- [ ] **5b.3 Contrôle d'isolation**
+  ```bash
+  bash /srv/hayaflash-prod/infra/scripts/check_stack_isolation.sh /srv/hayaflash-prod
+  bash /srv/hayaflash/infra/scripts/check_stack_isolation.sh /srv/hayaflash
+  ```
+  Attendu : `✓ Isolation OK` deux fois ; prod = projet `hayaflash-prod`, port 8021,
+  image `hayaflash-prod:latest`, volumes et réseau en `hayaflash-prod_*`.
+- [ ] **5b.4 Premier déploiement**
+  ```bash
+  bash /srv/hayaflash-prod/infra/scripts/deploy_vps.sh /srv/hayaflash-prod --dry-run
+  bash /srv/hayaflash-prod/infra/scripts/deploy_vps.sh /srv/hayaflash-prod
+  ```
+  Puis créer le compte administrateur :
+  `docker compose --project-directory /srv/hayaflash-prod -f /srv/hayaflash-prod/docker-compose.production.yml exec web python manage.py createsuperuser`.
+  Attendu : pas de sauvegarde (aucune base encore), `/health/` OK sur `127.0.0.1:8021`.
+  Test e-mail : `… exec web python manage.py send_test_email <votre-adresse>`.
+- [ ] **5b.5 Sauvegarde et test de restauration AVANT l'ouverture** :
+  étapes 5.2, 5.3 et 5.4 sur `/srv/hayaflash-prod` (chemin `/srv/backups/hayaflash-prod`).
+  Attendu : `RESTAURATION OK` sur la sauvegarde de la prod. **Pas d'ouverture sans cela.**
+- [ ] **5b.6 Domaine** : vhost HestiaCP de `hayaflash.com` en `proxy_pass` vers
+  `127.0.0.1:8021` (modèle copié, sans `access_log`, F-65/F-145 ; aucun fichier
+  Hestia existant modifié). `sudo nginx -t` **avant** chaque rechargement.
+- [ ] **5b.7 Contrôle de non-régression (après)**
+  ```bash
+  for u in https://symain.africa https://services.symain.africa; do curl -s -o /dev/null -w "%{http_code} $u\n" "$u"; done
+  sudo nginx -t
+  curl -s https://hayaflash.com/health/
+  bash /srv/hayaflash/infra/scripts/check_stack_isolation.sh /srv/hayaflash
+  ```
+  Attendu : mêmes codes qu'en 5b.1 pour `symain.africa` et `services.symain.africa`,
+  `nginx -t` OK, `/health/` de la prod `ok`, staging toujours isolé et en service.
+  Retour arrière : `docker compose … stop` de la pile prod seulement (jamais `down -v`) ;
+  retirer le vhost copié puis `sudo nginx -t && sudo systemctl reload nginx`.
 
 ---
 

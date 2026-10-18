@@ -1,16 +1,14 @@
-# /etc/cron.d/hayaflash-backup — PAS ENCORE INSTALLE (ADR-0001, decision 3).
+# infra/cron/hayaflash-backup — crontab de l'utilisateur « sam » (PAS /etc/cron.d).
 #
-# Installation, lors de la checklist de deploiement final uniquement :
-#   sudo install -m 644 -o root -g root infra/cron/hayaflash-backup /etc/cron.d/hayaflash-backup
-#   sudo install -d -m 750 -o hayaflash -g hayaflash /srv/hayaflash/logs
-# Puis, le meme jour : executer une fois a la main
-#   sudo -u hayaflash bash /srv/hayaflash/infra/scripts/backup_nightly.sh
-# et valider immediatement avec infra/scripts/restore_test.sh (decision 4).
+# Sauvegarde quotidienne de la PRODUCTION a 03:17 UTC (heure creuse ; = 03:17 a
+# Bamako). Pas de cron pour le staging. Installation SANS ecraser la crontab
+# existante (idempotente : remplace seulement la ligne marquee # hayaflash-prod-backup) :
 #
-# Adapter l'utilisateur (6e champ) au compte qui opere Docker sur le VPS.
-# 02:30 UTC = 02:30 a Bamako : hors des creneaux de ventes flash.
-
-SHELL=/bin/bash
-PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-
-30 2 * * * hayaflash cd /srv/hayaflash && bash infra/scripts/backup_nightly.sh >> /srv/hayaflash/logs/backup.log 2>&1
+#   ( crontab -l 2>/dev/null | grep -v '# hayaflash-prod-backup' ; \
+#     echo "17 3 * * * cd /srv/hayaflash-prod && bash infra/scripts/backup.sh /srv/hayaflash-prod >> /srv/backups/hayaflash-prod/cron.log 2>&1 # hayaflash-prod-backup" ) | crontab -
+#
+# Verifier : crontab -l   |   Resultat : tail /srv/backups/hayaflash-prod/backup.log
+# Prerequis : sudo install -d -o sam -m 700 /srv/backups /srv/backups/hayaflash-prod
+#
+# Ligne installee :
+17 3 * * * cd /srv/hayaflash-prod && bash infra/scripts/backup.sh /srv/hayaflash-prod >> /srv/backups/hayaflash-prod/cron.log 2>&1 # hayaflash-prod-backup

@@ -35,9 +35,12 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
-from core.demo_data import ALLOW_ENV_VAR, DEMO_CLIENT_PREFIX, DEMO_PHONE_PREFIX
-
-PRODUCTION_HOSTS = frozenset({"hayaflash.com", "www.hayaflash.com"})
+from core.demo_data import (
+    ALLOW_ENV_VAR,
+    DEMO_CLIENT_PREFIX,
+    DEMO_PHONE_PREFIX,
+    has_production_host,
+)
 
 # (nom, categorie, couleur d'avatar)
 SHOPS = [
@@ -140,11 +143,7 @@ class Command(BaseCommand):
     # ── Garde-fous ────────────────────────────────────────────────────
     @staticmethod
     def _production_host_present() -> bool:
-        for host in settings.ALLOWED_HOSTS:
-            h = host.strip().lower()
-            if h == "*" or h.lstrip(".") in PRODUCTION_HOSTS:
-                return True
-        return False
+        return has_production_host(settings.ALLOWED_HOSTS)
 
     def _check_allowed(self) -> None:
         if settings.DEBUG:

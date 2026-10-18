@@ -48,7 +48,9 @@ COPY --from=builder /install /usr/local
 COPY . .
 
 # Créer les dossiers nécessaires et un user non-root
-RUN groupadd -r hayaflash && useradd -r -g hayaflash hayaflash && \
+# -m : cree /home/hayaflash. Sans HOME existant, Gunicorn journalise
+# « Control server error: [Errno 13] Permission denied: '/home/hayaflash' » (F-118).
+RUN groupadd -r hayaflash && useradd -r -m -d /home/hayaflash -g hayaflash hayaflash && \
     mkdir -p /app/staticfiles /app/media /app/logs && \
     chown -R hayaflash:hayaflash /app
 

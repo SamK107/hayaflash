@@ -180,3 +180,18 @@
 - **Mémoire** : 8 Gi sur le VPS (P4-2) ; une pile peut réserver jusqu'à 2,5 Go (`mem_limit`) ; staging + prod + symain + bitiki : à mesurer avant (P4-8).
 - **Hôte partagé** : un `nginx -t` en échec ou un vhost régénéré touche tous les sites.
 - **Statuts du suivi non à jour** : risque d'un Go/No-Go sur des preuves périmées (PP-10).
+
+## 5. Avancement des lots « isolation de la prod » et « sauvegardes » (18/10/2026)
+
+Statut : **fait dans la branche `fix/prod-isolation-sauvegardes`, à valider sur le VPS** (rien n'a été joué sur le VPS). Détail, preuves et commandes dans `docs/releases/reports/prod-isolation-sauvegardes.md`.
+
+| ID | Statut | Preuve (dépôt) |
+|---|---|---|
+| PP-01 | Fait dans la branche, à valider sur le VPS | `config/settings/prod.py` (`ImproperlyConfigured` « Variable de démo interdite en production ») ; source unique `core/demo_data.py:has_production_host` ; tests `core/tests_security_settings.py` (5 hôtes refusés, prod sans variable, staging avec variable) ; `.env.example` |
+| PP-04 | Fait dans la branche, à valider sur le VPS | `docker-compose.production.yml` (`name`, `env_file: .env`, port, image paramétrés) ; `infra/scripts/check_stack_isolation.sh` ; comparaison `docker compose config` avant/après du staging ; `.env.example` |
+| PP-06 | Fait dans la branche, à valider sur le VPS | `infra/scripts/backup.sh`, `restore_test.sh`, `restore.sh`, `windows/pull_backups.ps1`, `infra/cron/hayaflash-backup`, `docs/SAUVEGARDES.md`. Copie hors VPS : disque D: du PC (décision du porteur) ; `BACKUP_REMOTE` vide. **Restauration réelle sur la prod : à tester avant l'ouverture** |
+| PP-12 | Partiel | `docs/RUNBOOK_JOUR_J.md` réaligné (utilisateur `sam`, deux piles, `deploy_vps.sh`, étape 5 bis) ; reste à confronter au VPS réel |
+| F-83 | Fait dans la branche, à valider sur le VPS | `infra/nginx/prod.conf` ; `core/tests_nginx_dynamic_upstream.py` |
+| F-63 = F-117 | Fait dans la branche, à valider sur le VPS | `docker-compose.production.yml` (worker `CMD-SHELL`, beat `disable: true`) |
+| F-118 | Fait dans la branche, à valider sur le VPS | `Dockerfile` (`HOME` de l'utilisateur applicatif) |
+| F-01 | Fait dans la branche, à valider sur le VPS | `config/settings/base.py`, `send_test_email`, tests |
