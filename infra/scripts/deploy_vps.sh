@@ -19,9 +19,9 @@
 #      .env.example, compose, Dockerfile, requirements, nginx), puis confirmation ;
 #   4. tag de retour arriere <image>:previous sur l'image en cours ;
 #   5. git checkout --detach origin/main, docker build, up -d --no-deps
-#      web worker beat, migrate, collectstatic, restart nginx (seulement si sa
-#      config a change ou s'il ne tourne pas : la resolution DNS dynamique de
-#      prod.conf evite le 502 apres recreation de web) ;
+#      web worker beat, migrate, collectstatic, puis nginx : cree s'il est
+#      absent, redemarre si prod.conf a change, et TOUJOURS `nginx -t` puis
+#      `nginx -s reload` (echec clair si le test echoue, sans rechargement) ;
 #   6. /health/ avec X-Forwarded-Proto: https, plusieurs essais ;
 #   7. affiche la commande EXACTE de retour arriere.
 # Jamais de `down -v`, de `volume rm` ni de `prune`. Les migrations restent
@@ -42,7 +42,7 @@ while [ $# -gt 0 ]; do
     --yes) ASSUME_YES=1 ;;
     --dry-run) DRY_RUN=1 ;;
     --ref) shift; REF="${1:?--ref demande une valeur}" ;;
-    -h|--help) sed -n '2,31p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    -h|--help) sed -n '2,32p' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) [ -z "$STACK_ARG" ] && STACK_ARG="$1" || hf_die "argument inattendu : $1" ;;
   esac
   shift
@@ -137,13 +137,25 @@ main() {
   fi
   run "${COMPOSE[@]}" exec -T web python manage.py migrate --noinput
   run "${COMPOSE[@]}" exec -T web python manage.py collectstatic --noinput
+  # nginx : a CHAQUE deploiement, apres la recreation de web, on le cree s'il est
+  # absent puis on le recharge (nginx -t d'abord ; si le test echoue, pas de
+  # rechargement et echec). Ne depend plus de la comparaison de commits : le
+  # 18/10, un depot deja sur le commit cible avait laisse nginx sur l'ancienne
+  # IP de web (502).
   if [ "$DRY_RUN" -eq 1 ]; then
-    echo "[dry-run] nginx : up -d si absent ; restart si prod.conf a change (changed=$NGINX_CONF_CHANGED)"
-  elif ! hf_service_running nginx; then
-    "${COMPOSE[@]}" up -d --no-deps nginx
-  elif [ "$NGINX_CONF_CHANGED" -eq 1 ]; then
-    # Le gabarit prod.conf n'est lu qu'au demarrage du conteneur nginx.
-    "${COMPOSE[@]}" restart nginx
+    echo "[dry-run] nginx : up -d si absent ; restart si prod.conf a change (changed=$NGINX_CONF_CHANGED) ;"
+    echo "[dry-run]         puis exec nginx -t && exec nginx -s reload (toujours)"
+  else
+    if ! hf_service_running nginx; then
+      "${COMPOSE[@]}" up -d --no-deps nginx
+    elif [ "$NGINX_CONF_CHANGED" -eq 1 ]; then
+      # Le gabarit prod.conf n'est lu qu'au demarrage du conteneur nginx.
+      "${COMPOSE[@]}" restart nginx
+    fi
+    for _ in $(seq 1 15); do hf_service_running nginx && break; sleep 2; done
+    hf_service_running nginx || hf_die "nginx ne demarre pas : docker compose logs nginx"
+    "${COMPOSE[@]}" exec -T nginx nginx -t       || hf_die "nginx -t a echoue : nginx NON recharge. Corriger la config puis relancer (journaux : docker compose logs nginx)"
+    "${COMPOSE[@]}" exec -T nginx nginx -s reload       || hf_die "nginx -s reload a echoue : docker compose logs nginx"
   fi
 
   # ── 6. Verification ───────────────────────────────────────────────────────────
@@ -172,7 +184,9 @@ main() {
       && git checkout --detach $PREV_SHA \\
       && docker tag $IMAGE_REPO:previous $IMAGE \\
       && ${COMPOSE[*]} up -d --no-deps web worker beat \\
-      && ${COMPOSE[*]} restart nginx
+      && ${COMPOSE[*]} up -d --no-deps nginx \\
+      && ${COMPOSE[*]} exec -T nginx nginx -t \\
+      && ${COMPOSE[*]} exec -T nginx nginx -s reload
     (les migrations appliquees ne sont PAS annulees ; pour la base : restore.sh, apres avis)
 EOF
 

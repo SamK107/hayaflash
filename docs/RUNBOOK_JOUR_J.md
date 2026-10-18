@@ -159,11 +159,17 @@ vérification de `/health/` et affichage du retour arrière.
 
 ## Étape 4 — Observabilité (catégories 1, 2, 4)
 
-- [ ] **4.1 Sentry** : `SENTRY_DSN=...` dans `/srv/hayaflash/.env`, puis
-  redéployer (`deploy_vps.sh`).
-  Attendu : l'événement de test apparaît dans Sentry avec la bonne étiquette
-  `environment:` (staging/prod).
-  Retour arrière : retirer `SENTRY_DSN`, puis redémarrer les services.
+- [ ] **4.1 Sentry** : un projet Sentry **distinct** pour la prod (celui du
+  staging garde son propre DSN). Ajouter **à la main** la ligne `SENTRY_DSN=...`
+  dans `/srv/hayaflash-prod/.env` (600), puis recréer les conteneurs avec
+  `bash infra/scripts/deploy_vps.sh /srv/hayaflash-prod` : un simple `restart`
+  **ne relit pas** le `.env`.
+  Puis déclencher une erreur de test (`cd /srv/hayaflash-prod && docker compose -f docker-compose.production.yml
+  exec -T web python manage.py shell -c "import sentry_sdk; sentry_sdk.capture_message('test prod')"`) et vérifier dans
+  Sentry : l'événement arrive avec `environment: prod`, **sans** numéro de
+  téléphone, e-mail ni variable locale (filtre `config/settings/_sentry.py`).
+  Retour arrière : retirer `SENTRY_DSN`, puis recréer les services
+  (`deploy_vps.sh`).
 - [ ] **4.2 Règles d'alerte Sentry** (dashboard) : e-mail sur nouvelle erreur
   `environment:prod`, et sur les `logger.error` suivants :
   - webhooks paiement (catégorie 8) ;
