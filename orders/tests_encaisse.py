@@ -196,10 +196,13 @@ class CacheInvalidationTests(EncaisseBase):
         after = get_dashboard_kpis_cached(self.seller_user, self.sale.pk)
         self.assertEqual((int(after["total_revenue"]), int(after["pending_revenue"])), (0, 1200))
 
-    def test_commandes_page_livre_et_paye_counts_as_encaisse(self):
-        """Le bouton « Livré et payé » de la page Commandes affirme le paiement."""
+    def test_commandes_page_ne_peut_plus_declarer_un_paiement(self):
+        """Circuit unique : « Livré et payé » ne se fait que sur la page Livraison."""
+        from django.core.exceptions import PermissionDenied
+
         from orders.services.dashboard import advance_order_status
 
         order = self.make(OS.OUT_FOR_DELIVERY, collected=False, price=400)
-        advance_order_status(user=self.seller_user, order_id=order.pk)
-        self.assertEqual(self.amounts(), (400, 0))
+        with self.assertRaises(PermissionDenied):
+            advance_order_status(user=self.seller_user, order_id=order.pk)
+        self.assertEqual(self.amounts(), (0, 400))

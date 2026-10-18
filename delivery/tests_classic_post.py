@@ -72,10 +72,10 @@ class ClassicVsHtmxActionPostTests(DeliveryTestFixture):
         self.assertEqual(resp.content.decode(), "Indiquez le nom du livreur.")
 
     def test_classic_wrong_state_error_is_french(self) -> None:
-        resp = self.client.post(self.url, {"action": "confirm"})
+        resp = self.client.post(self.url, {"action": "mark_delivered", "cod_collected": "true"})  # pas en livraison
         self.assertRedirects(resp, self.page, fetch_redirect_response=False)
         (msg,) = self._texts(resp)
-        self.assertRegex(msg, r"confirmée")
+        self.assertRegex(msg, r"en cours de livraison")
         self.assertNotRegex(msg, r"[Oo]rder")
 
     def test_classic_missing_action_redirects_with_message(self) -> None:

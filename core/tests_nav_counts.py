@@ -68,10 +68,14 @@ class DefinitionTests(NavCountsBase):
             self._order(status=status)
         self.assertEqual(self.counts()["orders_to_process_count"], 1)
 
-    def test_deliveries_in_progress_counts_assigned_and_in_transit_only(self):
+    def test_deliveries_counts_orders_to_deliver(self):
+        """Commandes à livrer = confirmées ou en livraison, livraison ni livrée ni en échec."""
         for status in Delivery.Status.values:
             self._delivery(status)
-        self.assertEqual(self.counts()["deliveries_active_count"], 2)
+        self._order(status=OrderStatus.CONFIRMED)  # ancienne commande sans fiche : comptée
+        self._order(status=OrderStatus.PENDING)  # pas encore confirmée : non comptée
+        self._order(status=OrderStatus.CANCELLED)
+        self.assertEqual(self.counts()["deliveries_active_count"], 4)  # pending, assigned, in_transit + sans fiche
 
     def test_interests_count_unchanged(self):
         SaleInterest.objects.create(

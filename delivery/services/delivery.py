@@ -91,6 +91,40 @@ def create_delivery_for_order(
     return delivery
 
 
+LEGACY_ADDRESS = "Adresse non renseignée (commande ancienne) : appeler le client"
+
+
+def ensure_delivery_for_order(order: Order) -> tuple[Delivery, bool]:
+    """Fiche de livraison de ``order`` ; la crée si elle manque (commande ancienne).
+
+    Une commande sans fiche passait d'étape dans Commandes mais restait invisible
+    et inactive sur la page Livraison. Idempotent. Retourne (fiche, créée).
+    Le montant à encaisser est recalculé depuis les lignes de la commande.
+    """
+    existing = Delivery.objects.filter(order_id=order.pk).first()
+    if existing is not None:
+        return existing, False
+    delivery = Delivery.objects.create(
+        order=order,
+        address_text=LEGACY_ADDRESS,
+        status=Delivery.Status.PENDING,
+        cod_amount=compute_order_total(order),
+    )
+    return delivery, True
+
+
+def ensure_deliveries_for_sale(flash_sale_id: int) -> int:
+    """Crée les fiches manquantes des commandes (non annulées) d'une vente. Retourne le nombre créé."""
+    created = 0
+    orders = Order.service_objects.filter(
+        flash_sale_id=flash_sale_id, delivery__isnull=True
+    ).exclude(status=OrderStatus.CANCELLED)
+    for order in orders:
+        _, was_created = ensure_delivery_for_order(order)
+        created += int(was_created)
+    return created
+
+
 def delivery_public_snapshot(delivery: Delivery) -> dict[str, Any]:
     """Public-safe delivery fields for POST /orders/ response."""
     return {
@@ -257,6 +291,29 @@ def advance_delivery(
             order.status = OrderStatus.CONFIRMED
             order.save(update_fields=["status", "updated_at"])
 
+        elif action == "cancel":
+            # Annulation par la vendeuse : seulement avant la mise en livraison.
+            if order.status not in (OrderStatus.PENDING, OrderStatus.CONFIRMED) or (
+                delivery.status not in (Delivery.Status.PENDING, Delivery.Status.ASSIGNED)
+            ):
+                raise ValidationError(
+                    "Cette commande ne peut plus être annulée : la livraison a déjà commencé."
+                )
+            from core.models import audit
+            from orders.services.stock_release import release_order_stock
+
+            released = release_order_stock(order, "Annulation par la vendeuse")
+            order.status = OrderStatus.CANCELLED
+            order.save(update_fields=["status", "updated_at"])
+            audit(
+                "order.cancelled_by_seller",
+                entity_type="Order",
+                entity_id=order.pk,
+                actor=user,
+                flash_sale_id=order.flash_sale_id,
+                stock_released={str(pid): qty for pid, qty in released.items()},
+            )
+
         elif action == "start_delivery":
             assigned_to = payload.get("assigned_to")
             if not isinstance(assigned_to, str) or not assigned_to.strip():
@@ -309,6 +366,10 @@ def advance_delivery(
             )
 
         elif action == "mark_failed":
+            if order.status not in (OrderStatus.CONFIRMED, OrderStatus.OUT_FOR_DELIVERY):
+                raise ValidationError(
+                    "Confirme d'abord la commande dans Commandes avant de signaler un échec."
+                )
             if delivery.status not in (
                 Delivery.Status.PENDING,
                 Delivery.Status.ASSIGNED,
@@ -347,3 +408,32 @@ def advance_delivery(
     delivery.refresh_from_db()
     order.refresh_from_db()
     return delivery
+
+
+ORDER_PAGE_ACTIONS = ("confirm", "cancel")
+LATER_STEPS_MESSAGE = (
+    "La livraison se gère sur la page Livraison : ouvre-la depuis la carte de la commande."
+)
+
+
+def apply_order_action(*, user, order_id: int, action: str) -> Delivery:
+    """Action de la page Commandes (Confirmer, Annuler) : même service que la page Livraison.
+
+    Toute transition passe par ``advance_delivery`` : une seule règle de statuts,
+    et l'enregistrement des échecs (F-59) ne peut pas être contourné. Les étapes de
+    livraison (livreur, en livraison, livré, échec) sont refusées ici
+    (``PermissionDenied``). Crée la fiche de livraison d'une commande ancienne si besoin.
+    """
+    if action not in ORDER_PAGE_ACTIONS:
+        raise PermissionDenied(LATER_STEPS_MESSAGE)
+    order = (
+        Order.service_objects.select_related("flash_sale__owner__user")
+        .filter(pk=order_id, flash_sale__owner__user=user)
+        .first()
+    )
+    if order is None:
+        raise PermissionDenied("Commande introuvable ou inaccessible.")
+    if order.status == OrderStatus.CANCELLED:
+        raise ValidationError(CANCELLED_ORDER_MESSAGE)
+    delivery, _ = ensure_delivery_for_order(order)
+    return advance_delivery(user=user, delivery_id=delivery.pk, action=action)

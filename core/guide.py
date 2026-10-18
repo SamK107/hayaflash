@@ -98,15 +98,17 @@ SLIDES = [
        "À l'heure de fin, <strong>la vente se ferme toute seule</strong>. Plus aucune commande n'est possible.",
        "18_client_vente_fermee.webp"),
     _s("F", "vendeur", "Prépare tes livraisons",
-       "Touche <strong>« Confirmé »</strong> puis <strong>« En livraison »</strong>. Dans "
-       "<strong>Livraisons</strong>, tu as l'adresse, le montant à encaisser et le nom du livreur.",
+       "Dans <strong>Commandes</strong>, touche <strong>« Confirmer »</strong>, puis "
+       "<strong>« Gérer la livraison → »</strong>. Tu arrives sur <strong>Livraisons</strong> : tu y vois "
+       "l'adresse et le montant à encaisser, tu notes le nom du livreur et tu touches <strong>« En livraison »</strong>.",
        "19_vendeur_livraisons.webp", (780, 1305)),
     _s("F", "terrain", "Ta cliente paie à la livraison",
        "Elle voit le produit, puis <strong>paie le livreur</strong> : en espèces ou par mobile money.",
        "20_illustration_paiement_moto.webp", (1200, 900),
        alt="Illustration : une cliente remet des billets en FCFA à un livreur casqué sur son scooter"),
     _s("F", "vendeur", "Livré et payé ✔",
-       "Quand le livreur te confirme, touche <strong>« Livré et payé »</strong>. La commande est terminée.",
+       "Quand le livreur te confirme, touche <strong>« Livré et payé »</strong> dans <strong>Livraisons</strong>. "
+       "Si la livraison n'aboutit pas, touche <strong>« Échec »</strong>. La commande est terminée.",
        "21_vendeur_livre_paye_avant.webp"),
     _s("G", "vendeur", "Tes comptes sont déjà faits",
        "Ton tableau de bord affiche tes commandes, les articles livrés et l'argent encaissé : "

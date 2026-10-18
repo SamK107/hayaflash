@@ -112,7 +112,7 @@ class BulkActionsTests(SellerActionsBase):
         self.assertEqual(already.status, OrderStatus.DELIVERED)
         self.assertEqual(foreign.status, OrderStatus.PENDING)
 
-    def test_livraison_groupee_exige_le_statut_confirme(self):
+    def test_livraison_groupee_refusee_circuit_unique(self):
         pending = self._place("D", "+22370444441")
         confirmed = self._place("E", "+22370444442")
         Order.service_objects.filter(pk=confirmed.pk).update(status=OrderStatus.CONFIRMED)
@@ -120,18 +120,16 @@ class BulkActionsTests(SellerActionsBase):
             reverse("orders:bulk_mark_delivered"),
             {"order_ids": [pending.pk, confirmed.pk]},
         )
-        self.assertEqual(resp.status_code, 200)
-        self.assertIn("1 commande(s) marquée(s) livrée(s).", resp.content.decode())
+        self.assertEqual(resp.status_code, 403)
+        self.assertIn("page Livraison", resp.content.decode())
         pending.refresh_from_db()
         confirmed.refresh_from_db()
         self.assertEqual(pending.status, OrderStatus.PENDING)
-        self.assertEqual(confirmed.status, OrderStatus.DELIVERED)
+        self.assertEqual(confirmed.status, OrderStatus.CONFIRMED)
 
     def test_selection_vide_refusee(self):
-        for name in ("orders:bulk_confirm_orders", "orders:bulk_mark_delivered"):
-            with self.subTest(name=name):
-                resp = self.client.post(reverse(name), {})
-                self.assertEqual(resp.status_code, 400)
+        resp = self.client.post(reverse("orders:bulk_confirm_orders"), {})
+        self.assertEqual(resp.status_code, 400)
 
     def test_compte_sans_boutique_recoit_403(self):
         from django.contrib.auth import get_user_model
@@ -157,6 +155,11 @@ class AdvanceStatusViewTests(SellerActionsBase):
         order = self._place("F", "+22370555551")
         resp = self.client.post(self._url(order))
         self.assertEqual(resp.status_code, 200)
+        order.refresh_from_db()
+        self.assertEqual(order.status, OrderStatus.CONFIRMED)
+        # Les étapes suivantes se font sur la page Livraison : refusées ici.
+        again = self.client.post(self._url(order))
+        self.assertEqual(again.status_code, 403)
         order.refresh_from_db()
         self.assertEqual(order.status, OrderStatus.CONFIRMED)
 

@@ -17,6 +17,7 @@ from accounts.models import SellerProfile
 from orders.services.client_order import resolve_client_order_page
 from orders.services.dashboard import (
     advance_order_status,
+    cancel_order_by_seller,
     count_dashboard_orders,
     get_dashboard_kpis_cached,
     _seller_orders_queryset,
@@ -210,12 +211,17 @@ def seller_order_advance_status(request, order_id: int):
         return HttpResponseForbidden("Profil vendeur requis.")
     try:
         advance_order_status(user=request.user, order_id=order_id)
-    except PermissionDenied:
-        return HttpResponseForbidden("Action non autorisée.")
+    except PermissionDenied as exc:
+        # Étapes de livraison : refusées ici, à faire sur la page Livraison.
+        return HttpResponseForbidden(str(exc) or "Action non autorisée.")
     except ValidationError as exc:
         msg = "; ".join(getattr(exc, "messages", [])) or str(exc)
         return HttpResponse(msg, status=400)
 
+    return _order_row_response(request, order_id)
+
+
+def _order_row_response(request, order_id: int):
     row = get_order_row_context(request.user, order_id)
     if row is None:
         return HttpResponseForbidden("Commande introuvable.")
@@ -225,6 +231,22 @@ def seller_order_advance_status(request, order_id: int):
         request=request,
     )
     return HttpResponse(html, content_type="text/html; charset=utf-8")
+
+
+@login_required
+@require_POST
+def seller_order_cancel(request, order_id: int):
+    """POST .../orders/<id>/cancel/ — annule une commande avant sa mise en livraison."""
+    if not _require_seller(request.user):
+        return HttpResponseForbidden("Profil vendeur requis.")
+    try:
+        cancel_order_by_seller(user=request.user, order_id=order_id)
+    except PermissionDenied as exc:
+        return HttpResponseForbidden(str(exc) or "Action non autorisée.")
+    except ValidationError as exc:
+        msg = "; ".join(getattr(exc, "messages", [])) or str(exc)
+        return HttpResponse(msg, status=400)
+    return _order_row_response(request, order_id)
 
 
 @login_required
@@ -241,11 +263,17 @@ def bulk_confirm_orders(request):
     from orders.models import Order, OrderStatus
 
     seller = request.user.seller_profile
-    updated = Order.service_objects.filter(
-        pk__in=order_ids,
-        flash_sale__owner=seller,
-        status=OrderStatus.PENDING,
-    ).update(status=OrderStatus.CONFIRMED)
+    ids = Order.service_objects.filter(
+        pk__in=order_ids, flash_sale__owner=seller, status=OrderStatus.PENDING
+    ).values_list("pk", flat=True)
+    updated = 0
+    for pk in list(ids):
+        try:
+            # Même service que la page Livraison (une seule règle de statuts).
+            advance_order_status(user=request.user, order_id=pk)
+            updated += 1
+        except (PermissionDenied, ValidationError):
+            continue
 
     try:
         from core.models import audit
@@ -270,41 +298,16 @@ def bulk_confirm_orders(request):
 @login_required
 @require_POST
 def bulk_mark_delivered(request):
-    """POST /seller/orders/bulk-delivered/ — marque plusieurs commandes livrées."""
+    """Refusé : « Livré et payé » se fait sur la page Livraison, une commande à la fois.
+
+    L'ancienne version passait les commandes en « livré » sans toucher à la fiche
+    de livraison (statuts divergents, encaissement jamais enregistré).
+    """
     if not _require_seller(request.user):
         return HttpResponseForbidden("Profil vendeur requis.")
+    from delivery.services.delivery import LATER_STEPS_MESSAGE
 
-    order_ids = request.POST.getlist("order_ids")
-    if not order_ids:
-        return HttpResponse("Aucune commande sélectionnée.", status=400)
-
-    from orders.models import Order, OrderStatus
-
-    seller = request.user.seller_profile
-    updated = Order.service_objects.filter(
-        pk__in=order_ids,
-        flash_sale__owner=seller,
-        status=OrderStatus.CONFIRMED,
-    ).update(status=OrderStatus.DELIVERED)
-
-    try:
-        from core.models import audit
-
-        audit(
-            "orders.bulk_delivered",
-            entity_type="Order",
-            entity_id=0,
-            request=request,
-            count=updated,
-            order_ids=[int(i) for i in order_ids],
-        )
-    except Exception:
-        pass
-
-    return HttpResponse(
-        f"{updated} commande(s) marquée(s) livrée(s).",
-        content_type="text/plain; charset=utf-8",
-    )
+    return HttpResponseForbidden(LATER_STEPS_MESSAGE)
 
 
 @login_required

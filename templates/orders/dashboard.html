@@ -18,7 +18,7 @@
   <div class="bg-white border-b border-gray-100 px-4 py-4 max-w-3xl mx-auto">
     <h1 class="text-xl font-bold text-gray-900">Commandes</h1>
     <p class="text-xs text-gray-400 mt-0.5">
-      {% if current_flash_sale %}{{ current_flash_sale.title }}{% else %}Toutes vos ventes{% endif %} · Confirmez ici · Livraisons détaillées dans <a href="{% url 'orders:seller_deliveries_dashboard' %}" class="underline hover:text-primary">Livraisons</a>
+      {% if current_flash_sale %}{{ current_flash_sale.title }}{% else %}Toutes vos ventes{% endif %} · Confirme ou annule ici · La livraison se gère dans <a href="{% url 'orders:seller_deliveries_dashboard' %}" class="underline hover:text-primary">Livraisons</a>
     </p>
     {% if flash_sale_choices %}
     <div class="mt-3">

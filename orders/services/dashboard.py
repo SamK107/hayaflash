@@ -4,8 +4,7 @@ from decimal import Decimal
 from typing import Any
 
 from django.core.cache import cache
-from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
+from django.core.exceptions import PermissionDenied
 from django.db.models import (
     DecimalField,
     ExpressionWrapper,
@@ -75,7 +74,7 @@ def _scope(flash_sale_id) -> str:
 def _seller_orders_queryset(user, flash_sale_id=None):
     qs = (
         Order.service_objects.filter(flash_sale__owner__user=user)
-        .select_related("flash_sale")
+        .select_related("flash_sale", "delivery")
         .prefetch_related(
             Prefetch(
                 "items",
@@ -188,26 +187,56 @@ def count_dashboard_orders(user, flash_sale_id=None) -> int:
     ).count()
 
 
-def _next_status(current: str) -> str | None:
-    if current == OrderStatus.PENDING:
-        return OrderStatus.CONFIRMED
-    if current == OrderStatus.CONFIRMED:
-        return OrderStatus.OUT_FOR_DELIVERY
-    if current == OrderStatus.OUT_FOR_DELIVERY:
-        return OrderStatus.DELIVERED
-    return None
+def _delivery_of(order: Order):
+    """Fiche de livraison de la commande, ou None (commande ancienne sans fiche)."""
+    return getattr(order, "delivery", None)
+
+
+def _order_state(order: Order) -> dict[str, Any]:
+    """Libellé et couleur affichés sur la carte (circuit unique : lecture seule après confirmation)."""
+    from delivery.models import Delivery
+
+    delivery = _delivery_of(order)
+    if order.status == OrderStatus.CANCELLED:
+        return {"state": "cancelled", "state_label": "Annulé", "state_tone": "red"}
+    if order.status == OrderStatus.PENDING:
+        return {"state": "pending", "state_label": "En attente", "state_tone": "amber"}
+    if delivery is not None and delivery.status == Delivery.Status.FAILED:
+        return {"state": "failed", "state_label": "Échec", "state_tone": "red"}
+    if order.status == OrderStatus.CONFIRMED:
+        return {"state": "to_deliver", "state_label": "À livrer", "state_tone": "gray"}
+    if order.status == OrderStatus.OUT_FOR_DELIVERY:
+        return {"state": "in_transit", "state_label": "En livraison", "state_tone": "gray"}
+    if delivery is not None and not delivery.cod_collected:
+        return {"state": "delivered_unpaid", "state_label": "Livré, à encaisser", "state_tone": "amber"}
+    return {"state": "delivered", "state_label": "Livré et payé", "state_tone": "green"}
+
+
+def delivery_page_url(order: Order) -> str:
+    """Page Livraison ouverte sur la vente de la commande, ancrée sur sa carte."""
+    from django.urls import reverse
+
+    url = reverse("orders:seller_deliveries_dashboard")
+    if not order.flash_sale_id:
+        return url
+    delivery = _delivery_of(order)
+    anchor = f"#delivery-row-{delivery.pk}" if delivery is not None else ""
+    return f"{url}?flash_sale_id={order.flash_sale_id}{anchor}"
 
 
 def _row_dict_for_order(order: Order, blocked_keys: frozenset[str] = frozenset()) -> dict[str, Any]:
     from orders.services.unhonored import phone_key
 
-    nxt = _next_status(order.status)
+    state = _order_state(order)
     return {
         "order": order,
         "phone_blocked": phone_key(order.customer_phone) in blocked_keys,
-        "can_advance": nxt is not None,
-        "next_status": nxt or "",
-        "next_status_label": (dict(OrderStatus.choices).get(nxt, nxt) if nxt else ""),
+        "can_confirm": order.status == OrderStatus.PENDING,
+        "can_cancel": order.status in (OrderStatus.PENDING, OrderStatus.CONFIRMED)
+        and state["state"] != "failed",
+        "delivery_url": delivery_page_url(order),
+        "show_delivery_link": state["state"] == "to_deliver",
+        **state,
     }
 
 
@@ -237,83 +266,30 @@ def get_order_row_context(user, order_id: int) -> dict[str, Any] | None:
     return _row_dict_for_order(order, _blocked_keys_for(user, [order]))
 
 
-def _sync_delivery_for_order(*, order: Order, new_status: str, user) -> None:
-    """
-    Garde Delivery.status en cohérence quand l'order avance depuis le dashboard Commandes.
-    Évite le désynchronisation Delivery=PENDING / Order=DELIVERED.
-    """
-    try:
-        from delivery.models import Delivery
-        from django.utils import timezone
-
-        now = timezone.now()
-
-        delivery = Delivery.objects.filter(order_id=order.pk).first()
-        if delivery is None:
-            return
-
-        if new_status == OrderStatus.OUT_FOR_DELIVERY and delivery.status in (
-            Delivery.Status.PENDING,
-            Delivery.Status.ASSIGNED,
-        ):
-            delivery.status = Delivery.Status.IN_TRANSIT
-            delivery.scheduled_at = now
-            delivery.save(update_fields=["status", "scheduled_at", "updated_at"])
-
-        elif (
-            new_status == OrderStatus.DELIVERED
-            and delivery.status != Delivery.Status.DELIVERED
-        ):
-            delivery.status = Delivery.Status.DELIVERED
-            delivery.delivered_at = now
-            delivery.cod_collected = True
-            delivery.cod_collected_at = now
-            delivery.cod_confirmed_by = user
-            delivery.save(
-                update_fields=[
-                    "status",
-                    "delivered_at",
-                    "cod_collected",
-                    "cod_collected_at",
-                    "cod_confirmed_by",
-                    "updated_at",
-                ]
-            )
-    except Exception:
-        pass  # Ne jamais bloquer l'avancement d'une commande pour une sync delivery
-
-
 def advance_order_status(*, user, order_id: int) -> Order:
+    """Confirme une commande en attente (seule étape de la page Commandes).
+
+    Passe par le service de la page Livraison (``apply_order_action``) : une seule
+    règle de statuts. Les étapes de livraison se font sur la page Livraison ;
+    ici elles sont refusées avec un message clair.
     """
-    Move order one step: pending → confirmed → out_for_delivery → delivered.
+    from delivery.services.delivery import LATER_STEPS_MESSAGE, apply_order_action
 
-    V1 live dashboard keeps this simplified 1-click flow during the sale.
-    Post-live COD workflow uses ``delivery.services.advance_delivery`` via
-    la page Livraisons (logistique post-vente).
-    """
-    # F-59 : lecture sous verrou. Sans elle, une confirmation concurrente de
-    # l'expiration automatique (orders.services.expiration) pourrait ecraser
-    # « Annule » par « Confirme » alors que le stock vient d'etre restitue.
-    with transaction.atomic():
-        order = (
-            Order.service_objects.select_for_update(of=("self",))
-            .select_related("flash_sale__owner__user")
-            .filter(pk=order_id, flash_sale__owner__user=user)
-            .first()
-        )
-        if order is None:
-            raise PermissionDenied("Commande introuvable ou inaccessible.")
-
-        nxt = _next_status(order.status)
-        if nxt is None:
-            raise ValidationError(
-                "Cette commande ne peut plus avancer dans son état actuel."
-            )
-
-        order.status = nxt
-        order.save(update_fields=["status", "updated_at"])
-    # Hors verrou : cette synchro avale ses erreurs, ce qui est incompatible avec
-    # une transaction PostgreSQL encore ouverte.
-    _sync_delivery_for_order(order=order, new_status=nxt, user=user)
-    invalidate_seller_kpi_cache(user)
+    order = (
+        Order.service_objects.filter(pk=order_id, flash_sale__owner__user=user).first()
+    )
+    if order is None:
+        raise PermissionDenied("Action non autorisée.")
+    if order.status not in (OrderStatus.PENDING, OrderStatus.CANCELLED):
+        raise PermissionDenied(LATER_STEPS_MESSAGE)
+    apply_order_action(user=user, order_id=order_id, action="confirm")
+    order.refresh_from_db()
     return order
+
+
+def cancel_order_by_seller(*, user, order_id: int) -> Order:
+    """Annule une commande avant sa mise en livraison (stock rendu)."""
+    from delivery.services.delivery import apply_order_action
+
+    apply_order_action(user=user, order_id=order_id, action="cancel")
+    return Order.service_objects.get(pk=order_id)

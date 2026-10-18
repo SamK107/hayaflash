@@ -73,18 +73,10 @@
 
   <!-- Actions -->
   <div class="flex flex-wrap gap-2">
-    {% if row.can_confirm %}
-    <button
-      type="button"
-      class="flex-1 bg-primary text-white font-bold py-2.5 rounded-xl text-sm hover:bg-red-700 transition-colors"
-      hx-post="{% url 'orders:seller_delivery_action' delivery.id %}"
-      hx-vals='{"action": "confirm"}'
-      hx-target="#delivery-row-{{ delivery.id }}"
-      hx-swap="outerHTML"
-      hx-include="[name='csrfmiddlewaretoken']"
-    >
-      Confirmer
-    </button>
+    {% if row.awaiting_confirmation %}
+    <p class="flex-1 text-sm text-gray-500 bg-gray-50 rounded-xl px-3 py-2.5">
+      À confirmer d'abord dans <a href="{% url 'orders:seller_dashboard' %}" class="font-semibold text-primary underline">Commandes</a>.
+    </p>
     {% endif %}
 
     {% if row.can_start_delivery %}
@@ -119,7 +111,7 @@
       hx-swap="outerHTML"
       hx-include="[name='csrfmiddlewaretoken']"
     >
-      Livrée · encaissée
+      Livré et payé
     </button>
     <button
       type="button"
@@ -130,7 +122,7 @@
       hx-swap="outerHTML"
       hx-include="[name='csrfmiddlewaretoken']"
     >
-      Livrée · non encaissée
+      Livré, pas encore payé
     </button>
     {% endif %}
 
