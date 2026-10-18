@@ -14,7 +14,6 @@ from django.test import SimpleTestCase
 
 CONF = Path(__file__).resolve().parents[1] / "infra" / "nginx" / "prod.conf"
 SECURITY_HEADERS = (
-    "Strict-Transport-Security",
     "X-Content-Type-Options",
     "X-Frame-Options",
     "Referrer-Policy",

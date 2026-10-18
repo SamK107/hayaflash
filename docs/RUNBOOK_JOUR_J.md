@@ -255,7 +255,7 @@ Tout est détaillé dans `docs/SAUVEGARDES.md`. Ordre imposé par l'ADR-0001
   `PROD_DOMAIN=hayaflash.com`, `ALLOWED_HOSTS=hayaflash.com,www.hayaflash.com,localhost`,
   `CSRF_TRUSTED_ORIGINS=https://hayaflash.com,https://www.hayaflash.com`, **nouveau**
   `SECRET_KEY`, **nouveaux** mots de passe `DB_PASSWORD` / `REDIS_PASSWORD`, clés
-  Orange Money de production, `EMAIL_*`. **Sans `HAYAFLASH_ALLOW_DEMO_SEED`**
+  Orange Money de production, `EMAIL_*`, **`LEGAL_ENTITY_RCCM`** (F-156 : puis ouvrir `/mentions-legales/` et vérifier « RCCM de Bamako, n° … »). **Sans `HAYAFLASH_ALLOW_DEMO_SEED`**
   (la prod refuse de démarrer s'il vaut `1`). Ne rien copier du `.env` du staging.
 - [ ] **5b.3 Contrôle d'isolation**
   ```bash
@@ -354,7 +354,7 @@ Tout est détaillé dans `docs/SAUVEGARDES.md`. Ordre imposé par l'ADR-0001
   Après toute modification du vhost dans HestiaCP : `sudo nginx -t`, relire le vhost généré
   (F-65), vérifier `symain.africa` et `services.symain.africa`.
 - [ ] **5 ter.2 HSTS prudent** : `max-age` de 180 jours, **sans** `includeSubDomains` ni
-  `preload` (Django et Nginx du conteneur). Vérification :
+  `preload`, envoyé **une seule fois, par Django** (le Nginx du conteneur ne le répète pas). Vérification :
   `curl -sI https://hayaflash.com/ | grep -i strict-transport` → `max-age=15552000` seul.
   Ne pas soumettre le domaine à la liste de préchargement HSTS avant plusieurs mois stables.
 - [ ] **5 ter.3 Staging non indexable** : aucun réglage à faire. Sur tout hôte **qui n'est

@@ -251,3 +251,13 @@ Branche `release/pre-prod-lots`, un commit par lot : A `0486f5f` · B `61f62f0` 
 
 **Ordre d'ouverture (D15)** : (1) les **vendeuses pilotes** d'abord ; (2) puis le **public** ; (3) puis le **programme partenaires** (lot juriste, scan du QR sur staging, gel de la migration `0001` : voir « Partenaires » en § 2.2). Chaque passage est une décision explicite du mainteneur.
 
+## 8. Ajouts du 18/10/2026 (branche `fix/deploy-nginx-recreate`)
+
+| ID | Sujet | Catégorie | Statut | Registre |
+|---|---|---|---|---|
+| PP-24 | `deploy_vps.sh` : nginx **recréé** (pas redémarré) quand le compose, `infra/nginx/*` ou l'environnement de nginx changent, après validation dans un conteneur jetable ; sinon `nginx -t` + reload (incident du 18/10 à 12:57, `HF_REAL_IP_FROM`) | BLOQUANT | **Fait** dans cette branche ; exécution réelle sur le VPS à jouer par le porteur | F-152 |
+| PP-25 | `Strict-Transport-Security` envoyé deux fois : défini une seule fois, par Django (180 jours, sans `preload` ni `includeSubDomains`) | Avant production | **Fait** dans cette branche | F-153 |
+| PP-26 | `/ventes/` sans style après une longue pause de l'onglet (cache vers d'anciens statiques hachés ? service worker `sw.js` ?) | Non bloquant, à diagnostiquer | En attente d'une capture F12 (Réseau, Console) | F-154 |
+| PP-27 | Motif d'échec de livraison (refus, injoignable, problème de livraison) ; seuls les deux premiers comptent pour le blocage F-59 | Après phase pilote | À faire | F-155 |
+| PP-28 | Jour J : renseigner `LEGAL_ENTITY_RCCM` dans le `.env` de prod et vérifier les pages légales | BLOQUANT (configuration) | Checklist du porteur | F-156 |
+| PP-29 | Avant un 2ᵉ pays : la clé du numéro (blocage F-59, limite de débit) doit inclure l'indicatif | Avant ouverture d'un 2ᵉ pays | À faire | F-157 |

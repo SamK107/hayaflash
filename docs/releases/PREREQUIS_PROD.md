@@ -67,7 +67,7 @@
 
 ## 7. Divers
 
-- [ ] Variables légales dans le `.env` de prod : `LEGAL_ENTITY_RCCM`, `LEGAL_ENTITY_ADDRESS`, `LEGAL_HOST_*` (LWS) —
+- [ ] **(bloquant, F-156)** Variables légales dans le `.env` de prod : `LEGAL_ENTITY_RCCM` (puis vérifier `/mentions-legales/`), `LEGAL_ENTITY_ADDRESS`, `LEGAL_HOST_*` (LWS) —
   affichées dans les mentions légales.
 - [ ] `ALLOWED_HOSTS` de prod contient `hayaflash.com`, `www.hayaflash.com` **et `localhost`** (healthcheck du conteneur) ;
   `CSRF_TRUSTED_ORIGINS=https://hayaflash.com` ; **aucune** variable `HAYAFLASH_ALLOW_DEMO_SEED`.
