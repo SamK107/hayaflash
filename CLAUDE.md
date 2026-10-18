@@ -154,6 +154,8 @@ docker-compose up
 15. **Visibilité publique = règle de commande** : « en cours » / « programmée » se calculent par l'**heure** (`flash_sales.services.ordering.live_now_q()` / `upcoming_q()`, alignés sur `assert_flash_sale_accepts_orders`), jamais par le statut seul — le statut LIVE/SCHEDULED n'est basculé que par Celery beat (`auto_open`/`auto_close`), absent en dev et possiblement en retard en prod. À utiliser pour toute nouvelle liste de ventes (calendrier `/ventes/`, boutique `/s/`, API publique, sitemap, dashboard vendeur).
 16. **Tarif spécial par vendeur** (`SellerPriceOverride`, admin « Tarifs spéciaux vendeurs ») : prix temporaire pour UN vendeur (test de paiement réel à 100 FCFA, pilote, partenaire, promo) — ≥ 100 FCFA, ≤ prix officiel, 30 j max, `max_uses`. Montant choisi **côté serveur** à l'initiation (`get_price_quote`), jamais lu du formulaire ; `uses_count` +1 seulement au succès (webhook) ; durée spéciale possible ; refusé si le vendeur a un abonnement payant actif. `SubscriptionPayment.is_special_price` / `price_override` ; les paiements de motif `test` sont **exclus du CA** (`platform_reporting.revenue_payments()`). Procédure : `docs/RUNBOOK_TEST_PAIEMENT.md`.
 
+17. **Plusieurs piles sur le VPS (18/10)** : `docker-compose.production.yml` est unique, chaque clone a **son** `.env` à côté (`env_file: .env`). Nom de projet / port / image viennent de `HAYAFLASH_PROJECT` / `HAYAFLASH_HTTP_PORT` / `DOCKER_IMAGE` (défauts = staging : `hayaflash`, 8020, `hayaflash:latest` — ne jamais les changer, la base de staging repartirait vide). Prod : `/srv/hayaflash-prod`, `hayaflash-prod`, 8021. Contrôle : `infra/scripts/check_stack_isolation.sh <dossier>`. Déploiement manuel : `infra/scripts/deploy_vps.sh <dossier>` (l'ancien `deploy.sh` GHCR est en pause). Sauvegardes : `backup.sh` / `restore_test.sh` / `restore.sh` + `docs/SAUVEGARDES.md`. `prod.py` refuse de démarrer si `HAYAFLASH_ALLOW_DEMO_SEED=1` avec un hôte de prod. Nginx résout `web` dynamiquement (`$hf_upstream`) : plus de 502 après recréation de `web`.
+
 ---
 
 ## Docs de référence
@@ -169,6 +171,7 @@ docker-compose up
 | `docs/AUDIT_PERFORMANCE_SEO.md` | Audit performance/SEO/CDN (13/09) + suivi des actions |
 | `docs/FRONTEND_VENDORING.md` | Comment reconstruire `static/vendor/tailwind/tailwind-hayaflash.css` après un changement de classes Tailwind dans les templates |
 | `docs/RUNBOOK_JOUR_J.md` | Déploiement VPS pas à pas (audit, secrets, staging, observabilité, sauvegardes, prod) |
+| `docs/SAUVEGARDES.md` | Sauvegardes, restauration, copie vers le disque D: du PC |
 | `docs/RUNBOOK_TEST_PAIEMENT.md` | Test de paiement réel à 100 FCFA (tarif spécial) + changer un tarif officiel |
 
 ---
