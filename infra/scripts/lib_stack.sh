@@ -78,3 +78,24 @@ hf_is_prod_dir() { case "$(basename "$STACK_DIR")" in *prod*) return 0 ;; *) ret
 hf_service_running() {
   "${COMPOSE[@]}" ps --status running --services 2>/dev/null | grep -qx "$1"
 }
+
+# hf_nginx_fingerprint : empreinte de TOUT ce qui configure le conteneur nginx : son bloc
+# resolu dans « docker compose config » (image, montages, ports, variables d'environnement
+# y compris celles du .env) + le contenu de infra/nginx/. Un `restart` ne relit ni le compose
+# ni l'environnement : quand l'empreinte change, nginx doit etre RECREE (deploy_vps.sh).
+hf_nginx_fingerprint() {
+  {
+    "${COMPOSE[@]}" config 2>/dev/null       | awk '/^  nginx:/ {s=1; print; next} /^  [a-z_-]+:/ {s=0} s'
+    if [ -d "$STACK_DIR/infra/nginx" ]; then
+      find "$STACK_DIR/infra/nginx" -type f | sort | while read -r f; do printf '%s
+' "$f"; cat "$f"; done
+    fi
+  } | sha256sum | cut -d' ' -f1
+}
+
+# hf_nginx_validate_disposable : teste la configuration nginx dans un conteneur JETABLE
+# (meme image, memes montages et variables que le service, `nginx -t`, supprime ensuite),
+# sans toucher au conteneur en service. Code de retour = celui de nginx -t.
+hf_nginx_validate_disposable() {
+  "${COMPOSE[@]}" run --rm --no-deps -T nginx nginx -t
+}

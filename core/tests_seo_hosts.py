@@ -140,11 +140,24 @@ def test_hsts_sans_sous_domaines_ni_preload(monkeypatch):
     assert "security.W005" in mod.SILENCED_SYSTEM_CHECKS and "security.W021" in mod.SILENCED_SYSTEM_CHECKS
 
 
-def test_nginx_du_conteneur_n_envoie_ni_preload_ni_includesubdomains():
+def test_nginx_du_conteneur_n_envoie_pas_hsts():
+    """HSTS est envoyé une seule fois, par Django : nginx ne le répète pas (en-tête en double)."""
     from pathlib import Path
 
     conf = (Path(__file__).resolve().parent.parent / "infra/nginx/prod.conf").read_text(encoding="utf-8")
-    hsts = [ln for ln in conf.splitlines() if "Strict-Transport-Security" in ln and not ln.strip().startswith("#")]
-    assert hsts
-    for line in hsts:
-        assert "preload" not in line and "includeSubDomains" not in line
+    assert not [
+        ln for ln in conf.splitlines()
+        if "Strict-Transport-Security" in ln and not ln.strip().startswith("#")
+    ]
+
+
+def test_hsts_envoye_une_seule_fois_par_django():
+    """Réponse HTTPS : un seul en-tête, 180 jours, sans preload ni includeSubDomains."""
+    from django.test import Client, override_settings
+
+    with override_settings(
+        SECURE_HSTS_SECONDS=15_552_000, SECURE_HSTS_INCLUDE_SUBDOMAINS=False,
+        SECURE_HSTS_PRELOAD=False, SECURE_SSL_REDIRECT=False,
+    ):
+        resp = Client().get("/robots.txt", secure=True)
+    assert resp["Strict-Transport-Security"] == "max-age=15552000"

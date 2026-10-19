@@ -34,3 +34,6 @@ core/demo_assets/produits/_ecartees/
 core/demo_assets/produits_libre/
 core/demo_assets/_inventaire_licences.csv
 core/demo_assets/_planche_contact.html
+
+# Empreinte nginx du dernier deploiement (deploy_vps.sh)
+.hf_nginx_fingerprint

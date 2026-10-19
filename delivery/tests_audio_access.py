@@ -200,7 +200,7 @@ class NginxConfigTests(AudioBase):
 
     def test_the_internal_location_keeps_the_security_and_cache_headers(self):
         body = self.blocks["/_protected_media/"]
-        for header in ("Strict-Transport-Security", "X-Content-Type-Options", "X-Frame-Options", "Referrer-Policy"):
+        for header in ("X-Content-Type-Options", "X-Frame-Options", "Referrer-Policy"):
             self.assertIn(header, body, header)
         self.assertRegex(body, r'add_header Content-Security-Policy "default-src \'none\'; sandbox" always;')
         self.assertNotIn("add_header Cache-Control", body)  # celui de Django est conservé : pas de doublon

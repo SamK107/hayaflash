@@ -19,9 +19,13 @@
 #      .env.example, compose, Dockerfile, requirements, nginx), puis confirmation ;
 #   4. tag de retour arriere <image>:previous sur l'image en cours ;
 #   5. git checkout --detach origin/main, docker build, up -d --no-deps
-#      web worker beat, migrate, collectstatic, puis nginx : cree s'il est
-#      absent, redemarre si prod.conf a change, et TOUJOURS `nginx -t` puis
-#      `nginx -s reload` (echec clair si le test echoue, sans rechargement) ;
+#      web worker beat, migrate, collectstatic, puis nginx :
+#        - si le compose, infra/nginx/* ou l'environnement de nginx ont change depuis
+#          le dernier deploiement (ou si nginx est absent) : la nouvelle config est
+#          d'abord validee dans un conteneur JETABLE (`compose run --rm nginx nginx -t`) ;
+#          en cas d'echec rien n'est remplace ; sinon `up -d --no-deps --force-recreate nginx`
+#          (un `restart` ne relit ni le compose ni l'environnement : incident du 18/10) ;
+#        - sinon `nginx -t` puis `nginx -s reload` ;
 #   6. /health/ avec X-Forwarded-Proto: https, plusieurs essais ;
 #   7. affiche la commande EXACTE de retour arriere.
 # Jamais de `down -v`, de `volume rm` ni de `prune`. Les migrations restent
@@ -42,7 +46,7 @@ while [ $# -gt 0 ]; do
     --yes) ASSUME_YES=1 ;;
     --dry-run) DRY_RUN=1 ;;
     --ref) shift; REF="${1:?--ref demande une valeur}" ;;
-    -h|--help) sed -n '2,32p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    -h|--help) sed -n '2,35p' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) [ -z "$STACK_ARG" ] && STACK_ARG="$1" || hf_die "argument inattendu : $1" ;;
   esac
   shift
@@ -105,8 +109,6 @@ main() {
       echo "  Aucun changement sensible (migrations, .env.example, compose, Dockerfile, requirements, infra)."
     fi
   fi
-  NGINX_CONF_CHANGED=0
-  if git -C "$STACK_DIR" diff --name-only "$PREV_SHA" "$NEW_SHA" | grep -qx 'infra/nginx/prod.conf'; then NGINX_CONF_CHANGED=1; fi
 
   if [ "$ASSUME_YES" -ne 1 ] && [ "$DRY_RUN" -ne 1 ]; then
     [ -t 0 ] || hf_die "pas de terminal : relancer avec --yes pour automatiser"
@@ -137,23 +139,37 @@ main() {
   fi
   run "${COMPOSE[@]}" exec -T web python manage.py migrate --noinput
   run "${COMPOSE[@]}" exec -T web python manage.py collectstatic --noinput
-  # nginx : a CHAQUE deploiement, apres la recreation de web, on le cree s'il est
-  # absent puis on le recharge (nginx -t d'abord ; si le test echoue, pas de
-  # rechargement et echec). Ne depend plus de la comparaison de commits : le
-  # 18/10, un depot deja sur le commit cible avait laisse nginx sur l'ancienne
-  # IP de web (502).
+  # nginx. Un `restart` ne relit NI le compose NI l'environnement du conteneur : le 18/10 a
+  # 12:57, la nouvelle variable HF_REAL_IP_FROM n'a pas ete prise en compte, nginx a tourne
+  # en boucle (emerg set_real_ip_from) et /health/ a echoue jusqu'a un --force-recreate
+  # manuel. Regle : empreinte (compose + env de nginx + infra/nginx/*) differente de celle du
+  # dernier deploiement, ou nginx absent -> validation en conteneur jetable PUIS recreation ;
+  # sinon nginx -t + reload (suffit pour une nouvelle IP de web : resolution dynamique).
+  FP_FILE="$STACK_DIR/.hf_nginx_fingerprint"
+  NEW_FP="$(hf_nginx_fingerprint)"
+  OLD_FP="$(cat "$FP_FILE" 2>/dev/null || true)"
+  RECREATE_NGINX=0
+  if [ -z "$OLD_FP" ] || [ "$OLD_FP" != "$NEW_FP" ]; then RECREATE_NGINX=1; fi
+  if [ "$DRY_RUN" -eq 0 ] && ! hf_service_running nginx; then RECREATE_NGINX=1; fi
   if [ "$DRY_RUN" -eq 1 ]; then
-    echo "[dry-run] nginx : up -d si absent ; restart si prod.conf a change (changed=$NGINX_CONF_CHANGED) ;"
-    echo "[dry-run]         puis exec nginx -t && exec nginx -s reload (toujours)"
-  else
-    if ! hf_service_running nginx; then
-      "${COMPOSE[@]}" up -d --no-deps nginx
-    elif [ "$NGINX_CONF_CHANGED" -eq 1 ]; then
-      # Le gabarit prod.conf n'est lu qu'au demarrage du conteneur nginx.
-      "${COMPOSE[@]}" restart nginx
+    if [ "$RECREATE_NGINX" -eq 1 ]; then
+      echo "[dry-run] nginx : configuration changee (ou premiere fois) -> validation en conteneur jetable"
+      echo "[dry-run]         (${COMPOSE[*]} run --rm --no-deps -T nginx nginx -t),"
+      echo "[dry-run]         puis ${COMPOSE[*]} up -d --no-deps --force-recreate nginx"
+    else
+      echo "[dry-run] nginx : configuration inchangee -> exec nginx -t && exec nginx -s reload"
     fi
+  elif [ "$RECREATE_NGINX" -eq 1 ]; then
+    echo "  nginx : configuration changee (ou conteneur absent) : validation avant remplacement."
+    hf_nginx_validate_disposable       || hf_die "nginx -t echoue dans un conteneur jetable : le nginx en service n'a PAS ete remplace. Corriger compose / infra/nginx / .env puis relancer."
+    "${COMPOSE[@]}" up -d --no-deps --force-recreate nginx
     for _ in $(seq 1 15); do hf_service_running nginx && break; sleep 2; done
-    hf_service_running nginx || hf_die "nginx ne demarre pas : docker compose logs nginx"
+    hf_service_running nginx || hf_die "nginx ne demarre pas apres recreation : docker compose logs nginx"
+    sleep 3   # une boucle de redemarrage (emerg) ne reste pas « running » plus de quelques secondes
+    hf_service_running nginx || hf_die "nginx redemarre en boucle apres recreation : docker compose logs nginx"
+    "${COMPOSE[@]}" exec -T nginx nginx -t       || hf_die "nginx -t a echoue apres recreation : docker compose logs nginx"
+    echo "$NEW_FP" > "$FP_FILE"
+  else
     "${COMPOSE[@]}" exec -T nginx nginx -t       || hf_die "nginx -t a echoue : nginx NON recharge. Corriger la config puis relancer (journaux : docker compose logs nginx)"
     "${COMPOSE[@]}" exec -T nginx nginx -s reload       || hf_die "nginx -s reload a echoue : docker compose logs nginx"
   fi
@@ -184,9 +200,9 @@ main() {
       && git checkout --detach $PREV_SHA \\
       && docker tag $IMAGE_REPO:previous $IMAGE \\
       && ${COMPOSE[*]} up -d --no-deps web worker beat \\
-      && ${COMPOSE[*]} up -d --no-deps nginx \\
-      && ${COMPOSE[*]} exec -T nginx nginx -t \\
-      && ${COMPOSE[*]} exec -T nginx nginx -s reload
+      && ${COMPOSE[*]} run --rm --no-deps -T nginx nginx -t \\
+      && ${COMPOSE[*]} up -d --no-deps --force-recreate nginx \\
+      && ${COMPOSE[*]} exec -T nginx nginx -t
     (les migrations appliquees ne sont PAS annulees ; pour la base : restore.sh, apres avis)
 EOF
 
