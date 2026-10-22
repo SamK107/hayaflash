@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Saisie assistée — {{ shop_name }}{% endblock %}
+{% block extra_head %}{% include "partials/_hf_form_styles.html" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+  <p class="mb-4"><a href="{% url 'platform_admin_shops' %}" class="text-sm font-semibold text-primary hover:underline">← Boutiques</a></p>
+  {% include "assist/_banner.html" %}
+
+  {% if open_sales %}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-6 py-5 mb-6">
+    <h2 class="text-base font-bold text-gray-900 mb-3">Ajouter des produits à une vente existante</h2>
+    <ul class="space-y-2">
+      {% for s in open_sales %}
+      <li class="flex items-center justify-between gap-3 text-sm">
+        <span class="text-gray-700"><strong>{{ s.title }}</strong> — {{ s.start_time|date:"d/m H:i" }}</span>
+        <a href="{% url 'assist:products' seller.pk s.pk %}" class="font-semibold text-primary hover:underline whitespace-nowrap">Ajouter des produits</a>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div class="px-6 py-5 border-b border-gray-100" style="background:#FFF5F3;">
+      <p class="text-xs font-bold text-gray-400 uppercase">Étape 1 sur 2</p>
+      <h1 class="text-xl font-bold text-gray-900">Nouvelle vente flash</h1>
+      <p class="text-sm text-gray-400 mt-0.5">Mêmes règles que dans le compte de la vendeuse : 2 h maximum, 3 ventes par jour, quota du plan, pas de chevauchement.</p>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="px-6 py-6 space-y-5" hx-boost="false">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+      <div class="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+        {% for e in form.non_field_errors %}<p>{{ e }}</p>{% endfor %}
+      </div>
+      {% endif %}
+
+      <div>
+        <label class="hf-label" for="{{ form.whatsapp_ref.id_for_label }}">{{ form.whatsapp_ref.label }}</label>
+        {{ form.whatsapp_ref }}
+        <p class="hf-hint">{{ form.whatsapp_ref.help_text }}</p>
+        {% if form.whatsapp_ref.errors %}<p class="hf-error">{{ form.whatsapp_ref.errors.0 }}</p>{% endif %}
+      </div>
+
+      <div>
+        <label class="hf-label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+        {{ form.title }}
+        {% if form.title.errors %}<p class="hf-error">{{ form.title.errors.0 }}</p>{% endif %}
+      </div>
+
+      <div>
+        <label class="hf-label" for="{{ form.start_time.id_for_label }}">{{ form.start_time.label }}</label>
+        {{ form.start_time }}
+        {% if form.start_time.errors %}{% for e in form.start_time.errors %}<p class="hf-error">{{ e }}</p>{% endfor %}{% endif %}
+      </div>
+
+      <div>
+        <label class="hf-label" for="{{ form.duration_preset.id_for_label }}">{{ form.duration_preset.label }}</label>
+        {{ form.duration_preset }}
+        {% if form.duration_preset.errors %}<p class="hf-error">{{ form.duration_preset.errors.0 }}</p>{% endif %}
+        <div class="mt-2">
+          <label class="hf-label" for="{{ form.custom_duration_minutes.id_for_label }}">{{ form.custom_duration_minutes.label }}</label>
+          {{ form.custom_duration_minutes }}
+          <p class="hf-hint">Seulement si « Durée personnalisée » est choisie (15 à 120 min).</p>
+          {% if form.custom_duration_minutes.errors %}<p class="hf-error">{{ form.custom_duration_minutes.errors.0 }}</p>{% endif %}
+        </div>
+      </div>
+
+      <div>
+        <label class="hf-label" for="{{ form.delivery_zone.id_for_label }}">{{ form.delivery_zone.label }}</label>
+        {{ form.delivery_zone }}
+      </div>
+
+      <div>
+        <label class="hf-label" for="{{ form.category.id_for_label }}">Type de produits</label>
+        {{ form.category }}
+      </div>
+
+      <div>
+        <label class="hf-label" for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+        {{ form.description }}
+      </div>
+
+      <div>
+        <label class="hf-label" for="{{ form.cover_image.id_for_label }}">{{ form.cover_image.label }}</label>
+        <input type="file" name="cover_image" id="{{ form.cover_image.id_for_label }}" accept="image/*" class="hf-input">
+        {% if form.cover_image.errors %}<p class="hf-error">{{ form.cover_image.errors.0 }}</p>{% endif %}
+      </div>
+
+      <div>
+        <label class="hf-label" for="{{ form.max_orders.id_for_label }}">{{ form.max_orders.label }}</label>
+        {{ form.max_orders }}
+      </div>
+
+      <button type="submit" class="w-full py-3 rounded-xl bg-primary text-white font-bold">Créer la vente et passer aux produits</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

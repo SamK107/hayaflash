@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Saisie assistée — produits — {{ shop_name }}{% endblock %}
+{% block extra_head %}{% include "partials/_hf_form_styles.html" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+  <p class="mb-4"><a href="{% url 'assist:start' seller.pk %}" class="text-sm font-semibold text-primary hover:underline">← Ventes de la boutique</a></p>
+  {% include "assist/_banner.html" %}
+
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div class="px-6 py-5 border-b border-gray-100" style="background:#FFF5F3;">
+      <p class="text-xs font-bold text-gray-400 uppercase">Étape 2 sur 2</p>
+      <h1 class="text-xl font-bold text-gray-900">Produits de « {{ sale.title }} »</h1>
+      <p class="text-sm text-gray-400 mt-0.5">Début {{ sale.start_time|date:"d/m/Y H:i" }} · {{ existing|length }} produit(s) déjà dans la vente</p>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="px-6 py-6 space-y-5" hx-boost="false"
+          data-hf-assist-form data-hf-assist-max="{{ max_products }}">
+      {% csrf_token %}
+
+      {% if errors %}
+      <div class="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 space-y-1" role="alert">
+        <p class="font-bold">Rien n'a été enregistré. Corrige puis resélectionne les photos :</p>
+        {% for e in errors %}<p>{{ e }}</p>{% endfor %}
+      </div>
+      {% endif %}
+
+      <div>
+        <label class="hf-label" for="id_whatsapp_ref">Référence de la demande WhatsApp *</label>
+        <input type="text" name="whatsapp_ref" id="id_whatsapp_ref" class="hf-input" maxlength="120" required
+               placeholder="Ex : WhatsApp 22/10 18h05" value="{{ request.POST.whatsapp_ref|default:'' }}">
+        <p class="hf-hint">Le message de la vendeuse avec photos, prix et stocks. Garde-le : il sert de preuve.</p>
+      </div>
+
+      <div>
+        <label class="hf-label" for="id_photos">Photos des produits (une photo = un produit)</label>
+        <input type="file" id="id_photos" name="photos" accept="image/*" multiple class="hf-input" data-hf-assist-photos>
+        <p class="hf-hint">Sélectionne plusieurs photos en une fois ({{ max_products }} maximum par envoi). Elles sont réduites avant l'envoi.</p>
+      </div>
+
+      <input type="hidden" name="count" value="0" data-hf-assist-count>
+      <div class="space-y-4" data-hf-assist-rows></div>
+
+      <p class="hf-error" data-hf-assist-error hidden></p>
+      <button type="submit" class="w-full py-3 rounded-xl bg-primary text-white font-bold" data-hf-assist-submit>Enregistrer les produits</button>
+      <p class="hf-hint text-center">Tout ou rien : si un produit est invalide, aucun n'est enregistré.</p>
+    </form>
+  </div>
+
+  {% if existing %}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-6 py-5 mt-6">
+    <h2 class="text-base font-bold text-gray-900 mb-3">Déjà dans la vente</h2>
+    <ul class="space-y-1 text-sm text-gray-700">
+      {% for p in existing %}<li>{{ p.name }} — {{ p.price|floatformat:0 }} FCFA · stock {{ p.stock_available }}</li>{% endfor %}
+    </ul>
+    <p class="mt-3"><a href="{% url 'assist:done' seller.pk sale.pk %}" class="text-sm font-semibold text-primary hover:underline">Terminer et obtenir le lien →</a></p>
+  </div>
+  {% endif %}
+</div>
+
+<template data-hf-assist-template>
+  <div class="border border-gray-200 rounded-xl p-4 space-y-3" data-hf-assist-row>
+    <div class="flex items-center justify-between gap-3">
+      <img alt="" class="w-20 h-20 rounded-lg object-cover bg-gray-100" data-hf-assist-preview>
+      <p class="text-sm font-bold text-gray-700 flex-1" data-hf-assist-title>Produit</p>
+      <button type="button" class="text-xs font-semibold text-red-600 hover:underline" data-hf-assist-remove>Retirer</button>
+    </div>
+    <div><label class="hf-label">Nom du produit *</label><input type="text" class="hf-input" maxlength="255" required data-field="name"></div>
+    <div><label class="hf-label">Prix (FCFA) *</label><input type="number" class="hf-input" min="1" step="1" inputmode="numeric" required data-field="price"></div>
+    <div><label class="hf-label">Prix promo (FCFA, facultatif)</label><input type="number" class="hf-input" min="1" step="1" inputmode="numeric" data-field="promo_price"></div>
+    <div><label class="hf-label">Stock *</label><input type="number" class="hf-input" min="0" step="1" inputmode="numeric" required data-field="stock"></div>
+    <div><label class="hf-label">Unité</label><input type="text" class="hf-input" maxlength="50" value="pièce" data-field="unit"></div>
+  </div>
+</template>
+{% endblock %}
+
+{% block extra_js %}<script src="{% static 'js/hf-assist.js' %}"></script>{% endblock %}

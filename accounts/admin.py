@@ -118,7 +118,7 @@ _action_pro    = _seller_set_plan("pro",    "Pro",     90)
 
 @admin.register(SellerProfile)
 class SellerProfileAdmin(admin.ModelAdmin):
-    list_display  = ("seller_code", "user", "business_name", "current_plan", "is_active")
+    list_display  = ("seller_code", "user", "business_name", "current_plan", "is_active", "assisted_entry")
     list_filter   = ("is_active",)
     search_fields = ("seller_code", "business_name", "user__phone", "user__display_name")
     actions = [_action_free, _action_medium, _action_pro]
@@ -138,6 +138,15 @@ class SellerProfileAdmin(admin.ModelAdmin):
             'border-radius:9999px;font-size:.72rem;font-weight:700;">{}</span>',
             color,
             sub.get_plan_display().upper(),
+        )
+
+    @admin.display(description="Saisie assistée")
+    def assisted_entry(self, obj):
+        from django.urls import reverse
+
+        return format_html(
+            '<a href="{}">Créer une vente pour cette boutique</a>',
+            reverse("assist:start", args=[obj.pk]),
         )
 
     def get_queryset(self, request):

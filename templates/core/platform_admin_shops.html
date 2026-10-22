@@ -51,7 +51,7 @@
                         {% if s.is_active %}<span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-bold">active</span>
                         {% else %}<span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 text-xs font-bold">inactive</span>{% endif %}
                     </td>
-                    <td class="px-3 py-2"><a href="{% url 'platform_admin_shop_report' s.seller.pk %}" class="font-semibold text-primary hover:underline">Voir</a></td>
+                    <td class="px-3 py-2"><a href="{% url 'platform_admin_shop_report' s.seller.pk %}" class="font-semibold text-primary hover:underline">Voir</a> · <a href="{% url 'assist:start' s.seller.pk %}" class="font-semibold text-primary hover:underline">Saisie</a></td>
                 </tr>
             {% empty %}
                 <tr><td colspan="8" class="px-3 py-6 text-center text-gray-400">Aucune boutique.</td></tr>
