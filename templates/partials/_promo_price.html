@@ -1,0 +1,12 @@
+{% load hf_filters %}{% comment %}
+Prix barre sous le prix applique (pages clientes). Attend `p` = Product passe
+par products.services.crud.apply_sale_price (catalog_price, promo_discount,
+promo_saving). Rien n'est affiche s'il n'y a pas de vraie promo.
+{% endcomment %}{% if p.promo_discount %}
+<div class="flex flex-wrap items-center gap-1.5 mt-0.5">
+  <span class="sr-only">au lieu de</span>
+  <s class="text-sm text-gray-400">{{ p.catalog_price|thousands }} FCFA</s>
+  <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:#FFB800;color:#1A1A2E">&minus;{{ p.promo_discount }} %</span>
+</div>
+<p class="text-xs font-semibold text-green-700 mt-0.5">Prix promo · Tu économises {{ p.promo_saving|thousands }} FCFA</p>
+{% endif %}

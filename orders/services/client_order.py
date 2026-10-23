@@ -228,10 +228,10 @@ def resolve_client_order_page(request: HttpRequest) -> dict[str, Any]:
             "flash_sale_title": "",
             "can_submit": False,
         }
-    is_linked = FlashSaleProduct.objects.filter(
+    link = FlashSaleProduct.objects.filter(
         flash_sale_id=flash_sale.id, product_id=product.id, is_active=True
-    ).exists()
-    if not is_linked:
+    ).first()
+    if link is None:
         return {
             "page_error": "Ce produit n’appartient pas à cette vente flash.",
             "flash_sale_id": str(flash_sale_id),
@@ -240,6 +240,12 @@ def resolve_client_order_page(request: HttpRequest) -> dict[str, Any]:
             "flash_sale_title": flash_sale.title,
             "can_submit": False,
         }
+
+    # Prix de CETTE vente (promo) affiche et utilise par le formulaire : c'est
+    # celui que create_order facture. Le prix catalogue sert au prix barre.
+    from products.services.crud import apply_sale_price
+
+    apply_sale_price(product, link)
 
     try:
         assert_flash_sale_accepts_orders(flash_sale)

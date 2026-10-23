@@ -132,6 +132,35 @@ def adjust_stock(*, product: Product, new_stock_available: int, notes: str = "")
     return product
 
 
+def promo_discount_percent(catalog_price, promo_price) -> int | None:
+    """Remise affichee (%) : meme calcul partout (Marche, page de vente,
+    page de commande). None si pas de vraie promo."""
+    if promo_price is None or not catalog_price or catalog_price <= 0:
+        return None
+    if promo_price >= catalog_price:
+        return None
+    return max(1, round(100 * (catalog_price - promo_price) / catalog_price))
+
+
+def apply_sale_price(product: Product, link: FlashSaleProduct) -> Product:
+    """Applique en memoire (jamais en base) le prix de la vente sur `product.price`
+    et expose le prix catalogue pour l'affichage du prix barre :
+    `catalog_price`, `promo_discount` (%) et `promo_saving` (FCFA).
+    Interrupteur : settings.HAYAFLASH_PROMO_DISPLAY (False = pas de prix barre,
+    le prix facture reste le prix de la vente dans tous les cas)."""
+    from django.conf import settings
+
+    catalog = product.price
+    product.catalog_price = catalog
+    product.price = link.effective_price
+    discount = None
+    if getattr(settings, "HAYAFLASH_PROMO_DISPLAY", True):
+        discount = promo_discount_percent(catalog, link.promo_price)
+    product.promo_discount = discount
+    product.promo_saving = int(catalog - product.price) if discount else None
+    return product
+
+
 def products_for_sale(flash_sale, *, only_active: bool = True) -> list[Product]:
     """Produits d'une vente, ordonnes/filtres selon la config DE CETTE VENTE
     (FlashSaleProduct.display_order/is_active), avec le prix effectif de la
@@ -154,8 +183,7 @@ def products_for_sale(flash_sale, *, only_active: bool = True) -> list[Product]:
 
     products = []
     for link in qs:
-        product = link.product
-        product.price = link.effective_price
+        product = apply_sale_price(link.product, link)
         product.display_order = link.display_order
         products.append(product)
     return products

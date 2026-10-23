@@ -33,10 +33,9 @@ def _initials(name: str) -> str:
 
 
 def _discount(link) -> int | None:
-    catalogue, promo = link.product.price, link.promo_price
-    if promo is not None and catalogue > 0 and promo < catalogue:
-        return max(1, round(100 * (catalogue - promo) / catalogue))
-    return None
+    from products.services.crud import promo_discount_percent
+
+    return promo_discount_percent(link.product.price, link.promo_price)
 
 
 def _product_dict(link, image_file, *, size: int) -> dict[str, Any]:

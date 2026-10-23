@@ -126,6 +126,11 @@ def _conn_max_age() -> int:
 # Default False at import time; dev settings module forces True after import.
 DEBUG = _env_bool("DEBUG", default="false")
 
+# Prix barre + mention « Prix promo » sur les pages clientes (/f/<slug>/ et
+# /order/). Affichage seulement : le prix facture est toujours celui de la vente.
+# Mettre a false pour revenir a l'affichage du seul prix applique.
+HAYAFLASH_PROMO_DISPLAY = _env_bool("HAYAFLASH_PROMO_DISPLAY", default="true")
+
 
 def postgresql_database(*, conn_max_age: int) -> dict[str, dict]:
     """

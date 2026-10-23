@@ -46,7 +46,7 @@ non-régression dédiés.
 | Rang | Fonctionnalité | Déclencheur |
 |---|---|---|
 | 0 | **Saisie assistée** : l'équipe crée vente et produits pour un vendeur — spec : `docs/specs/SPEC_00_SAISIE_ASSISTEE.md` | **Implémenté le 22/10** (non commité) — valider sur le staging puis déployer en prod |
-| 1 | Prix barré + mention « Prix promo » sur `orders/client_order.html` (interrupteur global) — spec : `docs/specs/SPEC_01_PRIX_BARRE.md` | Après la liste §0 |
+| 1 | Prix barré + mention « Prix promo » sur `orders/client_order.html` (interrupteur global) — spec : `docs/specs/SPEC_01_PRIX_BARRE.md` | **Implémenté le 23/10**, déployé avec la saisie assistée |
 | 2 | Studio photo (détourage `rembg`, worker Celery dédié, file `studio`, mémoire limitée) — spec : `docs/specs/SPEC_02_STUDIO_PHOTO.md` | Mesure RAM faite le 22/10 : feu vert |
 | 3 | Module Distrib / Grossistes (V1, voir §3) — spec : `docs/specs/SPEC_03_DISTRIB_V1.md` | Cadrage terminé le 22/10 |
 | 4 | Stock étapes A (« Mon stock ») et B (quantité mise en vente, affichage) | Demande des pilotes |

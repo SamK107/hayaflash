@@ -380,6 +380,7 @@
             <div>
               <span class="text-2xl font-black text-primary">{{ p.price|thousands }}</span>
               <span class="text-sm font-semibold text-gray-500 ml-1">FCFA</span>
+              {% include "partials/_promo_price.html" with p=p %}
             </div>
             {% if p.stock_available is not None %}
             <div class="text-right" id="stock-badge-{{ p.pk }}" data-stock="{{ p.stock_available }}" data-stock-initial="{{ p.stock_initial|default:0 }}">

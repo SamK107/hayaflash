@@ -1,6 +1,6 @@
 # SPEC 01 — Prix barré + « Prix promo » sur la page de commande cliente
 
-Statut : prêt pour Claude Code. Priorité 1 (voir `docs/ROADMAP_V2_V3.md`).
+Statut : **implémenté le 23/10/2026** (branche `feat/saisie-assistee`, déployé avec la saisie assistée). Priorité 1 (voir `docs/ROADMAP_V2_V3.md`).
 Niveau de risque visé : quasi nul — affichage uniquement, aucune migration.
 
 
@@ -106,3 +106,14 @@ Règles d'affichage :
 - Choix du mode d'affichage par vente (Urgence / Économie / Prix net).
 - Garde-fou contre les remises suspectes (ex. > 70 %), à appliquer alors aussi au Marché.
 - Prix de référence « plus bas des 30 derniers jours » (règle européenne anti-fausses promos).
+
+## 7. Implémentation (23/10/2026) — écarts par rapport au plan
+
+- **Deux pages** concernées et non une : `/f/<slug>/` (liste des produits) **et** `/order/`.
+- Interrupteur `HAYAFLASH_PROMO_DISPLAY` **vrai par défaut** (décision du fondateur : visible dès la mise
+  en production pour les ventes assistées) ; `false` dans le `.env` + redémarrage de `web` pour le couper.
+- Calcul unique : `promo_discount_percent()` (Marché, page de vente, page de commande).
+- **Correctif trouvé** : `/order/` chargeait le produit sans le prix de la vente → affichage et total du
+  formulaire au prix catalogue, alors que `create_order` facture le prix promo. Corrigé
+  (`apply_sale_price` dans `orders/services/client_order.py`).
+- Tests : `orders/tests_prix_barre.py` (8 tests) ; suite complète 1925 verts.
