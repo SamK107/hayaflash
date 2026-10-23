@@ -18,8 +18,8 @@
 #   3. git fetch + liste des commits et des changements sensibles (migrations,
 #      .env.example, compose, Dockerfile, requirements, nginx), puis confirmation ;
 #   4. tag de retour arriere <image>:previous sur l'image en cours ;
-#   5. git checkout --detach origin/main, docker build, up -d --no-deps
-#      web worker beat, migrate, collectstatic, puis nginx :
+#   5. git checkout --detach origin/main, docker build, collectstatic (conteneur
+#      jetable), up -d --no-deps web worker beat, migrate, puis nginx :
 #        - si le compose, infra/nginx/* ou l'environnement de nginx ont change depuis
 #          le dernier deploiement (ou si nginx est absent) : la nouvelle config est
 #          d'abord validee dans un conteneur JETABLE (`compose run --rm nginx nginx -t`) ;
@@ -131,6 +131,12 @@ main() {
   SHORT="$(git -C "$STACK_DIR" rev-parse --short "$NEW_SHA")"
   run docker build -t "$IMAGE" -t "$IMAGE_REPO:$SHORT" "$STACK_DIR"
   run "${COMPOSE[@]}" up -d --wait db redis
+  # Fichiers statiques AVANT de (re)demarrer web/worker/beat, dans un conteneur jetable de la
+  # nouvelle image : chaque processus lit le manifeste (staticfiles.json) une seule fois. Le
+  # 23/10, collectstatic tournait APRES le demarrage de web : les processus gardaient l'ancien
+  # manifeste -> « Missing staticfiles manifest entry for 'js/hf-assist.js' » (500) jusqu'a un
+  # redemarrage manuel de web.
+  run "${COMPOSE[@]}" run --rm --no-deps -T web python manage.py collectstatic --noinput
   run "${COMPOSE[@]}" up -d --no-deps web worker beat
   # Attendre que web accepte les commandes.
   if [ "$DRY_RUN" -eq 0 ]; then
@@ -138,7 +144,6 @@ main() {
     hf_service_running web || hf_die "web ne demarre pas : docker compose logs web"
   fi
   run "${COMPOSE[@]}" exec -T web python manage.py migrate --noinput
-  run "${COMPOSE[@]}" exec -T web python manage.py collectstatic --noinput
   # nginx. Un `restart` ne relit NI le compose NI l'environnement du conteneur : le 18/10 a
   # 12:57, la nouvelle variable HF_REAL_IP_FROM n'a pas ete prise en compte, nginx a tourne
   # en boucle (emerg set_real_ip_from) et /health/ a echoue jusqu'a un --force-recreate
