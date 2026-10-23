@@ -8,32 +8,34 @@
   <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-6 py-6 space-y-5">
     <div>
       <h1 class="text-xl font-bold text-gray-900">Vente prête : « {{ sale.title }} »</h1>
-      <p class="text-sm text-gray-500 mt-1">Début {{ sale.start_time|date:"d/m/Y H:i" }} · fin {{ sale.end_time|date:"H:i" }} · {{ products|length }} produit(s)</p>
+      <p class="text-sm text-gray-500 mt-1">Début {{ sale.start_time|date:"d/m/Y H:i" }} · fin {{ sale.end_time|date:"H:i" }} · {{ lines|length }} produit(s)</p>
     </div>
 
     <div>
-      <p class="hf-label text-sm font-semibold text-gray-700 mb-1">Lien de la vente à envoyer à la vendeuse</p>
-      <p class="text-sm bg-gray-50 border border-gray-200 rounded-xl px-3 py-2" id="assist-public-url" style="word-break:break-all">{{ public_url }}</p>
-      <div class="flex flex-wrap gap-2 mt-2">
-        <button type="button" class="px-4 py-2 rounded-xl bg-primary text-white text-sm font-bold" data-hf-copy="{{ public_url }}">Copier le lien</button>
-        {% if wa_url %}<a href="{{ wa_url }}" target="_blank" rel="noopener" class="px-4 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700">Ouvrir WhatsApp de la vendeuse</a>{% endif %}
+      <p class="text-sm text-gray-700">La vente est dans le tableau de bord de la vendeuse. Elle vérifie, modifie si nécessaire, puis partage avec <strong>son</strong> bouton WhatsApp ou le QR code pendant son live.</p>
+      <div class="flex flex-wrap gap-2 mt-3">
+        {% if wa_url %}<a href="{{ wa_url }}" target="_blank" rel="noopener" class="px-4 py-2 rounded-xl bg-primary text-white text-sm font-bold">Prévenir la vendeuse sur WhatsApp</a>{% endif %}
+        <a href="{{ public_url }}" target="_blank" rel="noopener" class="px-4 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700">Voir la page clientes</a>
       </div>
-      <p class="hf-hint">La vendeuse garde la main dans son compte : ouverture de la vente, commandes et livraisons.</p>
+      <p class="hf-hint">Le message s'ouvre dans ton WhatsApp : rien n'est envoyé sans que tu appuies sur Envoyer.</p>
     </div>
 
-    {% if products %}
+    {% if lines %}
     <ul class="divide-y text-sm">
-      {% for p in products %}
+      {% for line in lines %}
       <li class="py-2 flex justify-between gap-3">
-        <span class="text-gray-800">{{ p.name }}</span>
-        <span class="text-gray-600 whitespace-nowrap">{{ p.price|floatformat:0 }} FCFA · stock {{ p.stock_available }}</span>
+        <span class="text-gray-800">{{ line.product.name }}{% if not line.is_active or not line.product.is_active %} <span class="text-gray-400">(masqué)</span>{% endif %}</span>
+        <span class="text-gray-600 whitespace-nowrap">
+          {% if line.promo_price %}<s class="text-gray-400">{{ line.product.price|floatformat:0 }}</s> <strong>{{ line.promo_price|floatformat:0 }} FCFA</strong> promo{% else %}{{ line.product.price|floatformat:0 }} FCFA{% endif %}
+          · stock {{ line.product.stock_available }}
+        </span>
       </li>
       {% endfor %}
     </ul>
     {% endif %}
 
     <div class="flex flex-wrap gap-3 pt-2">
-      <a href="{% url 'assist:products' seller.pk sale.pk %}" class="text-sm font-semibold text-primary hover:underline">Ajouter d'autres produits</a>
+      {% if sale_open %}<a href="{% url 'assist:products' seller.pk sale.pk %}" class="text-sm font-semibold text-primary hover:underline">Ajouter d'autres produits</a>{% else %}<span class="text-sm text-gray-500">Vente terminée : plus d'ajout de produits possible.</span>{% endif %}
       <a href="{% url 'assist:start' seller.pk %}" class="text-sm font-semibold text-primary hover:underline">Autre vente pour cette boutique</a>
       <a href="{% url 'platform_admin_shops' %}" class="text-sm font-semibold text-gray-600 hover:underline">Boutiques</a>
     </div>

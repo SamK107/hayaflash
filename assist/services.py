@@ -16,6 +16,7 @@ from products.services.crud import add_product_image, attach_product_to_sale, cr
 
 MAX_PRODUCTS_PER_BATCH = 20
 DEFAULT_UNIT = "pièce"
+MAX_DESCRIPTION = 1000
 
 
 @dataclass
@@ -26,6 +27,7 @@ class ProductRow:
     promo_price: int | None = None
     stock: int | None = None
     unit: str = DEFAULT_UNIT
+    description: str = ""
     errors: list[str] = field(default_factory=list)
 
 
@@ -67,6 +69,7 @@ def parse_rows(post, files) -> tuple[list[ProductRow], list, list[str]]:
         row = ProductRow(index=i + 1)
         row.name = (post.get(f"name_{i}") or "").strip()[:255]
         row.unit = (post.get(f"unit_{i}") or "").strip()[:50] or DEFAULT_UNIT
+        row.description = (post.get(f"description_{i}") or "").strip()[:MAX_DESCRIPTION]
         if not row.name:
             row.errors.append("nom manquant")
         values = {}
@@ -117,6 +120,7 @@ def create_products(*, request, seller, sale, rows: list[ProductRow], photos, wh
                 price=row.price,
                 stock=row.stock,
                 unit=row.unit,
+                description=row.description,
             )
             try:
                 add_product_image(product=product, image_file=photo, order=0)

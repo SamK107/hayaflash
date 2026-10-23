@@ -11,7 +11,6 @@ from urllib.parse import quote
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.exceptions import ValidationError
-from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
@@ -20,6 +19,7 @@ from core.models import audit
 from flash_sales.models import FlashSale
 from flash_sales.services.crud import create_flash_sale
 from flash_sales.services.ordering import ORDERABLE_STATUSES
+from products.models import FlashSaleProduct
 from products.services.crud import products_for_sale
 
 from . import services
@@ -36,11 +36,8 @@ def _open_sales(seller):
     ).order_by("start_time")
 
 
-def _open_sale(seller, sale_pk: int) -> FlashSale:
-    sale = get_object_or_404(FlashSale, pk=sale_pk, owner=seller)
-    if sale.status not in ORDERABLE_STATUSES or sale.end_time <= timezone.now():
-        raise Http404("Vente terminée ou annulée.")
-    return sale
+def _is_open(sale: FlashSale) -> bool:
+    return sale.status in ORDERABLE_STATUSES and sale.end_time > timezone.now()
 
 
 def _shop_name(seller) -> str:
@@ -101,7 +98,14 @@ def assist_start(request, seller_id: int):
 @staff_member_required
 def assist_products(request, seller_id: int, sale_pk: int):
     seller = _seller(seller_id)
-    sale = _open_sale(seller, sale_pk)
+    sale = get_object_or_404(FlashSale, pk=sale_pk, owner=seller)
+    if not _is_open(sale):
+        messages.warning(
+            request,
+            f"La vente « {sale.title} » est terminée ou annulée : on ne peut plus y "
+            "ajouter de produits. Crée une nouvelle vente pour cette boutique.",
+        )
+        return redirect("assist:start", seller_id=seller.pk)
     errors: list[str] = []
     if request.method == "POST":
         whatsapp_ref = (request.POST.get("whatsapp_ref") or "").strip()[:120]
@@ -147,11 +151,20 @@ def assist_done(request, seller_id: int, sale_pk: int):
     digits = "".join(c for c in (seller.user.phone or "") if c.isdigit())
     wa_url = ""
     if digits:
+        start = timezone.localtime(sale.start_time)
         text = (
-            f"Bonjour, l'équipe HayaFlash a préparé ta vente « {sale.title} ». "
-            f"Vérifie les produits, les prix et les stocks : {public_url}"
+            f"Bonjour, l'équipe HayaFlash a préparé ta vente « {sale.title} » "
+            f"({start:%d/%m} à {start:%H}h{start:%M}). Connecte-toi à HayaFlash et "
+            "ouvre-la dans ton tableau de bord : vérifie les produits, prix et stocks, "
+            "modifie si nécessaire, puis partage-la avec le bouton WhatsApp ou montre "
+            "le QR code pendant ton live."
         )
         wa_url = f"https://wa.me/{digits}?text={quote(text)}"
+    lines = (
+        FlashSaleProduct.objects.filter(flash_sale=sale)
+        .select_related("product")
+        .order_by("display_order", "created_at")
+    )
     return render(
         request,
         "assist/done.html",
@@ -159,7 +172,8 @@ def assist_done(request, seller_id: int, sale_pk: int):
             "seller": seller,
             "shop_name": _shop_name(seller),
             "sale": sale,
-            "products": products_for_sale(sale, only_active=False),
+            "lines": lines,
+            "sale_open": _is_open(sale),
             "public_url": public_url,
             "wa_url": wa_url,
         },

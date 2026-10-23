@@ -213,7 +213,7 @@ class ProductStepTests(AssistBase):
     def test_creates_products_with_stock_movement_and_promo(self):
         self.login_staff()
         r = self.post_products([
-            {"name": "Robe bleue", "price": "10000", "promo_price": "7500", "stock": "5", "unit": ""},
+            {"name": "Robe bleue", "price": "10000", "promo_price": "7500", "stock": "5", "unit": "", "description": "Taille M, wax"},
             {"name": "Sac noir", "price": "15000", "promo_price": "", "stock": "2", "unit": "pièce"},
         ])
         self.assertRedirects(r, reverse("assist:done", args=[self.seller.pk, self.sale.pk]))
@@ -221,6 +221,8 @@ class ProductStepTests(AssistBase):
         self.assertEqual(robe.owner, self.seller)
         self.assertEqual(robe.stock_available, 5)
         self.assertEqual(robe.unit, "pièce")
+        self.assertEqual(robe.description, "Taille M, wax")
+        self.assertEqual(Product.objects.get(name="Sac noir").description, "")
         self.assertEqual(robe.media.count(), 1)
         self.assertTrue(StockMovement.objects.filter(
             product=robe, movement_type=StockMovement.MovementType.INITIAL, quantity_change=5
@@ -275,8 +277,19 @@ class ProductStepTests(AssistBase):
             start_time=now - timedelta(hours=3), end_time=now - timedelta(hours=2),
             status=FlashSaleStatus.CLOSED,
         )
-        r = self.client.get(reverse("assist:products", args=[self.seller.pk, ended.pk]))
-        self.assertEqual(r.status_code, 404)
+        r = self.client.get(reverse("assist:products", args=[self.seller.pk, ended.pk]), follow=True)
+        self.assertRedirects(r, reverse("assist:start", args=[self.seller.pk]))
+        self.assertContains(r, "est terminée ou annulée")
+        # Aucun ajout possible par POST non plus.
+        self.client.post(reverse("assist:products", args=[self.seller.pk, ended.pk]), {
+            "whatsapp_ref": "WA", "count": "1", "photos": [_photo()],
+            "name_0": "X", "price_0": "1000", "promo_price_0": "", "stock_0": "1", "unit_0": "",
+        })
+        self.assertFalse(Product.objects.exists())
+        # La page de fin ne propose plus l'ajout.
+        done = self.client.get(reverse("assist:done", args=[self.seller.pk, ended.pk]))
+        self.assertNotContains(done, "Ajouter d'autres produits")
+        self.assertContains(done, "Vente terminée")
 
     def test_seller_then_sees_products_in_own_sale(self):
         self.login_staff()
@@ -335,3 +348,29 @@ class AtomicityTests(AssistBase):
         sale = self.make_sale()
         r = self.client.get(reverse("assist:products", args=[self.seller.pk, sale.pk]))
         self.assertContains(r, "js/hf-assist.js")
+
+
+class DonePageTests(AssistBase):
+    def test_recap_shows_catalog_and_promo_price_and_points_to_seller_dashboard(self):
+        self.client.force_login(self.staff)
+        sale = self.make_sale()
+        url = reverse("assist:products", args=[self.seller.pk, sale.pk])
+        self.client.post(url, {
+            "whatsapp_ref": "WA", "count": "1", "photos": [_photo()],
+            "name_0": "Robe", "price_0": "15000", "promo_price_0": "12000", "stock_0": "3", "unit_0": "",
+        })
+        r = self.client.get(reverse("assist:done", args=[self.seller.pk, sale.pk]))
+        html = r.content.decode()
+        self.assertIn("<s", html)
+        self.assertIn("15000", html)
+        self.assertIn("12000", html)
+        self.assertIn("Voir la page clientes", html)
+        self.assertNotIn("Copier le lien", html)
+        # Le message WhatsApp renvoie vers le tableau de bord de la vendeuse,
+        # sans lien client (un seul circuit de partage : le sien).
+        self.assertIn("modifie%20si%20n%C3%A9cessaire", html)
+        self.assertIn("QR%20code", html)
+        wa = html[html.index("https://wa.me/"):]
+        wa = wa[:wa.index('"')]
+        self.assertNotIn("%2Ff%2F", wa)
+        self.assertNotIn("/f/", wa)
