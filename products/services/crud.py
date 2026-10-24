@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from django.core.exceptions import ValidationError
+from django.db import transaction
+from django.db.models import F
+from django.utils import timezone
 
 from core.validators import validate_file_field
 from products.models import FlashSaleProduct, Product, ProductMedia, StockMovement
@@ -118,17 +121,24 @@ def adjust_stock(*, product: Product, new_stock_available: int, notes: str = "")
     """
     if new_stock_available < 0:
         raise ValidationError("Le stock ne peut pas être négatif.")
-    delta = new_stock_available - product.stock_available
-    if delta == 0:
-        return product
-    product.stock_available = new_stock_available
-    product.save(update_fields=["stock_available", "updated_at"])
-    StockMovement.objects.create(
-        product=product,
-        quantity_change=delta,
-        movement_type=StockMovement.MovementType.CORRECTION,
-        notes=notes or "Ajustement stock (Publication rapide)",
-    )
+    # Le delta se calcule sur la valeur lue SOUS VERROU (comme create_order et
+    # release_order_stock), jamais sur l'instance `product` recue, qui peut etre perimee.
+    with transaction.atomic():
+        locked = Product.objects.select_for_update().get(pk=product.pk)
+        delta = new_stock_available - locked.stock_available
+        if delta != 0:
+            Product.objects.filter(pk=locked.pk).update(
+                stock_available=F("stock_available") + delta,
+                updated_at=timezone.now(),
+            )
+            StockMovement.objects.create(
+                product=locked,
+                quantity_change=delta,
+                movement_type=StockMovement.MovementType.CORRECTION,
+                notes=notes or "Ajustement stock (Publication rapide)",
+            )
+    # L'instance de l'appelant reflete l'etat reel (les appelants ne lisent que `pk`).
+    product.refresh_from_db(fields=["stock_available", "updated_at"])
     return product
 
 

@@ -21,7 +21,6 @@ from unittest import skipIf
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-import pytest
 from django.db import close_old_connections, connection
 from django.db.models import Sum
 from django.test import TestCase, TransactionTestCase
@@ -38,10 +37,6 @@ User = get_user_model()
 
 START_STOCK = 20
 
-INCIDENT = xfail_marker = pytest.mark.xfail(
-    strict=True,
-    reason="docs/INCIDENTS.md « adjust_stock : mise à jour perdue » (delta calcule sans verrou) - retire avec le correctif",
-)
 
 
 class AdjustStockFixture:
@@ -85,7 +80,6 @@ class AdjustStockStaleValueTests(AdjustStockFixture, TestCase):
     def setUp(self):
         self.make_fixture()
 
-    @INCIDENT
     def test_stale_product_instance_gives_a_correct_movement(self):
         stale = Product.objects.get(pk=self.product.pk)  # voit 20, comme la vue Publication rapide
         for n in range(3):
@@ -96,7 +90,6 @@ class AdjustStockStaleValueTests(AdjustStockFixture, TestCase):
         last = StockMovement.objects.filter(product=product, movement_type="correction").get()
         self.assertEqual(last.quantity_change, 8)  # 25 - 17 reellement en base, pas 25 - 20
 
-    @INCIDENT
     def test_stale_decrease_never_goes_negative_nor_loses_orders(self):
         stale = Product.objects.get(pk=self.product.pk)
         for n in range(5):
@@ -125,7 +118,6 @@ class AdjustStockConcurrencyTests(AdjustStockFixture, TransactionTestCase):
     def setUp(self):
         self.make_fixture()
 
-    @INCIDENT
     def test_simultaneous_adjustments_and_orders(self):
         targets = [15, 18, 12, 25]
         orders = 6
