@@ -8,6 +8,8 @@ from decimal import Decimal
 from django import forms
 from django.utils import timezone
 
+from core.choices import SaleCategory
+
 from .services.phones import CALLING_CODE_CHOICES, DEFAULT_CALLING_CODE, build_e164
 
 _INPUT = {"class": "hf-input"}
@@ -96,3 +98,45 @@ class ResellerInviteForm(PhoneFieldsMixin, forms.Form):
         if not self.errors:
             self._clean_phone()
         return cleaned
+
+
+class WholesaleProductForm(forms.Form):
+    """Montants en FCFA entiers : `IntegerField`, jamais de decimales."""
+
+    name = forms.CharField(label="Nom du produit", max_length=255, widget=forms.TextInput(attrs=_INPUT))
+    description = forms.CharField(
+        label="Description", required=False, widget=forms.Textarea(attrs={**_INPUT, "rows": 3})
+    )
+    category = forms.ChoiceField(
+        label="Catégorie", required=False,
+        choices=[("", "—")] + list(SaleCategory.choices), widget=forms.Select(attrs=_INPUT),
+    )
+    wholesale_price = forms.IntegerField(
+        label="Prix de gros (FCFA)", min_value=1,
+        widget=forms.NumberInput(attrs={**_INPUT, "inputmode": "numeric"}),
+    )
+    min_retail_price = forms.IntegerField(
+        label="Prix de vente minimum (FCFA)", min_value=1,
+        widget=forms.NumberInput(attrs={**_INPUT, "inputmode": "numeric"}),
+        help_text="Le revendeur ne pourra pas vendre en dessous.",
+    )
+    stock_total = forms.IntegerField(
+        label="Stock total", min_value=0,
+        widget=forms.NumberInput(attrs={**_INPUT, "inputmode": "numeric"}),
+    )
+    is_active = forms.BooleanField(label="Visible par les revendeurs", required=False, initial=True)
+    image = forms.ImageField(label="Photo (facultative)", required=False)
+
+    @classmethod
+    def from_instance(cls, wp):
+        return cls(
+            initial={
+                "name": wp.name, "description": wp.description, "category": wp.category,
+                "wholesale_price": int(wp.wholesale_price), "min_retail_price": int(wp.min_retail_price),
+                "stock_total": wp.stock_total, "is_active": wp.is_active,
+            }
+        )
+
+
+class WholesaleImageForm(forms.Form):
+    image = forms.ImageField(label="Ajouter une photo")

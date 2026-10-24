@@ -1,0 +1,55 @@
+{% extends "distrib/layout.html" %}
+{% block title %}{% if product %}{{ product.name }}{% else %}Nouveau produit{% endif %} — Catalogue{% endblock %}
+{% block distrib_nav %}{% include "distrib/_nav_distributor.html" with tab="catalog" %}{% endblock %}
+
+{% block distrib_content %}
+<p><a href="{% url 'distrib:catalog' %}" class="dx-meta">← Catalogue</a></p>
+
+<div class="dx-card">
+  <h1 class="dx-h1">{% if product %}{{ product.name }}{% else %}Nouveau produit de gros{% endif %}</h1>
+  {% if product %}<p class="dx-sub">Stock {{ product.stock_total }} · alloué {{ allocated }} · disponible {{ available }}. Les prix ne changent que les prochaines importations.</p>{% endif %}
+
+  <form method="post" {% if not product %}enctype="multipart/form-data" {% endif %}hx-boost="false">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="dx-alert dx-alert-bad">{% for e in form.non_field_errors %}<p>{{ e }}</p>{% endfor %}</div>{% endif %}
+    {% for field in form %}
+    {% if field.name == 'is_active' %}
+    <div style="margin-bottom:1rem;"><label class="hf-label" style="display:flex;gap:.5rem;align-items:center;">{{ field }} {{ field.label }}</label></div>
+    {% else %}
+    <div style="margin-bottom:1rem;">
+      <label class="hf-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% if field.help_text %}<p class="hf-hint">{{ field.help_text }}</p>{% endif %}
+      {% for e in field.errors %}<p class="hf-error">{{ e }}</p>{% endfor %}
+    </div>
+    {% endif %}
+    {% endfor %}
+    <button type="submit" class="dx-btn dx-btn-block">Enregistrer</button>
+  </form>
+</div>
+
+{% if product %}
+<div class="dx-card">
+  <h2 class="dx-h2">Photos ({{ images|length }}/5)</h2>
+  <div class="dx-thumbs" style="margin-bottom:1rem;">
+    {% for img in images %}
+    <div class="dx-thumb">
+      <img src="{{ img.image.url }}" alt="Photo {{ forloop.counter }}">
+      <form method="post" action="{% url 'distrib:catalog_image_delete' product.pk img.pk %}" hx-boost="false" data-hf-confirm="Supprimer cette photo ?">
+        {% csrf_token %}
+        <button type="submit" class="dx-btn dx-btn-danger dx-btn-sm" style="width:100%;margin-top:.25rem;">Retirer</button>
+      </form>
+    </div>
+    {% empty %}
+    <p class="dx-meta">Aucune photo.</p>
+    {% endfor %}
+  </div>
+  <form method="post" enctype="multipart/form-data" action="{% url 'distrib:catalog_image_add' product.pk %}" hx-boost="false">
+    {% csrf_token %}
+    <label class="hf-label" for="{{ image_form.image.id_for_label }}">{{ image_form.image.label }}</label>
+    <input type="file" name="image" id="{{ image_form.image.id_for_label }}" accept="image/*" required class="hf-input">
+    <button type="submit" class="dx-btn dx-btn-ghost dx-btn-block" style="margin-top:.5rem;">Envoyer la photo</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}
