@@ -141,13 +141,43 @@ Recommandation : **R1 en V1**, R3 en V1.1 si l'effet de contrôle est jugé indi
 - Remarque : « à la création de boutique » (§5.2) n'a **aucune vue/template à modifier** : le premier affichage de `/seller/` après création suffit (la détection est à la visite, pas à la création).
 - Fichier hors §8 stricte, mais c'est précisément « la ligne d'include dans le template du tableau de bord vendeur » **autorisée** par §8 → OK sans dérogation.
 
+## Décisions du mainteneur (24/10/2026)
+
+- **§15.2 : R1 retenu.** « Pas livré » pose uniquement `not_delivered` (+ motif, auteur, date) dans `distrib` ; ni `Order` ni stock touchés,
+  aucune remise en stock automatique. Réaffectation volontaire via l'allocation §5.3. Spec mise à jour (§15.2, tests 14, staging §15.12).
+- **§15.3 : les deux dérogations d'une ligne sont acceptées** : `templates/orders/client_order.html` (include dans le `x-data`, dans `{% if can_submit %}`)
+  et le gabarit public commun (option E1 `templates/base.html` recommandée, à confirmer avant P6b ; vérifier d'abord le cache/`Vary: Cookie`).
+  Ce sont les seules lignes hors §8 autorisées, avec la ligne de `seller/home.html`.
+
+## Interactions avec `orders/expiration.py` et `orders/unhonored.py` (lecture seule)
+
+`expiration.py` (tâche beat `orders.expire_pending_orders`, `config/settings/base.py:487`, `ORDER_PENDING_EXPIRY_HOURS = 48`, `base.py:464`) :
+- ne sélectionne que `status=PENDING` et `created_at < now − 48 h` (`expiration.py:34-39`, relecture sous verrou `:47-52`) ; passe la commande en `CANCELLED`,
+  appelle `release_order_stock` (idempotent : se base sur les mouvements nets de la commande) et écrit `order.expired` dans l'`AuditLog`.
+- **Peut agir sur une commande Distrib** : toute commande de produit importé restée `pending` 48 h (revendeuse n'a pas confirmé) est annulée, stock rendu à la boutique.
+  Conséquences pour `distrib` : (1) la synchro §5.4 doit faire passer la ligne en `cancelled` (jamais `paid_confirmed` si la commande est annulée) ;
+  (2) comme 48 h < `auto_confirm_hours` (72 h), la présomption §15.1 ne s'applique jamais à une commande restée `pending` ; (3) si le grossiste a déclaré
+  `not_delivered` sur une commande encore `pending`, l'expiration l'annulera plus tard et rendra le stock **une seule fois** (pas de double libération, puisque `distrib`
+  n'a rien libéré) ; la ligne reste `not_delivered` (statut final, jamais écrasé).
+- N'écrit rien dans `distrib` et ne l'importe pas : aucune modification de `orders/` nécessaire.
+
+`unhonored.py` (F-59 / D2) :
+- `record_unhonored_order` n'est appelé que par `advance_delivery` action `mark_failed` (`delivery/services/delivery.py:385-387`), donc par une **action de la vendeuse** sur la livraison.
+  `distrib` n'appelant pas ce circuit, « Pas livré » **n'enregistre aucune commande non honorée** et n'affecte pas le blocage du numéro de la cliente.
+- `blocked_phone_keys` exclut les commandes `CANCELLED` du compte (`unhonored.py:67`, `:90`) : une commande expirée/annulée ensuite par le circuit normal ne compte pas. Pas d'interaction avec `distrib`.
+- Lecture seule : `distrib` peut au plus lire `Order.status` ; aucune action requise.
+
+**Point d'attention P6 (finding à consigner, pas de correction ici)** : une ligne `paid_confirmed` (confirmation précoce du grossiste ou auto 72 h) dont la commande est ensuite annulée
+par la vendeuse (statut `confirmed`, livraison pas commencée : `delivery.py:296-301`) reste `paid_confirmed` (§15.1 : aucune rétrogradation) alors que la vente n'a pas eu lieu et que le stock est revenu.
+Atténuations possibles à décider : n'auto-confirmer que si `Order.status ∈ {out_for_delivery, delivered}` ; sinon correction staff `DistribCorrection`. À trancher avant P6.
+
 ## Synthèse faisabilité
 
 | Point | Statut | Détail |
 |---|---|---|
 | §3 OrderItem multi-articles | ✅ | un suivi par `OrderItem` |
 | §5.3 `adjust_stock` verrouillé | ❌ pas de verrou | verrou propre dans `distrib`, aucun service modifié |
-| §15.2 annulation depuis `distrib` | ❌ non propre | usurpation de la revendeuse + impossible dès `out_for_delivery` ; repli R1 |
+| §15.2 annulation depuis `distrib` | ❌ non propre → **R1 décidé** | `not_delivered` dans `distrib` seulement, ni `Order` ni stock |
 | §15.3 include `client_order.html` | ✅ avec dérogation d'une ligne | fragment Alpine dans le scope `x-data` ; endpoint `distrib` ; hors §8 |
 | §15.3 include page publique | ✅ avec dérogation d'une ligne | E1 `base.html` (recommandé) ou E2 `_legal_links.html` ; hors §8 |
 | §5.1 redirection | ✅ | vue `distrib/connexion/` ; piège « déjà connecté » |
@@ -155,7 +185,7 @@ Recommandation : **R1 en V1**, R3 en V1.1 si l'effet de contrôle est jugé indi
 
 ## Écarts / points à trancher avant P1
 
-1. **Dérogations §8** : `templates/orders/client_order.html` (+1 ligne) et `templates/base.html` ou `partials/_legal_links.html` (+1 ligne) ne figurent pas au périmètre §8 alors que §15.3 les impose.
-2. **§15.2** : choisir R1 / R3 (ou autre) — la spec n'est pas exécutable telle quelle.
+1. **Dérogations §8** (acceptées le 24/10) : `templates/orders/client_order.html` (+1 ligne) et `templates/base.html` ou `partials/_legal_links.html` (+1 ligne) ne figurent pas au périmètre §8 alors que §15.3 les impose.
+2. **§15.2** : tranché le 24/10 (R1), spec mise à jour.
 3. **`adjust_stock` sans verrou** (`products/services/crud.py:114`) : finding à consigner dans le suivi de release (pas de correction « au passage »).
 4. Commande API en mode multi-produits mais UI mono-produit : décider si le cas partiel §15.2 est à traiter en V1.

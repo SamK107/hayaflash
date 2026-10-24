@@ -279,23 +279,29 @@ Rappel métier : la cliente paie toujours à la livraison, contre le produit. **
 
 ### 15.2 Déclaration de non-livraison (seule action du grossiste en cas d'échec)
 
+**Décision du 24/10/2026 (constats P0) : R1, sans annulation.** Le circuit d'annulation de la
+vendeuse n'est pas utilisable par `distrib` (réservé à la boutique propriétaire, refusé dès la mise en
+livraison : `delivery/services/delivery.py:276-301`). `distrib` **ne touche ni `Order` ni le stock**.
+
 - Bouton « Pas livré » sur la ligne, **avant** la confirmation automatique, avec un motif obligatoire
   en un tap : `refused` (cliente a refusé), `absent` (injoignable / absente), `cancelled` (annulée
   par la cliente), `other` (texte court obligatoire).
-- Nouveau statut final `not_delivered` (+ `not_delivered_reason`, `declared_by`, `declared_at`).
-  La synchronisation §5.4 ne l'écrase jamais.
-- Effet sur le stock : `distrib` **appelle le circuit d'annulation existant** des commandes (le même
-  que la vendeuse utilise), qui libère le stock via `orders/services/stock_release.py`
-  (`release_order_stock`). L'unité revient donc **au stock alloué de la même revendeuse**, qui peut
-  la revendre. **Interdit** : écrire `Order.status` directement ou modifier `orders/`.
-  **P0 — Claude Code doit vérifier** quel service/vue réalise l'annulation côté vendeuse et s'il est
-  appelable depuis `distrib` sans modification ; sinon : arrêter et consigner, ne rien contourner.
-- Commande à plusieurs articles dont un seul importé : la déclaration ne vaut que si la commande
-  entière n'a pas été livrée (cas partiel = `other` + signal pilotage, pas d'annulation auto) — à
-  confirmer selon le constat §3 sur `OrderItem`.
-- Effet de contrôle voulu : une fausse déclaration rend au stock une unité déjà partie ; le grossiste
-  se retrouve à devoir livrer un produit qu'il n'a plus ou à multiplier les « Pas livré ». Le
-  mensonge se voit dans le stock et dans l'indice §15.5.
+- Nouveau statut final `not_delivered` (+ `not_delivered_reason`, `not_delivered_note`, `declared_by`,
+  `declared_at`). Écrit **uniquement** dans `DistribSettlement`. La synchronisation §5.4 ne l'écrase jamais.
+- **Aucune remise en stock automatique** : ni appel à `release_order_stock`, ni à `adjust_stock`, ni à
+  un service d'annulation, ni écriture de `Order.status`. Raison : risque de double libération si la
+  commande est annulée plus tard par le circuit normal (expiration, vendeuse).
+- Le grossiste peut **réaffecter du stock volontairement** via l'allocation (§5.3) ; c'est une action
+  distincte, journalisée dans `AllocationMovement`, jamais déclenchée par « Pas livré ».
+- Commande à plusieurs articles dont un seul importé : la déclaration porte sur la ligne
+  (`OrderItem`) concernée uniquement ; aucune action sur la commande. Cas ambigu = `other` + signal pilotage.
+- Interactions avec l'existant (constats P0, voir `distrib/README.md` § « Interactions ») : l'expiration
+  (`orders/services/expiration.py`) n'agit que sur les commandes `pending` > 48 h ; `unhonored.py` ne
+  réagit qu'aux échecs de livraison posés par la vendeuse. Aucun des deux ne lit `distrib`.
+- Contrôle : une fausse déclaration ne se voit plus dans le stock mais dans l'indice §15.5 (taux de
+  `not_delivered`, signaux `conflict`) et dans le pilotage ; sanction = échange privé, jamais automatique.
+- Hors périmètre V1 : annulation par tiers autorisé (service dédié dans `orders/`/`delivery/`),
+  éventuellement V1.1 sur décision du mainteneur.
 
 ### 15.3 Confirmation par la cliente (facultative, sans aucune action du revendeur)
 
@@ -407,7 +413,7 @@ Tout écran ajouté doit tenir sur un téléphone, en gros boutons, sans saisie 
 
 ### 15.10 Phases — ajustements
 
-- **P0** : + vérifier le circuit d'annulation appelable (§15.2) et la possibilité d'include dans
+- **P0** (fait le 24/10 : constats dans `distrib/README.md`, §15.2 = R1) : + vérifier le circuit d'annulation appelable (§15.2) et la possibilité d'include dans
   `client_order.html` (§15.3) ; consigner les constats avant tout code.
 - **P6** : + présomption 72 h, « Pas livré », appel d'annulation, `DistribCorrection`.
 - **P6b (nouvelle)** : confirmation cliente — code 4 chiffres, cookie et bandeau discret, page `/distrib/confirmer/`, deux includes.
@@ -418,8 +424,8 @@ Tout écran ajouté doit tenir sur un téléphone, en gros boutons, sans saisie 
 ### 15.11 Tests — ajouts
 
 13. Sans action, une ligne passe `paid_confirmed` (`auto`) après `auto_confirm_hours` ; jamais avant.
-14. « Pas livré » avant le délai → `not_delivered`, commande annulée par le service existant,
-    stock rendu à la boutique du revendeur ; refusé après `paid_confirmed`.
+14. « Pas livré » avant le délai → `not_delivered` dans `distrib` seulement ; `Order`, `OrderItem`, stock et
+    mouvements de stock strictement inchangés ; refusé après `paid_confirmed`.
 15. Une ligne `paid_confirmed` n'est jamais rétrogradée (synchro, grossiste) ; correction staff journalisée.
 16. Confirmation cliente : bandeau présent seulement avec le cookie et une ligne ouverte ; page
     `/distrib/confirmer/` avec numéro + code correct confirme ; mauvais code → réponse neutre ;
@@ -437,7 +443,7 @@ Tout écran ajouté doit tenir sur un téléphone, en gros boutons, sans saisie 
 ### 15.12 Staging — scénario complété (§11)
 
 Ajouter : une commande laissée sans action (vérifier la confirmation auto en réglant
-`auto_confirm_hours` à 1 h pour le test) ; un « Pas livré » (stock revenu chez la revendeuse) ;
+`auto_confirm_hours` à 1 h pour le test) ; un « Pas livré » (commande et stock inchangés ; réaffectation volontaire via l'allocation) ;
 une confirmation cliente par le bandeau (même téléphone) et une par la page de secours (autre téléphone, numéro + code) avec référence OM ; une confirmation cliente sur une ligne déclarée non
 livrée (signal `conflict` au pilotage seulement) ; un versement contesté ; dépassement du plafond
 marge (blocage puis déblocage).
