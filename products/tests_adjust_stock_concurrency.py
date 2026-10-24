@@ -24,7 +24,10 @@ from django.core.exceptions import ValidationError
 from django.db import close_old_connections, connection
 from django.db.models import Sum
 from django.test import TestCase, TransactionTestCase
+from django.test.utils import CaptureQueriesContext
+from django.urls import reverse
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from accounts.models import SellerProfile
 from flash_sales.models import FlashSale, FlashSaleStatus
@@ -160,3 +163,136 @@ class AdjustStockConcurrencyTests(AdjustStockFixture, TransactionTestCase):
             product=self.product, movement_type="reservation"
         ).aggregate(t=Sum("quantity_change"))["t"]
         self.assertEqual(reserved, orders_ok)
+
+
+def _mutations(products_and_stocks):
+    return {"mutations": [{"product_id": p.pk, "stock": s} for p, s in products_and_stocks]}
+
+
+class BulkUpdateLockOrderTests(AdjustStockFixture, TestCase):
+    """bulk_update verrouille les produits comme create_order (ids croissants) sans changer la reponse."""
+
+    def setUp(self):
+        self.make_fixture()
+        self.a = self.product
+        self.b = create_product(owner=self.seller, name="Sac", price=Decimal("3000"), stock=10)
+        self.c = create_product(owner=self.seller, name="Pagne", price=Decimal("2000"), stock=10)
+        self.assertLess(self.a.pk, self.b.pk)
+        self.assertLess(self.b.pk, self.c.pk)
+        self.api = APIClient()
+        self.api.force_authenticate(user=self.seller.user)
+        self.url = reverse("flashsaleproduct-bulk-update", kwargs={"flash_sale_pk": self.sale.pk})
+
+    def test_products_are_locked_in_ascending_id_order_before_any_write(self):
+        payload = _mutations([(self.c, 5), (self.a, 6), (self.b, 7)])  # ordre d'envoi decroissant/melange
+        with CaptureQueriesContext(connection) as ctx:
+            res = self.api.post(self.url, payload, format="json")
+        self.assertEqual(res.status_code, 200, res.data)
+        sqls = [q["sql"] for q in ctx.captured_queries]
+        lock_idx = next(
+            i for i, s in enumerate(sqls)
+            if s.startswith("SELECT") and '"products_product"' in s and ' IN (' in s and "ORDER BY" in s
+        )
+        lock_sql = sqls[lock_idx]
+        self.assertRegex(lock_sql, r'ORDER BY (1|"products_product"\."id") ASC')
+        if connection.features.has_select_for_update:
+            self.assertIn("FOR UPDATE", lock_sql)
+        # Rien n'est ecrit sur un produit avant que tous les verrous soient poses.
+        first_write = next(i for i, s in enumerate(sqls) if s.startswith('UPDATE "products_product"'))
+        self.assertLess(lock_idx, first_write)
+
+    def test_response_order_and_content_follow_the_request_order(self):
+        payload = _mutations([(self.c, 5), (self.a, 6), (self.b, 7)])
+        res = self.api.post(self.url, payload, format="json")
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual(
+            res.data["results"],
+            [
+                {"index": 0, "product_id": self.c.pk},
+                {"index": 1, "product_id": self.a.pk},
+                {"index": 2, "product_id": self.b.pk},
+            ],
+        )
+        self.assertEqual((res.data["created_count"], res.data["updated_count"]), (0, 3))
+        for product, stock in ((self.a, 6), (self.b, 7), (self.c, 5)):
+            self.assertEqual(Product.objects.get(pk=product.pk).stock_available, stock)
+
+    def test_mixed_new_and_existing_and_foreign_ids_keep_working(self):
+        foreign = create_product(owner=SellerProfile.objects.create(
+            user=User.objects.create_user(phone="+22370000009", password="x", display_name="Autre")),
+            name="Autre", price=Decimal("100"), stock=3)
+        payload = {
+            "mutations": [
+                {"product_new": {"name": "Neuf", "price": "1500", "stock": 4}},
+                {"product_id": self.b.pk, "stock": 2},
+                {"product_id": foreign.pk, "stock": 99},  # pas a moi : erreur par ligne, lot annule
+            ]
+        }
+        res = self.api.post(self.url, payload, format="json")
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual([e["index"] for e in res.data["errors"]], [2])
+        self.assertFalse(Product.objects.filter(name="Neuf").exists())
+        self.assertEqual(Product.objects.get(pk=self.b.pk).stock_available, 10)
+        self.assertEqual(Product.objects.get(pk=foreign.pk).stock_available, 3)
+
+
+@skipIf(connection.vendor == "sqlite", "La concurrence exige PostgreSQL (--ds=config.settings.test_pg)")
+class BulkUpdateDeadlockTests(AdjustStockFixture, TransactionTestCase):
+    reset_sequences = True
+
+    def setUp(self):
+        self.make_fixture()
+        self.b = create_product(owner=self.seller, name="Sac", price=Decimal("3000"), stock=10)
+        attach_product_to_sale(flash_sale=self.sale, product=self.b)
+        self.api = APIClient()
+        self.api.force_authenticate(user=self.seller.user)
+        self.url = reverse("flashsaleproduct-bulk-update", kwargs={"flash_sale_pk": self.sale.pk})
+
+    def test_descending_bulk_vs_multi_product_order_never_deadlocks(self):
+        rounds = 25
+        failures: list[str] = []
+        for rnd in range(rounds):
+            Product.objects.filter(pk__in=[self.product.pk, self.b.pk]).update(stock_available=50)
+            barrier = threading.Barrier(2)
+
+            def bulk():
+                close_old_connections()
+                try:
+                    barrier.wait()
+                    # Ordre d'envoi DECROISSANT : B puis A.
+                    res = self.api.post(self.url, _mutations([(self.b, 40), (self.product, 41)]), format="json")
+                    if res.status_code != 200:
+                        failures.append(f"bulk {res.status_code}")
+                except Exception as exc:  # interblocage detecte par PostgreSQL = echec du test
+                    failures.append(f"bulk {type(exc).__name__}")
+                finally:
+                    close_old_connections()
+
+            def order():
+                close_old_connections()
+                try:
+                    barrier.wait()
+                    create_order(
+                        {
+                            "flash_sale_id": self.sale.pk, "customer_name": "C",
+                            "customer_phone": f"+2237600{rnd:04d}", "client_request_id": f"dl-{rnd}",
+                            "items": [
+                                {"product_id": self.product.pk, "quantity": 1},
+                                {"product_id": self.b.pk, "quantity": 1},
+                            ],
+                            "delivery": {"address_text": "Hamdallaye ACI, Bamako", "geo_method": "manual"},
+                        }
+                    )
+                except ValidationError:
+                    pass  # stock insuffisant legitime
+                except Exception as exc:
+                    failures.append(f"order {type(exc).__name__}")
+                finally:
+                    close_old_connections()
+
+            threads = [threading.Thread(target=bulk), threading.Thread(target=order)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+        self.assertEqual(failures, [])
