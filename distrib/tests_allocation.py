@@ -451,7 +451,7 @@ class StockViewTests(Base):
 
     def test_below_minimum_warning_is_displayed(self):
         Product.objects.filter(pk=self.imported.product_id).update(price=Decimal("1000"))
-        self.assertContains(self.client.get("/distrib/stock/"), "Prix sous le minimum")
+        self.assertContains(self.client.get("/distrib/stock/"), "prix sous le minimum")
 
     def test_get_is_not_allowed(self):
         self.assertEqual(self.client.get(f"/distrib/stock/{self.imported.pk}/allouer/").status_code, 405)

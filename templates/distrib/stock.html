@@ -27,7 +27,7 @@
     <div class="dx-grow">
       <div class="dx-name">{{ line.imported.invite.display_name }}</div>
       <div class="dx-meta">Alloué {{ line.imported.allocated_qty }} · en boutique {{ line.in_shop }} · vendu {{ line.sold }} · prix {{ line.imported.product.price|floatformat:0 }} FCFA</div>
-      {% if line.below_minimum %}<div class="dx-meta" style="color:#B45309;">⚠ Prix sous le minimum ({{ row.product.min_retail_price|floatformat:0 }} FCFA)</div>{% endif %}
+      {% if line.below_minimum %}<div class="dx-meta" style="color:#B45309;">Attention : prix sous le minimum ({{ row.product.min_retail_price|floatformat:0 }} FCFA)</div>{% endif %}
       {% if line.blocked %}<div class="dx-meta" style="color:#991B1B;">{{ line.blocked }}</div>{% endif %}
       {% if line.imported.invite.status != 'accepted' %}<div class="dx-meta">Revendeur {{ line.imported.invite.get_status_display|lower }} : reprise possible, plus d'allocation.</div>{% endif %}
     </div>
