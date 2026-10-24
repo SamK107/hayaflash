@@ -84,7 +84,8 @@ les commandes, livraisons, paiements, marges dues aux revendeurs et commissions 
 - `distributor`, `amount`, `paid_at`, `reference` (Orange Money), `recorded_by` (admin)
 
 **`ResellerPayout`** — versements de marge aux revendeurs
-- `distributor`, `invite`, `amount`, `paid_at`, `reference`, `recorded_by` (grossiste)
+- `distributor`, `invite`, `amount`, `paid_at`, `reference`, `recorded_by` (grossiste) — **montant calculé par
+  le relevé, jamais saisi ; un versement = un relevé** (voir §15.4, §15.9)
 
 ## 5. Règles de gestion
 
@@ -153,8 +154,9 @@ les commandes, livraisons, paiements, marges dues aux revendeurs et commissions 
 - **Dû au revendeur** = marges confirmées − `ResellerPayout`.
 - Indicateur de retard : marge confirmée depuis plus de `payout_delay_days` sans versement → alerte
   chez le grossiste et l'admin.
-- Le grossiste enregistre chaque versement (montant, référence Orange Money). Le revendeur voit
-  « Mes gains » : confirmé, versé, restant dû.
+- **[Remplacé par §15.4]** ~~Le grossiste enregistre chaque versement (montant libre)~~ : il règle le
+  relevé hebdomadaire calculé (« Payé » + référence Orange Money). Le revendeur voit « Mes gains » :
+  confirmé, versé, restant dû.
 
 ## 6. Écrans
 
@@ -222,7 +224,7 @@ tous les `models.py` hors `distrib`, toute migration hors `distrib`, les service
 8. Allocation au-delà du disponible refusée ; reprise limitée au stock non vendu ; journal correct.
 9. Prix de vente sous le minimum refusé à l'import.
 10. Commission : 0 pendant le pilote ; taux, minimum et maximum appliqués ; arrondi FCFA.
-11. Encours et marges dues : calculs exacts avec règlements et versements.
+11. Encours et marges dues : calculs exacts avec règlements et relevés réglés (`declared`/`accepted` = réglés, `contested` = reste dû).
 12. Toute la suite existante passe (dont commandes, paiements, Publication rapide), lint vert.
 
 ## 11. Validation sur le staging (48 h)
@@ -297,8 +299,9 @@ Rappel métier : la cliente paie toujours à la livraison, contre le produit. **
      (quelle que soit la source) : **aucune rétrogradation**, `conflict_flag` posé + signal au pilotage ;
      correction éventuelle par le staff (`DistribCorrection`).
   Le rattachement à un versement se matérialise par `DistribSettlement.payout` (FK nullable, §15.9),
-  posé à la déclaration d'un versement ; sa règle de rattachement (lignes couvertes par le montant) est à
-  préciser en P7, et la règle 1 ne s'applique que tant que `payout` est nul.
+  posé sur toutes les lignes du relevé quand le grossiste clique « Payé » (§15.4) ; la règle 1 ne
+  s'applique que tant que `payout` est nul (y compris pour une ligne d'un relevé clos mais non payé : le
+  relevé est alors recalculé).
 - Compte à rebours visible par les trois parties : « Confirmée automatiquement dans 41 h », affiché
   seulement à partir de `confirmed_at` (« Démarre à la confirmation » tant que la commande est `pending`).
 
@@ -370,17 +373,45 @@ sans date, longueur bornée) puis « Envoyer » — ignorable.
 aucune autre modification de template ou de vue existante). Sinon : s'arrêter et consigner ;
 l'accès 2 seul (page `/distrib/confirmer/` sans lien en pied de page) reste le repli.
 
-### 15.4 Versements hebdomadaires des marges (silence = accord)
+### 15.4 Relevé hebdomadaire et versement des marges (silence = accord)
 
-- `ResellerPayout` gagne : `status` (`declared` / `accepted` / `contested`), `om_reference`
-  (obligatoire à la déclaration), `contest_deadline` (= déclaration + 72 h), `contest_reason`,
-  `accepted_source` (`reseller` / `auto`).
-- Le grossiste déclare le versement (montant + référence OM). Le revendeur voit « Versement reçu ? »
-  avec deux boutons : « Oui » (facultatif) et **« Pas reçu »** (motif court).
+**Décision du 24/10/2026 (P7) : plus aucun montant libre.** Le grossiste ne saisit jamais un montant :
+il règle un **relevé** calculé par le système, en une fois.
+
+**Relevé (`DistribStatement`)**
+- Un relevé par revendeur (`invite`) et par semaine : du lundi 00:00 au **dimanche 23:59:59**
+  (fuseau `Africa/Bamako`, `TIME_ZONE` du projet).
+- Tâche Celery beat hebdomadaire (lundi 00:05, file `default`) `distrib.tasks.close_weekly_statements` :
+  idempotente (unicité `invite` + `period_start`), `select_for_update`, erreurs journalisées jamais
+  propagées. Elle rattache au relevé **toutes les lignes `paid_confirmed` à la clôture, non encore
+  couvertes par un relevé** (`statement` nul), dont `paid_confirmed_at` ≤ dimanche 23:59:59.
+  `amount` = somme des `reseller_margin` de ces lignes, **calculée**, jamais saisie.
+- Les lignes confirmées **après la clôture** (ou rattrapées en retard) vont au relevé **suivant**.
+  Un relevé à 0 FCFA n'est pas créé.
+- Statuts : `to_pay` (clos, à régler) → `paid` (versement déclaré, ci-dessous) → `accepted` ou
+  `contested`. Tant qu'un relevé est `to_pay`, il est **recalculé** si une ligne est retirée par le
+  renversement automatique (§15.1, règle 1) ; une fois `paid`, il est figé.
+- **Pas de paiement partiel en V1** : le seul geste possible est de régler le relevé entier.
+
+**Versement (`ResellerPayout`)**
+- Le grossiste ouvre le relevé et clique **« Payé »** en saisissant la **référence Orange Money**
+  (obligatoire, nettoyée, bornée). Cela crée le `ResellerPayout` (un par relevé, `statement` unique) avec
+  `amount` = montant du relevé (recopié, non modifiable) et renseigne `payout` sur **chacune des lignes du
+  relevé** ; le rattachement couvre donc exactement les lignes du relevé.
+- Champs : `status` (`declared` / `accepted` / `contested`), `om_reference`, `contest_deadline`
+  (= déclaration + 72 h), `contest_reason`, `accepted_source` (`reseller` / `auto` / `staff`).
+- Le revendeur voit le relevé (ses lignes, ses marges) puis, après « Payé », « Versement reçu ? » avec
+  deux boutons : « Oui » (facultatif) et **« Pas reçu »** (motif court).
 - Sans réponse avant `contest_deadline` → `accepted` automatiquement (tâche beat).
-- « Pas reçu » → `contested` : le montant **reste dû** dans les calculs et un signal part au
-  pilotage. Pas de procédure de litige dans l'outil.
-- Rythme : versement attendu chaque semaine ; `payout_delay_days` (défaut 7) inchangé.
+- **Contestation portée sur le relevé** : « Pas reçu » → le relevé et son versement passent
+  `contested`, le montant **reste dû** dans tous les calculs (marges dues, plafond §15.6, retards) et un
+  signal part au pilotage. Pas de procédure de litige dans l'outil ; seul le staff, dans le pilotage, peut
+  clore (`accepted`, source `staff`) ou rouvrir le relevé (`to_pay`, lignes détachées du versement), l'action
+  étant journalisée. Le grossiste ne peut pas redéclarer lui-même un relevé contesté.
+- **Dû au revendeur** = marges des lignes `paid_confirmed` dont `payout` est nul ou dont le versement est
+  `contested` (les versements `declared` et `accepted` sont comptés comme réglés).
+- Rythme : relevé chaque semaine ; alerte de retard si un relevé reste `to_pay` plus de
+  `payout_delay_days` (défaut 7) après sa clôture (grossiste, revendeur concerné, pilotage).
 
 ### 15.5 Indice de fiabilité (pilotage HayaFlash uniquement en V1)
 
@@ -431,9 +462,11 @@ Tout écran ajouté doit tenir sur un téléphone, en gros boutons, sans saisie 
 
 - `Distributor` : `auto_confirm_hours` (72), `reseller_credit_ceiling` (10 000), seuils d'alerte §15.5.
 - `DistribSettlement` : statut `not_delivered`, `not_delivered_reason`, `not_delivered_note`,
-  `declared_by`, `declared_at`, `confirmation_source`, `confirmed_at`, `auto_confirm_at`, `payout` (FK nullable `ResellerPayout`), `receipt_token` (unique), `receipt_code` (4 chiffres),
+  `declared_by`, `declared_at`, `confirmation_source`, `confirmed_at`, `auto_confirm_at`, `statement` (FK nullable `DistribStatement`), `payout` (FK nullable `ResellerPayout`), `receipt_token` (unique), `receipt_code` (4 chiffres),
   `customer_confirmed_at`, `customer_om_reference`, `commission_billable`, `conflict_flag`.
-- `ResellerPayout` : champs §15.4.
+- `ResellerPayout` : champs §15.4 + `statement` (OneToOne `DistribStatement`) ; `amount` recopié du relevé.
+- Nouveau `DistribStatement` : `distributor`, `invite`, `period_start`, `period_end`, `amount`, `line_count`,
+  `status` (`to_pay` / `paid` / `accepted` / `contested`), `closed_at` ; unicité (`invite`, `period_start`).
 - Nouveau `DistribCorrection` (§15.1) ; `author` nullable (null = système, renversement automatique).
 
 ### 15.10 Phases — ajustements
@@ -442,7 +475,7 @@ Tout écran ajouté doit tenir sur un téléphone, en gros boutons, sans saisie 
   `client_order.html` (§15.3) ; consigner les constats avant tout code.
 - **P6** : + présomption 72 h, « Pas livré », appel d'annulation, `DistribCorrection`.
 - **P6b (nouvelle)** : confirmation cliente — code 4 chiffres, cookie et bandeau discret, page `/distrib/confirmer/`, deux includes.
-- **P7** : + versements `declared/accepted/contested`, plafonds et coupure progressive,
+- **P7** : + relevé hebdomadaire par revendeur (`DistribStatement`, tâche de clôture du lundi), « Payé » + référence OM, versements `declared/accepted/contested`, plafonds et coupure progressive,
   commission facturable.
 - **P8** : + compte à rebours, boutons §15.8, indice de fiabilité au pilotage.
 
@@ -466,12 +499,25 @@ Tout écran ajouté doit tenir sur un téléphone, en gros boutons, sans saisie 
     `conflict_flag` sans changement de statut ; double confirmation sans effet ; `DISTRIB_ENABLED`
     coupé → ni lien, ni bandeau, ni page.
 17. Référence OM facultative, nettoyée, bornée ; visible des trois parties.
-18. Versement non contesté → `accepted` après 72 h ; « Pas reçu » → `contested`, montant reste dû.
+18. Versement non contesté → `accepted` après 72 h ; « Pas reçu » → relevé et versement `contested`,
+    montant reste dû ; seul le staff clôt ou rouvre un relevé contesté, action journalisée ; le grossiste
+    ne peut pas redéclarer.
 19. Plafonds : alerte à 80 % ; blocage allocations/importations au-delà ; commandes en cours et
     ventes ouvertes jamais bloquées ; déblocage automatique.
 20. Commission calculée pendant l'essai mais non facturable ; facturable après `pilot_until` ;
     plafond 1 500 FCFA par commande.
 21. Indice de fiabilité : calculs exacts sur jeux de données de test.
+22. Relevés : clôture du lundi inclut exactement les lignes `paid_confirmed` jusqu'au dimanche 23:59:59
+    non couvertes ; une ligne confirmée à 00:00:01 le lundi va au relevé suivant ; montant = somme des
+    marges (jamais saisi, aucun champ montant dans le formulaire « Payé ») ; relevé à 0 non créé ;
+    clôture rejouée = aucun doublon (unicité `invite`+`période`).
+23. « Payé » : référence OM obligatoire ; le `ResellerPayout` couvre exactement les lignes du relevé
+    (`payout` renseigné sur chacune, aucune autre) ; paiement partiel impossible ; double clic sans
+    effet ; seul le grossiste propriétaire peut régler ; relevé figé après `paid`.
+24. Renversement automatique (§15.1) sur une ligne d'un relevé `to_pay` : ligne retirée, relevé recalculé ;
+    sur une ligne d'un relevé `paid` : aucun changement, `conflict_flag` + signal.
+25. Plafond marge par revendeur et retards : un relevé `contested` reste dû ; un relevé `to_pay` au-delà de
+    `payout_delay_days` déclenche l'alerte.
 
 ### 15.12 Staging — scénario complété (§11)
 
