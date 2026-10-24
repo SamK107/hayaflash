@@ -40,6 +40,7 @@ LOCAL_APPS = [
     "analytics",
     "notifications",
     "delivery",
+    "distrib",
 ]
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
@@ -217,6 +218,9 @@ from ._csp import *  # noqa: E402,F401,F403
 # Healthcheck Celery (valeurs de base.py ; check "skipped" en eager)
 HEALTH_CELERY_MAX_AGE = 180
 HEALTH_CELERY_REQUIRED = False
+
+# Module Distrib : coupe par defaut, les tests dedies l'activent (override_settings).
+DISTRIB_ENABLED = False
 
 # HayaFlash
 HAYAFLASH_PUBLIC_BASE_URL = "http://testserver"

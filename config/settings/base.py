@@ -131,6 +131,11 @@ DEBUG = _env_bool("DEBUG", default="false")
 # Mettre a false pour revenir a l'affichage du seul prix applique.
 HAYAFLASH_PROMO_DISPLAY = _env_bool("HAYAFLASH_PROMO_DISPLAY", default="true")
 
+# Module Distrib (grossistes / revendeurs, docs/specs/SPEC_03_DISTRIB_V1.md §7).
+# Coupe par defaut : URLs /distrib/ en 404, aucun bandeau, aucun suivi. Les produits
+# deja importes restent des produits normaux des boutiques.
+DISTRIB_ENABLED = _env_bool("DISTRIB_ENABLED", default="false")
+
 
 def postgresql_database(*, conn_max_age: int) -> dict[str, dict]:
     """
@@ -230,6 +235,7 @@ INSTALLED_APPS = [
     "notifications",
     "delivery",
     "assist",
+    "distrib",
     # Requis par `celery beat --scheduler django_celery_beat.schedulers:DatabaseScheduler`
     # (docker-compose.production.yml) : sans lui, beat ne demarre pas (F-20).
     "django_celery_beat",
