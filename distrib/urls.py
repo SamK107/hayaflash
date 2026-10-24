@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_catalog, views_pilotage
+from . import views, views_catalog, views_pilotage, views_stock
 
 app_name = "distrib"
 
@@ -11,6 +11,11 @@ urlpatterns = [
     path("revendeurs/<int:pk>/revoquer/", views.reseller_revoke, name="reseller_revoke"),
     path("invitation/<int:pk>/", views.invitation, name="invitation"),
     path("mes-grossistes/", views.my_wholesalers, name="my_wholesalers"),
+    path("mes-grossistes/<int:invite_pk>/", views_stock.reseller_catalog, name="reseller_catalog"),
+    path("mes-grossistes/<int:invite_pk>/importer/<int:wp_pk>/", views_stock.reseller_import, name="reseller_import"),
+    path("stock/", views_stock.stock, name="stock"),
+    path("stock/<int:pk>/allouer/", views_stock.stock_allocate, name="stock_allocate"),
+    path("stock/<int:pk>/reprendre/", views_stock.stock_take_back, name="stock_take_back"),
     path("catalogue/", views_catalog.catalog_list, name="catalog"),
     path("catalogue/nouveau/", views_catalog.catalog_create, name="catalog_create"),
     path("catalogue/<int:pk>/", views_catalog.catalog_edit, name="catalog_edit"),

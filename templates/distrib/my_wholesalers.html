@@ -8,12 +8,12 @@
 
 <div class="dx-card">
   {% for invite in invites %}
-  <div class="dx-row">
+  <a class="dx-row" href="{% url 'distrib:reseller_catalog' invite.pk %}" style="text-decoration:none;">
     <div class="dx-grow">
       <div class="dx-name">{{ invite.distributor.business_name }}</div>
-      <div class="dx-meta">Rattaché depuis le {{ invite.answered_at|date:"d/m/Y" }}</div>
+      <div class="dx-meta">Rattaché depuis le {{ invite.answered_at|date:"d/m/Y" }} · voir le catalogue</div>
     </div>
-  </div>
+  </a>
   {% empty %}
   <p class="dx-meta">Vous n'êtes rattaché à aucun grossiste.</p>
   {% endfor %}

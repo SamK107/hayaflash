@@ -1,0 +1,38 @@
+{% extends "distrib/layout.html" %}
+{% block title %}Catalogue de {{ invite.distributor.business_name }} — HayaFlash{% endblock %}
+
+{% block distrib_content %}
+<p><a href="{% url 'distrib:my_wholesalers' %}" class="dx-meta">← Mes grossistes</a></p>
+<h1 class="dx-h1">{{ invite.distributor.business_name }}</h1>
+<p class="dx-sub">Choisissez un produit et fixez votre prix de vente. Le grossiste vous alloue ensuite la quantité.</p>
+
+{% if suspended %}<div class="dx-alert dx-alert-bad" role="alert">Ce grossiste est suspendu : les nouvelles importations sont bloquées.</div>
+{% elif blocked %}<div class="dx-alert dx-alert-bad" role="alert">{{ blocked }}</div>{% endif %}
+
+{% for item in items %}
+<div class="dx-card">
+  {% with first=item.product.images.all|first %}
+  {% if first %}<img src="{{ first.image.url }}" alt="{{ item.product.name }}" style="width:100%;max-height:14rem;object-fit:cover;border-radius:.75rem;margin-bottom:.75rem;">{% endif %}
+  {% endwith %}
+  <h2 class="dx-h2">{{ item.product.name }}</h2>
+  {% if item.product.description %}<p class="dx-meta" style="margin-bottom:.5rem;">{{ item.product.description|linebreaksbr }}</p>{% endif %}
+  <p class="dx-meta">Prix de gros {{ item.product.wholesale_price|floatformat:0 }} FCFA · vente minimum {{ item.product.min_retail_price|floatformat:0 }} FCFA</p>
+
+  {% if item.imported %}
+  <div class="dx-alert dx-alert-ok" style="margin-top:.75rem;">
+    Dans votre boutique · stock alloué : <strong>{{ item.imported.allocated_qty }}</strong> · prix {{ item.imported.product.price|floatformat:0 }} FCFA
+    {% if item.imported.allocated_qty == 0 %}<br>En attente d'allocation par le grossiste.{% endif %}
+  </div>
+  {% else %}
+  <form method="post" action="{% url 'distrib:reseller_import' invite.pk item.product.pk %}" hx-boost="false" class="dx-inline" style="margin-top:.75rem;">
+    {% csrf_token %}
+    <div><label class="hf-label" for="price-{{ item.product.pk }}">Mon prix de vente (FCFA)</label>
+      <input class="hf-input" type="number" min="{{ item.product.min_retail_price|floatformat:0 }}" step="1" inputmode="numeric" name="retail_price" id="price-{{ item.product.pk }}" value="{{ item.product.min_retail_price|floatformat:0 }}" required></div>
+    <button type="submit" class="dx-btn">Importer</button>
+  </form>
+  {% endif %}
+</div>
+{% empty %}
+<div class="dx-card"><p class="dx-meta">Le catalogue de ce grossiste est vide pour l'instant.</p></div>
+{% endfor %}
+{% endblock %}
