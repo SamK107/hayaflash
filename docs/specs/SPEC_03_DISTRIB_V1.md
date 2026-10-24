@@ -1,6 +1,6 @@
 # SPEC 03 — Module Distrib V1 (grossistes / revendeurs)
 
-Statut : prêt pour Claude Code. Priorité 3 (voir `docs/ROADMAP_V2_V3.md`, section 3).
+Statut : prêt pour Claude Code — **avec l'Avenant A (§15, 23/10/2026), qui prévaut en cas de contradiction**. Priorité 3 (voir `docs/ROADMAP_V2_V3.md`, section 3).
 Niveau de risque visé : faible — app indépendante, lecture seule du circuit de commande,
 aucune modification de `orders/`, `payments/` ni des modèles existants.
 
@@ -129,7 +129,7 @@ les commandes, livraisons, paiements, marges dues aux revendeurs et commissions 
   | out_for_delivery | in_delivery |
   | delivered | delivered_by_shop |
   | cancelled | cancelled |
-- **`paid_confirmed` n'est posé que par le grossiste** (bouton « Paiement reçu »), possible dès
+- **[Remplacé par §15.1–15.3]** ~~`paid_confirmed` n'est posé que par le grossiste~~ (bouton « Paiement reçu »), possible dès
   `ordered` (paiement anticipé) mais jamais si `cancelled`. Une fois confirmé, la synchronisation
   ne fait plus redescendre le statut.
 - Montants calculés à la création : `sale_amount` = prix × quantité (snapshot de commande),
@@ -246,7 +246,210 @@ prix minimum, refus de livraison).
 
 ## 14. Hors périmètre (V2)
 
-Inscription libre des grossistes, suspension et masquage automatiques au-delà du plafond, notifications
+Inscription libre des grossistes, masquage automatique au-delà du plafond (le blocage léger des allocations passe en V1, §15.6), notifications
 WhatsApp/SMS/e-mail, sous-domaine distrib.hayaflash.com, stock commun réservé à la commande,
 prépaiement de la commission, blocage du prix minimum dans le formulaire produit, taux par catégorie
 et dégressifs.
+
+---
+
+## 15. Avenant A — Confiance et contrôle (23/10/2026)
+
+**Prévaut sur §4 à §12 en cas de contradiction.** Objectif : ne plus faire dépendre la marge du
+revendeur d'un clic du grossiste, qui est la partie qui doit cette marge. Principe directeur :
+**le silence produit toujours le résultat juste** — aucune partie n'a d'action à faire quand tout va
+bien ; seule l'exception demande un geste, motivé et tracé. Aucun litige ouvert, aucun arbitrage
+au cas par cas : des signaux vers le pilotage HayaFlash.
+
+Rappel métier : la cliente paie toujours à la livraison, contre le produit. **Livré = payé.**
+
+### 15.1 Présomption de livraison (remplace la confirmation exclusive par le grossiste)
+
+- Toute ligne `DistribSettlement` non annulée passe **automatiquement à `paid_confirmed`**
+  `auto_confirm_hours` après la création de la commande (défaut **72 h**, réglable par grossiste
+  dans `Distributor`), sauf si le grossiste a déclaré une non-livraison (§15.2) avant ce délai.
+- Le grossiste peut toujours confirmer plus tôt (bouton « Livré et payé », ex-« Paiement reçu »).
+- Tâche Celery beat (toutes les 15 min, file `default`) : `distrib.tasks.auto_confirm_settlements`.
+  Idempotente, `select_for_update`, erreurs journalisées jamais propagées.
+- Nouveau champ `confirmation_source` : `distributor` / `customer` / `auto`.
+- Une fois `paid_confirmed`, **plus aucune rétrogradation** (ni par la synchro, ni par le grossiste).
+  Seule une correction **staff** dans le pilotage est possible, journalisée (`DistribCorrection` :
+  ligne, ancien/nouveau statut, motif, auteur, date).
+- Compte à rebours visible par les trois parties : « Confirmée automatiquement dans 41 h ».
+
+### 15.2 Déclaration de non-livraison (seule action du grossiste en cas d'échec)
+
+- Bouton « Pas livré » sur la ligne, **avant** la confirmation automatique, avec un motif obligatoire
+  en un tap : `refused` (cliente a refusé), `absent` (injoignable / absente), `cancelled` (annulée
+  par la cliente), `other` (texte court obligatoire).
+- Nouveau statut final `not_delivered` (+ `not_delivered_reason`, `declared_by`, `declared_at`).
+  La synchronisation §5.4 ne l'écrase jamais.
+- Effet sur le stock : `distrib` **appelle le circuit d'annulation existant** des commandes (le même
+  que la vendeuse utilise), qui libère le stock via `orders/services/stock_release.py`
+  (`release_order_stock`). L'unité revient donc **au stock alloué de la même revendeuse**, qui peut
+  la revendre. **Interdit** : écrire `Order.status` directement ou modifier `orders/`.
+  **P0 — Claude Code doit vérifier** quel service/vue réalise l'annulation côté vendeuse et s'il est
+  appelable depuis `distrib` sans modification ; sinon : arrêter et consigner, ne rien contourner.
+- Commande à plusieurs articles dont un seul importé : la déclaration ne vaut que si la commande
+  entière n'a pas été livrée (cas partiel = `other` + signal pilotage, pas d'annulation auto) — à
+  confirmer selon le constat §3 sur `OrderItem`.
+- Effet de contrôle voulu : une fausse déclaration rend au stock une unité déjà partie ; le grossiste
+  se retrouve à devoir livrer un produit qu'il n'a plus ou à multiplier les « Pas livré ». Le
+  mensonge se voit dans le stock et dans l'indice §15.5.
+
+### 15.3 Confirmation par la cliente (facultative, sans aucune action du revendeur)
+
+**Règle (23/10/2026) : aucune action demandée au revendeur, aucun échange WhatsApp revendeur ↔
+cliente.** La confirmation cliente est un bonus ; le verrou reste la présomption de 72 h (§15.1).
+
+Pour chaque ligne, `distrib` génère :
+- `receipt_token` : jeton long non devinable (`secrets.token_urlsafe`, 22+ caractères) ;
+- `receipt_code` : **code de commande à 4 chiffres**, affiché **uniquement à la cliente**
+  (jamais dans l'espace revendeur ni dans l'espace grossiste).
+
+**Accès 1 — automatique, depuis le même téléphone**
+- Sur l'écran de confirmation de commande (`templates/orders/client_order.html`), par **un seul
+  `{% include %}`** conditionnel (`DISTRIB_ENABLED` + au moins un produit importé) : petit lien
+  discret « Confirmer la réception plus tard » et rappel du code à 4 chiffres.
+- Le navigateur garde les jetons des commandes Distrib en cours (cookie dédié `hf_receipts`,
+  HttpOnly, SameSite=Lax, 30 jours, jetons uniquement, aucune donnée personnelle).
+- Quand la cliente revient sur une page publique HayaFlash depuis ce téléphone, un **bandeau
+  discret** apparaît : « Tu as reçu ta commande ? Confirmer » (un seul bandeau, fermable, n'apparaît
+  plus une fois la ligne confirmée, annulée ou `paid_confirmed`).
+
+**Accès 2 — secours, lien discret « Confirmer un paiement »**
+- Lien discret dans le pied des pages publiques, ajouté par **un seul `{% include %}`** dans le
+  gabarit commun public, affiché seulement si `DISTRIB_ENABLED`.
+- Page `/distrib/confirmer/` : numéro de téléphone (indicatif choisi + numéro, E.164) + code à
+  4 chiffres → si une ligne ouverte correspond : bouton « J'ai reçu ma commande ».
+- Anti-abus : limite de débit par IP et par numéro (5 essais / heure), réponse identique que le
+  couple existe ou non, code invalidé après confirmation.
+
+**Après « J'ai reçu »** : champ facultatif « Référence Orange Money (facultatif) » (chiffres/lettres,
+sans date, longueur bornée) puis « Envoyer » — ignorable.
+
+**Effets**
+- ligne non encore confirmée → `paid_confirmed` immédiat, `confirmation_source=customer` ;
+- ligne déjà `not_delivered` → **aucun changement de statut**, signal `conflict` au pilotage
+  uniquement ;
+- `customer_confirmed_at` et `customer_om_reference` visibles des trois parties dans la partie
+  paiements de la ligne, avec la date de livraison.
+
+**P0 — vérifier** que les deux includes sont possibles proprement (un seul `{% include %}` chacun,
+aucune autre modification de template ou de vue existante). Sinon : s'arrêter et consigner ;
+l'accès 2 seul (page `/distrib/confirmer/` sans lien en pied de page) reste le repli.
+
+### 15.4 Versements hebdomadaires des marges (silence = accord)
+
+- `ResellerPayout` gagne : `status` (`declared` / `accepted` / `contested`), `om_reference`
+  (obligatoire à la déclaration), `contest_deadline` (= déclaration + 72 h), `contest_reason`,
+  `accepted_source` (`reseller` / `auto`).
+- Le grossiste déclare le versement (montant + référence OM). Le revendeur voit « Versement reçu ? »
+  avec deux boutons : « Oui » (facultatif) et **« Pas reçu »** (motif court).
+- Sans réponse avant `contest_deadline` → `accepted` automatiquement (tâche beat).
+- « Pas reçu » → `contested` : le montant **reste dû** dans les calculs et un signal part au
+  pilotage. Pas de procédure de litige dans l'outil.
+- Rythme : versement attendu chaque semaine ; `payout_delay_days` (défaut 7) inchangé.
+
+### 15.5 Indice de fiabilité (pilotage HayaFlash uniquement en V1)
+
+Calculé sur 30 jours glissants, par grossiste :
+- taux de `not_delivered` (et répartition par motif) ;
+- nombre de signaux `conflict` (cliente a confirmé une ligne déclarée non livrée) ;
+- nombre de versements `contested` et retards de versement ;
+- part des confirmations `customer` / `distributor` / `auto`.
+Seuils d'alerte réglables (défauts : `not_delivered` > 20 %, ≥ 1 `conflict`, ≥ 1 `contested`).
+Aucune sanction automatique : l'admin échange en privé avec le grossiste. Affichage aux revendeurs = V2.
+
+### 15.6 Plafonds et coupure progressive (remplace la suspension uniquement manuelle)
+
+Deux plafonds distincts, réglables par grossiste :
+- `reseller_credit_ceiling` (défaut **10 000 FCFA**) : marges dues **par revendeur** (confirmées −
+  versements `accepted`/`declared`, les `contested` restant dus) ;
+- `credit_ceiling` existant (défaut 10 000 FCFA) : encours de commission dû à HayaFlash.
+
+Pour chacun :
+- **≥ 80 %** : alerte orange chez le grossiste (et le revendeur concerné) et au pilotage ;
+- **> 100 %** : **blocage automatique des nouvelles allocations et importations** (le revendeur
+  concerné pour le plafond marge, tout le grossiste pour le plafond commission). Message clair :
+  « Règle les marges dues pour débloquer ».
+- **Jamais bloqués** : les commandes en cours, les ventes flash déjà ouvertes, la livraison.
+- Déblocage automatique dès que l'encours repasse sous le plafond.
+- Masquage des produits : reste une action admin manuelle (V2 pour l'automatique).
+
+### 15.7 Commission HayaFlash (précise §5.5)
+
+- Taux **5 à 6 %** négocié par grossiste (`commission_rate`, défaut 6), **plafond 1 500 FCFA par
+  commande** (`commission_max`), minimum `commission_min` conservé (défaut 250, peut être mis à 0).
+- **Calculée et affichée dès le 1er mois**, mais **facturable seulement après `pilot_until`**
+  (≈ fin du mois 1) : nouveau champ `commission_billable` (bool) sur la ligne ; l'encours ne compte
+  que les lignes facturables. Libellé côté grossiste : « Commission offerte (période d'essai) ».
+- Calculée au passage à `paid_confirmed`, quelle que soit la source (§15.1).
+
+### 15.8 Ce que chaque partie doit faire (contrôle d'ergonomie)
+
+| Partie | Obligatoire | Facultatif |
+|---|---|---|
+| Grossiste | affecter le stock ; livrer ; « Pas livré » en cas d'échec ; déclarer le versement hebdo avec réf. OM | « Livré et payé » plus tôt |
+| Revendeur | faire ses lives | « Pas reçu » (versements) |
+| Cliente | rien | « J'ai reçu » ; réf. OM |
+
+Tout écran ajouté doit tenir sur un téléphone, en gros boutons, sans saisie libre sauf motif `other`.
+
+### 15.9 Modèles — ajouts (migrations additives, app `distrib` uniquement)
+
+- `Distributor` : `auto_confirm_hours` (72), `reseller_credit_ceiling` (10 000), seuils d'alerte §15.5.
+- `DistribSettlement` : statut `not_delivered`, `not_delivered_reason`, `not_delivered_note`,
+  `declared_by`, `declared_at`, `confirmation_source`, `auto_confirm_at`, `receipt_token` (unique), `receipt_code` (4 chiffres),
+  `customer_confirmed_at`, `customer_om_reference`, `commission_billable`, `conflict_flag`.
+- `ResellerPayout` : champs §15.4.
+- Nouveau `DistribCorrection` (§15.1).
+
+### 15.10 Phases — ajustements
+
+- **P0** : + vérifier le circuit d'annulation appelable (§15.2) et la possibilité d'include dans
+  `client_order.html` (§15.3) ; consigner les constats avant tout code.
+- **P6** : + présomption 72 h, « Pas livré », appel d'annulation, `DistribCorrection`.
+- **P6b (nouvelle)** : confirmation cliente — code 4 chiffres, cookie et bandeau discret, page `/distrib/confirmer/`, deux includes.
+- **P7** : + versements `declared/accepted/contested`, plafonds et coupure progressive,
+  commission facturable.
+- **P8** : + compte à rebours, boutons §15.8, indice de fiabilité au pilotage.
+
+### 15.11 Tests — ajouts
+
+13. Sans action, une ligne passe `paid_confirmed` (`auto`) après `auto_confirm_hours` ; jamais avant.
+14. « Pas livré » avant le délai → `not_delivered`, commande annulée par le service existant,
+    stock rendu à la boutique du revendeur ; refusé après `paid_confirmed`.
+15. Une ligne `paid_confirmed` n'est jamais rétrogradée (synchro, grossiste) ; correction staff journalisée.
+16. Confirmation cliente : bandeau présent seulement avec le cookie et une ligne ouverte ; page
+    `/distrib/confirmer/` avec numéro + code correct confirme ; mauvais code → réponse neutre ;
+    limite de débit ; code jamais visible côté revendeur/grossiste ; sur ligne `not_delivered` →
+    `conflict_flag` sans changement de statut ; double confirmation sans effet ; `DISTRIB_ENABLED`
+    coupé → ni lien, ni bandeau, ni page.
+17. Référence OM facultative, nettoyée, bornée ; visible des trois parties.
+18. Versement non contesté → `accepted` après 72 h ; « Pas reçu » → `contested`, montant reste dû.
+19. Plafonds : alerte à 80 % ; blocage allocations/importations au-delà ; commandes en cours et
+    ventes ouvertes jamais bloquées ; déblocage automatique.
+20. Commission calculée pendant l'essai mais non facturable ; facturable après `pilot_until` ;
+    plafond 1 500 FCFA par commande.
+21. Indice de fiabilité : calculs exacts sur jeux de données de test.
+
+### 15.12 Staging — scénario complété (§11)
+
+Ajouter : une commande laissée sans action (vérifier la confirmation auto en réglant
+`auto_confirm_hours` à 1 h pour le test) ; un « Pas livré » (stock revenu chez la revendeuse) ;
+une confirmation cliente par le bandeau (même téléphone) et une par la page de secours (autre téléphone, numéro + code) avec référence OM ; une confirmation cliente sur une ligne déclarée non
+livrée (signal `conflict` au pilotage seulement) ; un versement contesté ; dépassement du plafond
+marge (blocage puis déblocage).
+
+### 15.13 Contrat grossiste et CGU — clauses à prévoir (conditions bloquantes §12)
+
+- **Présomption de livraison** : sans déclaration « Pas livré » sous 72 h, la commande est réputée
+  livrée et payée ; la marge et la commission sont dues.
+- Obligation de motif et d'exactitude des déclarations de non-livraison ; HayaFlash peut suspendre
+  en cas d'écarts répétés (indice de fiabilité).
+- Versement hebdomadaire des marges avec référence Orange Money ; silence du revendeur sous 72 h
+  = acceptation ; plafond de marges dues par revendeur et blocage des nouvelles allocations au-delà.
+- Commission 5–6 % plafonnée à 1 500 FCFA par commande, offerte pendant la période d'essai.
+- CGU clientes : collecte facultative de la référence Orange Money à des fins de preuve de paiement,
+  visible par la boutique, le grossiste livreur et HayaFlash.
