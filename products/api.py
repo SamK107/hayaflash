@@ -144,6 +144,10 @@ class FlashSaleProductViewSet(SellerOwnershipMixin, viewsets.ViewSet):
 
         try:
             with transaction.atomic():
+                # Meme ordre de verrouillage que create_order (ids croissants) : evite
+                # l'interblocage avec une commande multi-produits. Le traitement et la
+                # reponse suivent toujours l'ordre d'envoi des mutations.
+                _lock_existing_products_ascending(seller, mutations)
                 for index, mutation in enumerate(mutations):
                     try:
                         product_new = mutation.get("product_new")
@@ -583,6 +587,24 @@ class FlashSaleProductViewSet(SellerOwnershipMixin, viewsets.ViewSet):
             acting_for_seller_id=seller.pk,
         )
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def _lock_existing_products_ascending(seller, mutations) -> None:
+    """Verrouille (select_for_update) les produits existants du vendeur vises par le lot,
+    par identifiants croissants -- l'ordre de `create_order`, qui verrouille les produits
+    de la commande tries par id. A appeler dans la transaction du lot."""
+    ids = {
+        m["product_id"]
+        for m in mutations
+        if not m.get("product_new") and m.get("product_id")
+    }
+    if ids:
+        list(
+            Product.objects.select_for_update()
+            .filter(pk__in=ids, owner=seller)
+            .order_by("pk")
+            .values_list("pk", flat=True)
+        )
 
 
 class _BulkValidationFailed(Exception):
