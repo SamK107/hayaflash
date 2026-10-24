@@ -1,0 +1,51 @@
+{% extends "distrib/layout.html" %}
+{% block title %}Revendeurs — {{ distributor.business_name }}{% endblock %}
+{% block distrib_nav %}{% include "distrib/_nav_distributor.html" with tab="resellers" %}{% endblock %}
+
+{% block distrib_content %}
+<h1 class="dx-h1">Mes revendeurs</h1>
+<p class="dx-sub">Ajoutez le nom et le numéro d'un revendeur. Il ne sera rattaché qu'après avoir accepté.</p>
+
+<div class="dx-card">
+  <h2 class="dx-h2">Inviter un revendeur</h2>
+  <form method="post" hx-boost="false">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="dx-alert dx-alert-bad">{% for e in form.non_field_errors %}<p>{{ e }}</p>{% endfor %}</div>{% endif %}
+    <div style="margin-bottom:.75rem;">
+      <label class="hf-label" for="{{ form.display_name.id_for_label }}">{{ form.display_name.label }}</label>{{ form.display_name }}
+      {% if form.display_name.errors %}<p class="hf-error">{{ form.display_name.errors.0 }}</p>{% endif %}
+    </div>
+    <div style="margin-bottom:.75rem;">
+      <label class="hf-label" for="{{ form.phone.id_for_label }}">{{ form.phone.label }}</label>
+      <div class="dx-phone">{{ form.calling_code }}{{ form.phone }}</div>
+      {% if form.phone.errors %}<p class="hf-error">{{ form.phone.errors.0 }}</p>{% endif %}
+    </div>
+    <button type="submit" class="dx-btn dx-btn-block">Inviter</button>
+  </form>
+</div>
+
+<div class="dx-card">
+  <h2 class="dx-h2">Liste ({{ invites|length }})</h2>
+  {% for invite in invites %}
+  <div class="dx-row">
+    <div class="dx-grow">
+      <div class="dx-name">{{ invite.display_name }}</div>
+      <div class="dx-meta">{{ invite.phone }}{% if invite.seller and invite.status == 'accepted' %} · {{ invite.seller.business_name|default:invite.seller.seller_code }}{% endif %}</div>
+    </div>
+    {% if invite.status == 'accepted' %}<span class="dx-badge dx-badge-ok">Rattaché</span>
+    {% elif invite.status == 'invited' %}<span class="dx-badge dx-badge-warn">En attente</span>
+    {% elif invite.status == 'declined' %}<span class="dx-badge">Refusé</span>
+    {% else %}<span class="dx-badge dx-badge-bad">Révoqué</span>{% endif %}
+    {% if invite.status == 'accepted' or invite.status == 'invited' %}
+    <form method="post" action="{% url 'distrib:reseller_revoke' invite.pk %}" hx-boost="false"
+          data-hf-confirm="Révoquer {{ invite.display_name }} ? Plus de nouvelles importations ; les commandes en cours restent suivies.">
+      {% csrf_token %}
+      <button type="submit" class="dx-btn dx-btn-danger dx-btn-sm">Révoquer</button>
+    </form>
+    {% endif %}
+  </div>
+  {% empty %}
+  <p class="dx-meta">Aucun revendeur pour l'instant.</p>
+  {% endfor %}
+</div>
+{% endblock %}

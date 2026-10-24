@@ -75,3 +75,24 @@ class DistributorCreateForm(PhoneFieldsMixin, forms.Form):
             else:
                 cleaned["orange_money_e164"] = phone
         return cleaned
+
+
+class ResellerInviteForm(PhoneFieldsMixin, forms.Form):
+    display_name = forms.CharField(
+        label="Nom du revendeur", max_length=120,
+        widget=forms.TextInput(attrs={**_INPUT, "placeholder": "Ex. Awa, boutique Awa"}),
+    )
+    calling_code = forms.ChoiceField(
+        label="Indicatif", choices=CALLING_CODE_CHOICES, initial=DEFAULT_CALLING_CODE,
+        widget=forms.Select(attrs=_INPUT),
+    )
+    phone = forms.CharField(
+        label="Téléphone", max_length=30,
+        widget=forms.TextInput(attrs={**_INPUT, "inputmode": "tel", "placeholder": "70 00 00 00"}),
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        if not self.errors:
+            self._clean_phone()
+        return cleaned
