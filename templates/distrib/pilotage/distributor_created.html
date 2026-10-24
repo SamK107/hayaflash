@@ -1,0 +1,18 @@
+{% extends "distrib/layout.html" %}
+{% block title %}Grossiste créé — Pilotage Distrib{% endblock %}
+
+{% block distrib_content %}
+<div class="dx-card">
+  <h1 class="dx-h1">{{ distributor.business_name }} est créé</h1>
+  <p class="dx-sub">Connexion : <strong>{{ distributor.user.phone }}</strong> sur la page « Espace grossiste » (/distrib/connexion/).</p>
+
+  {% if temporary_password %}
+  <p class="dx-meta">Mot de passe provisoire — transmettez-le au grossiste, il ne sera plus affiché :</p>
+  <p class="dx-secret">{{ temporary_password }}</p>
+  {% else %}
+  <div class="dx-alert dx-alert-ok">Ce numéro avait déjà un compte : le grossiste se connecte avec son mot de passe habituel.</div>
+  {% endif %}
+
+  <p style="margin-top:1rem;"><a class="dx-btn dx-btn-block" href="{% url 'distrib:pilotage' %}">Retour au pilotage</a></p>
+</div>
+{% endblock %}

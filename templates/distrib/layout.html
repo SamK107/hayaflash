@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% load static %}
+{% block extra_head %}
+{% include "partials/_hf_form_styles.html" %}
+<link rel="stylesheet" href="{% static 'distrib/distrib.css' %}">
+<meta name="robots" content="noindex">
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-6">
+  {% block distrib_nav %}{% endblock %}
+  {% block distrib_content %}{% endblock %}
+</div>
+{% endblock %}

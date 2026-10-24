@@ -1,0 +1,34 @@
+{% extends "distrib/layout.html" %}
+{% block title %}Nouveau grossiste — Pilotage Distrib{% endblock %}
+
+{% block distrib_content %}
+<p><a href="{% url 'distrib:pilotage' %}" class="dx-meta">← Pilotage Distrib</a></p>
+<div class="dx-card">
+  <h1 class="dx-h1">Nouveau grossiste</h1>
+  <p class="dx-sub">Un compte de connexion est créé si le numéro n'existe pas encore.</p>
+  <form method="post" hx-boost="false" class="space-y-4">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="dx-alert dx-alert-bad">{% for e in form.non_field_errors %}<p>{{ e }}</p>{% endfor %}</div>{% endif %}
+
+    <div><label class="hf-label" for="{{ form.business_name.id_for_label }}">{{ form.business_name.label }}</label>{{ form.business_name }}
+      {% if form.business_name.errors %}<p class="hf-error">{{ form.business_name.errors.0 }}</p>{% endif %}</div>
+    <div><label class="hf-label" for="{{ form.display_name.id_for_label }}">{{ form.display_name.label }}</label>{{ form.display_name }}
+      {% if form.display_name.errors %}<p class="hf-error">{{ form.display_name.errors.0 }}</p>{% endif %}</div>
+    <div>
+      <label class="hf-label" for="{{ form.phone.id_for_label }}">{{ form.phone.label }}</label>
+      <div class="dx-phone">{{ form.calling_code }}{{ form.phone }}</div>
+      {% if form.calling_code.errors %}<p class="hf-error">{{ form.calling_code.errors.0 }}</p>{% endif %}
+      {% if form.phone.errors %}<p class="hf-error">{{ form.phone.errors.0 }}</p>{% endif %}
+    </div>
+    <div><label class="hf-label" for="{{ form.orange_money_number.id_for_label }}">{{ form.orange_money_number.label }}</label>{{ form.orange_money_number }}
+      {% if form.orange_money_number.errors %}<p class="hf-error">{{ form.orange_money_number.errors.0 }}</p>{% endif %}</div>
+    <div><label class="hf-label" for="{{ form.commission_rate.id_for_label }}">{{ form.commission_rate.label }}</label>{{ form.commission_rate }}
+      {% if form.commission_rate.errors %}<p class="hf-error">{{ form.commission_rate.errors.0 }}</p>{% endif %}</div>
+    <div><label class="hf-label" for="{{ form.pilot_until.id_for_label }}">{{ form.pilot_until.label }}</label>{{ form.pilot_until }}
+      <p class="hf-hint">{{ form.pilot_until.help_text }}</p>
+      {% if form.pilot_until.errors %}<p class="hf-error">{{ form.pilot_until.errors.0 }}</p>{% endif %}</div>
+
+    <button type="submit" class="dx-btn dx-btn-block">Créer le grossiste</button>
+  </form>
+</div>
+{% endblock %}

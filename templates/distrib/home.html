@@ -1,7 +1,15 @@
-{% extends "base.html" %}
+{% extends "distrib/layout.html" %}
 {% block title %}Distrib — {{ distributor.business_name }}{% endblock %}
-{% block content %}
-<div class="max-w-2xl mx-auto px-4 py-8">
-  <h1 class="text-2xl font-bold text-gray-900">{{ distributor.business_name }}</h1>
+{% block distrib_nav %}{% include "distrib/_nav_distributor.html" with tab="home" %}{% endblock %}
+
+{% block distrib_content %}
+<h1 class="dx-h1">{{ distributor.business_name }}</h1>
+<p class="dx-sub">Espace grossiste HayaFlash.</p>
+
+{% if distributor.is_suspended %}
+<div class="dx-alert dx-alert-bad" role="alert">
+  <strong>Compte suspendu.</strong> Les nouvelles importations et allocations sont bloquées.
+  {% if distributor.suspended_reason %}<br>{{ distributor.suspended_reason }}{% endif %}
 </div>
+{% endif %}
 {% endblock %}

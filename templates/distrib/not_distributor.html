@@ -1,0 +1,9 @@
+{% extends "distrib/layout.html" %}
+{% block title %}Espace grossiste — HayaFlash{% endblock %}
+{% block distrib_content %}
+<div class="dx-card">
+  <h1 class="dx-h1">Ce compte n'est pas un compte grossiste</h1>
+  <p class="dx-sub">Les comptes grossistes sont créés par l'équipe HayaFlash. Connectez-vous avec le compte qu'elle vous a communiqué.</p>
+  <a class="dx-btn" href="{% url 'seller_home' %}">Retour à mon tableau de bord</a>
+</div>
+{% endblock %}
