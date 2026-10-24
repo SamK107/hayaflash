@@ -128,10 +128,15 @@ les commandes, livraisons, paiements, marges dues aux revendeurs et commissions 
   | pending, confirmed | ordered |
   | out_for_delivery | in_delivery |
   | delivered | delivered_by_shop |
-  | cancelled | cancelled |
+  | cancelled | cancelled (voir règles ci-dessous si la ligne est déjà `paid_confirmed`) |
 - **[Remplacé par §15.1–15.3]** ~~`paid_confirmed` n'est posé que par le grossiste~~ (bouton « Paiement reçu »), possible dès
   `ordered` (paiement anticipé) mais jamais si `cancelled`. Une fois confirmé, la synchronisation
   ne fait plus redescendre le statut.
+- **Règles de synchro (Avenant A, 24/10/2026)** : la synchro ne remplace jamais `not_delivered` ni
+  `paid_confirmed` ; elle horodate `confirmed_at` à la première observation d'un statut `confirmed` ou
+  au-delà (§15.1) ; sur `Order.status = cancelled`, une ligne `paid_confirmed` de source `auto` sans
+  versement est passée en `cancelled` avec recalcul, toute autre ligne `paid_confirmed` reçoit seulement
+  `conflict_flag` + signal pilotage (§15.1). Une ligne `not_delivered` n'est pas touchée.
 - Montants calculés à la création : `sale_amount` = prix × quantité (snapshot de commande),
   `wholesale_amount` = prix de gros × quantité, `reseller_margin` = différence.
 
@@ -266,16 +271,36 @@ Rappel métier : la cliente paie toujours à la livraison, contre le produit. **
 ### 15.1 Présomption de livraison (remplace la confirmation exclusive par le grossiste)
 
 - Toute ligne `DistribSettlement` non annulée passe **automatiquement à `paid_confirmed`**
-  `auto_confirm_hours` après la création de la commande (défaut **72 h**, réglable par grossiste
-  dans `Distributor`), sauf si le grossiste a déclaré une non-livraison (§15.2) avant ce délai.
+  `auto_confirm_hours` après le **passage de la commande à `confirmed`** (défaut **72 h**, réglable par
+  grossiste dans `Distributor`), sauf si le grossiste a déclaré une non-livraison (§15.2) avant ce délai.
+  **Décision du 24/10/2026** : le délai ne part pas de la création de la commande (une commande
+  `pending` n'est pas encore acceptée par la revendeuse et peut expirer à 48 h : `orders/services/expiration.py`).
+- `confirmed_at` est **horodaté par `distrib`** à la première observation d'un statut `confirmed`,
+  `out_for_delivery` ou `delivered` (signal ou réconciliation §5.4) ; `auto_confirm_at = confirmed_at +
+  auto_confirm_hours`. `distrib` ne lit pas d'horodatage dans `orders/` : la précision est celle de la
+  synchro (signal immédiat, réconciliation ≤ 5 min). Une ligne dont la commande reste `pending` n'a ni
+  `confirmed_at` ni échéance, et n'est jamais auto-confirmée.
 - Le grossiste peut toujours confirmer plus tôt (bouton « Livré et payé », ex-« Paiement reçu »).
 - Tâche Celery beat (toutes les 15 min, file `default`) : `distrib.tasks.auto_confirm_settlements`.
   Idempotente, `select_for_update`, erreurs journalisées jamais propagées.
 - Nouveau champ `confirmation_source` : `distributor` / `customer` / `auto`.
-- Une fois `paid_confirmed`, **plus aucune rétrogradation** (ni par la synchro, ni par le grossiste).
-  Seule une correction **staff** dans le pilotage est possible, journalisée (`DistribCorrection` :
-  ligne, ancien/nouveau statut, motif, auteur, date).
-- Compte à rebours visible par les trois parties : « Confirmée automatiquement dans 41 h ».
+- Une fois `paid_confirmed`, **plus aucune rétrogradation** (ni par la synchro, ni par le grossiste),
+  **sauf l'unique exception « présomption renversée » ci-dessous**. Toute autre correction est **staff**,
+  dans le pilotage, journalisée (`DistribCorrection` : ligne, ancien/nouveau statut, motif, auteur, date).
+- **Commande annulée après `paid_confirmed`** (annulation par la vendeuse avant la livraison, ou autre
+  circuit existant ; `distrib` n'annule jamais), règle fixée le 24/10/2026 :
+  1. `confirmation_source = auto` **et** ligne non rattachée à un `ResellerPayout` : la synchro passe la
+     ligne en `cancelled` et **recalcule** : marge et commission ramenées à 0, `commission_billable` faux,
+     encours et marges dues mis à jour. La présomption est renversée par le fait. Journalisé dans
+     `DistribCorrection` (auteur = système, motif « commande annulée après confirmation automatique »).
+  2. `confirmation_source = distributor` ou `customer`, **ou** ligne déjà incluse dans un `ResellerPayout`
+     (quelle que soit la source) : **aucune rétrogradation**, `conflict_flag` posé + signal au pilotage ;
+     correction éventuelle par le staff (`DistribCorrection`).
+  Le rattachement à un versement se matérialise par `DistribSettlement.payout` (FK nullable, §15.9),
+  posé à la déclaration d'un versement ; sa règle de rattachement (lignes couvertes par le montant) est à
+  préciser en P7, et la règle 1 ne s'applique que tant que `payout` est nul.
+- Compte à rebours visible par les trois parties : « Confirmée automatiquement dans 41 h », affiché
+  seulement à partir de `confirmed_at` (« Démarre à la confirmation » tant que la commande est `pending`).
 
 ### 15.2 Déclaration de non-livraison (seule action du grossiste en cas d'échec)
 
@@ -406,10 +431,10 @@ Tout écran ajouté doit tenir sur un téléphone, en gros boutons, sans saisie 
 
 - `Distributor` : `auto_confirm_hours` (72), `reseller_credit_ceiling` (10 000), seuils d'alerte §15.5.
 - `DistribSettlement` : statut `not_delivered`, `not_delivered_reason`, `not_delivered_note`,
-  `declared_by`, `declared_at`, `confirmation_source`, `auto_confirm_at`, `receipt_token` (unique), `receipt_code` (4 chiffres),
+  `declared_by`, `declared_at`, `confirmation_source`, `confirmed_at`, `auto_confirm_at`, `payout` (FK nullable `ResellerPayout`), `receipt_token` (unique), `receipt_code` (4 chiffres),
   `customer_confirmed_at`, `customer_om_reference`, `commission_billable`, `conflict_flag`.
 - `ResellerPayout` : champs §15.4.
-- Nouveau `DistribCorrection` (§15.1).
+- Nouveau `DistribCorrection` (§15.1) ; `author` nullable (null = système, renversement automatique).
 
 ### 15.10 Phases — ajustements
 
@@ -423,10 +448,18 @@ Tout écran ajouté doit tenir sur un téléphone, en gros boutons, sans saisie 
 
 ### 15.11 Tests — ajouts
 
-13. Sans action, une ligne passe `paid_confirmed` (`auto`) après `auto_confirm_hours` ; jamais avant.
+13. Sans action, une ligne passe `paid_confirmed` (`auto`) `auto_confirm_hours` après `confirmed_at`
+    (horodaté par `distrib` à la synchro), jamais avant ; le délai ne part pas de la création : commande
+    restée `pending` = jamais auto-confirmée ; `confirmed_at` posé une seule fois (pas de remise à zéro
+    aux synchros suivantes) ; compte à rebours absent tant que `pending`.
 14. « Pas livré » avant le délai → `not_delivered` dans `distrib` seulement ; `Order`, `OrderItem`, stock et
     mouvements de stock strictement inchangés ; refusé après `paid_confirmed`.
 15. Une ligne `paid_confirmed` n'est jamais rétrogradée (synchro, grossiste) ; correction staff journalisée.
+    Commande annulée après confirmation : (a) source `auto`, sans versement : ligne `cancelled`, marge et
+    commission à 0, encours et marges dues recalculés, `DistribCorrection` système ; (b) source
+    `distributor` ou `customer` : statut inchangé, `conflict_flag` + signal pilotage ; (c) source `auto`
+    mais ligne rattachée à un `ResellerPayout` : inchangée, `conflict_flag` + signal ; (d) ligne
+    `not_delivered` jamais touchée ; rejouer la synchro n'a aucun effet supplémentaire.
 16. Confirmation cliente : bandeau présent seulement avec le cookie et une ligne ouverte ; page
     `/distrib/confirmer/` avec numéro + code correct confirme ; mauvais code → réponse neutre ;
     limite de débit ; code jamais visible côté revendeur/grossiste ; sur ligne `not_delivered` →

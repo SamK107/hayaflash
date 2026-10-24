@@ -146,7 +146,7 @@ Recommandation : **R1 en V1**, R3 en V1.1 si l'effet de contrôle est jugé indi
 - **§15.2 : R1 retenu.** « Pas livré » pose uniquement `not_delivered` (+ motif, auteur, date) dans `distrib` ; ni `Order` ni stock touchés,
   aucune remise en stock automatique. Réaffectation volontaire via l'allocation §5.3. Spec mise à jour (§15.2, tests 14, staging §15.12).
 - **§15.3 : les deux dérogations d'une ligne sont acceptées** : `templates/orders/client_order.html` (include dans le `x-data`, dans `{% if can_submit %}`)
-  et le gabarit public commun (option E1 `templates/base.html` recommandée, à confirmer avant P6b ; vérifier d'abord le cache/`Vary: Cookie`).
+  et le gabarit public commun (option E1 `templates/base.html` recommandée, à confirmer avant P6b ; cache vérifié le 24/10, voir plus bas).
   Ce sont les seules lignes hors §8 autorisées, avec la ligne de `seller/home.html`.
 
 ## Interactions avec `orders/expiration.py` et `orders/unhonored.py` (lecture seule)
@@ -167,9 +167,19 @@ Recommandation : **R1 en V1**, R3 en V1.1 si l'effet de contrôle est jugé indi
 - `blocked_phone_keys` exclut les commandes `CANCELLED` du compte (`unhonored.py:67`, `:90`) : une commande expirée/annulée ensuite par le circuit normal ne compte pas. Pas d'interaction avec `distrib`.
 - Lecture seule : `distrib` peut au plus lire `Order.status` ; aucune action requise.
 
-**Point d'attention P6 (finding à consigner, pas de correction ici)** : une ligne `paid_confirmed` (confirmation précoce du grossiste ou auto 72 h) dont la commande est ensuite annulée
-par la vendeuse (statut `confirmed`, livraison pas commencée : `delivery.py:296-301`) reste `paid_confirmed` (§15.1 : aucune rétrogradation) alors que la vente n'a pas eu lieu et que le stock est revenu.
-Atténuations possibles à décider : n'auto-confirmer que si `Order.status ∈ {out_for_delivery, delivered}` ; sinon correction staff `DistribCorrection`. À trancher avant P6.
+**Cas `paid_confirmed` puis commande annulée : tranché le 24/10/2026** (spec §15.1, §5.4, §15.9, tests 13 et 15 mis à jour) :
+- source `auto`, ligne sans versement : la synchro la passe en `cancelled` et recalcule marge/commission (présomption renversée), `DistribCorrection` auteur système ;
+- source `distributor` ou `customer`, ou ligne déjà dans un `ResellerPayout` : pas de rétrogradation, `conflict_flag` + signal pilotage (correction staff) ;
+- `auto_confirm_hours` court depuis `confirmed_at`, horodaté par `distrib` à la première observation de `confirmed` (ou plus) ; une commande `pending` n'est jamais auto-confirmée (cohérent avec l'expiration à 48 h).
+- Points ouverts pour P6/P7 : (1) `DistribSettlement.payout` (FK ResellerPayout) est ajouté pour matérialiser « incluse dans un versement » ; la règle de rattachement aux lignes (montant libre saisi par le grossiste) reste à préciser en P7 ; (2) `confirmed_at` a la précision de la synchro (signal immédiat, réconciliation ≤ 5 min), `orders/` n'exposant pas d'horodatage de confirmation.
+
+## Cache des pages publiques avant E1 (`base.html`), vérifié le 24/10/2026
+
+Constats :
+- `/f/<slug>/` et `/s/<slug>/` renvoient `Cache-Control: public, max-age=60, stale-while-revalidate=120` + `ETag` (`analytics/views.py:24-30`), **sans `Vary: Cookie`**, et sans cookie `csrftoken` (`analytics/views.py:124-128`). Pas de `cache_page` ni de middleware de cache Django (`config/settings/base.py:248-265`) ; pas de `proxy_cache` Nginx (`infra/nginx/prod.conf` : `expires` seulement sur `/static/` et `/media/`). Le service worker est network-first pour les pages HTML (`static/sw.js:73-79`). Un CDN ou proxy éventuel devant Nginx n'est pas visible dans le dépôt : **à confirmer côté hébergement**.
+- `/order/` (`orders/views.py:33-37`) et `/ventes/` : pas d'en-tête de cache explicite.
+- Conséquence : un bandeau rendu **côté serveur** à partir du cookie `hf_receipts` serait mis en cache 60 s (+120 s) par le navigateur ou un intermédiaire et pourrait être servi à une autre personne ; l'`ETag` (non lié au bandeau) provoquerait aussi des 304 sans lui.
+- **Décision de conception pour P6b** : l'include de `base.html` (E1) rend un fragment **identique pour tous** (lien « Confirmer un paiement » + conteneur vide du bandeau), donc sans risque de cache. Le bandeau est chargé par un `fetch` same-origin vers un endpoint `distrib` (`Cache-Control: private, no-store`, lit le cookie HttpOnly côté serveur, renvoie un fragment vide s'il n'y a rien à afficher). Le JS est dans `distrib/static/` (CSP `script-src 'self'`). `DISTRIB_ENABLED` coupé : include vide. Le lien est cache-safe (décalage de 60-180 s au plus lors d'une bascule du flag). E1 reste donc possible sans toucher aux en-têtes existants.
 
 ## Synthèse faisabilité
 
