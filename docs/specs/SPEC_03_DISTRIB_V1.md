@@ -51,7 +51,7 @@ les commandes, livraisons, paiements, marges dues aux revendeurs et commissions 
 - `is_active`, `is_suspended`, `suspended_reason`
 - Commission : `commission_rate` (%, défaut 6), `commission_min` (défaut 250), `commission_max`
   (défaut 1500), `pilot_until` (date ; avant cette date, commission = 0)
-- `credit_ceiling` (plafond d'encours, défaut 10 000), `payout_delay_days` (défaut 7)
+- `credit_ceiling` (plafond d'encours, défaut 10 000), `payout_delay_days` (défaut **3**, réglable par grossiste)
 - `created_at`, `created_by` (admin)
 
 **`ResellerInvite`** — liste préalable
@@ -85,7 +85,7 @@ les commandes, livraisons, paiements, marges dues aux revendeurs et commissions 
 
 **`ResellerPayout`** — versements de marge aux revendeurs
 - `distributor`, `invite`, `amount`, `paid_at`, `reference`, `recorded_by` (grossiste) — **montant calculé par
-  le relevé, jamais saisi ; un versement = un relevé** (voir §15.4, §15.9)
+  le relevé, jamais saisi ; un relevé a au plus deux déclarations (`attempt` 1 et 2)** (voir §15.4, §15.9)
 
 ## 5. Règles de gestion
 
@@ -388,30 +388,41 @@ il règle un **relevé** calculé par le système, en une fois.
   `amount` = somme des `reseller_margin` de ces lignes, **calculée**, jamais saisie.
 - Les lignes confirmées **après la clôture** (ou rattrapées en retard) vont au relevé **suivant**.
   Un relevé à 0 FCFA n'est pas créé.
-- Statuts : `to_pay` (clos, à régler) → `paid` (versement déclaré, ci-dessous) → `accepted` ou
-  `contested`. Tant qu'un relevé est `to_pay`, il est **recalculé** si une ligne est retirée par le
-  renversement automatique (§15.1, règle 1) ; une fois `paid`, il est figé.
+- Statuts : `to_pay` (clos, à régler) → `paid` (versement déclaré, ci-dessous) → `accepted`, ou
+  `contested` (1re contestation : une redéclaration est permise) → `paid` (redéclaré) → `accepted` ou
+  `escalated` (2e contestation : staff seul). Tant qu'un relevé est `to_pay`, il est **recalculé** si une
+  ligne est retirée par le renversement automatique (§15.1, règle 1) ; dès `paid`, il est figé.
+  `contest_count` (0, 1 ou 2) compte les contestations du cycle en cours.
 - **Pas de paiement partiel en V1** : le seul geste possible est de régler le relevé entier.
 
 **Versement (`ResellerPayout`)**
 - Le grossiste ouvre le relevé et clique **« Payé »** en saisissant la **référence Orange Money**
-  (obligatoire, nettoyée, bornée). Cela crée le `ResellerPayout` (un par relevé, `statement` unique) avec
+  (obligatoire, nettoyée, bornée). Cela crée un `ResellerPayout` (une ligne par déclaration, `attempt` = 1 ou 2, unicité `statement` + `attempt`) avec
   `amount` = montant du relevé (recopié, non modifiable) et renseigne `payout` sur **chacune des lignes du
   relevé** ; le rattachement couvre donc exactement les lignes du relevé.
-- Champs : `status` (`declared` / `accepted` / `contested`), `om_reference`, `contest_deadline`
+- Champs : `status` (`declared` / `accepted` / `contested`), `attempt`, `om_reference`, `contest_deadline`
   (= déclaration + 72 h), `contest_reason`, `accepted_source` (`reseller` / `auto` / `staff`).
 - Le revendeur voit le relevé (ses lignes, ses marges) puis, après « Payé », « Versement reçu ? » avec
   deux boutons : « Oui » (facultatif) et **« Pas reçu »** (motif court).
 - Sans réponse avant `contest_deadline` → `accepted` automatiquement (tâche beat).
-- **Contestation portée sur le relevé** : « Pas reçu » → le relevé et son versement passent
-  `contested`, le montant **reste dû** dans tous les calculs (marges dues, plafond §15.6, retards) et un
-  signal part au pilotage. Pas de procédure de litige dans l'outil ; seul le staff, dans le pilotage, peut
-  clore (`accepted`, source `staff`) ou rouvrir le relevé (`to_pay`, lignes détachées du versement), l'action
-  étant journalisée. Le grossiste ne peut pas redéclarer lui-même un relevé contesté.
+- **Contestation portée sur le relevé** : « Pas reçu » → le versement passe `contested`, le relevé
+  `contested` (`contest_count` = 1), le montant **reste dû** dans tous les calculs (marges dues, plafond
+  §15.6, retards) et un signal part au pilotage. Pas de procédure de litige dans l'outil.
+- **Une seule redéclaration par le grossiste** (décision du 24/10/2026) : sur un relevé `contested`
+  (`contest_count` = 1), il clique de nouveau « Payé » avec une **nouvelle** référence OM (différente de la
+  précédente, obligatoire) ; cela crée le versement `attempt` 2 (même montant, non modifiable), repointe
+  `payout` sur les lignes, repart pour un **nouveau délai de 72 h** (`contest_deadline`), relevé `paid`.
+  Le versement `attempt` 1 est conservé en historique (`contested`).
+- **Seconde contestation sur le même relevé** → relevé `escalated` (`contest_count` = 2), signal pilotage
+  prioritaire, montant toujours dû. Le grossiste ne peut plus rien faire ; **seul le staff**, dans le
+  pilotage, peut clore (relevé et versement `accepted`, `accepted_source` = `staff`) ou rouvrir le relevé
+  (`to_pay`, lignes détachées du versement, `contest_count` remis à 0 : le grossiste peut alors régler à
+  nouveau). Chaque action staff est journalisée (auteur, date, motif).
 - **Dû au revendeur** = marges des lignes `paid_confirmed` dont `payout` est nul ou dont le versement est
   `contested` (les versements `declared` et `accepted` sont comptés comme réglés).
 - Rythme : relevé chaque semaine ; alerte de retard si un relevé reste `to_pay` plus de
-  `payout_delay_days` (défaut 7) après sa clôture (grossiste, revendeur concerné, pilotage).
+  `payout_delay_days` (défaut **3**, réglable par grossiste ; décision du 24/10/2026) après sa clôture
+  (grossiste, revendeur concerné, pilotage). Les relevés `contested` et `escalated` restent dus et signalés.
 
 ### 15.5 Indice de fiabilité (pilotage HayaFlash uniquement en V1)
 
@@ -464,9 +475,12 @@ Tout écran ajouté doit tenir sur un téléphone, en gros boutons, sans saisie 
 - `DistribSettlement` : statut `not_delivered`, `not_delivered_reason`, `not_delivered_note`,
   `declared_by`, `declared_at`, `confirmation_source`, `confirmed_at`, `auto_confirm_at`, `statement` (FK nullable `DistribStatement`), `payout` (FK nullable `ResellerPayout`), `receipt_token` (unique), `receipt_code` (4 chiffres),
   `customer_confirmed_at`, `customer_om_reference`, `commission_billable`, `conflict_flag`.
-- `ResellerPayout` : champs §15.4 + `statement` (OneToOne `DistribStatement`) ; `amount` recopié du relevé.
+- `ResellerPayout` : champs §15.4 + `statement` (FK `DistribStatement`) et `attempt` (1 ou 2 ; unicité
+  `statement` + `attempt`) ; `amount` recopié du relevé.
 - Nouveau `DistribStatement` : `distributor`, `invite`, `period_start`, `period_end`, `amount`, `line_count`,
-  `status` (`to_pay` / `paid` / `accepted` / `contested`), `closed_at` ; unicité (`invite`, `period_start`).
+  `status` (`to_pay` / `paid` / `accepted` / `contested` / `escalated`), `contest_count`, `closed_at` ;
+  unicité (`invite`, `period_start`).
+- `Distributor.payout_delay_days` : défaut 3 (réglable).
 - Nouveau `DistribCorrection` (§15.1) ; `author` nullable (null = système, renversement automatique).
 
 ### 15.10 Phases — ajustements
@@ -499,9 +513,12 @@ Tout écran ajouté doit tenir sur un téléphone, en gros boutons, sans saisie 
     `conflict_flag` sans changement de statut ; double confirmation sans effet ; `DISTRIB_ENABLED`
     coupé → ni lien, ni bandeau, ni page.
 17. Référence OM facultative, nettoyée, bornée ; visible des trois parties.
-18. Versement non contesté → `accepted` après 72 h ; « Pas reçu » → relevé et versement `contested`,
-    montant reste dû ; seul le staff clôt ou rouvre un relevé contesté, action journalisée ; le grossiste
-    ne peut pas redéclarer.
+18. Versement non contesté → `accepted` après 72 h ; « Pas reçu » → versement et relevé `contested`
+    (`contest_count` = 1), montant reste dû. Redéclaration : une seule, avec une référence OM différente
+    et obligatoire, même montant, nouveau délai de 72 h, `attempt` 2, lignes repointées, ancien versement
+    conservé ; une 2e redéclaration par le grossiste est refusée. Seconde contestation → relevé `escalated`,
+    montant toujours dû, grossiste sans action possible ; seul le staff clôt (`accepted_source` = `staff`)
+    ou rouvre (`to_pay`, lignes détachées, `contest_count` = 0), action journalisée.
 19. Plafonds : alerte à 80 % ; blocage allocations/importations au-delà ; commandes en cours et
     ventes ouvertes jamais bloquées ; déblocage automatique.
 20. Commission calculée pendant l'essai mais non facturable ; facturable après `pilot_until` ;
@@ -511,13 +528,14 @@ Tout écran ajouté doit tenir sur un téléphone, en gros boutons, sans saisie 
     non couvertes ; une ligne confirmée à 00:00:01 le lundi va au relevé suivant ; montant = somme des
     marges (jamais saisi, aucun champ montant dans le formulaire « Payé ») ; relevé à 0 non créé ;
     clôture rejouée = aucun doublon (unicité `invite`+`période`).
-23. « Payé » : référence OM obligatoire ; le `ResellerPayout` couvre exactement les lignes du relevé
+23. « Payé » : référence OM obligatoire ; le `ResellerPayout` (`attempt` 1) couvre exactement les lignes du relevé
     (`payout` renseigné sur chacune, aucune autre) ; paiement partiel impossible ; double clic sans
     effet ; seul le grossiste propriétaire peut régler ; relevé figé après `paid`.
 24. Renversement automatique (§15.1) sur une ligne d'un relevé `to_pay` : ligne retirée, relevé recalculé ;
     sur une ligne d'un relevé `paid` : aucun changement, `conflict_flag` + signal.
-25. Plafond marge par revendeur et retards : un relevé `contested` reste dû ; un relevé `to_pay` au-delà de
-    `payout_delay_days` déclenche l'alerte.
+25. Plafond marge par revendeur et retards : un relevé `contested` ou `escalated` reste dû ; un relevé
+    `to_pay` au-delà de `payout_delay_days` (défaut 3, réglable par grossiste, compté depuis la clôture)
+    déclenche l'alerte, pas avant.
 
 ### 15.12 Staging — scénario complété (§11)
 

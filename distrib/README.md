@@ -176,10 +176,12 @@ Recommandation : **R1 en V1**, R3 en V1.1 si l'effet de contrôle est jugé indi
 ## Décision P7 : relevé hebdomadaire (24/10/2026) — spec §15.4, §15.9, §15.1, §5.6, tests 11, 18, 22-25
 
 - Plus de montant libre : tâche beat du lundi 00:05 (`distrib.tasks.close_weekly_statements`) génère un `DistribStatement` par revendeur (lundi 00:00 → dimanche 23:59:59, `Africa/Bamako`), avec les lignes `paid_confirmed` non encore couvertes ; montant calculé.
-- Le grossiste clique « Payé » + référence OM : le `ResellerPayout` (un par relevé) couvre exactement les lignes du relevé (`DistribSettlement.payout` renseigné sur chacune). Pas de paiement partiel ; les lignes confirmées après clôture vont au relevé suivant.
-- Contestation portée sur le relevé (reste dû, signal pilotage, résolution staff uniquement). Renversement automatique §15.1 : relevé `to_pay` recalculé, relevé `paid` figé (→ `conflict_flag`).
-- Modèle : nouveau `DistribStatement` ; `DistribSettlement.statement` + `.payout` ; `ResellerPayout.statement` (OneToOne). Aucune migration hors `distrib`.
-- Précisions que j'ai fixées faute de décision explicite (à confirmer) : relevé à 0 FCFA non créé ; seul le staff clôt ou rouvre un relevé contesté ; alerte de retard = relevé `to_pay` depuis plus de `payout_delay_days` ; `accepted_source` gagne la valeur `staff`.
+- Le grossiste clique « Payé » + référence OM : le `ResellerPayout` (une ligne par déclaration, 2 au plus) couvre exactement les lignes du relevé (`DistribSettlement.payout` renseigné sur chacune). Pas de paiement partiel ; les lignes confirmées après clôture vont au relevé suivant.
+- Contestation portée sur le relevé (reste dû, signal pilotage ; une redéclaration, puis staff seul). Renversement automatique §15.1 : relevé `to_pay` recalculé, relevé `paid` figé (→ `conflict_flag`).
+- Modèle : nouveau `DistribStatement` ; `DistribSettlement.statement` + `.payout` ; `ResellerPayout.statement` (FK + `attempt`). Aucune migration hors `distrib`.
+- Précisions validées le 24/10/2026 : pas de relevé à 0 FCFA ; alerte de retard = relevé `to_pay` depuis plus de `payout_delay_days` après la clôture ; `accepted_source` = `staff` possible.
+- Ajustements du 24/10/2026 : **une seule redéclaration** par le grossiste sur un relevé contesté (nouvelle référence OM, nouveau délai de 72 h, `ResellerPayout.attempt` = 2) ; **2e contestation → relevé `escalated`**, staff seul (clôture `accepted`/`staff` ou réouverture `to_pay`, `contest_count` remis à 0) ; **`payout_delay_days` = 3 par défaut**, réglable par grossiste.
+- Modèle ajusté en conséquence : `ResellerPayout.statement` devient une FK (unicité `statement` + `attempt`) au lieu d'un OneToOne ; `DistribStatement` gagne le statut `escalated` et `contest_count`.
 
 ## Cache des pages publiques avant E1 (`base.html`), vérifié le 24/10/2026
 
