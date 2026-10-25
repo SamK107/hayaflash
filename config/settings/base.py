@@ -504,6 +504,8 @@ CELERY_BEAT_SCHEDULE = {
 # Module Distrib (SPEC_03 §5.4, §15.1) : planifie seulement si l'interrupteur est actif
 # (les taches sont de toute facon des no-op quand il est coupe).
 if DISTRIB_ENABLED:
+    from celery.schedules import crontab
+
     CELERY_BEAT_SCHEDULE.update(
         {
             "distrib-reconcile-settlements": {
@@ -513,6 +515,15 @@ if DISTRIB_ENABLED:
             "distrib-auto-confirm-settlements": {
                 "task": "distrib.auto_confirm_settlements",
                 "schedule": 900.0,
+            },
+            "distrib-accept-payouts": {
+                "task": "distrib.accept_payouts",
+                "schedule": 900.0,
+            },
+            # Releves hebdomadaires : lundi 00:05 (Mali = UTC+0, fuseau Africa/Bamako).
+            "distrib-close-weekly-statements": {
+                "task": "distrib.close_weekly_statements",
+                "schedule": crontab(day_of_week=1, hour=0, minute=5),
             },
         }
     )

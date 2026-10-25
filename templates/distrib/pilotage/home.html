@@ -6,19 +6,20 @@
 <p class="dx-sub">Grossistes créés par l'équipe HayaFlash.</p>
 
 <p><a class="dx-btn dx-btn-block" href="{% url 'distrib:pilotage_distributor_create' %}">Créer un grossiste</a></p>
+<p style="margin-top:.5rem;"><a class="dx-btn dx-btn-ghost dx-btn-block" href="{% url 'distrib:pilotage_signals' %}">Signaux et règlements</a></p>
 
 <div class="dx-card" style="margin-top:1rem;">
-  {% for d in distributors %}
+  {% for row in rows %}{% with d=row.d %}
   <div class="dx-row">
     <div class="dx-grow">
       <div class="dx-name">{{ d.business_name }}</div>
-      <div class="dx-meta">{{ d.user.phone }} · {{ d.reseller_count }} revendeur{{ d.reseller_count|pluralize }} · {{ d.product_count }} produit{{ d.product_count|pluralize }}</div>
+      <div class="dx-meta">{{ d.user.phone }} · {{ d.reseller_count }} revendeur{{ d.reseller_count|pluralize }} · {{ d.product_count }} produit{{ d.product_count|pluralize }} · encours {{ row.outstanding|floatformat:0 }} FCFA{% if row.level == 'blocked' %} (plafond dépassé){% elif row.level == 'warning' %} (≥ 80 % du plafond){% endif %}</div>
     </div>
     {% if not d.is_active %}<span class="dx-badge dx-badge-bad">Inactif</span>
     {% elif d.is_suspended %}<span class="dx-badge dx-badge-warn">Suspendu</span>
     {% else %}<span class="dx-badge dx-badge-ok">Actif</span>{% endif %}
   </div>
-  {% empty %}
+  {% endwith %}{% empty %}
   <p class="dx-meta">Aucun grossiste pour l'instant.</p>
   {% endfor %}
 </div>

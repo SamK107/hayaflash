@@ -209,3 +209,26 @@ Constats :
 2. **§15.2** : tranché le 24/10 (R1), spec mise à jour.
 3. **`adjust_stock` sans verrou** (`products/services/crud.py:114`) : finding à consigner dans le suivi de release (pas de correction « au passage »).
 4. Commande API en mode multi-produits mais UI mono-produit : décider si le cas partiel §15.2 est à traiter en V1.
+
+## P6 / P6b / P7 — décisions d'implémentation (25/10/2026)
+
+- **« Pas livré » = R1** (spec §15.2 prime sur le brief P6 qui parlait d'« appeler le circuit d'annulation ») :
+  écriture dans `DistribSettlement` seulement ; ni `Order`, ni `OrderItem`, ni stock, ni appel à
+  `release_order_stock` / `adjust_stock` / `advance_delivery` (tests `NotDeliveredTests`).
+- **Signal + réconciliation** : `post_save(Order)` → `transaction.on_commit` → `sync_order`, tout en
+  `try/except` + log (`signals.py`, `settlement.safe_sync_order`). Tâche beat 5 min `distrib.reconcile_settlements`.
+- **Planning beat** : les entrées `distrib.*` ne sont ajoutées à `CELERY_BEAT_SCHEDULE` que si
+  `DISTRIB_ENABLED` est vrai (`config/settings/base.py`), car `core/tests_celery_beat.py` (hors périmètre)
+  exige que toute tâche planifiée soit dans sa liste de modules ; les tâches sont de toute façon des no-op
+  interrupteur coupé. ⚠ Lancer cette suite avec `DISTRIB_ENABLED=1` dans l'environnement la ferait échouer.
+- **Commission par ligne** (article importé), pas par commande : l'UI cliente ne commande qu'un produit à la fois.
+- **Relevés** : le brief P7 ne les citait pas, mais les versements en dépendent (§15.4) : `statements.py`
+  (clôture du lundi 00:05, « Payé » + référence OM, acceptation auto 72 h, « Pas reçu », une redéclaration,
+  escalade, clôture/réouverture par le staff). Après une réouverture, la tentative suivante est numérotée
+  à la suite (3, 4…) : l'unicité (`statement`, `attempt`) interdit de réutiliser 1 et 2.
+- **Confirmation cliente** : E1 (`templates/base.html`, 1 ligne) et `templates/orders/client_order.html`
+  (1 ligne, dans le `x-data`, dans `{% if can_submit %}`). Le fragment du pied de page est identique pour
+  tous (cache-safe) ; le bandeau est chargé par `fetch` (`/distrib/bandeau/`, `private, no-store`) seulement
+  si le cookie-drapeau `hf_rc=1` (sans donnée) existe. Limite de débit : 5 essais/heure par IP **et** par
+  numéro sur `/distrib/confirmer/` (risque CGNAT : plusieurs clientes derrière une même IP mobile partagent
+  le quota de l'IP).

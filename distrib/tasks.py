@@ -29,3 +29,23 @@ def auto_confirm_settlements_task() -> None:
     from .services.settlement import auto_confirm_due
 
     auto_confirm_due()
+
+
+@shared_task(name="distrib.close_weekly_statements", ignore_result=True)
+def close_weekly_statements_task() -> None:
+    """Lundi 00:05 : un releve par revendeur pour la semaine ecoulee (§15.4). Idempotent."""
+    if not distrib_enabled():
+        return
+    from .services.statements import close_weekly_statements
+
+    close_weekly_statements()
+
+
+@shared_task(name="distrib.accept_payouts", ignore_result=True)
+def accept_payouts_task() -> None:
+    """Toutes les 15 min : silence du revendeur pendant 72 h = versement accepte (§15.4)."""
+    if not distrib_enabled():
+        return
+    from .services.statements import accept_due_payouts
+
+    accept_due_payouts()

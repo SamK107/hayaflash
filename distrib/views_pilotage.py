@@ -10,8 +10,10 @@ from django.views.decorators.http import require_POST
 
 from .access import staff_required
 from .forms import DistributorCreateForm
-from .models import DistribCorrection, Distributor, DistribSettlement
+from .models import DistribCorrection, DistribPayment, Distributor, DistribSettlement, DistribStatement
+from .services import ceilings
 from .services import settlement as settlement_service
+from .services import statements as statement_service
 from .services.distributors import create_distributor
 
 
@@ -21,7 +23,11 @@ def pilotage_home(request):
         reseller_count=Count("invites", distinct=True),
         product_count=Count("wholesale_products", distinct=True),
     )
-    return render(request, "distrib/pilotage/home.html", {"distributors": distributors})
+    rows = []
+    for d in distributors:
+        outstanding = ceilings.commission_outstanding(d)
+        rows.append({"d": d, "outstanding": outstanding, "level": ceilings.level(outstanding, d.credit_ceiling)})
+    return render(request, "distrib/pilotage/home.html", {"distributors": distributors, "rows": rows})
 
 
 @staff_required
@@ -66,6 +72,10 @@ def pilotage_signals(request):
         {
             "conflicts": conflicts,
             "corrections": corrections,
+            "distributors": Distributor.objects.all(),
+            "statements": DistribStatement.objects.filter(
+                status__in=(DistribStatement.Status.CONTESTED, DistribStatement.Status.ESCALATED)
+            ).select_related("distributor", "invite"),
             "statuses": [(v, label) for v, label in DistribSettlement.Status.choices if v in settlement_service.CORRECTABLE_TO],
         },
     )
@@ -84,3 +94,43 @@ def pilotage_correct(request, pk: int):
     else:
         messages.success(request, "Correction enregistrée et journalisée.")
     return redirect("distrib:pilotage_signals")
+
+
+@staff_required
+@require_POST
+def pilotage_payment(request, pk: int):
+    """Enregistre un reglement de commission recu de ce grossiste (Orange Money, hors outil)."""
+    distributor = get_object_or_404(Distributor, pk=pk)
+    raw = (request.POST.get("amount") or "").strip()
+    reference = (request.POST.get("reference") or "").strip()[:60]
+    if not raw.isdigit() or int(raw) <= 0:
+        messages.error(request, "Montant invalide : un nombre entier de FCFA, supérieur à 0.")
+    else:
+        DistribPayment.objects.create(
+            distributor=distributor, amount=int(raw), reference=reference, recorded_by=request.user
+        )
+        messages.success(request, "Règlement enregistré.")
+    return redirect("distrib:pilotage_signals")
+
+
+def _statement_action(request, pk: int, action):
+    statement = get_object_or_404(DistribStatement, pk=pk)
+    try:
+        action(statement, request.user, request.POST.get("reason", ""))
+    except ValidationError as exc:
+        messages.error(request, " ".join(exc.messages))
+    else:
+        messages.success(request, "Action enregistrée et journalisée.")
+    return redirect("distrib:pilotage_signals")
+
+
+@staff_required
+@require_POST
+def pilotage_statement_close(request, pk: int):
+    return _statement_action(request, pk, statement_service.staff_close_escalated)
+
+
+@staff_required
+@require_POST
+def pilotage_statement_reopen(request, pk: int):
+    return _statement_action(request, pk, statement_service.staff_reopen_escalated)

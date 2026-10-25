@@ -1,0 +1,58 @@
+{% extends "distrib/layout.html" %}
+{% block title %}Relevés — {{ distributor.business_name }}{% endblock %}
+{% block distrib_nav %}{% include "distrib/_nav_distributor.html" with tab="statements" %}{% endblock %}
+
+{% block distrib_content %}
+<h1 class="dx-h1">Relevés</h1>
+<p class="dx-sub">Chaque lundi, un relevé par revendeur : le montant est calculé. Vous le réglez en une fois, avec la référence Orange Money.</p>
+
+{% if commission_level == 'blocked' %}<div class="dx-alert dx-alert-bad" role="alert">Encours de commission {{ outstanding|floatformat:0 }} FCFA : au-dessus du plafond ({{ distributor.credit_ceiling|floatformat:0 }} FCFA). Les nouvelles allocations sont bloquées jusqu'au règlement.</div>
+{% elif commission_level == 'warning' %}<div class="dx-alert" role="alert">Encours de commission {{ outstanding|floatformat:0 }} FCFA : plus de 80 % du plafond ({{ distributor.credit_ceiling|floatformat:0 }} FCFA).</div>{% endif %}
+{% for st in overdue %}<div class="dx-alert dx-alert-bad" role="alert">Relevé de {{ st.invite.display_name }} ({{ st.amount|floatformat:0 }} FCFA) à régler depuis plus de {{ distributor.payout_delay_days }} jours.</div>{% endfor %}
+
+<div class="dx-card">
+  <h2 class="dx-h2">Marges dues par revendeur</h2>
+  {% for r in resellers %}
+  <div class="dx-row">
+    <div class="dx-grow"><div class="dx-name">{{ r.invite.display_name }}</div>
+      <div class="dx-meta">Plafond {{ distributor.reseller_credit_ceiling|floatformat:0 }} FCFA</div></div>
+    <span class="dx-badge{% if r.level == 'blocked' %} dx-badge-bad{% elif r.level == 'warning' %} dx-badge-warn{% endif %}">{{ r.due|floatformat:0 }} FCFA</span>
+  </div>
+  {% if r.level == 'blocked' %}<p class="dx-meta" style="color:#991B1B;">Règle les marges dues pour débloquer les nouvelles allocations.</p>{% endif %}
+  {% empty %}<p class="dx-meta">Aucun revendeur.</p>{% endfor %}
+</div>
+
+{% for row in rows %}
+{% with st=row.statement %}
+<div class="dx-card">
+  <div class="dx-row" style="border-top:0;padding-top:0;">
+    <div class="dx-grow">
+      <div class="dx-name">{{ st.invite.display_name }} — semaine du {{ st.period_start|date:"d/m" }} au {{ st.period_end|date:"d/m/Y" }}</div>
+      <div class="dx-meta">{{ st.line_count }} vente{{ st.line_count|pluralize }} · <strong>{{ st.amount|floatformat:0 }} FCFA</strong></div>
+    </div>
+    <span class="dx-badge{% if st.status == 'accepted' %} dx-badge-ok{% elif st.status == 'contested' or st.status == 'escalated' %} dx-badge-bad{% elif st.status == 'to_pay' %} dx-badge-warn{% endif %}">{{ st.get_status_display }}</span>
+  </div>
+  {% if st.status == 'contested' %}<p class="dx-meta">Le revendeur dit ne pas avoir reçu{% if row.payout.contest_reason %} : « {{ row.payout.contest_reason }} »{% endif %}.{% if row.redeclare and row.can_pay %} Vous pouvez déclarer le versement une seule fois de plus, avec une nouvelle référence.{% endif %}</p>{% endif %}
+  {% if st.status == 'escalated' %}<p class="dx-meta">Deuxième contestation : l'équipe HayaFlash prend le relais.</p>{% endif %}
+  {% if st.status == 'paid' and row.payout %}<p class="dx-meta">Déclaré le {{ row.payout.paid_at|date:"d/m H:i" }} (réf. {{ row.payout.om_reference }}). Sans réponse avant le {{ row.payout.contest_deadline|date:"d/m H:i" }}, il sera accepté.</p>{% endif %}
+  <p><a class="dx-meta" href="{% url 'distrib:statement_detail' st.pk %}" style="font-weight:700;">Voir les ventes</a></p>
+  {% if row.can_pay %}
+  <form method="post" action="{% url 'distrib:statement_pay' st.pk %}" hx-boost="false" class="dx-inline">
+    {% csrf_token %}
+    <div><label class="hf-label" for="ref-{{ st.pk }}">Référence Orange Money</label>
+      <input class="hf-input" id="ref-{{ st.pk }}" name="om_reference" maxlength="40" required autocomplete="off"></div>
+    <button type="submit" class="dx-btn" data-hf-confirm="Régler ce relevé de {{ st.amount|floatformat:0 }} FCFA ?">Payé</button>
+  </form>
+  {% endif %}
+</div>
+{% endwith %}
+{% empty %}
+<div class="dx-card"><p class="dx-meta">Aucun relevé pour l'instant. Le premier est généré le lundi suivant une vente confirmée.</p></div>
+{% endfor %}
+
+<div class="dx-card">
+  <h2 class="dx-h2">Commission HayaFlash</h2>
+  <p class="dx-meta">Encours : {{ outstanding|floatformat:0 }} FCFA.{% if distributor.pilot_until %} Commission offerte (période d'essai) jusqu'au {{ distributor.pilot_until|date:"d/m/Y" }}.{% endif %}</p>
+  {% for p in payments %}<div class="dx-row"><div class="dx-grow"><div class="dx-name">{{ p.amount|floatformat:0 }} FCFA</div><div class="dx-meta">{{ p.paid_at|date:"d/m/Y" }} · {{ p.reference }}</div></div></div>{% endfor %}
+</div>
+{% endblock %}

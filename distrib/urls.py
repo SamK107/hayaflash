@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_catalog, views_orders, views_pilotage, views_receipts, views_stock
+from . import views, views_catalog, views_money, views_orders, views_pilotage, views_receipts, views_stock
 
 app_name = "distrib"
 
@@ -21,6 +21,11 @@ urlpatterns = [
     path("bandeau/", views_receipts.receipt_banner, name="receipt_banner"),
     path("confirmer/", views_receipts.receipt_lookup, name="receipt_lookup"),
     path("confirmer/valider/", views_receipts.receipt_validate, name="receipt_validate"),
+    path("releves/", views_money.statements_list, name="statements"),
+    path("releves/<int:pk>/", views_money.statement_detail, name="statement_detail"),
+    path("releves/<int:pk>/payer/", views_money.statement_pay, name="statement_pay"),
+    path("mes-gains/", views_money.my_gains, name="my_gains"),
+    path("mes-gains/versements/<int:pk>/repondre/", views_money.payout_answer, name="payout_answer"),
     path("stock/", views_stock.stock, name="stock"),
     path("stock/<int:pk>/allouer/", views_stock.stock_allocate, name="stock_allocate"),
     path("stock/<int:pk>/reprendre/", views_stock.stock_take_back, name="stock_take_back"),
@@ -32,5 +37,8 @@ urlpatterns = [
     path("pilotage/", views_pilotage.pilotage_home, name="pilotage"),
     path("pilotage/signaux/", views_pilotage.pilotage_signals, name="pilotage_signals"),
     path("pilotage/lignes/<int:pk>/corriger/", views_pilotage.pilotage_correct, name="pilotage_correct"),
+    path("pilotage/grossistes/<int:pk>/reglement/", views_pilotage.pilotage_payment, name="pilotage_payment"),
+    path("pilotage/releves/<int:pk>/cloturer/", views_pilotage.pilotage_statement_close, name="pilotage_statement_close"),
+    path("pilotage/releves/<int:pk>/rouvrir/", views_pilotage.pilotage_statement_reopen, name="pilotage_statement_reopen"),
     path("pilotage/grossistes/nouveau/", views_pilotage.pilotage_distributor_create, name="pilotage_distributor_create"),
 ]

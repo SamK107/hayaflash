@@ -31,4 +31,34 @@
     <div class="dx-meta">{{ c.reason }} · {% if c.author %}{{ c.author }}{% else %}système{% endif %} · {{ c.created_at|date:"d/m/Y H:i" }}</div></div></div>
   {% empty %}<p class="dx-meta">Aucune.</p>{% endfor %}
 </div>
+
+<div class="dx-card">
+  <h2 class="dx-h2">Relevés contestés ou escaladés</h2>
+  {% for st in statements %}
+  <div style="border-top:1px solid #F3F4F6;padding:.75rem 0;">
+    <div class="dx-name">{{ st.distributor.business_name }} → {{ st.invite.display_name }} : {{ st.amount|floatformat:0 }} FCFA</div>
+    <div class="dx-meta">Semaine du {{ st.period_start|date:"d/m" }} · {{ st.get_status_display }} · contestations : {{ st.contest_count }} · le montant reste dû</div>
+    {% if st.status == 'escalated' %}
+    <form method="post" hx-boost="false" class="dx-inline" style="margin-top:.5rem;">
+      {% csrf_token %}
+      <div><label class="hf-label" for="sr-{{ st.pk }}">Motif (obligatoire)</label><input class="hf-input" id="sr-{{ st.pk }}" name="reason" required maxlength="255"></div>
+      <button type="submit" class="dx-btn dx-btn-sm" formaction="{% url 'distrib:pilotage_statement_close' st.pk %}" data-hf-confirm="Clore ce relevé comme payé ?">Clore (payé)</button>
+      <button type="submit" class="dx-btn dx-btn-ghost dx-btn-sm" formaction="{% url 'distrib:pilotage_statement_reopen' st.pk %}" data-hf-confirm="Rouvrir ce relevé : le grossiste pourra le régler à nouveau ?">Rouvrir</button>
+    </form>
+    {% endif %}
+  </div>
+  {% empty %}<p class="dx-meta">Aucun.</p>{% endfor %}
+</div>
+
+<div class="dx-card">
+  <h2 class="dx-h2">Enregistrer un règlement de commission</h2>
+  {% for d in distributors %}
+  <form method="post" action="{% url 'distrib:pilotage_payment' d.pk %}" hx-boost="false" class="dx-inline" style="margin-bottom:.5rem;">
+    {% csrf_token %}
+    <div><label class="hf-label" for="pa-{{ d.pk }}">{{ d.business_name }} : montant (FCFA)</label><input class="hf-input" id="pa-{{ d.pk }}" name="amount" type="number" min="1" step="1" inputmode="numeric" required></div>
+    <div><label class="hf-label" for="pr-{{ d.pk }}">Référence Orange Money</label><input class="hf-input" id="pr-{{ d.pk }}" name="reference" maxlength="60"></div>
+    <button type="submit" class="dx-btn dx-btn-sm">Enregistrer</button>
+  </form>
+  {% endfor %}
+</div>
 {% endblock %}
