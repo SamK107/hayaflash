@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_catalog, views_pilotage, views_stock
+from . import views, views_catalog, views_orders, views_pilotage, views_stock
 
 app_name = "distrib"
 
@@ -13,6 +13,9 @@ urlpatterns = [
     path("mes-grossistes/", views.my_wholesalers, name="my_wholesalers"),
     path("mes-grossistes/<int:invite_pk>/", views_stock.reseller_catalog, name="reseller_catalog"),
     path("mes-grossistes/<int:invite_pk>/importer/<int:wp_pk>/", views_stock.reseller_import, name="reseller_import"),
+    path("commandes/", views_orders.orders_list, name="orders"),
+    path("commandes/<int:pk>/livre-paye/", views_orders.order_confirm, name="order_confirm"),
+    path("commandes/<int:pk>/pas-livre/", views_orders.order_not_delivered, name="order_not_delivered"),
     path("stock/", views_stock.stock, name="stock"),
     path("stock/<int:pk>/allouer/", views_stock.stock_allocate, name="stock_allocate"),
     path("stock/<int:pk>/reprendre/", views_stock.stock_take_back, name="stock_take_back"),
@@ -22,5 +25,7 @@ urlpatterns = [
     path("catalogue/<int:pk>/photos/", views_catalog.catalog_image_add, name="catalog_image_add"),
     path("catalogue/<int:pk>/photos/<int:image_pk>/retirer/", views_catalog.catalog_image_delete, name="catalog_image_delete"),
     path("pilotage/", views_pilotage.pilotage_home, name="pilotage"),
+    path("pilotage/signaux/", views_pilotage.pilotage_signals, name="pilotage_signals"),
+    path("pilotage/lignes/<int:pk>/corriger/", views_pilotage.pilotage_correct, name="pilotage_correct"),
     path("pilotage/grossistes/nouveau/", views_pilotage.pilotage_distributor_create, name="pilotage_distributor_create"),
 ]

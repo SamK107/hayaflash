@@ -501,6 +501,22 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
+# Module Distrib (SPEC_03 §5.4, §15.1) : planifie seulement si l'interrupteur est actif
+# (les taches sont de toute facon des no-op quand il est coupe).
+if DISTRIB_ENABLED:
+    CELERY_BEAT_SCHEDULE.update(
+        {
+            "distrib-reconcile-settlements": {
+                "task": "distrib.reconcile_settlements",
+                "schedule": 300.0,
+            },
+            "distrib-auto-confirm-settlements": {
+                "task": "distrib.auto_confirm_settlements",
+                "schedule": 900.0,
+            },
+        }
+    )
+
 # ── Healthcheck Celery (config/api_urls.py:health) ────────────────────────────
 # Age max (s) du dernier battement core.celery_heartbeat avant "stale".
 # 180 s = 3 battements manques (planifies toutes les 60 s).

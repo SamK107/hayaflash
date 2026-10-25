@@ -1,0 +1,34 @@
+{% extends "distrib/layout.html" %}
+{% block title %}Signaux — Pilotage Distrib{% endblock %}
+
+{% block distrib_content %}
+<p><a href="{% url 'distrib:pilotage' %}" class="dx-meta">← Pilotage Distrib</a></p>
+<h1 class="dx-h1">Signaux</h1>
+<p class="dx-sub">Lignes à vérifier. Aucune sanction automatique : vous échangez en privé avec le grossiste.</p>
+
+{% for line in conflicts %}
+<div class="dx-card">
+  <div class="dx-name">{{ line.distributor.business_name }} — commande n° {{ line.order_id }}</div>
+  <p class="dx-meta">Revendeur {{ line.invite.display_name }} · statut {{ line.get_status_display }} · source {{ line.get_confirmation_source_display|default:"—" }}</p>
+  {% if line.customer_confirmed_at %}<p class="dx-meta">La cliente a confirmé la réception le {{ line.customer_confirmed_at|date:"d/m/Y H:i" }}.</p>{% endif %}
+  <form method="post" action="{% url 'distrib:pilotage_correct' line.pk %}" hx-boost="false" class="dx-inline">
+    {% csrf_token %}
+    <div><label class="hf-label" for="ns-{{ line.pk }}">Nouveau statut</label>
+      <select class="hf-input" id="ns-{{ line.pk }}" name="new_status">{% for value, label in statuses %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div>
+    <div><label class="hf-label" for="rs-{{ line.pk }}">Motif (obligatoire)</label>
+      <input class="hf-input" id="rs-{{ line.pk }}" name="reason" required maxlength="255"></div>
+    <button type="submit" class="dx-btn dx-btn-sm" data-hf-confirm="Corriger cette ligne ? L'action est journalisée.">Corriger</button>
+  </form>
+</div>
+{% empty %}
+<div class="dx-card"><p class="dx-meta">Aucun signal.</p></div>
+{% endfor %}
+
+<div class="dx-card">
+  <h2 class="dx-h2">Corrections récentes</h2>
+  {% for c in corrections %}
+  <div class="dx-row"><div class="dx-grow"><div class="dx-name">Ligne {{ c.settlement_id }} : {{ c.old_status }} → {{ c.new_status }}</div>
+    <div class="dx-meta">{{ c.reason }} · {% if c.author %}{{ c.author }}{% else %}système{% endif %} · {{ c.created_at|date:"d/m/Y H:i" }}</div></div></div>
+  {% empty %}<p class="dx-meta">Aucune.</p>{% endfor %}
+</div>
+{% endblock %}
