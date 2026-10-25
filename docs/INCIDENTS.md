@@ -34,19 +34,23 @@ heartbeat des sauvegardes manquant, monitoring externe `/health/`.
 
 ## À évaluer — hors Distrib
 
-> Défauts latents constatés à la lecture du code, **non corrigés** et sans incident
-> réel connu. À évaluer par le mainteneur (voir `GOVERNANCE_RELEASE.md` / registre des
-> findings du suivi de release). Constaté le 2026-10-24 pendant la phase P0 de `feature/distrib`.
+> Défauts latents constatés à la lecture du code, sans incident réel connu.
+> Constaté le 2026-10-24 pendant la phase P0 de `feature/distrib` ; corrigé sur
+> `fix/adjust-stock-lock`, fusionné dans `main` et déployé en staging puis en
+> production le 2026-10-25.
 
 ### `adjust_stock` : mise à jour perdue (lost update) face à une commande simultanée
 
 | Champ | Contenu |
 |---|---|
-| Fichiers | `products/services/crud.py:114-132` (`adjust_stock`) ; seul appelant : `products/api.py:166` (Publication rapide, mutation avec `stock`) |
-| Gravité proposée | **majeure** (stock faux ⇒ survente ou stock fantôme) ; probabilité faible à moyenne (fenêtre de quelques ms, mais Publication rapide est utilisée pendant les lives, au moment où les commandes arrivent) |
-| Cause | `adjust_stock` ne verrouille pas la ligne (`select_for_update`) et n'est pas atomique par elle-même. Il lit `product.stock_available` en mémoire, calcule `delta = new - ancien`, puis fait `product.stock_available = new_stock_available` et `save(update_fields=...)` : une valeur **absolue** écrase la valeur en base. En comparaison, `create_order` (`orders/services/create_order.py:123`) et `release_order_stock` (`orders/services/stock_release.py:32`) verrouillent le produit. Le produit passé à `adjust_stock` vient de `Product.objects.get(...)` (`products/api.py:161`), sans verrou. |
-| Scénario | Stock affiché 10. La vendeuse saisit 12 dans Publication rapide : la vue lit le produit (stock 10). Pendant ce temps, 3 commandes passent (base : 7). `adjust_stock` écrit 12 : les 3 unités vendues « reviennent » (stock 12 au lieu de 9). Dans l'autre sens (vendeuse qui baisse le stock), des unités commandées peuvent disparaître du décompte. Le mouvement `CORRECTION` enregistre `delta = 2` calculé sur la valeur périmée, donc l'historique des mouvements ne correspond plus au stock. |
-| Effets | Survente possible (stock gonflé), écart entre `stock_available` et la somme des `StockMovement`, aucune alerte. |
-| Piste de correction (non appliquée) | Dans une `transaction.atomic()` : `Product.objects.select_for_update().get(pk=...)`, calculer `delta` sous verrou, écrire en `F("stock_available") + delta`. Ajouter un test de concurrence (PostgreSQL) sur le modèle de `distrib/tests_concurrency.py`. |
-| Contournement dans Distrib | `distrib/services/allocation.py` n'appelle pas `adjust_stock` : verrou + `F()` + `StockMovement(CORRECTION)`. Test : `distrib/tests_concurrency.py` (PostgreSQL) et `distrib/tests_allocation.py::AllocateTests::test_stale_stock_in_memory_is_not_overwritten`. |
-| Statut | À évaluer — **non corrigé dans `feature/distrib`** (hors périmètre §8). |
+| Fichiers | `products/services/crud.py` (`adjust_stock`) ; seul appelant : `products/api.py:166` (Publication rapide, mutation avec `stock`) |
+| Gravité proposée | **majeure** (stock faux ⇒ historique de mouvements faux, survente ou stock fantôme) ; probabilité faible à moyenne (fenêtre de quelques ms, mais Publication rapide est utilisée pendant les lives, quand les commandes arrivent) |
+| Cause | `adjust_stock` ne verrouillait pas la ligne : il calculait `delta = new - product.stock_available` sur l'instance reçue (lue sans verrou par `products/api.py:161`), puis écrivait une valeur absolue. `create_order` (`orders/services/create_order.py:123`) et `release_order_stock` (`orders/services/stock_release.py:32`) verrouillent, pas lui. |
+| Scénario | Stock 20 lu par la vue ; 3 commandes passent (base : 17) ; la vendeuse enregistre 25. Ancien code : mouvement `CORRECTION` de +5 (25 − 20) au lieu de +8 (25 − 17) ; somme des mouvements 22 ≠ stock 25. Deux ajustements simultanés, ou un ajustement et une commande, produisent le même écart. |
+| Effets | Écart entre `stock_available` et la somme des `StockMovement`, sans alerte. Le stock final affiché égale la valeur saisie ; c'est l'historique qui est faux (et, selon l'ordre des écritures, des unités commandées peuvent « revenir » ou disparaître). |
+| Correctif | `adjust_stock` s'exécute dans `transaction.atomic()`, verrouille le `Product` (`select_for_update`), calcule le delta sur la valeur relue sous verrou et met à jour en `F("stock_available") + delta`. Signature, validation (stock négatif refusé), contenu du `StockMovement` (`CORRECTION`, mêmes notes) et retour (même instance, rafraîchie) inchangés. Aucune migration. |
+| Preuves | Avant : `products/tests_adjust_stock_concurrency.py` marqué xfail strict (commit `b4e3d94`) ; sur PostgreSQL (`--ds=config.settings.test_pg`) 3 tests échouent (ex. « 22 != 25 », « 4 != 9 »). Après : 5 tests verts sur PostgreSQL, 4 exécutions consécutives ; tests de concurrence existants (`orders/tests.py`, `orders/tests_expiration.py`, `payments/tests.py`, `core/tests_celery_beat.py`) verts sur PostgreSQL ; suite SQLite 1935 passés, 6 ignorés ; test de concurrence 10/10 sur PostgreSQL. |
+| Interblocage (traité) | Le verrou est tenu jusqu'à la fin de la transaction de `bulk_update`. Pour éviter un interblocage avec une commande multi-produits (`create_order` verrouille les produits par id croissant), `bulk_update` verrouille d'abord les produits existants du lot par id croissant (`_lock_existing_products_ascending`, `products/api.py`) ; le traitement et la réponse restent dans l'ordre d'envoi. Preuve : `BulkUpdateDeadlockTests` (25 tours, PostgreSQL) échoue sans ce verrouillage préalable et passe avec ; `BulkUpdateLockOrderTests` vérifie l'ordre des verrous (SQL) et l'ordre inchangé de la réponse. |
+| Ordre de fusion | 1) fusionner `fix/adjust-stock-lock` dans `main` ; 2) fusionner `main` dans `feature/distrib` en **gardant la version « corrigé »** de cette section (la section existe aussi, au statut « à évaluer », sur `feature/distrib`). |
+| À prévoir : CI PostgreSQL | Les tests de concurrence sont ignorés en SQLite ; ils n'ont tourné qu'en local (conteneur `hf-pg-test`, `--ds=config.settings.test_pg`). Ajouter un job CI PostgreSQL (service `postgres`, mêmes variables `TEST_PG_*`) pour `products/tests_adjust_stock_concurrency.py`, `orders/tests.py`, `orders/tests_expiration.py`, `payments/tests.py`, `core/tests_celery_beat.py`. |
+| Statut | **Corrigé.** Fusionné dans `main` (25/10/2026), déployé en staging puis en production le 25/10/2026. Verifie en production par un test de concurrence manuel (shell Django, compte de test cree puis supprime) : stock coherent, aucune erreur. |
