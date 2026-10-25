@@ -208,6 +208,7 @@
           <p class="text-green-700 text-xs mt-1" x-show="orderResult && orderResult.id">Référence commande #<span x-text="orderResult && orderResult.id"></span></p>
         </div>
       </div>
+      {% include "distrib/_receipt_hint.html" %}
     </div>
 
     {% elif not page_error %}

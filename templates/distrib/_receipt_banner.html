@@ -1,0 +1,8 @@
+<div class="dx-banner" role="status" style="margin:0 1rem 1rem;">
+  <p class="dx-name">Tu as reçu ta commande ?</p>
+  <p class="dx-meta">{{ line.imported_product.wholesale_product.name }}</p>
+  <p style="margin-top:.5rem;display:flex;gap:.5rem;">
+    <a class="dx-btn dx-btn-sm" href="{% url 'distrib:receipt_page' line.receipt_token %}">Confirmer</a>
+    <button type="button" class="dx-btn dx-btn-ghost dx-btn-sm" data-distrib-dismiss>Fermer</button>
+  </p>
+</div>

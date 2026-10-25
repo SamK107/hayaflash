@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_catalog, views_orders, views_pilotage, views_stock
+from . import views, views_catalog, views_orders, views_pilotage, views_receipts, views_stock
 
 app_name = "distrib"
 
@@ -16,6 +16,11 @@ urlpatterns = [
     path("commandes/", views_orders.orders_list, name="orders"),
     path("commandes/<int:pk>/livre-paye/", views_orders.order_confirm, name="order_confirm"),
     path("commandes/<int:pk>/pas-livre/", views_orders.order_not_delivered, name="order_not_delivered"),
+    path("recu/", views_receipts.receipt_hint, name="receipt_hint"),
+    path("recu/<str:token>/", views_receipts.receipt_page, name="receipt_page"),
+    path("bandeau/", views_receipts.receipt_banner, name="receipt_banner"),
+    path("confirmer/", views_receipts.receipt_lookup, name="receipt_lookup"),
+    path("confirmer/valider/", views_receipts.receipt_validate, name="receipt_validate"),
     path("stock/", views_stock.stock, name="stock"),
     path("stock/<int:pk>/allouer/", views_stock.stock_allocate, name="stock_allocate"),
     path("stock/<int:pk>/reprendre/", views_stock.stock_take_back, name="stock_take_back"),

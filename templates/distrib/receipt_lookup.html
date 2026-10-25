@@ -1,0 +1,24 @@
+{% extends "distrib/layout.html" %}
+{% block title %}Confirmer un paiement — HayaFlash{% endblock %}
+
+{% block distrib_content %}
+<div class="dx-card">
+  <h1 class="dx-h1">Confirmer un paiement</h1>
+  <p class="dx-sub">Vous avez reçu votre commande ? Indiquez le numéro utilisé pour commander et le code à 4 chiffres affiché après votre commande.</p>
+  {% if message %}<div class="dx-alert" role="status">{{ message }}</div>{% endif %}
+  <form method="post" hx-boost="false">
+    {% csrf_token %}
+    <div style="margin-bottom:.75rem;">
+      <label class="hf-label" for="{{ form.phone.id_for_label }}">{{ form.phone.label }}</label>
+      <div class="dx-phone">{{ form.calling_code }}{{ form.phone }}</div>
+      {% if form.phone.errors %}<p class="hf-error">{{ form.phone.errors.0 }}</p>{% endif %}
+    </div>
+    <div style="margin-bottom:1rem;">
+      <label class="hf-label" for="{{ form.code.id_for_label }}">{{ form.code.label }}</label>
+      {{ form.code }}
+      {% if form.code.errors %}<p class="hf-error">{{ form.code.errors.0 }}</p>{% endif %}
+    </div>
+    <button type="submit" class="dx-btn dx-btn-block">Continuer</button>
+  </form>
+</div>
+{% endblock %}

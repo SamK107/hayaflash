@@ -140,3 +140,29 @@ class WholesaleProductForm(forms.Form):
 
 class WholesaleImageForm(forms.Form):
     image = forms.ImageField(label="Ajouter une photo")
+
+
+class ReceiptLookupForm(PhoneFieldsMixin, forms.Form):
+    """Acces 2 (§15.3) : numero (indicatif choisi) + code de commande a 4 chiffres."""
+
+    calling_code = forms.ChoiceField(
+        label="Indicatif", choices=CALLING_CODE_CHOICES, initial=DEFAULT_CALLING_CODE,
+        widget=forms.Select(attrs=_INPUT),
+    )
+    phone = forms.CharField(
+        label="Téléphone de la commande", max_length=30,
+        widget=forms.TextInput(attrs={**_INPUT, "inputmode": "tel", "placeholder": "70 00 00 00"}),
+    )
+    code = forms.RegexField(
+        regex=r"^\s*\d{4}\s*$", label="Code de commande (4 chiffres)", max_length=8,
+        error_messages={"invalid": "Le code a 4 chiffres."},
+        widget=forms.TextInput(attrs={**_INPUT, "inputmode": "numeric", "maxlength": "4", "autocomplete": "off"}),
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        if not self.errors:
+            self._clean_phone()
+            if "code" in cleaned:
+                cleaned["code"] = cleaned["code"].strip()
+        return cleaned

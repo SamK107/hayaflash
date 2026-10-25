@@ -1,0 +1,19 @@
+{% extends "distrib/layout.html" %}
+{% block title %}J'ai reçu ma commande — HayaFlash{% endblock %}
+
+{% block distrib_content %}
+<div class="dx-card">
+  <h1 class="dx-h1">Vous avez reçu votre commande ?</h1>
+  <p class="dx-sub">{{ line.imported_product.wholesale_product.name }} × {{ line.quantity }}</p>
+  <form method="post" action="{% url 'distrib:receipt_validate' %}" hx-boost="false">
+    {% csrf_token %}
+    <input type="hidden" name="token" value="{{ line.receipt_token }}">
+    <button type="submit" class="dx-btn dx-btn-block">J'ai reçu ma commande</button>
+    <div style="margin-top:1rem;">
+      <label class="hf-label" for="om-ref">Référence Orange Money (facultatif)</label>
+      <input class="hf-input" id="om-ref" name="om_reference" maxlength="30" autocomplete="off" placeholder="Si vous avez payé par Orange Money">
+      <p class="hf-hint">Elle sert de preuve de paiement. Vous pouvez l'ignorer.</p>
+    </div>
+  </form>
+</div>
+{% endblock %}
