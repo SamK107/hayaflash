@@ -232,3 +232,68 @@ Constats :
   si le cookie-drapeau `hf_rc=1` (sans donnée) existe. Limite de débit : 5 essais/heure par IP **et** par
   numéro sur `/distrib/confirmer/` (risque CGNAT : plusieurs clientes derrière une même IP mobile partagent
   le quota de l'IP).
+
+---
+
+# Module Distrib — fonctionnement, réglages, retour arrière (P10, 25/10/2026)
+
+Référence : `docs/specs/SPEC_03_DISTRIB_V1.md` (Avenant A §15 prioritaire). Recette staging : `distrib/STAGING_CHECKLIST.md`.
+
+## Fonctionnement en une page
+
+1. L'équipe crée un **grossiste** (`/distrib/pilotage/`) ; il se connecte par `/distrib/connexion/`.
+2. Il **invite** des revendeurs par numéro (E.164). Le revendeur voit un bandeau sur `/seller/`, **accepte** ou refuse ; rien n'est rattaché sans acceptation.
+3. Le grossiste tient son **catalogue de gros** (prix de gros, prix de vente minimum, stock) et **alloue** du stock à un revendeur. Le revendeur **importe** : cela crée un produit normal dans sa boutique (`ImportedProduct` fait le lien, `products` n'est jamais modifié).
+4. La revendeuse vend en vente flash comme d'habitude. Chaque `OrderItem` d'un produit importé crée une ligne de suivi `DistribSettlement` (signal `post_save(Order)` + `on_commit`, enrobé de `try/except` : **une commande n'échoue jamais à cause de Distrib** ; la réconciliation toutes les 5 min rattrape).
+5. **Présomption de livraison** : `auto_confirm_hours` (72 h par défaut) après la confirmation de la commande, sans « Pas livré », la ligne devient `paid_confirmed` (source `auto`). Le grossiste peut confirmer plus tôt (« Livré et payé »), la cliente aussi (« J'ai reçu », code à 4 chiffres, `/distrib/confirmer/`).
+6. **« Pas livré »** (motif obligatoire) ne touche ni `Order`, ni stock (décision R1) ; le stock se réaffecte volontairement via l'allocation.
+7. Chaque **lundi 00:05** : un **relevé** par revendeur (marges confirmées, montant calculé, jamais saisi). Le grossiste clique « Payé » + référence Orange Money ; le revendeur répond « Oui, reçu » ou « Pas reçu » (motif de liste) ; **silence 72 h = accepté**. Une redéclaration, puis escalade vers l'équipe.
+8. **Commission HayaFlash** : 6 % par défaut, minimum 250, plafond 1 500 FCFA par ligne ; calculée dès le mois 1 mais **facturable seulement après `pilot_until`**. Encours = commissions facturables − règlements enregistrés au pilotage.
+9. **Plafonds** : alerte à 80 %, blocage des seules **nouvelles** allocations/importations au-delà (marges dues par revendeur ; encours de commission du grossiste). Jamais les commandes en cours. Déblocage automatique.
+
+## Écrans (P8)
+
+| Écran | URL | Public | Rafraîchissement |
+|---|---|---|---|
+| Accueil grossiste | `/distrib/` | grossiste | HTMX 30 s (`/distrib/accueil/direct/`) |
+| Commandes | `/distrib/commandes/` | grossiste | HTMX 30 s |
+| Revendeurs (ventes, stock, marges dues, versements) | `/distrib/revendeurs/` | grossiste | HTMX 30 s |
+| Relevés, Stock, Catalogue | `/distrib/releves/`, `/stock/`, `/catalogue/` | grossiste | actualisation manuelle (formulaires longs) |
+| Mes grossistes | `/distrib/mes-grossistes/` | revendeur | HTMX 30 s |
+| Mes gains (+ « Pas reçu ») | `/distrib/mes-gains/` | revendeur | HTMX 30 s |
+| Pilotage + indice de fiabilité | `/distrib/pilotage/` | staff | HTMX 30 s |
+
+- Les fragments `.../direct/` répondent `Cache-Control: private, no-store` et suivent les mêmes contrôles d'accès que leur page.
+- `static/distrib/live.js` **suspend le rafraîchissement** pendant qu'un formulaire est ouvert (`<details open>`) ou qu'un champ a le focus : une saisie n'est jamais perdue. Il met aussi à jour le compte à rebours de confirmation automatique entre deux rafraîchissements (le serveur reste la référence) et n'affiche le champ de précision que pour le motif « Autre ».
+- Aucun script inline ni attribut `on*=` (CSP) ; aucun `{% include ... only %}` autour d'un `{% csrf_token %}`.
+- §15.8 : gros boutons ; aucune saisie libre hors motif « Autre » (« Pas livré » et « Pas reçu » = listes de motifs ; la référence Orange Money est la seule saisie, nettoyée et bornée).
+
+## Indice de fiabilité (§15.5) — pilotage uniquement
+
+`distrib/services/reliability.py`, 30 jours glissants, par grossiste : taux de « Pas livré » (hors annulées) et répartition des motifs ; conflits (`conflict_flag`) ; versements contestés ; relevés en retard ; part des confirmations `customer` / `distributor` / `auto`.
+Seuils réglables par grossiste (admin Django) : `alert_not_delivered_percent` (20, alerte si **strictement** au-dessus), `alert_conflicts` (1), `alert_contested` (1) ; **0 désactive** l'alerte. Les retards utilisent `payout_delay_days`.
+**Aucune sanction automatique** ; jamais visible des grossistes ni des revendeurs (V2). Limite connue : `conflict_flag` n'a pas d'horodatage propre, la fenêtre s'appuie sur `updated_at`.
+
+## Réglages
+
+| Réglage | Où | Défaut |
+|---|---|---|
+| `DISTRIB_ENABLED` | environnement | `false` (module absent) |
+| Taux, minimum, maximum de commission, `pilot_until` | admin Django / création au pilotage | 6 %, 250, 1 500, aucune |
+| `credit_ceiling` (encours commission), `reseller_credit_ceiling` (marges dues par revendeur) | admin Django | 10 000 / 10 000 FCFA |
+| `auto_confirm_hours`, `payout_delay_days` | admin Django, par grossiste | 72 h / 3 jours |
+| Seuils d'alerte de fiabilité | admin Django, par grossiste | 20 % / 1 / 1 |
+| Tâches beat `distrib.*` (réconciliation 5 min, confirmation auto 15 min, acceptation versements 15 min, relevés lundi 00:05) | `config/settings/base.py`, planifiées **seulement** si `DISTRIB_ENABLED` | — |
+
+⚠ Lancer `core/tests_celery_beat.py` avec `DISTRIB_ENABLED=1` dans l'environnement fait échouer cette suite (planning étendu) : la suite complète se lance **sans** la variable ; les tests `distrib` activent l'interrupteur eux-mêmes (`override_settings`).
+
+## Retour arrière (spec §13)
+
+1. **Couper `DISTRIB_ENABLED`** (`false`) et redémarrer web + worker + beat : toutes les URLs `/distrib/` répondent 404, le bandeau et le lien « Confirmer un paiement » disparaissent, le signal et les tâches deviennent des no-op, le planning beat n'est plus chargé.
+2. Les **produits importés restent des produits normaux** des boutiques et continuent de se vendre ; les commandes déjà passées sont intactes.
+3. Si besoin : redéployer l'image du tag `v-avant-distrib`. Les tables `distrib_*` restent en base sans effet (migrations additives, aucune table existante modifiée) ; ne pas les supprimer sans sauvegarde.
+4. Pendant la coupure, rien n'est suivi : à la réactivation, la réconciliation rattrape les commandes de produits importés, et le prochain relevé du lundi reprend les lignes confirmées non couvertes. Les délais d'acceptation des versements reprennent à la réactivation.
+
+## Fichiers hors module touchés (dérogations §8, validées le 24/10)
+
+`templates/seller/home.html` (+1 ligne, bandeau d'invitation), `templates/orders/client_order.html` (+1 ligne), `templates/base.html` (+1 ligne, fragment identique pour tous), plus `config/settings/base.py`, `config/urls.py`, `.env.example`, `CLAUDE.md`.
