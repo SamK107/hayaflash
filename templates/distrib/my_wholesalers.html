@@ -4,18 +4,9 @@
 {% block distrib_content %}
 <p><a href="{% url 'seller_home' %}" class="dx-meta">← Tableau de bord</a></p>
 <h1 class="dx-h1">Mes grossistes</h1>
-<p class="dx-sub">Les grossistes auxquels vous êtes rattaché.</p>
+<p class="dx-sub">Les grossistes auxquels vous êtes rattaché. Cette page se met à jour toute seule.</p>
 
-<div class="dx-card">
-  {% for invite in invites %}
-  <a class="dx-row" href="{% url 'distrib:reseller_catalog' invite.pk %}" style="text-decoration:none;">
-    <div class="dx-grow">
-      <div class="dx-name">{{ invite.distributor.business_name }}</div>
-      <div class="dx-meta">Rattaché depuis le {{ invite.answered_at|date:"d/m/Y" }} · voir le catalogue</div>
-    </div>
-  </a>
-  {% empty %}
-  <p class="dx-meta">Vous n'êtes rattaché à aucun grossiste.</p>
-  {% endfor %}
+<div data-dx-live hx-get="{% url 'distrib:my_wholesalers_fragment' %}" hx-trigger="every 30s" hx-swap="innerHTML">
+  {% include "distrib/_wholesalers_live.html" %}
 </div>
 {% endblock %}

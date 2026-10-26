@@ -1,2 +1,2 @@
-{% if countdown.kind == 'running' %}<span class="dx-meta">Confirmée automatiquement dans {{ countdown.hours }} h</span>
+{% if countdown.kind == 'running' %}<span class="dx-meta" data-dx-until="{{ countdown.until }}">Confirmée automatiquement dans {{ countdown.label }}</span>
 {% elif countdown.kind == 'waiting' %}<span class="dx-meta">Démarre à la confirmation</span>{% endif %}

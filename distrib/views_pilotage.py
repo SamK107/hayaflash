@@ -6,19 +6,20 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .access import staff_required
 from .forms import DistributorCreateForm
 from .models import DistribCorrection, DistribPayment, Distributor, DistribSettlement, DistribStatement
-from .services import ceilings
+from .services import ceilings, dashboard, reliability
 from .services import settlement as settlement_service
 from .services import statements as statement_service
 from .services.distributors import create_distributor
 
 
-@staff_required
-def pilotage_home(request):
+def _pilotage_context() -> dict:
+    now = timezone.now()
     distributors = Distributor.objects.select_related("user").annotate(
         reseller_count=Count("invites", distinct=True),
         product_count=Count("wholesale_products", distinct=True),
@@ -26,8 +27,28 @@ def pilotage_home(request):
     rows = []
     for d in distributors:
         outstanding = ceilings.commission_outstanding(d)
-        rows.append({"d": d, "outstanding": outstanding, "level": ceilings.level(outstanding, d.credit_ceiling)})
-    return render(request, "distrib/pilotage/home.html", {"distributors": distributors, "rows": rows})
+        rows.append(
+            {
+                "d": d,
+                "outstanding": outstanding,
+                "level": ceilings.level(outstanding, d.credit_ceiling),
+                "reliability": reliability.reliability(d, now),
+            }
+        )
+    rows.sort(key=lambda r: (-len(r["reliability"]["alerts"]), r["d"].business_name.lower()))
+    return {"distributors": distributors, "rows": rows, "totals": dashboard.pilotage_totals(now)}
+
+
+@staff_required
+def pilotage_home(request):
+    return render(request, "distrib/pilotage/home.html", _pilotage_context())
+
+
+@staff_required
+def pilotage_fragment(request):
+    response = render(request, "distrib/pilotage/_live.html", _pilotage_context())
+    response["Cache-Control"] = "private, no-store"
+    return response
 
 
 @staff_required

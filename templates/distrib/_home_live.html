@@ -1,0 +1,37 @@
+{% if distributor.is_suspended %}
+<div class="dx-alert dx-alert-bad" role="alert">
+  <strong>Compte suspendu.</strong> Les nouvelles importations et allocations sont bloquées.
+  {% if distributor.suspended_reason %}<br>{{ distributor.suspended_reason }}{% endif %}
+</div>
+{% endif %}
+{% if summary.commission_level == 'blocked' %}<div class="dx-alert dx-alert-bad" role="alert">Encours de commission au-dessus du plafond : les nouvelles allocations sont bloquées jusqu'au règlement.</div>
+{% elif summary.commission_level == 'warning' %}<div class="dx-alert" role="alert">Encours de commission : plus de 80 % du plafond.</div>{% endif %}
+{% for st in summary.overdue %}<div class="dx-alert dx-alert-bad" role="alert">Relevé de {{ st.invite.display_name }} ({{ st.amount|floatformat:0 }} FCFA) à régler depuis plus de {{ distributor.payout_delay_days }} jours.</div>{% endfor %}
+
+{% if summary.to_confirm %}
+<a class="dx-btn dx-btn-block dx-btn-xl" href="{% url 'distrib:orders' %}">{{ summary.to_confirm }} commande{{ summary.to_confirm|pluralize }} à suivre</a>
+{% endif %}
+{% if summary.statements_to_pay %}
+<a class="dx-btn dx-btn-ghost dx-btn-block dx-btn-xl" style="margin-top:.5rem;" href="{% url 'distrib:statements' %}">{{ summary.statements_to_pay }} relevé{{ summary.statements_to_pay|pluralize }} à régler · {{ summary.statements_to_pay_amount|floatformat:0 }} FCFA</a>
+{% endif %}
+
+<div class="dx-grid" style="margin-top:1rem;">
+  <div class="dx-stat"><b>{{ summary.orders_today }}</b><span>Commandes du jour</span></div>
+  <div class="dx-stat"><b>{{ summary.in_delivery }}</b><span>En livraison</span></div>
+  <div class="dx-stat"><b>{{ summary.to_confirm }}</b><span>À confirmer</span></div>
+  <div class="dx-stat"><b>{{ summary.revenue_month|floatformat:0 }}</b><span>CA du mois (FCFA)</span></div>
+  <div class="dx-stat"><b>{{ summary.margins_due|floatformat:0 }}</b><span>Marges dues (FCFA)</span></div>
+  <div class="dx-stat"><b>{{ summary.outstanding|floatformat:0 }}</b><span>Encours HayaFlash (FCFA)</span></div>
+</div>
+<p class="dx-meta" style="margin-top:.5rem;">CA du mois : ventes livrées et payées depuis le 1<sup>er</sup>. Plafond d'encours : {{ distributor.credit_ceiling|floatformat:0 }} FCFA.</p>
+
+{% if soonest %}
+<div class="dx-card" style="margin-top:1rem;">
+  <h2 class="dx-h2">Prochaines confirmations automatiques</h2>
+  {% for row in soonest %}
+  <div class="dx-row"><div class="dx-grow"><div class="dx-name">{{ row.line.imported_product.wholesale_product.name }} × {{ row.line.quantity }}</div>
+    <div class="dx-meta">{{ row.line.invite.display_name }} · {% include "distrib/_countdown.html" with countdown=row.countdown %}</div></div></div>
+  {% endfor %}
+  <p class="dx-meta" style="margin-top:.5rem;">Sans déclaration « Pas livré », la commande est réputée livrée et payée à l'échéance.</p>
+</div>
+{% endif %}

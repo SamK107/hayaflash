@@ -160,6 +160,27 @@ def declare_paid(statement: DistribStatement, user, om_reference: str) -> Resell
 
 # ── Reponse du revendeur ──────────────────────────────────────────────────
 
+# « Pas recu » : motif a choisir dans une liste, saisie libre uniquement pour « Autre » (§15.8).
+CONTEST_OTHER = "other"
+CONTEST_REASONS = [
+    ("no_money", "Je n'ai rien reçu sur mon Orange Money"),
+    ("wrong_amount", "Le montant reçu est différent"),
+    ("wrong_reference", "La référence ne correspond à aucun paiement"),
+    (CONTEST_OTHER, "Autre"),
+]
+
+
+def contest_reason_text(code: str, note: str = "") -> str:
+    """Texte du motif a stocker ; chaine vide si le code est inconnu ou « Autre » sans precision."""
+    labels = dict(CONTEST_REASONS)
+    if code not in labels:
+        return ""
+    if code == CONTEST_OTHER:
+        note = (note or "").strip()[:150]
+        return f"Autre : {note}" if note else ""
+    return labels[code]
+
+
 
 def answer_payout(payout: ResellerPayout, user, *, accept: bool, reason: str = "") -> ResellerPayout:
     """« Oui, recu » ou « Pas recu » (motif). Seul le revendeur concerne, une seule fois."""

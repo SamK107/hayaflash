@@ -1,0 +1,28 @@
+  <h2 class="dx-h2">Liste ({{ overview|length }})</h2>
+  {% for r in overview %}{% with invite=r.invite %}
+  <div class="dx-row" style="align-items:flex-start;">
+    <div class="dx-grow">
+      <div class="dx-name">{{ invite.display_name }}</div>
+      <div class="dx-meta">{{ invite.phone }}{% if invite.seller and invite.status == 'accepted' %} · {{ invite.seller.business_name|default:invite.seller.seller_code }}{% endif %}</div>
+      {% if invite.status == 'accepted' or invite.status == 'revoked' %}
+      <div class="dx-meta">{{ r.sales }} vente{{ r.sales|pluralize }} confirmée{{ r.sales|pluralize }} · {{ r.in_progress }} en cours · {{ r.stock }} en stock alloué</div>
+      <div class="dx-meta">Marges dues <span class="dx-badge{% if r.level == 'blocked' %} dx-badge-bad{% elif r.level == 'warning' %} dx-badge-warn{% endif %}">{{ r.due|floatformat:0 }} FCFA</span>
+        {% if r.last_payout %} · dernier versement {{ r.last_payout.amount|floatformat:0 }} FCFA le {{ r.last_payout.paid_at|date:"d/m" }} ({{ r.last_payout.get_status_display|lower }}){% endif %}</div>
+      {% if r.level == 'blocked' %}<div class="dx-meta" style="color:#991B1B;">Nouvelles allocations bloquées tant que les marges ne sont pas réglées.</div>{% endif %}
+      {% endif %}
+    </div>
+    {% if invite.status == 'accepted' %}<span class="dx-badge dx-badge-ok">Rattaché</span>
+    {% elif invite.status == 'invited' %}<span class="dx-badge dx-badge-warn">En attente</span>
+    {% elif invite.status == 'declined' %}<span class="dx-badge">Refusé</span>
+    {% else %}<span class="dx-badge dx-badge-bad">Révoqué</span>{% endif %}
+    {% if invite.status == 'accepted' or invite.status == 'invited' %}
+    <form method="post" action="{% url 'distrib:reseller_revoke' invite.pk %}" hx-boost="false"
+          data-hf-confirm="Révoquer {{ invite.display_name }} ? Plus de nouvelles importations ; les commandes en cours restent suivies.">
+      {% csrf_token %}
+      <button type="submit" class="dx-btn dx-btn-danger dx-btn-sm">Révoquer</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endwith %}{% empty %}
+  <p class="dx-meta">Aucun revendeur pour l'instant.</p>
+  {% endfor %}

@@ -448,7 +448,7 @@ class PayoutLifecycleTests(MoneyBase):
         page = self.client.get("/distrib/mes-gains/")
         self.assertContains(page, "Versement reçu ?")
         self.assertContains(page, "OM1")
-        resp = self.client.post(f"/distrib/mes-gains/versements/{payout.pk}/repondre/", {"decision": "contest", "reason": "rien"})
+        resp = self.client.post(f"/distrib/mes-gains/versements/{payout.pk}/repondre/", {"decision": "contest", "reason": "no_money"})
         self.assertRedirects(resp, "/distrib/mes-gains/")
         self.assertEqual(ResellerPayout.objects.get().status, PS.CONTESTED)
         # Un autre revendeur ne peut ni voir ni repondre.

@@ -1,0 +1,17 @@
+{% if summary.to_answer %}
+<a class="dx-btn dx-btn-block dx-btn-xl" href="{% url 'distrib:my_gains' %}">{{ summary.to_answer }} versement{{ summary.to_answer|pluralize }} à vérifier</a>
+{% endif %}
+<a class="dx-btn dx-btn-ghost dx-btn-block dx-btn-xl" style="margin:.5rem 0 1rem;" href="{% url 'distrib:my_gains' %}">Mes gains · {{ summary.due|floatformat:0 }} FCFA restant dû</a>
+
+<div class="dx-card">
+  {% for invite in invites %}
+  <a class="dx-row" href="{% url 'distrib:reseller_catalog' invite.pk %}" style="text-decoration:none;">
+    <div class="dx-grow">
+      <div class="dx-name">{{ invite.distributor.business_name }}</div>
+      <div class="dx-meta">Rattaché depuis le {{ invite.answered_at|date:"d/m/Y" }} · voir le catalogue</div>
+    </div>
+  </a>
+  {% empty %}
+  <p class="dx-meta">Vous n'êtes rattaché à aucun grossiste.</p>
+  {% endfor %}
+</div>

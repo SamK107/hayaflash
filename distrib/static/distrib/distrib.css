@@ -41,3 +41,9 @@
 .dx-thumb img { width:5rem; height:5rem; object-fit:cover; border-radius:.5rem; border:1px solid #E5E7EB; }
 .dx-banner { display:block; background:#FFF5F3; border:1.5px solid #FF4D2E; border-radius:1rem; padding:.875rem 1rem; margin-bottom:1rem; }
 .dx-banner p { margin:0; }
+[hidden] { display:none !important; }
+.dx-btn-xl { padding:1rem 1.25rem; font-size:1.0625rem; min-height:3.5rem; }
+.dx-bar { height:.5rem; border-radius:999px; background:#F3F4F6; overflow:hidden; }
+.dx-bar > i { display:block; height:100%; background:#22C55E; }
+.dx-bar-bad > i { background:#DC2626; }
+.dx-bar-warn > i { background:#FFB800; }

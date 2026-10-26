@@ -24,28 +24,7 @@
   </form>
 </div>
 
-<div class="dx-card">
-  <h2 class="dx-h2">Liste ({{ invites|length }})</h2>
-  {% for invite in invites %}
-  <div class="dx-row">
-    <div class="dx-grow">
-      <div class="dx-name">{{ invite.display_name }}</div>
-      <div class="dx-meta">{{ invite.phone }}{% if invite.seller and invite.status == 'accepted' %} · {{ invite.seller.business_name|default:invite.seller.seller_code }}{% endif %}</div>
-    </div>
-    {% if invite.status == 'accepted' %}<span class="dx-badge dx-badge-ok">Rattaché</span>
-    {% elif invite.status == 'invited' %}<span class="dx-badge dx-badge-warn">En attente</span>
-    {% elif invite.status == 'declined' %}<span class="dx-badge">Refusé</span>
-    {% else %}<span class="dx-badge dx-badge-bad">Révoqué</span>{% endif %}
-    {% if invite.status == 'accepted' or invite.status == 'invited' %}
-    <form method="post" action="{% url 'distrib:reseller_revoke' invite.pk %}" hx-boost="false"
-          data-hf-confirm="Révoquer {{ invite.display_name }} ? Plus de nouvelles importations ; les commandes en cours restent suivies.">
-      {% csrf_token %}
-      <button type="submit" class="dx-btn dx-btn-danger dx-btn-sm">Révoquer</button>
-    </form>
-    {% endif %}
-  </div>
-  {% empty %}
-  <p class="dx-meta">Aucun revendeur pour l'instant.</p>
-  {% endfor %}
+<div class="dx-card" data-dx-live hx-get="{% url 'distrib:resellers_fragment' %}" hx-trigger="every 30s" hx-swap="innerHTML">
+  {% include "distrib/_resellers_live.html" %}
 </div>
 {% endblock %}

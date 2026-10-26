@@ -14,6 +14,7 @@ from django.views.decorators.http import require_POST
 
 from .access import distributor_required
 from .models import DistribSettlement
+from .services import dashboard
 from .services import settlement as settlement_service
 
 S = DistribSettlement.Status
@@ -39,7 +40,12 @@ def auto_confirm_info(line: DistribSettlement, now) -> dict:
     if line.auto_confirm_at is None:
         return {"kind": "waiting"}  # « Démarre à la confirmation »
     seconds = (line.auto_confirm_at - now).total_seconds()
-    return {"kind": "running", "hours": max(0, int(seconds // 3600) + (1 if seconds % 3600 else 0))}
+    return {
+        "kind": "running",
+        "hours": max(0, int(seconds // 3600) + (1 if seconds % 3600 else 0)),
+        "label": dashboard.format_remaining(seconds),
+        "until": int(line.auto_confirm_at.timestamp()),
+    }
 
 
 def _line(request, pk: int) -> DistribSettlement:
@@ -48,8 +54,7 @@ def _line(request, pk: int) -> DistribSettlement:
     )
 
 
-@distributor_required
-def orders_list(request):
+def _orders_context(request) -> dict:
     distributor = request.distributor
     status = request.GET.get("statut", "")
     invite_id = request.GET.get("revendeur", "")
@@ -72,19 +77,30 @@ def orders_list(request):
                 "can_act": line.status in settlement_service.OPEN_STATUSES,
             }
         )
-    return render(
-        request,
-        "distrib/orders.html",
-        {
-            "distributor": distributor,
-            "rows": rows,
-            "status": status,
-            "invite_id": invite_id,
-            "status_filters": STATUS_FILTERS,
-            "invites": distributor.invites.all(),
-            "reasons": DistribSettlement.NotDeliveredReason.choices,
-        },
-    )
+    return {
+        "distributor": distributor,
+        "rows": rows,
+        "status": status,
+        "invite_id": invite_id,
+        "status_filters": STATUS_FILTERS,
+        "invites": distributor.invites.all(),
+        "reasons": DistribSettlement.NotDeliveredReason.choices,
+        "other_reason": DistribSettlement.NotDeliveredReason.OTHER,
+        "query": request.GET.urlencode(),
+    }
+
+
+@distributor_required
+def orders_list(request):
+    return render(request, "distrib/orders.html", _orders_context(request))
+
+
+@distributor_required
+def orders_fragment(request):
+    """Liste rafraichie par HTMX toutes les 30 s (sauf si un formulaire est en cours de saisie)."""
+    response = render(request, "distrib/_orders_live.html", _orders_context(request))
+    response["Cache-Control"] = "private, no-store"
+    return response
 
 
 @distributor_required
@@ -105,9 +121,10 @@ def order_confirm(request, pk: int):
 def order_not_delivered(request, pk: int):
     line = _line(request, pk)
     try:
-        settlement_service.declare_not_delivered(
-            line, request.user, reason=request.POST.get("reason", ""), note=request.POST.get("note", "")
-        )
+        reason = request.POST.get("reason", "")
+        # Aucune saisie libre hors motif « Autre » : la precision n'est lue que dans ce cas.
+        note = request.POST.get("note", "") if reason == DistribSettlement.NotDeliveredReason.OTHER else ""
+        settlement_service.declare_not_delivered(line, request.user, reason=reason, note=note)
     except ValidationError as exc:
         messages.error(request, _text(exc))
     else:

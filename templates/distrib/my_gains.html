@@ -6,49 +6,15 @@
 <h1 class="dx-h1">Mes gains</h1>
 <p class="dx-sub">Vos marges sur les produits importés : en cours, confirmées, versées.</p>
 
-{% for b in blocks %}
-<div class="dx-card">
-  <h2 class="dx-h2">{{ b.invite.distributor.business_name }}</h2>
-  <div class="dx-row" style="border-top:0;"><div class="dx-grow"><div class="dx-name">Restant dû</div><div class="dx-meta">Plafond {{ b.ceiling|floatformat:0 }} FCFA</div></div>
-    <span class="dx-badge{% if b.level == 'blocked' %} dx-badge-bad{% elif b.level == 'warning' %} dx-badge-warn{% endif %}">{{ b.due|floatformat:0 }} FCFA</span></div>
-  {% if b.level == 'blocked' %}<div class="dx-alert dx-alert-bad">Marges dues au-dessus du plafond : le grossiste ne peut plus vous allouer de nouveau stock tant qu'elles ne sont pas réglées.</div>
-  {% elif b.level == 'warning' %}<div class="dx-alert">Vos marges dues approchent du plafond.</div>{% endif %}
-
-  {% if b.open_lines %}<h3 class="dx-name" style="margin-top:1rem;">Ventes en cours</h3>
-  {% for row in b.open_lines %}<div class="dx-row"><div class="dx-grow"><div class="dx-name">{{ row.line.imported_product.wholesale_product.name }} × {{ row.line.quantity }}</div>
-    <div class="dx-meta">{{ row.line.get_status_display }} · marge {{ row.line.reseller_margin|floatformat:0 }} FCFA
-      · {% include "distrib/_countdown.html" with countdown=row.countdown %}</div></div></div>{% endfor %}{% endif %}
-
-  {% if b.waiting %}<h3 class="dx-name" style="margin-top:1rem;">Confirmées, relevé de lundi à venir</h3>
-  {% for line in b.waiting %}<div class="dx-row"><div class="dx-grow"><div class="dx-name">{{ line.imported_product.wholesale_product.name }} × {{ line.quantity }}</div>
-    <div class="dx-meta">Confirmée le {{ line.paid_confirmed_at|date:"d/m H:i" }}</div></div><span class="dx-badge">{{ line.reseller_margin|floatformat:0 }} FCFA</span></div>{% endfor %}{% endif %}
-
-  {% for st in b.statements %}
-  <div style="border-top:1px solid #F3F4F6;margin-top:1rem;padding-top:1rem;">
-    <div class="dx-name">Semaine du {{ st.period_start|date:"d/m" }} au {{ st.period_end|date:"d/m/Y" }} : {{ st.amount|floatformat:0 }} FCFA</div>
-    <div class="dx-meta">{{ st.line_count }} vente{{ st.line_count|pluralize }} · {{ st.get_status_display }}</div>
-    {% for p in st.payouts.all %}
-      {% if p.status == 'declared' %}
-      <div class="dx-alert" style="margin-top:.5rem;">Versement reçu ? Le grossiste dit avoir payé {{ p.amount|floatformat:0 }} FCFA (réf. {{ p.om_reference }}). Sans réponse avant le {{ p.contest_deadline|date:"d/m H:i" }}, il sera accepté.</div>
-      <form method="post" action="{% url 'distrib:payout_answer' p.pk %}" hx-boost="false" class="dx-inline">
-        {% csrf_token %}
-        <button type="submit" name="decision" value="accept" class="dx-btn dx-btn-sm">Oui, reçu</button>
-      </form>
-      <form method="post" action="{% url 'distrib:payout_answer' p.pk %}" hx-boost="false" class="dx-inline" style="margin-top:.5rem;">
-        {% csrf_token %}
-        <div><label class="hf-label" for="why-{{ p.pk }}">Pas reçu : pourquoi ?</label><input class="hf-input" id="why-{{ p.pk }}" name="reason" maxlength="255" required></div>
-        <button type="submit" name="decision" value="contest" class="dx-btn dx-btn-danger dx-btn-sm">Pas reçu</button>
-      </form>
-      {% elif p.status == 'contested' %}<div class="dx-meta">Tentative {{ p.attempt }} : contestée{% if p.contest_reason %} (« {{ p.contest_reason }} »){% endif %}.</div>
-      {% else %}<div class="dx-meta">Tentative {{ p.attempt }} : {{ p.get_status_display|lower }}, réf. {{ p.om_reference }}.</div>{% endif %}
-    {% endfor %}
-  </div>
-  {% endfor %}
-
-  {% if b.confirmed_lines %}<h3 class="dx-name" style="margin-top:1rem;">Confirmations des clientes</h3>
-  {% for line in b.confirmed_lines %}<div class="dx-meta">{{ line.imported_product.wholesale_product.name }} : reçue le {{ line.customer_confirmed_at|date:"d/m H:i" }}{% if line.customer_om_reference %} · réf. Orange Money {{ line.customer_om_reference }}{% endif %}</div>{% endfor %}{% endif %}
+<div class="dx-grid" style="margin-bottom:1rem;">
+  <div class="dx-stat"><b>{{ summary.in_progress }}</b><span>Ventes en cours</span></div>
+  <div class="dx-stat"><b>{{ summary.waiting_statement }}</b><span>Confirmées, relevé à venir</span></div>
+  <div class="dx-stat"><b>{{ summary.due|floatformat:0 }}</b><span>Restant dû (FCFA)</span></div>
+  <div class="dx-stat"><b>{{ summary.received_month|floatformat:0 }}</b><span>Reçu ce mois (FCFA)</span></div>
 </div>
-{% empty %}
-<div class="dx-card"><p class="dx-meta">Vous n'êtes rattaché à aucun grossiste.</p></div>
-{% endfor %}
+{% if summary.to_answer %}<div class="dx-alert" role="alert"><strong>{{ summary.to_answer }} versement{{ summary.to_answer|pluralize }} à vérifier.</strong> Répondez « Oui, reçu » ou « Pas reçu » ci-dessous. Sans réponse sous 72 h, il est accepté.</div>{% endif %}
+
+<div data-dx-live hx-get="{% url 'distrib:my_gains_fragment' %}" hx-trigger="every 30s" hx-swap="innerHTML">
+  {% include "distrib/_gains_live.html" %}
+</div>
 {% endblock %}

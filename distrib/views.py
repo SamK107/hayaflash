@@ -7,6 +7,7 @@ from urllib.parse import quote
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
@@ -18,7 +19,10 @@ from .access import (
 )
 from .forms import ResellerInviteForm
 from .models import ResellerInvite
+from .models import DistribSettlement
+from .services import dashboard
 from .services import invites as invite_service
+from .services import settlement as settlement_service
 
 HOME_URL = "/distrib/"
 
@@ -51,9 +55,35 @@ def connexion(request):
     return render(request, "distrib/not_distributor.html", status=403)
 
 
+def _home_context(distributor) -> dict:
+    now = timezone.now()
+    from .views_orders import auto_confirm_info
+
+    soonest = (
+        DistribSettlement.objects.filter(
+            distributor=distributor, status__in=settlement_service.OPEN_STATUSES, auto_confirm_at__isnull=False
+        )
+        .select_related("imported_product__wholesale_product", "invite")
+        .order_by("auto_confirm_at")[:5]
+    )
+    return {
+        "distributor": distributor,
+        "summary": dashboard.distributor_summary(distributor, now),
+        "soonest": [{"line": line, "countdown": auto_confirm_info(line, now)} for line in soonest],
+    }
+
+
 @distributor_required
 def home(request):
-    return render(request, "distrib/home.html", {"distributor": request.distributor})
+    return render(request, "distrib/home.html", _home_context(request.distributor))
+
+
+@distributor_required
+def home_fragment(request):
+    """Rafraichi par HTMX toutes les 30 s."""
+    response = render(request, "distrib/_home_live.html", _home_context(request.distributor))
+    response["Cache-Control"] = "private, no-store"
+    return response
 
 
 
@@ -80,12 +110,22 @@ def resellers(request):
         else:
             messages.success(request, "Invitation enregistrée. Le revendeur la verra sur son tableau de bord.")
             return redirect("distrib:resellers")
-    invites = distributor.invites.select_related("seller")
     return render(
         request,
         "distrib/resellers.html",
-        {"distributor": distributor, "invites": invites, "form": form},
+        {"distributor": distributor, "overview": dashboard.reseller_overview(distributor), "form": form},
     )
+
+
+@distributor_required
+def resellers_fragment(request):
+    response = render(
+        request,
+        "distrib/_resellers_live.html",
+        {"overview": dashboard.reseller_overview(request.distributor)},
+    )
+    response["Cache-Control"] = "private, no-store"
+    return response
 
 
 @distributor_required
@@ -135,7 +175,20 @@ def invitation(request, pk: int):
     )
 
 
+def _wholesalers_context(seller) -> dict:
+    return {
+        "invites": invite_service.accepted_invites_for(seller),
+        "summary": dashboard.reseller_summary(seller),
+    }
+
+
 @reseller_required
 def my_wholesalers(request):
-    accepted = invite_service.accepted_invites_for(request.seller)
-    return render(request, "distrib/my_wholesalers.html", {"invites": accepted})
+    return render(request, "distrib/my_wholesalers.html", _wholesalers_context(request.seller))
+
+
+@reseller_required
+def my_wholesalers_fragment(request):
+    response = render(request, "distrib/_wholesalers_live.html", _wholesalers_context(request.seller))
+    response["Cache-Control"] = "private, no-store"
+    return response

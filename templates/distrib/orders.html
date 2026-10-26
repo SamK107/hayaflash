@@ -14,48 +14,7 @@
   <button class="dx-btn dx-btn-ghost dx-btn-sm" type="submit">Filtrer</button>
 </form>
 
-{% for row in rows %}
-{% with line=row.line %}
-<div class="dx-card">
-  <div class="dx-row" style="border-top:0;padding-top:0;">
-    <div class="dx-grow">
-      <div class="dx-name">{{ line.imported_product.wholesale_product.name }} × {{ line.quantity }}</div>
-      <div class="dx-meta">Commande n° {{ line.order_id }} · {{ line.invite.display_name }} · {{ line.sale_amount|floatformat:0 }} FCFA</div>
-    </div>
-    <span class="dx-badge{% if line.status == 'paid_confirmed' %} dx-badge-ok{% elif line.status == 'not_delivered' or line.status == 'cancelled' %} dx-badge-bad{% endif %}">{{ line.get_status_display }}</span>
-  </div>
-  <p class="dx-meta">Cliente : {{ line.order.customer_name }} · {{ line.order.customer_phone }}</p>
-  {% if row.address %}<p class="dx-meta">Adresse : {{ row.address }}</p>{% endif %}
-  {% include "distrib/_countdown.html" with countdown=row.countdown %}
-  {% if line.status == 'paid_confirmed' %}
-  <p class="dx-meta">Confirmée le {{ line.paid_confirmed_at|date:"d/m/Y H:i" }}{% if line.confirmation_source %} ({{ line.get_confirmation_source_display|lower }}){% endif %}.
-    Marge du revendeur {{ line.reseller_margin|floatformat:0 }} FCFA ·
-    {% if line.commission_billable %}commission {{ line.commission_amount|floatformat:0 }} FCFA{% else %}Commission offerte (période d'essai){% endif %}</p>
-  {% endif %}
-  {% if line.customer_confirmed_at %}<p class="dx-meta">La cliente a confirmé la réception le {{ line.customer_confirmed_at|date:"d/m/Y H:i" }}{% if line.customer_om_reference %} · réf. Orange Money {{ line.customer_om_reference }}{% endif %}.</p>{% endif %}
-  {% if line.status == 'not_delivered' %}<p class="dx-meta">Motif : {{ line.get_not_delivered_reason_display }}{% if line.not_delivered_note %} — {{ line.not_delivered_note }}{% endif %}</p>{% endif %}
-  {% if line.conflict_flag %}<div class="dx-alert">Signal envoyé à l'équipe HayaFlash pour vérification.</div>{% endif %}
-
-  {% if row.can_act %}
-  <form method="post" action="{% url 'distrib:order_confirm' line.pk %}" hx-boost="false" style="margin-top:.75rem;">
-    {% csrf_token %}
-    <button type="submit" class="dx-btn dx-btn-block" data-hf-confirm="Confirmer que cette commande est livrée et payée ?">Livré et payé</button>
-  </form>
-  <details style="margin-top:.5rem;">
-    <summary class="dx-btn dx-btn-ghost dx-btn-block">Pas livré</summary>
-    <form method="post" action="{% url 'distrib:order_not_delivered' line.pk %}" hx-boost="false" style="margin-top:.5rem;">
-      {% csrf_token %}
-      <label class="hf-label" for="reason-{{ line.pk }}">Motif</label>
-      <select class="hf-input" id="reason-{{ line.pk }}" name="reason" required>{% for value, label in reasons %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
-      <label class="hf-label" for="note-{{ line.pk }}" style="margin-top:.5rem;">Précision (obligatoire si « Autre »)</label>
-      <input class="hf-input" id="note-{{ line.pk }}" name="note" maxlength="200">
-      <button type="submit" class="dx-btn dx-btn-danger dx-btn-block" style="margin-top:.5rem;" data-hf-confirm="Déclarer cette commande non livrée ?">Déclarer « Pas livré »</button>
-    </form>
-  </details>
-  {% endif %}
+<div data-dx-live hx-get="{% url 'distrib:orders_fragment' %}{% if query %}?{{ query }}{% endif %}" hx-trigger="every 30s" hx-swap="innerHTML">
+  {% include "distrib/_orders_live.html" %}
 </div>
-{% endwith %}
-{% empty %}
-<div class="dx-card"><p class="dx-meta">Aucune commande pour l'instant.</p></div>
-{% endfor %}
 {% endblock %}

@@ -14,7 +14,7 @@ from django.views.decorators.http import require_POST
 
 from .access import distributor_required, reseller_required
 from .models import DistribPayment, DistribSettlement, DistribStatement, ResellerInvite, ResellerPayout
-from .services import ceilings, statements
+from .services import ceilings, dashboard, statements
 from .services import settlement as settlement_service
 from .views_orders import auto_confirm_info
 
@@ -94,8 +94,7 @@ def statement_pay(request, pk: int):
 # ── Revendeur ─────────────────────────────────────────────────────────────
 
 
-@reseller_required
-def my_gains(request):
+def _gains_context(request) -> dict:
     now = timezone.now()
     invites = list(
         ResellerInvite.objects.filter(seller=request.seller, status__in=("accepted", "revoked")).select_related(
@@ -128,7 +127,25 @@ def my_gains(request):
                 .select_related("imported_product__wholesale_product")[:10],
             }
         )
-    return render(request, "distrib/my_gains.html", {"blocks": blocks})
+    return {
+        "blocks": blocks,
+        "summary": dashboard.reseller_summary(request.seller, now),
+        "contest_reasons": statements.CONTEST_REASONS,
+        "other_reason": statements.CONTEST_OTHER,
+    }
+
+
+@reseller_required
+def my_gains(request):
+    return render(request, "distrib/my_gains.html", _gains_context(request))
+
+
+@reseller_required
+def my_gains_fragment(request):
+    """Rafraichi par HTMX toutes les 30 s (sauf pendant qu'un « Pas reçu » est en cours de saisie)."""
+    response = render(request, "distrib/_gains_live.html", _gains_context(request))
+    response["Cache-Control"] = "private, no-store"
+    return response
 
 
 @reseller_required
@@ -140,7 +157,9 @@ def payout_answer(request, pk: int):
         return redirect("distrib:my_gains")
     try:
         statements.answer_payout(
-            payout, request.user, accept=decision == "accept", reason=request.POST.get("reason", "")
+            payout, request.user, accept=decision == "accept", reason=statements.contest_reason_text(
+                request.POST.get("reason", ""), request.POST.get("note", "")
+            ) if decision == "contest" else ""
         )
     except PermissionDenied:
         raise

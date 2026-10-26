@@ -4,12 +4,9 @@
 
 {% block distrib_content %}
 <h1 class="dx-h1">{{ distributor.business_name }}</h1>
-<p class="dx-sub">Espace grossiste HayaFlash.</p>
+<p class="dx-sub">Espace grossiste HayaFlash. Cette page se met à jour toute seule.</p>
 
-{% if distributor.is_suspended %}
-<div class="dx-alert dx-alert-bad" role="alert">
-  <strong>Compte suspendu.</strong> Les nouvelles importations et allocations sont bloquées.
-  {% if distributor.suspended_reason %}<br>{{ distributor.suspended_reason }}{% endif %}
+<div data-dx-live hx-get="{% url 'distrib:home_fragment' %}" hx-trigger="every 30s" hx-swap="innerHTML">
+  {% include "distrib/_home_live.html" %}
 </div>
-{% endif %}
 {% endblock %}
