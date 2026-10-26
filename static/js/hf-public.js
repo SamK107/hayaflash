@@ -221,6 +221,28 @@ function orderDrawer(saleId) {
       this.audioBase64 = null;
       this.audioChunks = [];
     },
+    // Invite d'installation apres une commande. Comportement attendu (Distrib) : tant que le code de
+    // confirmation a 4 chiffres (ou le message « trop de demandes ») est affiche dans le tiroir, AUCUNE
+    // fenetre ne s'ouvre par-dessus ; l'invite attend la fermeture du tiroir. Sans code (commande ordinaire,
+    // Distrib coupe) elle s'ouvre comme avant. distrib/receipt.js signale la fin via l'evenement
+    // `hf-receipt-done` ({ shown }) ; filet de 8 s si l'evenement n'arrive jamais.
+    inviteAfterOrder() {
+      const go = () => { if (window.hfInstallInvite) window.hfInstallInvite('buyer', { delay: 2500 }); };
+      if (!document.querySelector('[data-distrib-hint-url]')) { go(); return; }
+      let settled = false;
+      const settle = (shown) => {
+        if (settled) return;
+        settled = true;
+        window.removeEventListener('hf-receipt-done', onDone);
+        clearTimeout(timer);
+        if (!shown) { go(); return; }
+        let armed = true;
+        this.$watch('drawerOpen', (open) => { if (!open && armed) { armed = false; go(); } });
+      };
+      const onDone = (e) => settle(!!(e.detail && e.detail.shown));
+      window.addEventListener('hf-receipt-done', onDone);
+      const timer = setTimeout(() => settle(false), 8000);
+    },
     async submitOrder() {
       this.orderError = '';
       if (!this.customerPhone.trim()) { this.orderError = 'Le numéro de téléphone est obligatoire.'; return; }
@@ -263,7 +285,7 @@ function orderDrawer(saleId) {
           });
           this.knownBuyer = true;
           updateProductStockAfterOrder(this.productId, this.maxQty - this.qty, this.stockInitial);
-          if (window.hfInstallInvite) window.hfInstallInvite('buyer', { delay: 2500 });
+          this.inviteAfterOrder();
         }
         else { this.orderError = Object.values(data).flat()[0] || 'Une erreur est survenue.'; }
       } catch(e) {

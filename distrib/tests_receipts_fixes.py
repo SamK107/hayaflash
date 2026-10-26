@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import re
+import shutil
+import subprocess
+import unittest
 from decimal import Decimal
 from pathlib import Path
 
@@ -190,3 +194,63 @@ class FlagCookieTests(ReceiptBase):
         resp = Client().get("/distrib/bandeau/")
         self.assertEqual(resp.status_code, 204)
         self.assertNotIn(receipts.COOKIE_FLAG_NAME, resp.cookies)
+
+
+NODE = shutil.which("node")
+
+
+@unittest.skipUnless(NODE, "node absent")
+class InstallInviteVsReceiptCodeTests(ReceiptBase):
+    """L'invite d'installation ne recouvre jamais le code de confirmation (hf-public.js, inviteAfterOrder)."""
+
+    SCRIPT = r"""
+const fs = require('fs'), vm = require('vm');
+const listeners = {}; const calls = []; let hint = process.argv[2] === 'hint'; const timers = [];
+const win = {
+  hfInstallInvite: (ctx, o) => calls.push([ctx, o.delay]),
+  addEventListener: (n, f) => { listeners[n] = f; }, removeEventListener: (n) => { delete listeners[n]; },
+};
+const ctx = { window: win, document: { querySelector: () => (hint ? {} : null), addEventListener: () => {}, getElementById: () => null, querySelectorAll: () => [] },
+  setTimeout: (f, ms) => { timers.push([f, ms]); return timers.length; }, clearTimeout: () => {},
+  console, lucide: {}, Alpine: {}, localStorage: {} };
+vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(process.argv[1], 'utf8') + '\nthis.__od = orderDrawer;', ctx);
+const d = ctx.__od(1);
+let watcher = null; d.$watch = (k, f) => { watcher = f; };
+d.inviteAfterOrder();
+const step = process.argv[3];
+const fire = (shown) => { if (listeners['hf-receipt-done']) listeners['hf-receipt-done']({ detail: { shown } }); };
+if (step === 'shown') { fire(true); }
+if (step === 'none') { fire(false); }
+if (step === 'timeout') { timers[0][0](); }
+const before = calls.length;
+if (watcher) { watcher(true); }
+const stillWhileOpen = calls.length;
+if (watcher) { watcher(false); watcher(false); }
+console.log(JSON.stringify({ before, stillWhileOpen, after: calls.length, timers: timers.map(t => t[1]) }));
+"""
+
+    def run_js(self, hint, step):
+        out = subprocess.run(
+            [NODE, "-e", self.SCRIPT, str(PUBLIC_JS), "hint" if hint else "nohint", step],
+            capture_output=True, text=True, timeout=30,
+        )
+        self.assertEqual(out.returncode, 0, out.stderr)
+        return json.loads(out.stdout.strip().splitlines()[-1])
+
+    def test_code_shown_waits_for_the_drawer_to_close_then_invites_once(self):
+        r = self.run_js(True, "shown")
+        self.assertEqual((r["before"], r["stillWhileOpen"], r["after"]), (0, 0, 1))
+
+    def test_no_code_invites_immediately(self):
+        self.assertEqual(self.run_js(True, "none")["before"], 1)
+
+    def test_without_distrib_hint_invites_as_before(self):
+        self.assertEqual(self.run_js(False, "none")["before"], 1)
+
+    def test_safety_net_if_the_receipt_event_never_arrives(self):
+        self.assertEqual(self.run_js(True, "timeout")["before"], 1)
+
+    def test_receipt_template_announces_when_it_is_done(self):
+        html = self.client.get("/order/", {"flash_sale_id": self.sale.pk, "product_id": self.imported.product_id})
+        self.assertIn("hf-receipt-done", html.content.decode())

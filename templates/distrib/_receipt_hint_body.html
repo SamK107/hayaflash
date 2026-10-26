@@ -5,7 +5,7 @@ Une fois la commande envoyee, demande son code a 4 chiffres a /distrib/recu/ ; r
 ne contient aucun produit importe. Le code n'est montre qu'a la cliente.
 Page en cache (/f/) : aucun jeton CSRF dans le HTML (`csrf_token` vide), receipt.js le demande a /distrib/jeton/.
 {% endcomment %}<div x-data="{ hfRc: [], hfBlocked: false }"
-     x-init="$watch('{{ watch }}', function (v) { if (v) { hfRc = []; hfBlocked = false; hfDistribReceipt($data.orderResult && $data.orderResult.id, {{ phone_expr }}).then(function (r) { hfRc = r.lines; hfBlocked = r.blocked; }); } })"
+     x-init="$watch('{{ watch }}', function (v) { if (v) { hfRc = []; hfBlocked = false; hfDistribReceipt($data.orderResult && $data.orderResult.id, {{ phone_expr }}).then(function (r) { hfRc = r.lines; hfBlocked = r.blocked; $dispatch('hf-receipt-done', { shown: r.lines.length > 0 || r.blocked }); }); } })"
      x-show="hfRc.length || hfBlocked" x-cloak class="dx-banner" style="margin-top:1rem;"
      data-distrib-csrf="{{ csrf_token }}" data-distrib-csrf-url="{% url 'distrib:receipt_csrf' %}" data-distrib-hint-url="{% url 'distrib:receipt_hint' %}">
   <template x-if="hfBlocked">
