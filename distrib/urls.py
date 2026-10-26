@@ -21,6 +21,7 @@ urlpatterns = [
     path("commandes/<int:pk>/livre-paye/", views_orders.order_confirm, name="order_confirm"),
     path("commandes/<int:pk>/pas-livre/", views_orders.order_not_delivered, name="order_not_delivered"),
     path("recu/", views_receipts.receipt_hint, name="receipt_hint"),
+    path("jeton/", views_receipts.receipt_csrf, name="receipt_csrf"),
     path("recu/<str:token>/", views_receipts.receipt_page, name="receipt_page"),
     path("bandeau/", views_receipts.receipt_banner, name="receipt_banner"),
     path("confirmer/", views_receipts.receipt_lookup, name="receipt_lookup"),

@@ -132,10 +132,10 @@ class HintEndpointTests(ReceiptBase):
         self.assertNotIn("7600", value)
         self.assertNotIn("Cliente", value)
 
-    def test_rate_limit_per_phone(self):
+    def test_rate_limit_per_phone_counts_failures_only(self):
         for _ in range(5):
-            self.assertEqual(self.hint().status_code, 200)
-        self.assertEqual(self.hint().status_code, 429)
+            self.assertEqual(self.hint(phone="+22376999999").status_code, 200)  # numero qui ne correspond pas
+        self.assertEqual(self.hint(phone="+22376999999").status_code, 429)
 
     def test_csrf_is_enforced_and_works_from_the_order_page_token(self):
         client = Client(enforce_csrf_checks=True)
@@ -167,8 +167,9 @@ class BannerTests(ReceiptBase):
         self.assertIn("Cookie", resp["Vary"])
 
     def test_no_banner_once_confirmed_cancelled_or_paid(self):
-        client = self.cookie(Client())
+        client = Client()
         for transition in ("paid", "cancelled", "customer"):
+            self.cookie(client)  # le 204 efface les cookies : on les repose a chaque tour
             DistribSettlement.objects.filter(pk=self.line_.pk).update(
                 status=S.ORDERED, customer_confirmed_at=None
             )
@@ -286,8 +287,8 @@ class LookupPageTests(ReceiptBase):
         self.assertNotContains(blocked, "J'ai reçu ma commande", status_code=429)
 
     def test_rate_limit_per_ip_across_numbers(self):
-        for n in range(5):
-            self.lookup(phone=f"7{n} 00 00 0{n}", code="0000")
+        for n in range(receipts.FAILURES_PER_HOUR_PER_IP):
+            self.lookup(phone=f"7{n % 10} 00 {n:02d} 0{n % 10}", code="0000")
         self.assertEqual(self.lookup(phone="70 99 99 99", code="0000").status_code, 429)
 
     def test_phone_of_another_customer_with_the_same_code_does_not_match(self):

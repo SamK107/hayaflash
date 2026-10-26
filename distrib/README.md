@@ -104,6 +104,15 @@ Recommandation : **R1 en V1**, R3 en V1.1 si l'effet de contrôle est jugé indi
   4. Le gabarit teste `can_submit` : l'include doit être dans ce `{% if can_submit %}` (sinon il ne verra jamais de commande).
   5. Cookie posé par la réponse d'un endpoint `distrib` : possible, indépendant de l'API de commande.
 
+### Complément 26/10/2026 : le tiroir de `/f/<slug>/` (2 dérogations de plus)
+
+La recette locale a montré que le parcours principal (`/f/<slug>/`, composant `orderDrawer`) n'appelait jamais `/distrib/recu/` : aucune cliente n'y recevait de code ni de cookie `hf_receipts`. Aucune raison délibérée n'était documentée ; les deux parcours sont alignés (même balise `distrib_receipt_hint`, paramètre `parcours="order"` ou `"drawer"`). Deux fichiers hors §8 sont touchés, une ligne chacun :
+
+- `templates/analytics/flash_sale_public.html` : un `{% include "distrib/_receipt_hint_drawer.html" %}` dans le bloc « Commande envoyée » du tiroir, seul endroit où le code peut s'afficher à la cliente au bon moment.
+- `static/js/hf-public.js` : `orderResult: null` et `this.orderResult = data` dans `orderDrawer`. Le tiroir ignorait la réponse de `/api/v1/orders/` ; l'identifiant de commande qu'elle contient est indispensable à `/distrib/recu/` (id + téléphone).
+
+Points de conception associés : la page `/f/` est servie en cache public (voir « Cache des pages publiques »), donc **aucun jeton CSRF dans son HTML** ; `receipt.js` lit le cookie `csrftoken` ou, à défaut, appelle `GET /distrib/jeton/` (limité à 60 appels / 10 min / IP, `receipts.CSRF_TOKENS_PER_WINDOW`). Les quotas de `/distrib/recu/` et `/distrib/confirmer/` ne comptent plus que les **échecs** (5 / h / numéro, 20 / h / IP) ; sur un 429, `receipt.js` n'insiste pas et l'écran prévient la cliente ; les cookies `hf_rc` / `hf_receipts` sont effacés dès qu'aucun reçu n'est ouvert. Tests : `distrib/tests_receipts_fixes.py`.
+
 ## e. Gabarit commun des pages publiques : lien « Confirmer un paiement » + bandeau (§15.3, accès 1 et 2)
 
 - Pas de « footer » commun dans `templates/base.html` (structure : `{% block content %}` dans `<main>`, `base.html:233-236`, puis scripts `:238-249`).

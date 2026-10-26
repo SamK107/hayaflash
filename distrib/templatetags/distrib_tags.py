@@ -61,12 +61,20 @@ def distrib_public_hooks(context):
 
 
 @register.simple_tag(takes_context=True)
-def distrib_receipt_hint(context):
-    """Ecran de confirmation de commande : code a 4 chiffres (acces 1), via UN include dans client_order.html."""
+def distrib_receipt_hint(context, parcours="order"):
+    """Ecran de confirmation de commande : code a 4 chiffres (acces 1).
+
+    `parcours="order"` : page /order/ (variable Alpine `submitted`, jeton CSRF dans le HTML, page non cachee).
+    `parcours="drawer"` : tiroir de /f/<slug>/ (`orderSuccess`, telephone `submittedPhone`, page publique cachee :
+    aucun jeton dans le HTML)."""
     if not distrib_enabled():
         return ""
     try:
-        return render_to_string("distrib/_receipt_hint_body.html", {"csrf_token": context.get("csrf_token", "")})
+        if parcours == "drawer":
+            ctx = {"watch": "orderSuccess", "phone_expr": "$data.submittedPhone", "csrf_token": ""}
+        else:
+            ctx = {"watch": "submitted", "phone_expr": "''", "csrf_token": context.get("csrf_token", "")}
+        return render_to_string("distrib/_receipt_hint_body.html", ctx)
     except Exception:
         logger.exception("distrib: rappel du code de commande indisponible")
         return ""

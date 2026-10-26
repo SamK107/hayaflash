@@ -481,6 +481,7 @@
         <h3 class="text-lg font-black text-gray-900 mb-1">Commande envoyée !</h3>
         <p class="text-sm text-gray-500 mb-1">Vous serez contacte au <span class="font-bold text-gray-700" x-text="submittedPhone"></span></p>
         <p class="text-xs text-gray-400 mb-4">Le vendeur vous appellera pour confirmer la livraison.</p>
+        {% include "distrib/_receipt_hint_drawer.html" %}
         <button @click="drawerOpen=false; orderSuccess=false"
                 class="bg-primary text-white font-bold px-6 py-3 rounded-xl text-sm hover:bg-red-700 transition-colors">
           Continuer les achats

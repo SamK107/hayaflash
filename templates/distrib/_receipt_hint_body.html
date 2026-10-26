@@ -1,17 +1,26 @@
 {% load static %}{% comment %}
-Acces 1 (spec 15.3), inclus UNE fois dans le x-data de client_order.html (dans {% if can_submit %}).
+Acces 1 (spec 15.3), inclus UNE fois par parcours de commande : dans le x-data de client_order.html
+(dans {% if can_submit %}, `submitted`) et dans le tiroir de flash_sale_public.html (`orderSuccess`).
 Une fois la commande envoyee, demande son code a 4 chiffres a /distrib/recu/ ; rien ne s'affiche si la commande
 ne contient aucun produit importe. Le code n'est montre qu'a la cliente.
-{% endcomment %}<div x-data="{ hfRc: [] }"
-     x-init="$watch('submitted', function (v) { if (v) { hfDistribReceipt($data.orderResult && $data.orderResult.id).then(function (r) { hfRc = r; }); } })"
-     x-show="hfRc.length" x-cloak class="dx-banner" style="margin-top:1rem;"
-     data-distrib-csrf="{{ csrf_token }}" data-distrib-hint-url="{% url 'distrib:receipt_hint' %}">
-  <p class="dx-name">Votre code de commande</p>
-  <template x-for="line in hfRc" :key="line.code">
-    <p class="dx-meta"><span x-text="line.name"></span> : <strong style="font-size:1.25rem;letter-spacing:.15em;" x-text="line.code"></strong></p>
+Page en cache (/f/) : aucun jeton CSRF dans le HTML (`csrf_token` vide), receipt.js le demande a /distrib/jeton/.
+{% endcomment %}<div x-data="{ hfRc: [], hfBlocked: false }"
+     x-init="$watch('{{ watch }}', function (v) { if (v) { hfRc = []; hfBlocked = false; hfDistribReceipt($data.orderResult && $data.orderResult.id, {{ phone_expr }}).then(function (r) { hfRc = r.lines; hfBlocked = r.blocked; }); } })"
+     x-show="hfRc.length || hfBlocked" x-cloak class="dx-banner" style="margin-top:1rem;"
+     data-distrib-csrf="{{ csrf_token }}" data-distrib-csrf-url="{% url 'distrib:receipt_csrf' %}" data-distrib-hint-url="{% url 'distrib:receipt_hint' %}">
+  <template x-if="hfBlocked">
+    <p class="dx-meta" data-distrib-blocked>Trop de demandes depuis ce réseau : votre code ne peut pas s'afficher pour le moment. Réessayez dans une heure.</p>
   </template>
-  <p class="dx-meta" style="margin-top:.5rem;">Gardez-le. Quand vous recevez votre commande, vous pourrez la confirmer depuis ce téléphone, ou plus tard avec ce code.</p>
-  <a class="dx-meta" style="font-weight:700;color:#FF4D2E;" href="{% url 'distrib:receipt_lookup' %}">Confirmer la réception plus tard</a>
+  <template x-if="hfRc.length">
+    <div>
+      <p class="dx-name">Votre code de commande</p>
+      <template x-for="line in hfRc" :key="line.code">
+        <p class="dx-meta"><span x-text="line.name"></span> : <strong style="font-size:1.25rem;letter-spacing:.15em;" x-text="line.code"></strong></p>
+      </template>
+      <p class="dx-meta" style="margin-top:.5rem;">Gardez-le. Quand vous recevez votre commande, vous pourrez la confirmer depuis ce téléphone, ou plus tard avec ce code.</p>
+      <a class="dx-meta" style="font-weight:700;color:#FF4D2E;" href="{% url 'distrib:receipt_lookup' %}">Confirmer la réception plus tard</a>
+    </div>
+  </template>
 </div>
 <link rel="stylesheet" href="{% static 'distrib/distrib.css' %}">
 <script src="{% static 'distrib/receipt.js' %}" defer></script>

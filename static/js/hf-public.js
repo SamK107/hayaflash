@@ -130,7 +130,7 @@ function orderDrawer(saleId) {
     productId: null, productName: '', productPriceNum: 0, productPrice: '0',
     maxQty: 99, stockInitial: 0, orderUrl: '', qty: 1,
     customerName: '', customerPhone: '', address: '', note: '',
-    submittedPhone: '', knownBuyer: false,
+    submittedPhone: '', knownBuyer: false, orderResult: null,
     geoStatus: 'idle', geoMethod: 'manual', latitude: null, longitude: null, geoAccuracy: null,
     isRecording: false, audioUrl: null, audioBase64: null,
     mediaRecorder: null, audioChunks: [],
@@ -256,6 +256,7 @@ function orderDrawer(saleId) {
         const data = await res.json();
         if (res.ok) {
           this.submittedPhone = this.customerPhone.trim();
+          this.orderResult = data; // lu par distrib/receipt.js (code de confirmation)
           this.orderSuccess = true;
           if (window.hfBuyer) window.hfBuyer.save({
             name: this.customerName.trim(), phone: this.customerPhone.trim(), address: this.address.trim()
