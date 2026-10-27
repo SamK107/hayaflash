@@ -1,0 +1,5 @@
+{% load static %}{# Fragment IDENTIQUE pour tous les visiteurs (cache-safe) : le bandeau est charge par fetch, jamais rendu ici. #}
+<link rel="stylesheet" href="{% static 'distrib/distrib.css' %}">
+<div id="hf-distrib-banner" data-url="{% url 'distrib:receipt_banner' %}" hidden></div>
+<p style="text-align:center;font-size:.75rem;margin:1rem 0;"><a href="{% url 'distrib:receipt_lookup' %}" style="color:#9CA3AF;">Confirmer un paiement</a></p>
+<script src="{% static 'distrib/banner.js' %}" defer></script>

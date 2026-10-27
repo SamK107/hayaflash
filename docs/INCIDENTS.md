@@ -35,7 +35,9 @@ heartbeat des sauvegardes manquant, monitoring externe `/health/`.
 ## À évaluer — hors Distrib
 
 > Défauts latents constatés à la lecture du code, sans incident réel connu.
-> Constaté le 2026-10-24 pendant la phase P0 de `feature/distrib` ; corrigé sur `fix/adjust-stock-lock`.
+> Constaté le 2026-10-24 pendant la phase P0 de `feature/distrib` ; corrigé sur
+> `fix/adjust-stock-lock`, fusionné dans `main` et déployé en staging puis en
+> production le 2026-10-25.
 
 ### `adjust_stock` : mise à jour perdue (lost update) face à une commande simultanée
 
@@ -51,4 +53,4 @@ heartbeat des sauvegardes manquant, monitoring externe `/health/`.
 | Interblocage (traité) | Le verrou est tenu jusqu'à la fin de la transaction de `bulk_update`. Pour éviter un interblocage avec une commande multi-produits (`create_order` verrouille les produits par id croissant), `bulk_update` verrouille d'abord les produits existants du lot par id croissant (`_lock_existing_products_ascending`, `products/api.py`) ; le traitement et la réponse restent dans l'ordre d'envoi. Preuve : `BulkUpdateDeadlockTests` (25 tours, PostgreSQL) échoue sans ce verrouillage préalable et passe avec ; `BulkUpdateLockOrderTests` vérifie l'ordre des verrous (SQL) et l'ordre inchangé de la réponse. |
 | Ordre de fusion | 1) fusionner `fix/adjust-stock-lock` dans `main` ; 2) fusionner `main` dans `feature/distrib` en **gardant la version « corrigé »** de cette section (la section existe aussi, au statut « à évaluer », sur `feature/distrib`). |
 | À prévoir : CI PostgreSQL | Les tests de concurrence sont ignorés en SQLite ; ils n'ont tourné qu'en local (conteneur `hf-pg-test`, `--ds=config.settings.test_pg`). Ajouter un job CI PostgreSQL (service `postgres`, mêmes variables `TEST_PG_*`) pour `products/tests_adjust_stock_concurrency.py`, `orders/tests.py`, `orders/tests_expiration.py`, `payments/tests.py`, `core/tests_celery_beat.py`. |
-| Statut | Corrigé sur `fix/adjust-stock-lock` (non fusionné, non déployé). |
+| Statut | **Corrigé.** Fusionné dans `main` (25/10/2026), déployé en staging puis en production le 25/10/2026. Verifie en production par un test de concurrence manuel (shell Django, compte de test cree puis supprime) : stock coherent, aucune erreur. |

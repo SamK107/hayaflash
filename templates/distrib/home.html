@@ -1,0 +1,12 @@
+{% extends "distrib/layout.html" %}
+{% block title %}Distrib — {{ distributor.business_name }}{% endblock %}
+{% block distrib_nav %}{% include "distrib/_nav_distributor.html" with tab="home" %}{% endblock %}
+
+{% block distrib_content %}
+<h1 class="dx-h1">{{ distributor.business_name }}</h1>
+<p class="dx-sub">Espace grossiste HayaFlash. Cette page se met à jour toute seule.</p>
+
+<div data-dx-live hx-get="{% url 'distrib:home_fragment' %}" hx-trigger="every 30s" hx-swap="innerHTML">
+  {% include "distrib/_home_live.html" %}
+</div>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "distrib/layout.html" %}
+{% block title %}Stock — {{ distributor.business_name }}{% endblock %}
+{% block distrib_nav %}{% include "distrib/_nav_distributor.html" with tab="stock" %}{% endblock %}
+
+{% block distrib_content %}
+<h1 class="dx-h1">Stock</h1>
+<p class="dx-sub">Total, alloué, vendu et disponible, produit par produit.</p>
+
+{% if distributor.is_suspended %}
+<div class="dx-alert dx-alert-bad" role="alert">Compte suspendu : plus de nouvelle allocation. Vous pouvez toujours reprendre du stock.</div>
+{% elif commission_blocked %}
+<div class="dx-alert dx-alert-bad" role="alert">Les nouvelles allocations sont bloquées : la commission due à HayaFlash dépasse votre plafond.</div>
+{% endif %}
+
+{% for row in rows %}
+<div class="dx-card">
+  <h2 class="dx-h2">{{ row.product.name }}{% if not row.product.is_active %} <span class="dx-badge">Masqué</span>{% endif %}</h2>
+  <div class="dx-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:.75rem;">
+    <div class="dx-stat"><b>{{ row.product.stock_total }}</b><span>Total</span></div>
+    <div class="dx-stat"><b>{{ row.allocated }}</b><span>Alloué</span></div>
+    <div class="dx-stat"><b>{{ row.sold }}</b><span>Vendu</span></div>
+    <div class="dx-stat"><b>{{ row.available }}</b><span>Disponible</span></div>
+  </div>
+
+  {% for line in row.imports %}
+  <div class="dx-row" style="align-items:flex-start;flex-wrap:wrap;">
+    <div class="dx-grow">
+      <div class="dx-name">{{ line.imported.invite.display_name }}</div>
+      <div class="dx-meta">Alloué {{ line.imported.allocated_qty }} · en boutique {{ line.in_shop }} · vendu {{ line.sold }} · prix {{ line.imported.product.price|floatformat:0 }} FCFA</div>
+      {% if line.below_minimum %}<div class="dx-meta" style="color:#B45309;">Attention : prix sous le minimum ({{ row.product.min_retail_price|floatformat:0 }} FCFA)</div>{% endif %}
+      {% if line.blocked %}<div class="dx-meta" style="color:#991B1B;">{{ line.blocked }}</div>{% endif %}
+      {% if line.imported.invite.status != 'accepted' %}<div class="dx-meta">Revendeur {{ line.imported.invite.get_status_display|lower }} : reprise possible, plus d'allocation.</div>{% endif %}
+    </div>
+    <form method="post" action="{% url 'distrib:stock_allocate' line.imported.pk %}" hx-boost="false" class="dx-inline" style="width:100%;">
+      {% csrf_token %}
+      <div><label class="hf-label" for="alloc-{{ line.imported.pk }}">Quantité</label>
+        <input class="hf-input" type="number" min="1" step="1" inputmode="numeric" name="quantity" id="alloc-{{ line.imported.pk }}" required></div>
+      <button type="submit" class="dx-btn dx-btn-sm">Allouer</button>
+      <button type="submit" class="dx-btn dx-btn-ghost dx-btn-sm" formaction="{% url 'distrib:stock_take_back' line.imported.pk %}" data-hf-confirm="Reprendre ces unités non vendues ?">Reprendre</button>
+    </form>
+  </div>
+  {% empty %}
+  <p class="dx-meta">Aucun revendeur n'a encore importé ce produit.</p>
+  {% endfor %}
+</div>
+{% empty %}
+<div class="dx-card"><p class="dx-meta">Ajoutez d'abord des produits au <a href="{% url 'distrib:catalog' %}">catalogue</a>.</p></div>
+{% endfor %}
+{% endblock %}

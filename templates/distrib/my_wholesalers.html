@@ -1,0 +1,12 @@
+{% extends "distrib/layout.html" %}
+{% block title %}Mes grossistes — HayaFlash{% endblock %}
+
+{% block distrib_content %}
+<p><a href="{% url 'seller_home' %}" class="dx-meta">← Tableau de bord</a></p>
+<h1 class="dx-h1">Mes grossistes</h1>
+<p class="dx-sub">Les grossistes auxquels vous êtes rattaché. Cette page se met à jour toute seule.</p>
+
+<div data-dx-live hx-get="{% url 'distrib:my_wholesalers_fragment' %}" hx-trigger="every 30s" hx-swap="innerHTML">
+  {% include "distrib/_wholesalers_live.html" %}
+</div>
+{% endblock %}

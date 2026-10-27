@@ -1,0 +1,14 @@
+{% extends "distrib/layout.html" %}
+{% block title %}Pilotage Distrib — HayaFlash{% endblock %}
+
+{% block distrib_content %}
+<h1 class="dx-h1">Pilotage Distrib</h1>
+<p class="dx-sub">Grossistes créés par l'équipe HayaFlash. Cette page se met à jour toute seule.</p>
+
+<p><a class="dx-btn dx-btn-block dx-btn-xl" href="{% url 'distrib:pilotage_distributor_create' %}">Créer un grossiste</a></p>
+<p style="margin-top:.5rem;"><a class="dx-btn dx-btn-ghost dx-btn-block dx-btn-xl" href="{% url 'distrib:pilotage_signals' %}">Signaux et règlements</a></p>
+
+<div data-dx-live hx-get="{% url 'distrib:pilotage_fragment' %}" hx-trigger="every 30s" hx-swap="innerHTML" style="margin-top:1rem;">
+  {% include "distrib/pilotage/_live.html" %}
+</div>
+{% endblock %}

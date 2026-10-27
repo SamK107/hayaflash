@@ -1,0 +1,27 @@
+{% extends "distrib/layout.html" %}
+{% block title %}Catalogue — {{ distributor.business_name }}{% endblock %}
+{% block distrib_nav %}{% include "distrib/_nav_distributor.html" with tab="catalog" %}{% endblock %}
+
+{% block distrib_content %}
+<h1 class="dx-h1">Catalogue de gros</h1>
+<p class="dx-sub">Les produits que vos revendeurs peuvent importer dans leur boutique.</p>
+<p><a class="dx-btn dx-btn-block" href="{% url 'distrib:catalog_create' %}">Ajouter un produit</a></p>
+
+<div class="dx-card" style="margin-top:1rem;">
+  {% for row in rows %}
+  <a class="dx-row" href="{% url 'distrib:catalog_edit' row.product.pk %}" style="text-decoration:none;">
+    {% with first=row.product.images.all|first %}
+    {% if first %}<img src="{{ first.image.url }}" alt="" width="56" height="56" style="width:3.5rem;height:3.5rem;object-fit:cover;border-radius:.5rem;flex-shrink:0;">{% endif %}
+    {% endwith %}
+    <div class="dx-grow">
+      <div class="dx-name">{{ row.product.name }}</div>
+      <div class="dx-meta">Gros {{ row.product.wholesale_price|floatformat:0 }} FCFA · minimum {{ row.product.min_retail_price|floatformat:0 }} FCFA</div>
+      <div class="dx-meta">Stock {{ row.product.stock_total }} · alloué {{ row.allocated }} · disponible {{ row.available }}</div>
+    </div>
+    {% if row.product.is_active %}<span class="dx-badge dx-badge-ok">Visible</span>{% else %}<span class="dx-badge">Masqué</span>{% endif %}
+  </a>
+  {% empty %}
+  <p class="dx-meta">Aucun produit. Ajoutez le premier.</p>
+  {% endfor %}
+</div>
+{% endblock %}

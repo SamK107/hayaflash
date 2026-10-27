@@ -1,0 +1,37 @@
+<div class="dx-grid">
+  <div class="dx-stat"><b>{{ totals.orders_30d }}</b><span>Commandes suivies (30 j)</span></div>
+  <div class="dx-stat"><b>{{ totals.outstanding|floatformat:0 }}</b><span>Encours commission (FCFA)</span></div>
+  <div class="dx-stat"><b>{{ totals.conflicts }}</b><span>Lignes en conflit</span></div>
+  <div class="dx-stat"><b>{{ totals.statements_open }}</b><span>Relevés contestés</span></div>
+</div>
+
+{% for row in rows %}{% with d=row.d r=row.reliability %}
+<div class="dx-card" style="margin-top:1rem;">
+  <div class="dx-row" style="border-top:0;padding-top:0;">
+    <div class="dx-grow">
+      <div class="dx-name">{{ d.business_name }}</div>
+      <div class="dx-meta">{{ d.user.phone }} · {{ d.reseller_count }} revendeur{{ d.reseller_count|pluralize }} · {{ d.product_count }} produit{{ d.product_count|pluralize }}</div>
+      <div class="dx-meta">Commission en encours : {{ row.outstanding|floatformat:0 }} / {{ d.credit_ceiling|floatformat:0 }} FCFA{% if row.level == 'blocked' %} (plafond dépassé){% elif row.level == 'warning' %} (≥ 80 % du plafond){% endif %}</div>
+    </div>
+    {% if not d.is_active %}<span class="dx-badge dx-badge-bad">Inactif</span>
+    {% elif d.is_suspended %}<span class="dx-badge dx-badge-warn">Suspendu</span>
+    {% else %}<span class="dx-badge dx-badge-ok">Actif</span>{% endif %}
+  </div>
+
+  <h3 class="dx-name" style="margin-top:.75rem;">Fiabilité · {{ r.window_days }} derniers jours</h3>
+  {% for label in r.alert_labels %}<div class="dx-alert dx-alert-bad" role="alert" style="margin:.5rem 0 0;">{{ label }}</div>{% empty %}
+  <div class="dx-alert dx-alert-ok" style="margin:.5rem 0 0;">Aucune alerte.</div>{% endfor %}
+  <div class="dx-grid" style="margin-top:.75rem;">
+    <div class="dx-stat"><b>{{ r.not_delivered_percent }} %</b><span>« Pas livré » ({{ r.not_delivered }} sur {{ r.total }})</span></div>
+    <div class="dx-stat"><b>{{ r.conflicts }}</b><span>Conflit{{ r.conflicts|pluralize }}</span></div>
+    <div class="dx-stat"><b>{{ r.contested }}</b><span>Versement{{ r.contested|pluralize }} contesté{{ r.contested|pluralize }}</span></div>
+    <div class="dx-stat"><b>{{ r.overdue }}</b><span>Relevé{{ r.overdue|pluralize }} en retard</span></div>
+  </div>
+  {% if r.not_delivered %}<p class="dx-meta" style="margin-top:.5rem;">Motifs :
+    {% for item in r.reason_list %}{{ item.label }} {{ item.count }}{% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+  <p class="dx-meta" style="margin-top:.5rem;">Confirmations ({{ r.confirmed_total }}) :
+    {% for key, src in r.sources.items %}{{ src.label }} {{ src.percent }} %{% if not forloop.last %} · {% endif %}{% endfor %}</p>
+</div>
+{% endwith %}{% empty %}
+<div class="dx-card" style="margin-top:1rem;"><p class="dx-meta">Aucun grossiste pour l'instant.</p></div>
+{% endfor %}

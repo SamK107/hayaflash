@@ -1,0 +1,20 @@
+{% extends "distrib/layout.html" %}
+{% block title %}Mes gains — HayaFlash{% endblock %}
+
+{% block distrib_content %}
+<p><a href="{% url 'distrib:my_wholesalers' %}" class="dx-meta">← Mes grossistes</a></p>
+<h1 class="dx-h1">Mes gains</h1>
+<p class="dx-sub">Vos marges sur les produits importés : en cours, confirmées, versées.</p>
+
+<div class="dx-grid" style="margin-bottom:1rem;">
+  <div class="dx-stat"><b>{{ summary.in_progress }}</b><span>Ventes en cours</span></div>
+  <div class="dx-stat"><b>{{ summary.waiting_statement }}</b><span>Confirmées, relevé à venir</span></div>
+  <div class="dx-stat"><b>{{ summary.due|floatformat:0 }}</b><span>Restant dû (FCFA)</span></div>
+  <div class="dx-stat"><b>{{ summary.received_month|floatformat:0 }}</b><span>Reçu ce mois (FCFA)</span></div>
+</div>
+{% if summary.to_answer %}<div class="dx-alert" role="alert"><strong>{{ summary.to_answer }} versement{{ summary.to_answer|pluralize }} à vérifier.</strong> Répondez « Oui, reçu » ou « Pas reçu » ci-dessous. Sans réponse sous 72 h, il est accepté.</div>{% endif %}
+
+<div data-dx-live hx-get="{% url 'distrib:my_gains_fragment' %}" hx-trigger="every 30s" hx-swap="innerHTML">
+  {% include "distrib/_gains_live.html" %}
+</div>
+{% endblock %}

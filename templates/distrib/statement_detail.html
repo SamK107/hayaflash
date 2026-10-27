@@ -1,0 +1,25 @@
+{% extends "distrib/layout.html" %}
+{% block title %}Relevé — {{ distributor.business_name }}{% endblock %}
+{% block distrib_nav %}{% include "distrib/_nav_distributor.html" with tab="statements" %}{% endblock %}
+
+{% block distrib_content %}
+<p><a href="{% url 'distrib:statements' %}" class="dx-meta">← Relevés</a></p>
+<h1 class="dx-h1">{{ statement.invite.display_name }}</h1>
+<p class="dx-sub">Semaine du {{ statement.period_start|date:"d/m" }} au {{ statement.period_end|date:"d/m/Y" }} · {{ statement.get_status_display }} · <strong>{{ statement.amount|floatformat:0 }} FCFA</strong></p>
+
+<div class="dx-card">
+  {% for line in lines %}
+  <div class="dx-row">
+    <div class="dx-grow"><div class="dx-name">{{ line.imported_product.wholesale_product.name }} × {{ line.quantity }}</div>
+      <div class="dx-meta">Commande n° {{ line.order_id }} · confirmée le {{ line.paid_confirmed_at|date:"d/m H:i" }}</div></div>
+    <span class="dx-badge">{{ line.reseller_margin|floatformat:0 }} FCFA</span>
+  </div>
+  {% empty %}<p class="dx-meta">Aucune vente.</p>{% endfor %}
+</div>
+<div class="dx-card">
+  <h2 class="dx-h2">Versements</h2>
+  {% for p in payouts %}<div class="dx-row"><div class="dx-grow"><div class="dx-name">Tentative {{ p.attempt }} : {{ p.amount|floatformat:0 }} FCFA</div>
+    <div class="dx-meta">Réf. {{ p.om_reference }} · {{ p.get_status_display }}{% if p.contest_reason %} · « {{ p.contest_reason }} »{% endif %}</div></div></div>
+  {% empty %}<p class="dx-meta">Pas encore de versement.</p>{% endfor %}
+</div>
+{% endblock %}

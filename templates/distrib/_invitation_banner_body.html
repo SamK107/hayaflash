@@ -1,0 +1,10 @@
+{% load static %}{% if invites or accepted_count %}<link rel="stylesheet" href="{% static 'distrib/distrib.css' %}">{% endif %}
+{% for invite in invites %}
+<a class="dx-banner" href="{% url 'distrib:invitation' invite.pk %}">
+  <p class="dx-name">{{ invite.distributor.business_name }} vous invite</p>
+  <p class="dx-meta">Importez ses produits dans votre boutique. Appuyez pour voir les conditions et répondre.</p>
+</a>
+{% endfor %}
+{% if accepted_count %}
+<p class="dx-meta" style="margin-bottom:1rem;"><a href="{% url 'distrib:my_wholesalers' %}" style="font-weight:700;color:#FF4D2E;">Mes grossistes ({{ accepted_count }})</a> · <a href="{% url 'distrib:my_gains' %}" style="font-weight:700;color:#FF4D2E;">Mes gains</a></p>
+{% endif %}

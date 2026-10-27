@@ -1,0 +1,18 @@
+{% extends "distrib/layout.html" %}
+{% block title %}Confirmation — HayaFlash{% endblock %}
+
+{% block distrib_content %}
+<div class="dx-card">
+  {% if result == 'confirmed' or result == 'recorded' or result == 'conflict' %}
+  <h1 class="dx-h1">Merci !</h1>
+  <p class="dx-sub">Votre confirmation est enregistrée.</p>
+  {% elif result == 'already' %}
+  <h1 class="dx-h1">Déjà confirmée</h1>
+  <p class="dx-sub">Cette commande est déjà confirmée. Merci.</p>
+  {% else %}
+  <h1 class="dx-h1">Rien à confirmer</h1>
+  <p class="dx-sub">Aucune commande en attente ne correspond.</p>
+  {% endif %}
+  <a class="dx-btn dx-btn-ghost dx-btn-block" href="/">Retour à l'accueil</a>
+</div>
+{% endblock %}

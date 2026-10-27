@@ -131,6 +131,11 @@ DEBUG = _env_bool("DEBUG", default="false")
 # Mettre a false pour revenir a l'affichage du seul prix applique.
 HAYAFLASH_PROMO_DISPLAY = _env_bool("HAYAFLASH_PROMO_DISPLAY", default="true")
 
+# Module Distrib (grossistes / revendeurs, docs/specs/SPEC_03_DISTRIB_V1.md §7).
+# Coupe par defaut : URLs /distrib/ en 404, aucun bandeau, aucun suivi. Les produits
+# deja importes restent des produits normaux des boutiques.
+DISTRIB_ENABLED = _env_bool("DISTRIB_ENABLED", default="false")
+
 
 def postgresql_database(*, conn_max_age: int) -> dict[str, dict]:
     """
@@ -230,6 +235,7 @@ INSTALLED_APPS = [
     "notifications",
     "delivery",
     "assist",
+    "distrib",
     # Requis par `celery beat --scheduler django_celery_beat.schedulers:DatabaseScheduler`
     # (docker-compose.production.yml) : sans lui, beat ne demarre pas (F-20).
     "django_celery_beat",
@@ -494,6 +500,33 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 60.0,
     },
 }
+
+# Module Distrib (SPEC_03 §5.4, §15.1) : planifie seulement si l'interrupteur est actif
+# (les taches sont de toute facon des no-op quand il est coupe).
+if DISTRIB_ENABLED:
+    from celery.schedules import crontab
+
+    CELERY_BEAT_SCHEDULE.update(
+        {
+            "distrib-reconcile-settlements": {
+                "task": "distrib.reconcile_settlements",
+                "schedule": 300.0,
+            },
+            "distrib-auto-confirm-settlements": {
+                "task": "distrib.auto_confirm_settlements",
+                "schedule": 900.0,
+            },
+            "distrib-accept-payouts": {
+                "task": "distrib.accept_payouts",
+                "schedule": 900.0,
+            },
+            # Releves hebdomadaires : lundi 00:05 (Mali = UTC+0, fuseau Africa/Bamako).
+            "distrib-close-weekly-statements": {
+                "task": "distrib.close_weekly_statements",
+                "schedule": crontab(day_of_week=1, hour=0, minute=5),
+            },
+        }
+    )
 
 # ── Healthcheck Celery (config/api_urls.py:health) ────────────────────────────
 # Age max (s) du dernier battement core.celery_heartbeat avant "stale".

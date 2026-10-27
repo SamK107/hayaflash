@@ -1,0 +1,27 @@
+{% extends "distrib/layout.html" %}
+{% block title %}Invitation de {{ distributor.business_name }} — HayaFlash{% endblock %}
+
+{% block distrib_content %}
+<div class="dx-card">
+  <h1 class="dx-h1">{{ distributor.business_name }} vous invite</h1>
+  <p class="dx-sub">Importez ses produits dans votre boutique et vendez-les en ventes flash, comme d'habitude.</p>
+
+  <div class="dx-alert" role="note">
+    <strong>Ce que vous acceptez de partager</strong>
+    <p style="margin-top:.5rem;">Le grossiste {{ distributor.business_name }} verra les commandes des produits que vous importez depuis son catalogue, avec l'adresse de livraison des clientes, pour pouvoir livrer.</p>
+    <p style="margin-top:.5rem;">Il ne voit ni vos autres produits, ni vos autres clientes.</p>
+  </div>
+
+  {% if answerable %}
+  <form method="post" hx-boost="false">
+    {% csrf_token %}
+    <button type="submit" name="decision" value="accept" class="dx-btn dx-btn-block">J'accepte</button>
+    <button type="submit" name="decision" value="decline" class="dx-btn dx-btn-ghost dx-btn-block" style="margin-top:.5rem;">Je refuse</button>
+  </form>
+  <p class="dx-meta" style="margin-top:.75rem;">Vous pouvez refuser : votre compte HayaFlash reste ouvert à tous, comme avant.</p>
+  {% else %}
+  <p class="dx-meta">Cette invitation n'est plus en attente.</p>
+  <a class="dx-btn dx-btn-ghost dx-btn-block" href="{% url 'seller_home' %}">Retour au tableau de bord</a>
+  {% endif %}
+</div>
+{% endblock %}

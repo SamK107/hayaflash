@@ -1,0 +1,20 @@
+{% extends "distrib/layout.html" %}
+{% block title %}Commandes — {{ distributor.business_name }}{% endblock %}
+{% block distrib_nav %}{% include "distrib/_nav_distributor.html" with tab="orders" %}{% endblock %}
+
+{% block distrib_content %}
+<h1 class="dx-h1">Commandes</h1>
+<p class="dx-sub">Les commandes de vos produits importés. Sans déclaration « Pas livré », la livraison est présumée faite et payée.</p>
+
+<form method="get" class="dx-inline" style="margin-bottom:1rem;">
+  <div><label class="hf-label" for="f-statut">Statut</label>
+    <select class="hf-input" id="f-statut" name="statut">{% for value, label in status_filters %}<option value="{{ value }}"{% if value == status %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div><label class="hf-label" for="f-rev">Revendeur</label>
+    <select class="hf-input" id="f-rev" name="revendeur"><option value="">Tous</option>{% for inv in invites %}<option value="{{ inv.pk }}"{% if inv.pk|stringformat:"s" == invite_id %} selected{% endif %}>{{ inv.display_name }}</option>{% endfor %}</select></div>
+  <button class="dx-btn dx-btn-ghost dx-btn-sm" type="submit">Filtrer</button>
+</form>
+
+<div data-dx-live hx-get="{% url 'distrib:orders_fragment' %}{% if query %}?{{ query }}{% endif %}" hx-trigger="every 30s" hx-swap="innerHTML">
+  {% include "distrib/_orders_live.html" %}
+</div>
+{% endblock %}
