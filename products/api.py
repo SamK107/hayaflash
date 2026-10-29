@@ -166,6 +166,11 @@ class FlashSaleProductViewSet(SellerOwnershipMixin, viewsets.ViewSet):
                                 pk=mutation["product_id"], owner=seller
                             )
                             new_stock = mutation.get("stock")
+                            # Produit importe d'un grossiste (Distrib) : son stock vient
+                            # uniquement de l'allocation (allocate / take_back). La grille
+                            # ne peut pas le modifier, sinon "stock affiche" > "alloue".
+                            if hasattr(product, "distrib_import"):
+                                new_stock = None
                             if new_stock is not None:
                                 adjust_stock(
                                     product=product, new_stock_available=new_stock
