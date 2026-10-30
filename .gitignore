@@ -37,3 +37,7 @@ core/demo_assets/_planche_contact.html
 
 # Empreinte nginx du dernier deploiement (deploy_vps.sh)
 .hf_nginx_fingerprint
+
+# Fichiers locaux (config Claude Code, couverture de tests)
+.claude/
+.coverage
