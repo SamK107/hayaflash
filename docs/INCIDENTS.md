@@ -67,3 +67,16 @@ heartbeat des sauvegardes manquant, monitoring externe `/health/`.
 | Correctif | `select_for_update(of=("self",))` : seule la ligne `DistribSettlement` est verrouillée ; `select_related` conservé, donc mêmes objets chargés, même verrou utile (la ligne corrigée). Aucune migration, aucun changement de comportement métier. `auto_confirm_due` (même motif, mais `distributor` et `order` non nullables) n'est pas concerné et n'est pas modifié. |
 | Preuves | Avant : sur PostgreSQL 16 (`--ds=config.settings.test_pg`) `distrib/tests_settlement.py` : 3 échoués, 48 passés. Après : `distrib` complet sur PostgreSQL 16 : 321 passés. Aucun test ajouté : les 3 tests existants couvrent le chemin et échouent sans le correctif. |
 | Statut | **Corrigé sur la branche `fix/distrib-settlement-lock`**, en attente de revue et de fusion. Jamais atteint la production (Distrib non fusionné en prod à cette date). |
+
+### Stock d'un produit importé (Distrib) supérieur à la quantité allouée (F-158)
+
+| Champ | Contenu |
+|---|---|
+| Fichiers | `products/api.py` (`bulk_update` → `adjust_stock`), `distrib/services/allocation.py` ; correctif `fix(distrib): le stock d'un produit importe ne vient que de l'allocation` (#88) |
+| Gravité proposée | **moyenne** : la revendeuse peut afficher et vendre plus que ce que le grossiste lui a alloué (survente possible) ; aucune commande concernée à ce jour |
+| Cause | La grille « Publication rapide » acceptait un stock sans rapport avec `allocated_qty` pour un produit importé. |
+| Constat (staging, 30/10/2026, requête lecture seule après déploiement de `2354200`) | **1 écart sur 3 produits importés** : `ImportedProduct #3`, revendeuse Bassitan SOUCKO, produit #283, `stock_available` 35 pour `allocated_qty` 5. |
+| Datation | `StockMovement` #92 `correction +30` (« Ajustement stock (Publication rapide) ») le 2026-10-28 07:43 UTC, puis `AllocationMovement` #2 `+5` / `StockMovement` #93 `+5` à 07:47 UTC. Écart **antérieur de ~2 jours** au correctif, déployé le 30/10 vers 18:57 UTC (19:57 heure du VPS, UTC+1) ; il n'a pas été créé par le code corrigé. Somme des `StockMovement` = 35 = stock : le journal est cohérent, c'est la valeur qui est trop haute. Aucune ligne de commande sur le produit. |
+| Correction appliquée | Staging, 2026-10-30 19:18 UTC, accord du mainteneur : `adjust_stock` du produit #283 à 5 → `StockMovement` #95 `CORRECTION −30`. Vérifié : `stock_available` = 5, somme des mouvements = 5, requête `stock_available > allocated_qty` = 0 résultat. Dry-run : `scripts/dryrun_distrib_stock_cap.py`. |
+| Reste à faire | Même requête sur la prod (validation mainteneur requise avant toute action VPS). |
+| Statut | **Corrigé en staging (correctif + donnée).** Prod : requête lecture seule à jouer après validation du mainteneur. |
