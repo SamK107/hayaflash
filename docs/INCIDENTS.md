@@ -54,3 +54,16 @@ heartbeat des sauvegardes manquant, monitoring externe `/health/`.
 | Ordre de fusion | 1) fusionner `fix/adjust-stock-lock` dans `main` ; 2) fusionner `main` dans `feature/distrib` en **gardant la version « corrigé »** de cette section (la section existe aussi, au statut « à évaluer », sur `feature/distrib`). |
 | À prévoir : CI PostgreSQL | Les tests de concurrence sont ignorés en SQLite ; ils n'ont tourné qu'en local (conteneur `hf-pg-test`, `--ds=config.settings.test_pg`). Ajouter un job CI PostgreSQL (service `postgres`, mêmes variables `TEST_PG_*`) pour `products/tests_adjust_stock_concurrency.py`, `orders/tests.py`, `orders/tests_expiration.py`, `payments/tests.py`, `core/tests_celery_beat.py`. |
 | Statut | **Corrigé.** Fusionné dans `main` (25/10/2026), déployé en staging puis en production le 25/10/2026. Verifie en production par un test de concurrence manuel (shell Django, compte de test cree puis supprime) : stock coherent, aucune erreur. |
+
+### `staff_correct` : `FOR UPDATE` refusé par PostgreSQL (jointure externe)
+
+| Champ | Contenu |
+|---|---|
+| Fichiers | `distrib/services/settlement.py` (`staff_correct`, ~ligne 355) ; appelé par `distrib/views_pilotage.py:pilotage_correct` |
+| Gravité proposée | **majeure** : la correction staff d'une ligne de règlement (Distrib) était **impossible en PostgreSQL** (erreur 500), alors qu'elle fonctionne en SQLite ; aucune donnée faussée |
+| Cause | `DistribSettlement.objects.select_for_update().select_related("distributor", "statement")` : `statement` est une clé étrangère nullable, donc Django la joint en `LEFT OUTER JOIN`, et PostgreSQL refuse `FOR UPDATE` sur le côté nullable d'une jointure externe (`NotSupportedError`). SQLite ne verrouille pas les lignes : le défaut ne se voyait pas en local. |
+| Scénario | Une équipe corrige le statut d'une ligne depuis `/distrib/pilotage/` ; en prod (PostgreSQL) la requête échoue. |
+| Effets | Erreur 500 à chaque correction staff. Détecté par la CI (job « Tests Django », PostgreSQL) : 3 tests de `distrib/tests_settlement.py::CancelAfterConfirmationTests` en échec sur `main` (`07c4207`) puis sur la PR du stock plafonné, sans lien avec elle. |
+| Correctif | `select_for_update(of=("self",))` : seule la ligne `DistribSettlement` est verrouillée ; `select_related` conservé, donc mêmes objets chargés, même verrou utile (la ligne corrigée). Aucune migration, aucun changement de comportement métier. `auto_confirm_due` (même motif, mais `distributor` et `order` non nullables) n'est pas concerné et n'est pas modifié. |
+| Preuves | Avant : sur PostgreSQL 16 (`--ds=config.settings.test_pg`) `distrib/tests_settlement.py` : 3 échoués, 48 passés. Après : `distrib` complet sur PostgreSQL 16 : 321 passés. Aucun test ajouté : les 3 tests existants couvrent le chemin et échouent sans le correctif. |
+| Statut | **Corrigé sur la branche `fix/distrib-settlement-lock`**, en attente de revue et de fusion. Jamais atteint la production (Distrib non fusionné en prod à cette date). |

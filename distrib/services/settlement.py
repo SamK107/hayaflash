@@ -352,7 +352,7 @@ def staff_correct(line: DistribSettlement, user, *, new_status: str, reason: str
         raise ValidationError("Statut non autorisé pour une correction.")
     with transaction.atomic():
         locked = (
-            DistribSettlement.objects.select_for_update()
+            DistribSettlement.objects.select_for_update(of=("self",))
             .select_related("distributor", "statement")
             .get(pk=line.pk)
         )
