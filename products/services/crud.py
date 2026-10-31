@@ -68,11 +68,16 @@ def update_product(*, product: Product, **kwargs) -> Product:
         "is_active",
         "description_audio",
     }
+    changed = []
     for key, value in kwargs.items():
         if key in allowed:
             setattr(product, key, value)
+            changed.append(key)
     product.full_clean()
-    product.save()
+    # Seuls les champs modifies sont ecrits : un `save()` complet ecrasait aussi
+    # `stock_initial` (applique en memoire par ProductForm) et pouvait ecraser
+    # `stock_available` face a une commande simultanee (F-162).
+    product.save(update_fields=[*changed, "updated_at"])
     return product
 
 
