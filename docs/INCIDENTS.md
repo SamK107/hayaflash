@@ -78,5 +78,17 @@ heartbeat des sauvegardes manquant, monitoring externe `/health/`.
 | Constat (staging, 30/10/2026, requête lecture seule après déploiement de `2354200`) | **1 écart sur 3 produits importés** : `ImportedProduct #3`, revendeuse Bassitan SOUCKO, produit #283, `stock_available` 35 pour `allocated_qty` 5. |
 | Datation | `StockMovement` #92 `correction +30` (« Ajustement stock (Publication rapide) ») le 2026-10-28 07:43 UTC, puis `AllocationMovement` #2 `+5` / `StockMovement` #93 `+5` à 07:47 UTC. Écart **antérieur de ~2 jours** au correctif, déployé le 30/10 vers 18:57 UTC (19:57 heure du VPS, UTC+1) ; il n'a pas été créé par le code corrigé. Somme des `StockMovement` = 35 = stock : le journal est cohérent, c'est la valeur qui est trop haute. Aucune ligne de commande sur le produit. |
 | Correction appliquée | Staging, 2026-10-30 19:18 UTC, accord du mainteneur : `adjust_stock` du produit #283 à 5 → `StockMovement` #95 `CORRECTION −30`. Vérifié : `stock_available` = 5, somme des mouvements = 5, requête `stock_available > allocated_qty` = 0 résultat. Dry-run : `scripts/dryrun_distrib_stock_cap.py`. |
-| Reste à faire | Même requête sur la prod (validation mainteneur requise avant toute action VPS). |
-| Statut | **Corrigé en staging (correctif + donnée).** Prod : requête lecture seule à jouer après validation du mainteneur. |
+| Prod (31/10/2026, accord du mainteneur) | Déploiement de `/srv/hayaflash-prod` de `5fddc85` à `11ec93b` ; `DISTRIB_ENABLED=False` confirmé ; `distrib.0001_initial` appliquée ; `/health/` 200 ; `/distrib/` en 404 depuis l'extérieur. `scripts/dryrun_distrib_stock_cap.py` sur la prod : **0 écart**. Aucune correction nécessaire. |
+| Statut | **Clos.** Staging corrigé (1 donnée) ; prod vérifiée, 0 écart. |
+
+### Suivi : `deploy_vps.sh` affiche un mauvais commit de retour arrière après un `git pull` manuel (F-160)
+
+| Champ | Contenu |
+|---|---|
+| Fichiers | `infra/scripts/deploy_vps.sh` (`PREV_SHA`, ligne 94 ; commande de retour arrière, ligne 205) |
+| Gravité proposée | **mineure, non bloquante** : aucun dégât constaté ; risque seulement si la commande affichée est copiée telle quelle en cas de retour arrière |
+| Cause | `PREV_SHA="$(git rev-parse HEAD)"` est lu quand le script démarre. Si un `git pull` a déjà été fait, `HEAD` est déjà la cible : `PREV_SHA = NEW_SHA`. |
+| Constat | Staging le 30/10 (retour arrière affiché `2354200`, cible du déploiement) ; prod le 31/10 (affiché `11ec93b`, service réellement sur `5fddc85`). Même cause : l'étape 3 affiche « Deja a jour » sans liste de commits ni changements sensibles (migrations, compose, nginx). |
+| Contournement | Relever `git rev-parse HEAD` avant le `pull` (fait pour les deux piles) et utiliser ce commit, pas celui affiché, pour un retour arrière. L'image `<image>:previous` est, elle, correcte. |
+| Piste (à traiter plus tard) | Que `deploy_vps.sh` ne dépende pas de l'état du clone : soit capturer `HEAD` avant tout `pull`, soit déduire le commit en service de l'image (tag `<image>:<sha court>` déjà posé par le script, ou label `org.opencontainers.image.revision` au `docker build`). |
+| Statut | **Ouvert, hors urgence** (F-160). |
