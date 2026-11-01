@@ -92,3 +92,16 @@ heartbeat des sauvegardes manquant, monitoring externe `/health/`.
 | Contournement | Relever `git rev-parse HEAD` avant le `pull` (fait pour les deux piles) et utiliser ce commit, pas celui affiché, pour un retour arrière. L'image `<image>:previous` est, elle, correcte. |
 | Piste (à traiter plus tard) | Que `deploy_vps.sh` ne dépende pas de l'état du clone : soit capturer `HEAD` avant tout `pull`, soit déduire le commit en service de l'image (tag `<image>:<sha court>` déjà posé par le script, ou label `org.opencontainers.image.revision` au `docker build`). |
 | Statut | **Ouvert, hors urgence** (F-160). |
+
+### `stock_initial` incohérent sur deux produits importés (F-162 / F-163)
+
+| Champ | Contenu |
+|---|---|
+| Fichiers | `products/services/crud.py` (`update_product`, corrigé en F-162) ; données : `Product.stock_initial` |
+| Gravité proposée | **mineure** : seul l'affichage « X/Y » et le pourcentage de stock restant sont faux ; `stock_available`, les ventes et les commandes ne sont pas touchés |
+| Constat (01/11/2026, lecture seule, `scripts/dryrun_stock_initial_consistency.py`) | Staging : produit #283 « MONTRE » (vendeur #50, import #3) `stock_initial` 20 pour 5 alloués, mouvements initial +0, correction +30, +5, −30. Prod : produit #5 « SAC LUXE » (vendeur #3, import #1) `stock_initial` 10 pour 5 alloués, mouvements initial +0, correction +5. Somme des mouvements = `stock_available` sur toutes les piles (0 écart). |
+| Valeur correcte | 5 dans les deux cas (`allocated_qty` = `stock_available` = somme des mouvements). |
+| Correction | `scripts/fix_stock_initial.py` (simulation par défaut, `APPLY=1`) : vérifie 0 commande et la cohérence de l'historique avant d'écrire, trace `AuditLog` `products.stock_initial_regularized`. |
+| Correction appliquée (01/11/2026, accord du mainteneur, simulation puis `APPLY=1`) | 0 commande sur chaque produit avant correction. Staging 00:28 UTC : produit #283 `stock_initial` 20 → 5 ; contrôle `dryrun_stock_initial_consistency.py` : 0 incohérence sur 97 produits. Prod 00:29 UTC : produit #5 `stock_initial` 10 → 5 ; contrôle : 0 incohérence sur 5 produits. `AuditLog` `products.stock_initial_regularized` écrit sur chaque pile. Stock réel et mouvements inchangés. |
+| Statut | **Clos** pour ces deux produits. Limite : 61 produits de staging sans import ni mouvement INITIAL ne sont pas évaluables par ce contrôle. Le correctif de code (F-162) reste à fusionner et déployer. |
+
