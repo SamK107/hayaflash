@@ -15,11 +15,11 @@ non-régression dédiés.
       paiement 100 FCFA (tarif spécial), note vocale lisible par le vendeur propriétaire et 404 pour
       un autre vendeur et pour `/media/delivery/audio/` (E4), QR encodant `hayaflash.com`,
       lettre v1.2 acceptée en ligne.
-- [ ] Première sauvegarde automatique de la prod vérifiée le 23/10 :
-      `tail -n 3 /home/sam/sauvegardes/prod/backup.log`.
+- [x] Première sauvegarde automatique de la prod vérifiée le 23/10 :
+      `tail -n 3 /home/sam/sauvegardes/prod/backup.log`. Relevé le 01/11/2026 : exécutions quotidiennes `OK` du 28/10 au 01/11 (02 h 45) ; voir `docs/releases/reports/inventaire-prod-20261101.md` (la ligne du 23/10 n'a pas été relue ; copie vers D: non contrôlée).
 - [ ] Politique de confidentialité : durées de conservation cohérentes avec les purges réellement
       actives ; E2 (preuve d'acceptation supprimée avec le compte, migration `core 0003`) non déployé.
-- [ ] À confirmer : clés Orange réelles ou bac à sable en prod ; valeur de `SMS_NOTIFICATIONS_ENABLED`.
+- [ ] À confirmer : clés Orange réelles ou bac à sable en prod ; valeur de `SMS_NOTIFICATIONS_ENABLED`. Relevé le 01/11/2026 : `SMS_NOTIFICATIONS_ENABLED` absent du `.env` prod (défaut faux, `config/settings/base.py:615`) ; variables `ORANGE_ML_*` renseignées, réel ou bac à sable **non confirmé** (case laissée ouverte).
 
 ### Règles communes de travail et d'exploitation
 
