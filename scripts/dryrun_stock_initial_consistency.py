@@ -13,10 +13,9 @@ Usage (sur la pile voulue) :
     docker compose -f docker-compose.production.yml exec -T web \
         python manage.py shell < scripts/dryrun_stock_initial_consistency.py
 """
-from django.db.models import Sum
-
 from distrib.models import ImportedProduct
 from products.models import Product, StockMovement
+
 
 def main():
     MT = StockMovement.MovementType
