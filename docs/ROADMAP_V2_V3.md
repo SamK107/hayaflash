@@ -19,7 +19,7 @@ non-régression dédiés.
       `tail -n 3 /home/sam/sauvegardes/prod/backup.log`. Relevé le 01/11/2026 : exécutions quotidiennes `OK` du 28/10 au 01/11 (02 h 45) ; voir `docs/releases/reports/inventaire-prod-20261101.md` (la ligne du 23/10 n'a pas été relue ; copie vers D: non contrôlée).
 - [ ] Politique de confidentialité : durées de conservation cohérentes avec les purges réellement
       actives ; E2 (preuve d'acceptation supprimée avec le compte, migration `core 0003`) non déployé.
-- [ ] À confirmer : clés Orange réelles ou bac à sable en prod ; valeur de `SMS_NOTIFICATIONS_ENABLED`. Relevé le 01/11/2026 : `SMS_NOTIFICATIONS_ENABLED` absent du `.env` prod (défaut faux, `config/settings/base.py:615`) ; variables `ORANGE_ML_*` renseignées, réel ou bac à sable **non confirmé** (case laissée ouverte).
+- [ ] À confirmer : clés Orange réelles ou bac à sable en prod ; valeur de `SMS_NOTIFICATIONS_ENABLED`. Relevé le 01/11/2026 : `SMS_NOTIFICATIONS_ENABLED` absent du `.env` prod (défaut faux, `config/settings/base.py:615`) ; variables `ORANGE_ML_*` renseignées, réel ou bac à sable **non confirmé** (case laissée ouverte). Relevé du 02/11/2026 : clés **identiques** sur staging et prod (voir F-165 dans `docs/releases/v1.0.0-rc1.md`).
 
 ### Règles communes de travail et d'exploitation
 
