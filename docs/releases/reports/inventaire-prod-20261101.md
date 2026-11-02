@@ -28,3 +28,15 @@ Non vu : la première sauvegarde (23/10) ; la copie hebdomadaire vers `D:\sauveg
 - `DISTRIB_ENABLED=True` (intentionnel, voir F-164).
 - `SMS_NOTIFICATIONS_ENABLED` **absent** : valeur par défaut fausse (`config/settings/base.py:615`), donc aucun SMS.
 - `ORANGE_ML_CLIENT_ID`, `ORANGE_ML_CLIENT_SECRET`, `ORANGE_ML_MERCHANT_KEY`, `ORANGE_ML_BASE_URL` (`https://hayaflash.com`), `ORANGE_ML_CURRENCY` : renseignées (seule la présence a été relevée, jamais les valeurs). **Clés réelles ou bac à sable : non confirmé.**
+
+## Complément du 02/11/2026 — doublon de compte staff supprimé
+
+Le rapport en lecture seule (script ponctuel hors dépôt, rapport puis `APPLY=1`) a confirmé deux comptes `haya`, staff + superuser, sans boutique, créés à 6 minutes d'intervalle le 19/10/2026 :
+
+| | Compte #1 | Compte #2 |
+|---|---|---|
+| Créé le | 19/10 14:56 | 19/10 15:02 |
+| Dernière connexion | 19/10 15:28 | jamais |
+| Données rattachées | 1 entrée du journal admin, 4 `AuditLog` (SET_NULL) | aucune |
+
+Le #2 (le plus récent, jamais utilisé, sans aucune donnée rattachée, 0 objet en cascade ou protégé) a été **supprimé** par le mainteneur le 02/11/2026 ; le #1 est conservé. **Preuve de connexion** : le mainteneur s'est connecté à `https://hayaflash.com/admin/` avec le compte conservé (téléphone et mot de passe) le 02/11/2026, après la suppression.
