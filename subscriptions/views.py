@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import json
 import logging
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse, JsonResponse
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
@@ -186,128 +185,15 @@ def payment_callback_view(request):
     Callback asynchrone Orange Money — /seller/abonnement/callback/
     Orange poste ici quand le paiement est confirmé ou échoue.
 
-    IMPORTANT: Cette URL est historique (ancien chemin /seller/...).
-    Préférer /billing/webhook/orange/ qui est stable et enregistrée chez Orange Money.
-
-    Règles de sécurité:
-    1. Lookup par notif_token UNIQUEMENT (pas par order_id)
-    2. Idempotent: si payment.status == 'success', pas de re-traitement
-    3. @csrf_exempt seulement sur ce webhook
-    4. Retourner toujours 200 OK
+    IMPORTANT: Cette URL est historique (ancien chemin /seller/...). Elle reste la route
+    utilisée quand ORANGE_ML_RETURN_URL / _CANCEL_URL / _NOTIFY_URL ne sont pas toutes
+    définies (voir subscriptions/services/payment.py:_om_urls). Le traitement est le même
+    que pour /billing/webhook/orange/ (une seule implémentation), y compris la trace
+    dans WebhookLog (F-166).
     """
-    try:
-        raw_body = request.body
-        try:
-            data = json.loads(raw_body)
-        except json.JSONDecodeError:
-            from urllib.parse import parse_qs
+    from .billing_views import process_orange_webhook
 
-            data = {k: v[0] for k, v in parse_qs(raw_body.decode()).items()}
-
-        from .services.orange_money import callback_amount_mismatch, verify_callback
-        from django.db import transaction
-
-        result = verify_callback(data)
-
-        # SÉCURITÉ CRITIQUE: Lookup par notif_token UNIQUEMENT (pas order_id)
-        notif_token = result.get("notif_token") or ""
-        if not notif_token:
-            # Le payload peut contenir le numero du payeur (subscribernumber) : cles seulement.
-            logger.warning("Orange callback sans notif_token: cles=%s", sorted(data))
-            return HttpResponse("OK")
-
-        try:
-            payment = SubscriptionPayment.objects.select_related("seller").get(
-                notif_token=notif_token
-            )
-        except SubscriptionPayment.DoesNotExist:
-            logger.error("Orange callback — notif_token inconnu: %s", notif_token[:16] + "...")
-            from .models import WebhookLog
-
-            WebhookLog.objects.create(
-                payment=None,
-                notif_token=notif_token[:128],
-                status=result.get("status", ""),
-                txn_id=result.get("txn_id", ""),
-                raw_payload=data,
-                processed=False,
-                error_message="notif_token inconnu — aucun paiement correspondant",
-            )
-            return HttpResponse("OK")
-
-        # IDEMPOTENCE: Si déjà success, pas de re-traitement
-        if payment.status == PaymentStatus.SUCCESS:
-            logger.info(
-                "Webhook already processed — notif_token=%s (idempotent skip)",
-                notif_token[:16] + "...",
-            )
-            return HttpResponse("OK")
-
-        # Montant notifie different du montant du paiement : pas d'activation.
-        if result["success"] and callback_amount_mismatch(result, payment.amount):
-            logger.error(
-                "Orange callback: montant incoherent — notif_token=%s attendu=%s recu=%r",
-                notif_token[:16] + "...",
-                payment.amount,
-                result.get("amount"),
-            )
-            return HttpResponse("OK")
-
-        payment.raw_callback = data
-        payment.txn_id = result.get("txn_id", "")
-
-        # DEFENSE EN PROFONDEUR (F-61) : meme verification active que
-        # billing_callback_view — SUCCESS dans le payload non confirme par Orange
-        # (statut autre, injoignable) = pas d'activation, mais 200 OK.
-        if result["success"]:
-            from .services.payment import sync_orange_payment_status
-
-            confirmed_status = sync_orange_payment_status(payment, source="webhook_legacy")
-            if confirmed_status != "SUCCESS" and payment.status != PaymentStatus.SUCCESS:
-                from .models import WebhookLog
-
-                logger.warning(
-                    "Orange callback: SUCCESS non confirme par Orange (%r) — "
-                    "pas d'activation, notif_token=%s",
-                    confirmed_status,
-                    notif_token[:16] + "...",
-                )
-                WebhookLog.objects.create(
-                    payment=payment,
-                    notif_token=notif_token,
-                    status=result.get("status", ""),
-                    txn_id=result.get("txn_id", ""),
-                    raw_payload=data,
-                    processed=False,
-                    error_message=(
-                        "SUCCESS non confirmé par Orange "
-                        f"(vérification : {confirmed_status or 'indisponible'}) — pas d'activation"
-                    ),
-                )
-                return HttpResponse("OK")
-
-        # Traitement du webhook
-        with transaction.atomic():
-            if result["success"]:
-                # Deja active par sync_orange_payment_status (idempotent).
-                logger.info(
-                    "Subscription activated via callback — notif_token=%s",
-                    notif_token[:16] + "...",
-                )
-            else:
-                if payment.status == PaymentStatus.PENDING:
-                    payment.status = PaymentStatus.FAILED
-                    payment.save()
-                logger.warning(
-                    "Payment failed — notif_token=%s status=%s",
-                    notif_token[:16] + "...",
-                    result.get("status", ""),
-                )
-
-    except Exception as exc:
-        logger.exception("Orange Money callback processing error: %s", str(exc))
-
-    return HttpResponse("OK")
+    return process_orange_webhook(request, source="webhook_legacy")
 
 
 # ── Diagnostic (DEBUG seulement) ───────────────────────────────────────────────
