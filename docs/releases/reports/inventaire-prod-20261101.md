@@ -27,7 +27,7 @@ Non vu : la première sauvegarde (23/10) ; la copie hebdomadaire vers `D:\sauveg
 
 - `DISTRIB_ENABLED=True` (intentionnel, voir F-164).
 - `SMS_NOTIFICATIONS_ENABLED` **absent** : valeur par défaut fausse (`config/settings/base.py:615`), donc aucun SMS.
-- `ORANGE_ML_CLIENT_ID`, `ORANGE_ML_CLIENT_SECRET`, `ORANGE_ML_MERCHANT_KEY`, `ORANGE_ML_BASE_URL` (`https://hayaflash.com`), `ORANGE_ML_CURRENCY` : renseignées (seule la présence a été relevée, jamais les valeurs). **Clés réelles ou bac à sable : non confirmé.**
+- `ORANGE_ML_CLIENT_ID`, `ORANGE_ML_CLIENT_SECRET`, `ORANGE_ML_MERCHANT_KEY`, `ORANGE_ML_BASE_URL` (`https://hayaflash.com`), `ORANGE_ML_CURRENCY` : renseignées (seule la présence a été relevée, jamais les valeurs). **Clés réelles, confirmé par le mainteneur le 02/11/2026** (Orange fournit les mêmes identifiants en bac à sable et en production ; voir F-165).
 
 ## Complément du 02/11/2026 — doublon de compte staff supprimé
 

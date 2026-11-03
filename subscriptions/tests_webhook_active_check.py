@@ -92,5 +92,4 @@ class WebhookActiveCheckTests(TestCase):
                 self.assertEqual((p.status, p.txn_id), (PaymentStatus.SUCCESS, "MP-OK"))
                 self.assertEqual(p.raw_callback, body)
                 self.assertEqual(Subscription.objects.get(seller=self.seller).plan, Plan.MEDIUM)
-                if endpoint == "billing_callback_orange":
-                    self.assertTrue(WebhookLog.objects.filter(payment=p, processed=True).exists())
+                self.assertTrue(WebhookLog.objects.filter(payment=p, processed=True).exists())

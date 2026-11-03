@@ -527,7 +527,7 @@ class ReportingAndWebhookTests(PlanCacheIsolation):
     def test_legacy_webhook_also_checks_amount(self):
         payment, _ = _initiate(self.seller)
         body = {"status": "SUCCESS", "notif_token": payment.notif_token, "amount": 5}
-        with self.assertLogs("subscriptions.views", level="ERROR"):
+        with self.assertLogs("subscriptions.billing_views", level="ERROR"):
             Client().post(
                 reverse("subscriptions:payment_callback"),
                 data=json.dumps(body),

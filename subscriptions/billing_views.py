@@ -104,11 +104,23 @@ def billing_callback_view(request):
     """
     Webhook Orange Money — /billing/webhook/orange/
     Reçu de façon asynchrone quand le paiement est confirmé ou échoue.
+    """
+    return process_orange_webhook(request, source="webhook")
+
+
+def process_orange_webhook(request, *, source: str) -> HttpResponse:
+    """
+    Traitement unique du webhook Orange Money, partagé par /billing/webhook/orange/
+    et par l'ancienne route /seller/abonnement/callback/ (F-166 : sans variables
+    ORANGE_ML_*_URL, le paiement part avec l'ancienne route, qui ne laissait aucune
+    trace dans WebhookLog).
+
+    `source` ne sert qu'à distinguer la route dans l'audit ("webhook" ou "webhook_legacy").
 
     Règles de sécurité:
     1. Lookup par notif_token UNIQUEMENT (pas par order_id)
     2. Idempotent: si payment.status == 'success', pas de re-traitement
-    3. @csrf_exempt seulement sur ce webhook, pas sur les autres endpoints
+    3. Les vues appelantes portent @csrf_exempt et @require_POST
     4. Retourner toujours 200 OK (Orange Money retry si erreur)
     """
     try:
@@ -209,7 +221,7 @@ def billing_callback_view(request):
         if result["success"]:
             from .services.payment import sync_orange_payment_status
 
-            confirmed_status = sync_orange_payment_status(payment, source="webhook")
+            confirmed_status = sync_orange_payment_status(payment, source=source)
             if confirmed_status != "SUCCESS" and payment.status != PaymentStatus.SUCCESS:
                 logger.warning(
                     "billing_callback: SUCCESS non confirme par Orange (%r) — "
