@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import tempfile
 from datetime import timedelta
 from decimal import Decimal
@@ -61,6 +62,7 @@ class SeedDemoDistribTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        logging.disable(logging.INFO)  # delivery_advance journalise chaque etape : bruit, pas un signal
         cls._tmp = tempfile.TemporaryDirectory()
         cls.assets = Path(cls._tmp.name) / "assets"
         cls.stems = _fake_images(cls.assets)
@@ -70,6 +72,7 @@ class SeedDemoDistribTests(TestCase):
     @classmethod
     def tearDownClass(cls):
         cls._media.disable()
+        logging.disable(logging.NOTSET)
         cls._tmp.cleanup()
         super().tearDownClass()
 
