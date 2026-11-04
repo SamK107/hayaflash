@@ -41,3 +41,7 @@ core/demo_assets/_planche_contact.html
 # Fichiers locaux (config Claude Code, couverture de tests)
 .claude/
 .coverage
+
+# Images et captures de la demo commerciale (seed_demo_distrib, scripts/demo_captures.py)
+/demo_assets/
+/demo_captures/
