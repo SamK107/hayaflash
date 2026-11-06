@@ -45,6 +45,14 @@ class FilterBarTests(TestCase):
         self.assertContains(resp, 'data-dx-scope="sub"')
         self.assertContains(resp, 'data-text="Robe wax"')
 
+    def test_catalog_has_a_search_field(self):
+        make_wholesale(self.distributor, name="Robe wax")
+        self.assertNotContains(self.client.get("/distrib/catalogue/"), "data-dx-filter")
+        make_wholesale(self.distributor, name="Pagne bazin")
+        resp = self.client.get("/distrib/catalogue/")
+        self.assertContains(resp, 'data-dx-filter="#dx-catalog-list"')
+        self.assertContains(resp, 'data-text="Pagne bazin"')
+
     def test_statements_page_renders_with_status_choices(self):
         resp = self.client.get("/distrib/releves/")
         self.assertEqual(resp.status_code, 200)
