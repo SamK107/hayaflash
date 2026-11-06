@@ -5,7 +5,7 @@ from __future__ import annotations
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 
-from distrib.tests_catalog import make_wholesale
+from distrib.tests_catalog import allocate_raw, make_wholesale
 from distrib.tests_models import make_distributor, make_seller
 
 User = get_user_model()
@@ -32,6 +32,18 @@ class FilterBarTests(TestCase):
         self.assertContains(resp, f'<option value="{b.pk}">Pagne bazin</option>', html=True)
         self.assertContains(resp, f'data-product="{b.pk}"')
         self.assertContains(resp, "distrib/filter.js")
+
+    def test_stock_filters_reseller_lines_not_only_products(self):
+        a = make_wholesale(self.distributor, name="Robe wax")
+        make_wholesale(self.distributor, name="Pagne bazin")
+        allocate_raw(a, self.distributor, 1, phone="+22370000001")
+        allocate_raw(a, self.distributor, 1, phone="+22370000002")
+        resp = self.client.get("/distrib/stock/")
+        # Chaque ligne revendeur est filtrable seule, et le titre de la carte ne
+        # contient plus les noms des revendeurs (sinon tous restaient visibles).
+        self.assertContains(resp, "data-dx-sub", count=2)
+        self.assertContains(resp, 'data-dx-scope="sub"')
+        self.assertContains(resp, 'data-text="Robe wax"')
 
     def test_statements_page_renders_with_status_choices(self):
         resp = self.client.get("/distrib/releves/")

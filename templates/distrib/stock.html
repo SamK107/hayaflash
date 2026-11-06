@@ -19,6 +19,12 @@
     <option value="">Tous les produits</option>
     {% for row in rows %}<option value="{{ row.product.pk }}">{{ row.product.name }}</option>{% endfor %}
   </select>
+  {% if resellers %}
+  <select class="hf-input" data-dx-key="invite" data-dx-scope="sub" aria-label="Choisir un revendeur">
+    <option value="">Tous les revendeurs</option>
+    {% for inv in resellers %}<option value="{{ inv.pk }}">{{ inv.display_name }}</option>{% endfor %}
+  </select>
+  {% endif %}
   <button type="button" class="dx-btn dx-btn-ghost dx-btn-sm" data-dx-reset>Tout afficher</button>
   <span class="dx-filter-count" data-dx-count aria-live="polite"></span>
   <p class="dx-meta dx-filter-empty" data-dx-empty hidden>Aucun produit ne correspond à la recherche.</p>
@@ -27,7 +33,7 @@
 
 <div id="dx-stock-list">
 {% for row in rows %}
-<div class="dx-card" data-dx-item data-product="{{ row.product.pk }}" data-text="{{ row.product.name }}{% for line in row.imports %} {{ line.imported.invite.display_name }}{% endfor %}">
+<div class="dx-card" data-dx-item data-product="{{ row.product.pk }}" data-text="{{ row.product.name }}">
   <h2 class="dx-h2">{{ row.product.name }}{% if not row.product.is_active %} <span class="dx-badge">Masqué</span>{% endif %}</h2>
   <div class="dx-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:.75rem;">
     <div class="dx-stat"><b>{{ row.product.stock_total }}</b><span>Total</span></div>
@@ -37,7 +43,7 @@
   </div>
 
   {% for line in row.imports %}
-  <div class="dx-row" style="align-items:flex-start;flex-wrap:wrap;">
+  <div class="dx-row" style="align-items:flex-start;flex-wrap:wrap;" data-dx-sub data-invite="{{ line.imported.invite_id }}" data-text="{{ line.imported.invite.display_name }}">
     <div class="dx-grow">
       <div class="dx-name">{{ line.imported.invite.display_name }}</div>
       <div class="dx-meta">Alloué {{ line.imported.allocated_qty }} · en boutique {{ line.in_shop }} · vendu {{ line.sold }} · prix {{ line.imported.product.price|floatformat:0 }} FCFA</div>

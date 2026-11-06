@@ -10,20 +10,8 @@
 {% elif commission_level == 'warning' %}<div class="dx-alert" role="alert">Encours de commission {{ outstanding|floatformat:0 }} FCFA : plus de 80 % du plafond ({{ distributor.credit_ceiling|floatformat:0 }} FCFA).</div>{% endif %}
 {% for st in overdue %}<div class="dx-alert dx-alert-bad" role="alert">Relevé de {{ st.invite.display_name }} ({{ st.amount|floatformat:0 }} FCFA) à régler depuis plus de {{ distributor.payout_delay_days }} jours.</div>{% endfor %}
 
-<div class="dx-card">
-  <h2 class="dx-h2">Marges dues par revendeur</h2>
-  {% for r in resellers %}
-  <div class="dx-row">
-    <div class="dx-grow"><div class="dx-name">{{ r.invite.display_name }}</div>
-      <div class="dx-meta">Plafond {{ distributor.reseller_credit_ceiling|floatformat:0 }} FCFA</div></div>
-    <span class="dx-badge{% if r.level == 'blocked' %} dx-badge-bad{% elif r.level == 'warning' %} dx-badge-warn{% endif %}">{{ r.due|floatformat:0 }} FCFA</span>
-  </div>
-  {% if r.level == 'blocked' %}<p class="dx-meta" style="color:#991B1B;">Règle les marges dues pour débloquer les nouvelles allocations.</p>{% endif %}
-  {% empty %}<p class="dx-meta">Aucun revendeur.</p>{% endfor %}
-</div>
-
 {% if rows|length > 1 %}
-<div class="dx-filter" data-dx-filter="#dx-statements-list" role="search">
+<div class="dx-filter" data-dx-filter="#dx-statements-list" data-dx-also="#dx-margins" role="search">
   <input class="hf-input" type="search" data-dx-q placeholder="Rechercher un revendeur, une date…" aria-label="Rechercher un relevé" autocomplete="off">
   <select class="hf-input" data-dx-key="invite" aria-label="Choisir un revendeur">
     <option value="">Tous les revendeurs</option>
@@ -38,6 +26,21 @@
   <p class="dx-meta dx-filter-empty" data-dx-empty hidden>Aucun relevé ne correspond au filtre.</p>
 </div>
 {% endif %}
+
+<div class="dx-card" id="dx-margins">
+  <h2 class="dx-h2">Marges dues par revendeur</h2>
+  {% for r in resellers %}
+  <div data-dx-item data-invite="{{ r.invite.pk }}" data-text="{{ r.invite.display_name }}">
+  <div class="dx-row">
+    <div class="dx-grow"><div class="dx-name">{{ r.invite.display_name }}</div>
+      <div class="dx-meta">Plafond {{ distributor.reseller_credit_ceiling|floatformat:0 }} FCFA</div></div>
+    <span class="dx-badge{% if r.level == 'blocked' %} dx-badge-bad{% elif r.level == 'warning' %} dx-badge-warn{% endif %}">{{ r.due|floatformat:0 }} FCFA</span>
+  </div>
+  {% if r.level == 'blocked' %}<p class="dx-meta" style="color:#991B1B;">Règle les marges dues pour débloquer les nouvelles allocations.</p>{% endif %}
+  </div>
+  {% empty %}<p class="dx-meta">Aucun revendeur.</p>{% endfor %}
+</div>
+
 
 <div id="dx-statements-list">
 {% for row in rows %}

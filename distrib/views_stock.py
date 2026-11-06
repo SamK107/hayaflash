@@ -52,6 +52,11 @@ def stock(request):
         {
             "distributor": distributor,
             "rows": rows,
+            # Liste « Revendeur » de la barre de filtre : ceux qui ont importe au moins un produit.
+            "resellers": sorted(
+                {line["imported"].invite for row in rows for line in row["imports"]},
+                key=lambda inv: inv.display_name.lower(),
+            ),
             "commission_blocked": ceilings.commission_level(distributor) == ceilings.LEVEL_BLOCKED,
         },
     )

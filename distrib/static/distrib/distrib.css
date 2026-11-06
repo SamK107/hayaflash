@@ -55,4 +55,4 @@
 .dx-filter select.hf-input{flex:0 1 13rem;}
 .dx-filter-count{font-size:.85rem;color:#6B7280;white-space:nowrap;}
 .dx-filter-empty{flex-basis:100%;margin:0;}
-[data-dx-item][hidden]{display:none !important;}
+[data-dx-item][hidden],[data-dx-sub][hidden]{display:none !important;}
