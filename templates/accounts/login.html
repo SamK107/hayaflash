@@ -73,6 +73,12 @@
         Pas encore de compte ?
         <a href="{% url 'register' %}" class="text-primary font-semibold hover:underline">Créer un compte gratuit</a>
       </p>
+      {% if distrib_login_link %}
+      <p class="text-center text-sm text-gray-500 mt-3">
+        Vous êtes grossiste ?
+        <a href="{% url 'distrib:connexion' %}" class="text-primary font-semibold hover:underline">Espace grossiste</a>
+      </p>
+      {% endif %}
     </div>
   </div>
 

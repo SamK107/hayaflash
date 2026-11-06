@@ -22,9 +22,27 @@
   {% empty %}<p class="dx-meta">Aucun revendeur.</p>{% endfor %}
 </div>
 
+{% if rows|length > 1 %}
+<div class="dx-filter" data-dx-filter="#dx-statements-list" role="search">
+  <input class="hf-input" type="search" data-dx-q placeholder="Rechercher un revendeur, une date…" aria-label="Rechercher un relevé" autocomplete="off">
+  <select class="hf-input" data-dx-key="invite" aria-label="Choisir un revendeur">
+    <option value="">Tous les revendeurs</option>
+    {% for r in resellers %}<option value="{{ r.invite.pk }}">{{ r.invite.display_name }}</option>{% endfor %}
+  </select>
+  <select class="hf-input" data-dx-key="status" aria-label="Choisir un statut">
+    <option value="">Tous les statuts</option>
+    {% for value, label in status_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+  </select>
+  <button type="button" class="dx-btn dx-btn-ghost dx-btn-sm" data-dx-reset>Tout afficher</button>
+  <span class="dx-filter-count" data-dx-count aria-live="polite"></span>
+  <p class="dx-meta dx-filter-empty" data-dx-empty hidden>Aucun relevé ne correspond au filtre.</p>
+</div>
+{% endif %}
+
+<div id="dx-statements-list">
 {% for row in rows %}
 {% with st=row.statement %}
-<div class="dx-card">
+<div class="dx-card" data-dx-item data-invite="{{ st.invite_id }}" data-status="{{ st.status }}" data-text="{{ st.invite.display_name }} {{ st.period_start|date:'d/m/Y' }} {{ st.period_end|date:'d/m/Y' }} {{ st.amount|floatformat:0 }} {{ st.get_status_display }}">
   <div class="dx-row" style="border-top:0;padding-top:0;">
     <div class="dx-grow">
       <div class="dx-name">{{ st.invite.display_name }} — semaine du {{ st.period_start|date:"d/m" }} au {{ st.period_end|date:"d/m/Y" }}</div>
@@ -49,6 +67,7 @@
 {% empty %}
 <div class="dx-card"><p class="dx-meta">Aucun relevé pour l'instant. Le premier est généré le lundi suivant une vente confirmée.</p></div>
 {% endfor %}
+</div>
 
 <div class="dx-card">
   <h2 class="dx-h2">Commission HayaFlash</h2>

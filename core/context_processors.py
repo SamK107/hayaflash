@@ -119,6 +119,10 @@ def active_live_sale(request):
 # de proposer par erreur l'installation de l'espace vendeur.
 BUYER_PWA_PATH_PREFIXES = ("/f/", "/s/", "/ventes", "/order/")
 
+# Espace grossiste : manifest dedie (id/start_url /distrib/). Installee depuis
+# /distrib/connexion/ ou l'Accueil, l'icone ouvre directement l'espace grossiste.
+DISTRIB_PWA_PATH_PREFIX = "/distrib/"
+
 # Cle de session posee par les vues (ex. creation de vente) pour afficher le
 # bandeau d'installation sur la page suivante (apres redirection).
 PWA_INSTALL_INVITE_SESSION_KEY = "hf_install_invite"
@@ -140,7 +144,12 @@ def pwa_install(request):
     flag de la session) que la ou un template l'utilise, c.-a-d. base.html —
     un fragment HTMX ou un autre rendu ne le consomme pas par erreur.
     """
-    app = "buyer" if request.path.startswith(BUYER_PWA_PATH_PREFIXES) else "seller"
+    if request.path.startswith(BUYER_PWA_PATH_PREFIXES):
+        app = "buyer"
+    elif request.path.startswith(DISTRIB_PWA_PATH_PREFIX):
+        app = "distrib"
+    else:
+        app = "seller"
 
     def pwa_install_invite():
         if request.headers.get("HX-Request") or not hasattr(request, "session"):

@@ -18,6 +18,7 @@
     <p class="mb-6 flex gap-4">
         <a href="{% url 'partners_dashboard' %}" class="text-sm font-semibold text-primary hover:underline">Programme partenaires</a>
         <a href="{% url 'platform_admin_shops' %}" class="text-sm font-semibold text-primary hover:underline">Boutiques et bilans</a>
+        {% if distrib_enabled %}<a href="{% url 'distrib:pilotage' %}" class="text-sm font-semibold text-primary hover:underline">Grossistes</a>{% endif %}
     </p>
 
     <!-- KPIs -->

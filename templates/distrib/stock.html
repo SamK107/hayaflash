@@ -12,8 +12,22 @@
 <div class="dx-alert dx-alert-bad" role="alert">Les nouvelles allocations sont bloquées : la commission due à HayaFlash dépasse votre plafond.</div>
 {% endif %}
 
+{% if rows|length > 1 %}
+<div class="dx-filter" data-dx-filter="#dx-stock-list" role="search">
+  <input class="hf-input" type="search" data-dx-q placeholder="Rechercher un produit ou un revendeur…" aria-label="Rechercher un produit ou un revendeur" autocomplete="off">
+  <select class="hf-input" data-dx-key="product" aria-label="Choisir un produit">
+    <option value="">Tous les produits</option>
+    {% for row in rows %}<option value="{{ row.product.pk }}">{{ row.product.name }}</option>{% endfor %}
+  </select>
+  <button type="button" class="dx-btn dx-btn-ghost dx-btn-sm" data-dx-reset>Tout afficher</button>
+  <span class="dx-filter-count" data-dx-count aria-live="polite"></span>
+  <p class="dx-meta dx-filter-empty" data-dx-empty hidden>Aucun produit ne correspond à la recherche.</p>
+</div>
+{% endif %}
+
+<div id="dx-stock-list">
 {% for row in rows %}
-<div class="dx-card">
+<div class="dx-card" data-dx-item data-product="{{ row.product.pk }}" data-text="{{ row.product.name }}{% for line in row.imports %} {{ line.imported.invite.display_name }}{% endfor %}">
   <h2 class="dx-h2">{{ row.product.name }}{% if not row.product.is_active %} <span class="dx-badge">Masqué</span>{% endif %}</h2>
   <div class="dx-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:.75rem;">
     <div class="dx-stat"><b>{{ row.product.stock_total }}</b><span>Total</span></div>
@@ -46,4 +60,5 @@
 {% empty %}
 <div class="dx-card"><p class="dx-meta">Ajoutez d'abord des produits au <a href="{% url 'distrib:catalog' %}">catalogue</a>.</p></div>
 {% endfor %}
+</div>
 {% endblock %}
