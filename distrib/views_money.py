@@ -54,6 +54,7 @@ def statements_list(request):
         {
             "distributor": distributor,
             "rows": rows,
+            "status_choices": DistribStatement.Status.choices,
             "resellers": resellers,
             "outstanding": outstanding,
             "commission_level": ceilings.level(outstanding, distributor.credit_ceiling),

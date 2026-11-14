@@ -25,7 +25,8 @@
   <!-- PWA -->
   {# Manifest acheteur ou vendeur choisi selon l'URL (core.context_processors.pwa_install). #}
   {% block pwa_manifest %}{% if pwa_app == "buyer" %}<link rel="manifest" href="/static/manifest-buyer.json" />
-  <link rel="apple-touch-icon" href="/static/img/apple-touch-icon-buyer.png" />{% else %}<link rel="manifest" href="/static/manifest.json" />
+  <link rel="apple-touch-icon" href="/static/img/apple-touch-icon-buyer.png" />{% elif pwa_app == "distrib" %}<link rel="manifest" href="/static/manifest-distrib.json" />
+  <link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png" />{% else %}<link rel="manifest" href="/static/manifest.json" />
   <link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png" />{% endif %}{% endblock %}
   <link rel="icon" href="/static/favicon.ico" sizes="48x48" />
   <link rel="icon" href="{% static 'img/brand/bolt.svg' %}" type="image/svg+xml" />

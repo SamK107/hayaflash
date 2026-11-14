@@ -47,3 +47,12 @@
 .dx-bar > i { display:block; height:100%; background:#22C55E; }
 .dx-bar-bad > i { background:#DC2626; }
 .dx-bar-warn > i { background:#FFB800; }
+
+/* Barre de filtre (Stock, Relevés) — distrib/static/distrib/filter.js */
+.dx-filter{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;
+  background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:.6rem;margin-bottom:.75rem;}
+.dx-filter .hf-input{flex:1 1 12rem;min-width:0;margin:0;}
+.dx-filter select.hf-input{flex:0 1 13rem;}
+.dx-filter-count{font-size:.85rem;color:#6B7280;white-space:nowrap;}
+.dx-filter-empty{flex-basis:100%;margin:0;}
+[data-dx-item][hidden],[data-dx-sub][hidden]{display:none !important;}

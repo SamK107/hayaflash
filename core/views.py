@@ -128,8 +128,16 @@ def _post_login_redirect_target(user) -> str:
     redirection post-connexion — decouvert en auditant la connexion d'un
     compte staff (voir Phase 10.0).
     """
-    if not SellerProfile.objects.filter(user=user).exists():
-        return "platform_admin" if user.is_staff else "seller_home"
+    has_shop = SellerProfile.objects.filter(user=user).exists()
+    if not has_shop and user.is_staff:
+        return "platform_admin"
+    # Grossiste actif : son espace /distrib/ (Accueil + onglets), meme connecte
+    # depuis /login/ ou l'icone PWA vendeur, sans devoir saisir l'URL.
+    if getattr(settings, "DISTRIB_ENABLED", False):
+        from distrib.access import get_distributor_or_none
+
+        if get_distributor_or_none(user) is not None:
+            return "distrib:home"
     return "seller_home"
 
 
@@ -184,7 +192,13 @@ def login_view(request):
             else:
                 error = "Numéro de téléphone ou mot de passe incorrect."
 
-    return render(request, "accounts/login.html", {"error": error})
+    # Lien « Espace grossiste » : inutile si l'on vient deja de /distrib/.
+    distrib_login_link = getattr(settings, "DISTRIB_ENABLED", False) and not request.GET.get(
+        "next", ""
+    ).startswith("/distrib/")
+    return render(
+        request, "accounts/login.html", {"error": error, "distrib_login_link": distrib_login_link}
+    )
 
 
 def register_view(request):
@@ -449,6 +463,7 @@ def platform_admin_dashboard(request):
         "revenue_timeline": get_subscription_revenue_timeline_monthly(),
         "orange": get_orange_remittance_summary(),
         "subscribed_sellers": get_subscribed_sellers(),
+        "distrib_enabled": getattr(settings, "DISTRIB_ENABLED", False),
         "recent_payments": (
             SubscriptionPayment.objects.select_related("seller__user").order_by(
                 "-created_at"
