@@ -20,6 +20,7 @@ from PIL import Image
 from accounts.models import SellerProfile
 from distrib.management.commands import seed_demo_distrib as seed
 from distrib.models import (
+    AllocationMovement,
     DistribPayment,
     DistribSettlement,
     DistribStatement,
@@ -116,7 +117,7 @@ class SeedDemoDistribTests(TestCase):
         distributor = Distributor.objects.get()
         self.assertEqual(distributor.business_name, "Grossiste Démo Bamako")
         self.assertEqual(WholesaleProduct.objects.count(), 20)
-        self.assertEqual(ResellerInvite.objects.filter(status=ResellerInvite.Status.ACCEPTED).count(), 5)
+        self.assertEqual(ResellerInvite.objects.filter(status=ResellerInvite.Status.ACCEPTED).count(), 15)
 
         # Tout est dans la plage de numeros fictifs.
         for user in User.objects.all():
@@ -160,10 +161,10 @@ class SeedDemoDistribTests(TestCase):
             self.assertEqual(payout.amount, payout.statement.amount)
 
         distributor = Distributor.objects.get()
-        ceiling = Decimal(10000)
         for invite in ResellerInvite.objects.all():
-            self.assertLess(ceilings.reseller_due(invite), ceiling, invite.display_name)
-        self.assertLess(ceilings.commission_outstanding(distributor), ceiling)
+            self.assertLess(ceilings.reseller_due(invite), distributor.reseller_credit_ceiling, invite.display_name)
+        self.assertEqual(distributor.credit_ceiling, Decimal(10000))
+        self.assertLess(ceilings.commission_outstanding(distributor), distributor.credit_ceiling)
         self.assertGreaterEqual(ceilings.commission_outstanding(distributor), 0)
         self.assertTrue(DistribPayment.objects.exists())
 
@@ -194,7 +195,7 @@ class SeedDemoDistribTests(TestCase):
         self.assertTrue(live.get().orders.exists())
         done = FlashSale.objects.filter(owner__user__phone__in=[r["phone"] for r in seed.RESELLERS], status=FlashSaleStatus.COMPLETED)
         self.assertGreaterEqual(done.count(), 5)
-        self.assertTrue(done.filter(end_time__gte=now - timedelta(days=22), end_time__lt=now).count() == done.count())
+        self.assertEqual(done.filter(end_time__gte=now - timedelta(days=91), end_time__lt=now).count(), done.count())
 
         self.assertTrue(DistribStatement.objects.filter(status=DistribStatement.Status.ACCEPTED).exists())
         self.assertTrue(ResellerPayout.objects.exists())
@@ -254,6 +255,100 @@ class SeedDemoDistribTests(TestCase):
         self.assertEqual(list(User.objects.values_list("pk", flat=True)), [real_user.pk])
         self.assertEqual(FlashSale.objects.count(), 1)
         self.assertEqual(Product.objects.count(), 1)
+
+    # ── V2 : 15 revendeuses, 90 jours d'historique ────────────────────────
+
+    def snapshot(self):
+        S = DistribSettlement.Status
+        paid = DistribSettlement.objects.filter(status=S.PAID_CONFIRMED)
+        return {
+            "orders": Order.service_objects.count(),
+            "lines": DistribSettlement.objects.count(),
+            "paid": paid.count(),
+            "revenue": paid.aggregate(t=Sum("sale_amount"))["t"],
+            "not_delivered": DistribSettlement.objects.filter(status=S.NOT_DELIVERED).count(),
+            "statements": sorted(DistribStatement.objects.values_list("status", flat=True)),
+            "paid_by_reseller": sorted(paid.values_list("invite__phone", flat=True)),
+        }
+
+    def test_v2_resellers_profiles_and_history(self):
+        from distrib.services import reliability
+        from distrib.services.allocation import imports_below_minimum
+
+        self.run_seed()
+        S = DistribSettlement.Status
+        now = timezone.now()
+        distributor = Distributor.objects.get()
+
+        # 15 revendeuses, les 10 nouvelles sur +22370000050 a 59, tous les numeros dans la plage demo.
+        self.assertEqual(len(seed.RESELLERS), 15)
+        new_phones = {f"+223700000{n}" for n in range(50, 60)}
+        self.assertTrue(new_phones <= {r["phone"] for r in seed.RESELLERS})
+        for user in User.objects.all():
+            self.assertTrue(seed.is_demo_phone(user.phone), user.phone)
+        profiles = {}
+        for spec in seed.RESELLERS:
+            profiles.setdefault(spec["profile"], []).append(spec)
+        self.assertEqual({k: len(v) for k, v in profiles.items()},
+                         {"star": 2, "reguliere": 5, "moyenne": 4, "irreguliere": 2, "nouvelle": 2})
+
+        def paid_count(spec):
+            return DistribSettlement.objects.filter(invite__phone=spec["phone"], status=S.PAID_CONFIRMED).count()
+
+        def failed_ratio(spec):
+            lines = DistribSettlement.objects.filter(invite__phone=spec["phone"]).exclude(status=S.CANCELLED)
+            return lines.filter(status=S.NOT_DELIVERED).count() / max(lines.count(), 1)
+
+        for spec in profiles["star"]:
+            self.assertTrue(60 <= paid_count(spec) <= 90, (spec["shop"], paid_count(spec)))
+            self.assertLess(failed_ratio(spec), 0.06)
+        for spec in profiles["reguliere"]:
+            self.assertTrue(25 <= paid_count(spec) <= 45, (spec["shop"], paid_count(spec)))
+        for spec in profiles["moyenne"]:
+            self.assertTrue(10 <= paid_count(spec) <= 20, (spec["shop"], paid_count(spec)))
+        for spec in profiles["irreguliere"]:
+            self.assertGreater(failed_ratio(spec), 0.4, spec["shop"])
+        for spec in profiles["nouvelle"]:
+            self.assertTrue(2 <= paid_count(spec) <= 6, (spec["shop"], paid_count(spec)))
+            self.assertGreaterEqual(User.objects.get(phone=spec["phone"]).date_joined, now - timedelta(days=21))
+
+        # Alertes : fiabilite sur 30 jours, prix minimum, versement conteste.
+        self.assertIn(reliability.ALERT_NOT_DELIVERED, reliability.reliability(distributor)["alerts"])
+        self.assertTrue(imports_below_minimum(distributor).exists())
+        self.assertTrue(ResellerPayout.objects.filter(status=ResellerPayout.Status.CONTESTED).exists())
+        self.assertTrue(DistribStatement.objects.filter(status=DistribStatement.Status.CONTESTED).exists())
+
+        # Releves hebdomadaires sur toute la periode : references OM saisies sauf les releves « a regler ».
+        self.assertGreaterEqual(DistribStatement.objects.values("period_start").distinct().count(), 10)
+        to_pay = DistribStatement.objects.filter(status=DistribStatement.Status.TO_PAY)
+        self.assertTrue(to_pay.exists())
+        self.assertFalse(ResellerPayout.objects.filter(statement__in=to_pay).exists())
+        self.assertTrue(DistribStatement.objects.filter(status=DistribStatement.Status.PAID).exists())
+        for payout in ResellerPayout.objects.all():
+            self.assertTrue(payout.om_reference)
+
+        # Activite : au moins 30 % dans les 30 derniers jours, trois sources de confirmation, reprises d'invendus.
+        paid = DistribSettlement.objects.filter(status=S.PAID_CONFIRMED)
+        self.assertGreaterEqual(paid.filter(paid_confirmed_at__gte=now - timedelta(days=30)).count() * 100, 30 * paid.count())
+        self.assertEqual(set(paid.values_list("confirmation_source", flat=True)),
+                         {"distributor", "customer", "auto"})
+        self.assertTrue(AllocationMovement.objects.filter(quantity_change__lt=0, reason="Reprise d'invendus").exists())
+        self.assertGreaterEqual(FlashSale.objects.filter(status=FlashSaleStatus.LIVE, start_time__lte=now, end_time__gte=now).count(), 1)
+
+        # FCFA entiers partout, prix de revente >= minimum sauf cas d'alerte volontaire.
+        for line in DistribSettlement.objects.all():
+            for value in (line.sale_amount, line.wholesale_amount, line.reseller_margin, line.commission_amount):
+                self.assertEqual(value, value.to_integral_value())
+        flagged = set(imports_below_minimum(distributor).values_list("pk", flat=True))
+        for imported in ImportedProduct.objects.select_related("product", "wholesale_product"):
+            if imported.pk not in flagged:
+                self.assertGreaterEqual(imported.product.price, imported.wholesale_product.min_retail_price)
+
+    def test_v2_is_reproducible(self):
+        self.run_seed()
+        first = self.snapshot()
+        self.run_seed(reset=True)
+        self.assertEqual(self.snapshot(), first)
 
     def test_no_brand_names_in_demo_texts(self):
         self.run_seed()

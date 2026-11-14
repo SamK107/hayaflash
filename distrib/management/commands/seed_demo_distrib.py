@@ -48,9 +48,9 @@ from distrib.models import (
     WholesaleProduct,
     WholesaleProductImage,
 )
-from distrib.services import catalog, ceilings, distributors, invites, statements
+from distrib.services import catalog, ceilings, distributors, invites, reliability, statements
 from distrib.services import settlement as settlement_service
-from distrib.services.allocation import import_product
+from distrib.services.allocation import allocate, import_product, imports_below_minimum, take_back
 from flash_sales.models import FlashSale, FlashSaleStatus
 from orders.models import Order, UnhonoredOrder
 from orders.services.create_order import create_order
@@ -106,38 +106,100 @@ DESCRIPTIONS = {
 # `products` : (categorie, nombre de produits). `ventes` : codes des commandes (voir STATES).
 RESELLERS = [
     {
-        "key": "awa", "phone": "+22370000011", "person": "Awa Traoré", "shop": "Boutique Awa Style",
+        "key": "awa", "profile": "star", "joined_days_ago": 100, "phone": "+22370000011", "person": "Awa Traoré", "shop": "Boutique Awa Style",
         "zone": "Hamdallaye ACI 2000, Bamako", "bio": "Boubous, abayas et tenues de cérémonie. Livraison dans tout Bamako.",
         "products": [("habits", 5)], "category": SaleCategory.MODE, "label": "habits",
         "sales": {"A": "P2 P1 P1 P1 P2 X P1", "B": "P1 P1 P1 F P1", "R": "P1 U1 U1 X", "live": "N N N C C D"},
         "live_title": "Boubous et abayas du week-end", "statement_b": "paid_accepted",
     },
     {
-        "key": "fanta", "phone": "+22370000012", "person": "Fanta Keïta", "shop": "Fanta Chaussures",
+        "key": "fanta", "profile": "reguliere", "joined_days_ago": 100, "phone": "+22370000012", "person": "Fanta Keïta", "shop": "Fanta Chaussures",
         "zone": "Badalabougou, Bamako", "bio": "Escarpins, mocassins et sacs en cuir. Retrait ou livraison.",
         "products": [("chaussures", 5), ("sacs", 5)], "category": SaleCategory.CHAUSSURES, "label": "chaussures + sacs",
         "sales": {"A": "P1 P2 P1 P1", "B": "P1 P1 F P1", "live": "N N C X"},
         "live_title": "Escarpins et sacs en cuir", "statement_b": "paid_declared",
     },
     {
-        "key": "mariam", "phone": "+22370000013", "person": "Mariam Coulibaly", "shop": "Les Parfums de Mariam",
+        "key": "mariam", "profile": "moyenne", "joined_days_ago": 90, "phone": "+22370000013", "person": "Mariam Coulibaly", "shop": "Les Parfums de Mariam",
         "zone": "Kalaban Coura, Bamako", "bio": "Parfums et coffrets cadeaux. Idéal pour les fêtes.",
         "products": [("parfums", 5)], "category": SaleCategory.BEAUTE, "label": "parfums",
         "sales": {"A": "P1 P2 P1 P1", "B": "P1 P1"}, "scheduled": "Coffrets parfums de fin d'année",
         "statement_b": "to_pay",
     },
     {
-        "key": "salimata", "phone": "+22370000014", "person": "Salimata Diarra", "shop": "Salimata Mode & Sacs",
+        "key": "salimata", "profile": "moyenne", "joined_days_ago": 90, "phone": "+22370000014", "person": "Salimata Diarra", "shop": "Salimata Mode & Sacs",
         "zone": "Sikasso", "bio": "Tenues et sacs à main, expédition dans tout le Mali.",
         "products": [("habits", 4), ("sacs", 3)], "category": SaleCategory.MODE, "label": "habits + sacs",
         "sales": {"A": "P1 P1 P2 X", "B": "P1 P1", "R": "U1 D1"}, "statement_b": "to_pay",
     },
     {
-        "key": "kadiatou", "phone": "+22370000015", "person": "Kadiatou Sangaré", "shop": "Kadiatou Chic",
+        "key": "kadiatou", "profile": "reguliere", "joined_days_ago": 100, "phone": "+22370000015", "person": "Kadiatou Sangaré", "shop": "Kadiatou Chic",
         "zone": "Ségou", "bio": "Chaussures et parfums, nouveautés chaque semaine.",
         "products": [("chaussures", 4), ("parfums", 3)], "category": SaleCategory.CHAUSSURES, "label": "chaussures + parfums",
         "sales": {"A": "P1 P1 P2", "B": "P1 P1 F P1", "live": "N N C"},
-        "live_title": "Escarpins et parfums", "statement_b": "paid_declared",
+        "live_title": "Escarpins et parfums", "statement_b": "paid_contested",
+    },
+    # ── V2 : dix revendeuses de plus (numeros 50 a 59), sans ventes « scenarisees » : leur historique
+    # sur 90 jours est genere par `create_history` selon leur profil.
+    {
+        "key": "adja", "profile": "star", "joined_days_ago": 95, "phone": "+22370000050", "person": "Adja Sylla",
+        "shop": "Adja Elégance", "zone": "Sogoniko, Bamako", "bio": "Robes, abayas et sacs à main : les valeurs sûres de Bamako.",
+        "products": [("habits", 3), ("sacs", 3)], "category": SaleCategory.MODE, "label": "habits + sacs",
+        "sales": {}, "live_title": "Robes et sacs du jour", "statement_b": "paid_accepted",
+    },
+    {
+        "key": "oumou", "profile": "reguliere", "joined_days_ago": 92, "phone": "+22370000051", "person": "Oumou Haïdara",
+        "shop": "Oumou Mode", "zone": "Magnambougou, Bamako", "bio": "Tenues de fête et chaussures, livraison dans tout Bamako.",
+        "products": [("habits", 3), ("chaussures", 3)], "category": SaleCategory.MODE, "label": "habits + chaussures",
+        "sales": {}, "statement_b": "paid_accepted",
+    },
+    {
+        "key": "ramata", "profile": "reguliere", "joined_days_ago": 88, "phone": "+22370000052", "person": "Ramata Sissoko",
+        "shop": "Ramata Beauté", "zone": "Koutiala", "bio": "Parfums et sacs, expédition depuis Koutiala.",
+        "products": [("parfums", 4), ("sacs", 2)], "category": SaleCategory.BEAUTE, "label": "parfums + sacs",
+        "sales": {}, "statement_b": "paid_declared",
+    },
+    {
+        "key": "tenin", "profile": "reguliere", "joined_days_ago": 86, "phone": "+22370000053", "person": "Tenin Diallo",
+        "shop": "Tenin Chaussures", "zone": "Kayes", "bio": "Mocassins, escarpins et baskets à Kayes.",
+        "products": [("chaussures", 5)], "category": SaleCategory.CHAUSSURES, "label": "chaussures",
+        "sales": {}, "statement_b": "paid_accepted",
+    },
+    {
+        "key": "djeneba", "profile": "moyenne", "joined_days_ago": 84, "phone": "+22370000054", "person": "Djénéba Fofana",
+        "shop": "Djénéba Style", "zone": "Niamakoro, Bamako", "bio": "Habits et parfums, petites séries.",
+        "products": [("habits", 3), ("parfums", 2)], "category": SaleCategory.MODE, "label": "habits + parfums",
+        "sales": {}, "statement_b": "to_pay",
+    },
+    {
+        "key": "assetou", "profile": "moyenne", "joined_days_ago": 80, "phone": "+22370000055", "person": "Assétou Camara",
+        "shop": "Assétou Sacs", "zone": "Sikasso", "bio": "Sacs à main et chaussures, Sikasso.",
+        "products": [("sacs", 3), ("chaussures", 2)], "category": SaleCategory.MODE, "label": "sacs + chaussures",
+        "sales": {}, "statement_b": "to_pay",
+    },
+    {
+        "key": "aicha", "profile": "irreguliere", "joined_days_ago": 75, "phone": "+22370000056", "person": "Aïcha Ballo",
+        "shop": "Aïcha Boutique", "zone": "Faladié, Bamako", "bio": "Un peu de tout, selon les arrivages.",
+        "products": [("habits", 2), ("parfums", 2)], "category": SaleCategory.MODE, "label": "habits + parfums",
+        "sales": {}, "statement_b": "to_pay",
+    },
+    {
+        "key": "kadia", "profile": "irreguliere", "joined_days_ago": 70, "phone": "+22370000057", "person": "Kadia Togola",
+        "shop": "Kadia Tendance", "zone": "Kayes", "bio": "Chaussures et sacs, livraisons sur rendez-vous.",
+        "products": [("chaussures", 2), ("sacs", 2)], "category": SaleCategory.CHAUSSURES, "label": "chaussures + sacs",
+        "sales": {}, "statement_b": "to_pay",
+    },
+    {
+        "key": "fatim", "profile": "nouvelle", "joined_days_ago": 12, "phone": "+22370000058", "person": "Fatim Maïga",
+        "shop": "Fatim Nouveautés", "zone": "Lafiabougou, Bamako", "bio": "Nouvelle boutique : habits et parfums.",
+        "products": [("habits", 2), ("parfums", 2)], "category": SaleCategory.MODE, "label": "habits + parfums",
+        "sales": {}, "statement_b": "to_pay",
+    },
+    {
+        "key": "nafissatou", "profile": "nouvelle", "joined_days_ago": 18, "phone": "+22370000059", "person": "Nafissatou Samaké",
+        "shop": "Nafi Chic", "zone": "Ségou", "bio": "Sacs et chaussures, Ségou.",
+        "products": [("sacs", 2), ("chaussures", 2)], "category": SaleCategory.MODE, "label": "sacs + chaussures",
+        "sales": {}, "statement_b": "to_pay",
     },
 ]
 SALE_TITLES = {
@@ -169,6 +231,35 @@ CUSTOMERS = [  # numeros 30 a 45 ; les trois derniers ne servent qu'aux livraiso
 FAILED_CUSTOMERS = [
     ("Fatoumata Sanogo", "+22370000042"), ("Korotoumou Berthé", "+22370000043"), ("Safiatou Ouologuem", "+22370000044"),
 ]
+# V2 : clientes 60 a 98. Les 24 premieres ne servent qu'aux livraisons echouees (jamais 3 echecs en 30 jours
+# pour un meme numero : la cliente serait bloquee), les 15 suivantes passent des commandes normales.
+_V2_NAMES = [
+    "Aïcha Konaté", "Ramatou Diarra", "Salimata Cissé", "Kadiatou Fofana", "Fanta Sidibé", "Mariam Dembélé",
+    "Awa Coulibaly", "Hadja Traoré", "Nènè Keïta", "Safi Sangaré", "Tata Maïga", "Bibata Diallo",
+    "Mama Camara", "Dado Sissoko", "Fily Doumbia", "Korotimi Samaké", "Aminata Touré", "Oumou Diakité",
+    "Djeneba Ballo", "Assitan Togola", "Rokiatou Haïdara", "Nafi Bagayoko", "Maïmouna Sanogo", "Habi Berthé",
+    "Sali Ouologuem", "Fatim Konaté", "Kadidia Camara", "Mah Diallo", "Bintou Sylla", "Ténin Traoré",
+    "Hawa Keïta", "Sitan Cissé", "Djoumé Dembélé", "Assa Fofana", "Nana Coulibaly", "Alima Sidibé",
+    "Rama Diarra", "Zeinab Maïga", "Gaoussou Cissé",
+]
+V2_CUSTOMERS = [(name, f"+223700000{60 + i}") for i, name in enumerate(_V2_NAMES)]
+HISTORY_FAILED_CUSTOMERS = V2_CUSTOMERS[:24]
+HISTORY_CUSTOMERS = CUSTOMERS + V2_CUSTOMERS[24:]
+
+# Profils de revendeuses (V2) : `paid` = ventes « livrees et payees » visees sur 90 jours (legacy compris).
+PROFILES = {
+    "star": {"paid": (66, 88), "fail": 0.012, "cancel": 0.02, "recent": True, "label": "Star"},
+    "reguliere": {"paid": (28, 44), "fail": 0.07, "cancel": 0.03, "recent": True, "label": "Régulière"},
+    "moyenne": {"paid": (11, 19), "fail": 0.06, "cancel": 0.05, "recent": True, "label": "Moyenne", "take_back": True},
+    "irreguliere": {"paid": (4, 8), "fail": 0.0, "cancel": 0.05, "recent": False, "label": "Irrégulière", "failed_30d": (7, 9)},
+    "nouvelle": {"paid": (2, 6), "fail": 0.0, "cancel": 0.0, "recent": False, "label": "Nouvelle"},
+}
+DEMO_ALERT_NOT_DELIVERED_PERCENT = 6  # seuil de l'alerte « Pas livré » (30 jours) du grossiste demo
+DEFAULT_COMMISSION_CEILING = 10000  # valeur par defaut du modele, retablie a la fin
+SEEDING_COMMISSION_CEILING = 100000000  # plafond de commission pendant le remplissage (sinon les reassorts seraient bloques)
+DEMO_RESELLER_CREDIT_CEILING = 250000  # plafond de marges dues : aucune revendeuse bloquee dans la demo
+HISTORY_DAYS = 88
+CONFIRM_SOURCE_WEIGHTS = (("distributor", 40), ("customer", 35), ("auto", 25))
 ADDRESSES = [
     "Hamdallaye ACI 2000, près de la pharmacie", "Badalabougou, rue 123, porte 45", "Kalaban Coura, derrière le marché",
     "Sogoniko, face à la station", "Magnambougou, Projet, rue 220", "Lafiabougou, rue 301, porte 12",
@@ -335,7 +426,10 @@ class Command(BaseCommand):
             self.create_catalog()
             self.create_resellers()
             self.create_sales_and_orders()
+            self.create_history()
             self.create_market()
+        self.create_price_alert()
+        self.take_back_unsold()
         # Les releves et versements s'appuient sur des verrous : hors du gros bloc, comme en vrai.
         self.close_statements_and_payouts()
         self.settle_commission()
@@ -348,6 +442,14 @@ class Command(BaseCommand):
         )
         distributor.user.set_password(DEMO_PASSWORD)
         distributor.user.save(update_fields=["password"])
+        # Reglages de demonstration : seuil d'alerte « Pas livre » plus sensible et plafond de marges assez haut
+        # pour qu'aucune revendeuse tres active ne soit bloquee (seules les NOUVELLES allocations le seraient).
+        Distributor.objects.filter(pk=distributor.pk).update(
+            alert_not_delivered_percent=DEMO_ALERT_NOT_DELIVERED_PERCENT,
+            reseller_credit_ceiling=Decimal(DEMO_RESELLER_CREDIT_CEILING),
+            credit_ceiling=Decimal(SEEDING_COMMISSION_CEILING),  # leve pendant le remplissage, retabli par settle_commission
+        )
+        distributor.refresh_from_db()
         self.distributor = distributor
         self.dist_user = distributor.user
 
@@ -362,7 +464,7 @@ class Command(BaseCommand):
                 price = WHOLESALE_PRICES.get(path.stem) or int(round((low + (high - low) * (index + 1) / (len(files) + 1)) / 500) * 500)
                 product = catalog.create_wholesale_product(
                     distributor=self.distributor, name=product_name_from_stem(path.stem),
-                    wholesale_price=price, min_retail_price=price + 1000, stock_total=80,
+                    wholesale_price=price, min_retail_price=price + 1000, stock_total=600,
                     description=DESCRIPTIONS[category], category=SALE_CATEGORY[category],
                 )
                 catalog.add_wholesale_image(wholesale_product=product, image_file=self.image_file(path))
@@ -383,6 +485,10 @@ class Command(BaseCommand):
             invite = invites.invite_reseller(distributor=self.distributor, display_name=spec["person"], phone=spec["phone"])
             invites.answer_invite(invite=invite, user=user, accept=True)
             invite.refresh_from_db()
+            joined = self.now - timedelta(days=spec.get("joined_days_ago", 100))
+            User.objects.filter(pk=user.pk).update(date_joined=joined)
+            SellerProfile.objects.filter(pk=seller.pk).update(created_at=joined)
+            ResellerInvite.objects.filter(pk=invite.pk).update(invited_at=joined - timedelta(days=1), answered_at=joined)
 
             imported = []
             for c_index, (category, count) in enumerate(spec["products"]):
@@ -393,7 +499,7 @@ class Command(BaseCommand):
                         invite=invite, wholesale_product=wp, retail_price=int(wp.wholesale_price) + margin,
                         actor=self.dist_user, quantity=quantity,
                     ))
-            self.resellers.append({"spec": spec, "user": user, "seller": seller, "invite": invite, "imported": imported, "sales": {}})
+            self.resellers.append({"spec": spec, "user": user, "seller": seller, "invite": invite, "imported": imported, "sales": {}, "joined": joined})
 
     # ── Ventes et commandes ───────────────────────────────────────────────
 
@@ -403,6 +509,9 @@ class Command(BaseCommand):
         b_start = self.monday - week + timedelta(days=1, hours=17)
         r_start = self.now - timedelta(hours=30)
         self.customer_cycle = 0
+        self.history_cycle = 0
+        self.failed_cursor = 0
+        self.failed_dates: dict[str, list] = {}
         for entry in self.resellers:
             spec = entry["spec"]
             products = [i.product for i in entry["imported"]]
@@ -429,6 +538,112 @@ class Command(BaseCommand):
                 )
                 self.attach_products(sale, products)
                 entry["sales"]["scheduled"] = sale
+
+    # ── Historique sur 90 jours (V2) ──────────────────────────────────────
+
+    def history_day(self, max_age: int) -> int:
+        """Anciennete (en jours) d'une vente : tirage biaise vers le recent (environ la moitie dans les 30 derniers jours)."""
+        return 2 + int((max_age - 2) * self.rng.random() ** 1.5)
+
+    def local_start(self, days_ago: int, hour: int) -> datetime:
+        day = timezone.localtime(self.now).date() - timedelta(days=days_ago)
+        return timezone.make_aware(datetime.combine(day, time(hour=hour)))
+
+    def plan_history(self, entry) -> list[tuple[int, str]]:
+        """Plan de ventes d'une revendeuse : liste de (anciennete en jours, codes de commandes), de la plus ancienne a la plus recente."""
+        rng, spec = self.rng, entry["spec"]
+        profile = PROFILES[spec["profile"]]
+        max_age = max(min(HISTORY_DAYS, spec.get("joined_days_ago", 100) - 2), 3)
+        legacy_paid = sum(1 for item in entry.get("log", []) if item["state"] == "P")
+        target = rng.randint(*profile["paid"])
+        to_place = max(target - legacy_paid, 2 if legacy_paid == 0 else 0)
+
+        orders: list[tuple[int, str]] = []  # (anciennete, code)
+        paid = 0
+        while paid < to_place:
+            draw = rng.random()
+            age = self.history_day(max_age)
+            if draw < profile["fail"]:
+                orders.append((age, "F1"))
+            elif draw < profile["fail"] + profile["cancel"]:
+                orders.append((age, "X1"))
+            else:
+                orders.append((age, f"P{2 if rng.random() < 0.15 else 1}"))
+                paid += 1
+        if profile.get("failed_30d"):  # irreguliere : beaucoup de « Pas livre » ces 30 derniers jours
+            for _ in range(rng.randint(*profile["failed_30d"])):
+                orders.append((rng.randint(2, 28), "F1"))
+        if spec["profile"] == "nouvelle":  # inscrite depuis peu : une commande encore en livraison
+            orders.append((1, "D1"))
+
+        by_day: dict[int, list[str]] = {}
+        for age, code in orders:
+            by_day.setdefault(age, []).append(code)
+        plan = []
+        for age in sorted(by_day, reverse=True):
+            codes = by_day[age]
+            rng.shuffle(codes)
+            for chunk in range(0, len(codes), 9):
+                plan.append((age, " ".join(codes[chunk:chunk + 9])))
+        if profile["recent"]:  # hier soir : de quoi remplir « en livraison » et « a confirmer »
+            plan.append((1, "U1 D1 C1 N1"))
+        return plan
+
+    def create_history(self) -> None:
+        """Etale 90 jours de ventes sur les 15 revendeuses selon leur profil (Star, Reguliere, Moyenne, Irreguliere,
+        Nouvelle), avec les memes services que le reste du seed ; les ventes sont ensuite replacees dans le passe."""
+        for entry in self.resellers:
+            spec = entry["spec"]
+            products = [i.product for i in entry["imported"]]
+            plan = self.plan_history(entry)
+            # Stock : l'allocation initiale (10 a 15) ne suffit pas pour 60 a 90 ventes ; le grossiste reapprovisionne.
+            units = sum(int(token[1:] or 1) for _age, codes in plan for token in codes.split())
+            extra = units // len(entry["imported"]) + 3
+            oldest = plan[0][0] if plan else 2
+            for imported in entry["imported"]:
+                allocate(imported=imported, quantity=extra, actor=self.dist_user, reason="Réassort par le grossiste")
+                AllocationMovement.objects.filter(imported_product=imported, reason="Réassort par le grossiste").update(
+                    created_at=self.local_start(oldest + 1, 9)
+                )
+            for age, codes in plan:
+                start = self.local_start(age, 16 + self.rng.randint(0, 3))
+                title = f"Vente flash {spec['shop']} - {start:%d/%m}"
+                sale = self.new_sale(entry, title, products)
+                self.place_orders(entry, sale, products, codes, kind="H", start=start)
+                FlashSale.objects.filter(pk=sale.pk).update(
+                    start_time=start, end_time=start + timedelta(hours=2), status=FlashSaleStatus.COMPLETED,
+                )
+            if spec["profile"] == "star" and "live" not in spec["sales"]:  # une vente en cours de plus
+                start = self.now - timedelta(minutes=40)
+                sale = self.new_sale(entry, spec["live_title"], products)
+                entry["sales"]["live"] = sale
+                self.place_orders(entry, sale, products, "N N C D", kind="live", start=start)
+
+    def create_price_alert(self) -> None:
+        """Cas d'alerte de prix minimum : le grossiste releve le minimum d'un produit deja importe, le prix boutique
+        de la revendeuse passe sous le nouveau minimum (alerte seulement, rien n'est bloque)."""
+        entry = next(e for e in self.resellers if e["spec"]["key"] == "oumou")
+        imported = entry["imported"][0]
+        product = Product.objects.get(pk=imported.product_id)
+        wholesale = imported.wholesale_product
+        catalog.update_wholesale_product(
+            wholesale_product=wholesale, name=wholesale.name, wholesale_price=wholesale.wholesale_price,
+            min_retail_price=int(product.price) + 1500, stock_total=wholesale.stock_total,
+            description=wholesale.description, category=wholesale.category, is_active=True,
+        )
+
+    def take_back_unsold(self) -> None:
+        """Reprises d'invendus par le grossiste (profil Moyenne, et une Irreguliere)."""
+        for entry in self.resellers:
+            if not (PROFILES[entry["spec"]["profile"]].get("take_back") or entry["spec"]["key"] == "aicha"):
+                continue
+            for imported in entry["imported"]:
+                available = Product.objects.get(pk=imported.product_id).stock_available
+                if available >= 4:
+                    take_back(imported=imported, quantity=available // 2, actor=self.dist_user, reason="Reprise d'invendus")
+                    AllocationMovement.objects.filter(imported_product=imported, reason="Reprise d'invendus").update(
+                        created_at=self.now - timedelta(days=self.rng.randint(3, 12))
+                    )
 
     def new_sale(self, entry, title, products, *, owner=None, category=None, zone=None, cover=None, start=None) -> FlashSale:
         """Cree la vente DANS une fenetre ouverte (create_order refuse une vente fermee). Les ventes
@@ -457,10 +672,24 @@ class Command(BaseCommand):
         for index, product in enumerate(products):
             attach_product_to_sale(flash_sale=sale, product=product, promo_price=(promo or {}).get(product.pk), display_order=index)
 
-    def next_customer(self) -> tuple[str, str]:
-        customer = CUSTOMERS[self.customer_cycle % len(CUSTOMERS)]
-        self.customer_cycle += 1
+    def next_customer(self, history: bool = False) -> tuple[str, str]:
+        pool = HISTORY_CUSTOMERS if history else CUSTOMERS
+        counter = "history_cycle" if history else "customer_cycle"
+        customer = pool[getattr(self, counter) % len(pool)]
+        setattr(self, counter, getattr(self, counter) + 1)
         return customer
+
+    def pick_failed_customer(self, when) -> tuple[str, str]:
+        """Cliente pour une livraison echouee : jamais plus de 2 echecs par numero sur 30 jours glissants
+        (au 3e, create_order bloquerait le numero)."""
+        for _ in range(len(HISTORY_FAILED_CUSTOMERS)):
+            customer = HISTORY_FAILED_CUSTOMERS[self.failed_cursor % len(HISTORY_FAILED_CUSTOMERS)]
+            self.failed_cursor += 1
+            used = self.failed_dates.setdefault(customer[1], [])
+            if sum(1 for moment in used if abs(moment - when) < timedelta(days=30)) < 2:
+                used.append(when)
+                return customer
+        raise CommandError("Pas assez de clientes fictives pour répartir les livraisons échouées.")
 
     def place_orders(self, entry, sale, products, codes: str, *, kind: str, start) -> None:
         """Une commande par code : N nouvelle · C confirmee · D en livraison · U livree (boutique) ·
@@ -470,10 +699,12 @@ class Command(BaseCommand):
         for index, token in enumerate(tokens):
             state, quantity = token[0], int(token[1:] or 1)
             product = products[(index + len(entry.get("log", []))) % len(products)]
-            if state == "F":  # une cliente differente par boutique : aucun numero n'atteint le seuil de blocage
+            if state == "F" and kind == "H":
+                customer = self.pick_failed_customer(start + timedelta(minutes=8 + index * 9))
+            elif state == "F":  # une cliente differente par boutique : aucun numero n'atteint le seuil de blocage
                 customer = FAILED_CUSTOMERS[FAILED_INDEX[entry["spec"]["key"]]]
             else:
-                customer = self.next_customer()
+                customer = self.next_customer(history=kind == "H")
             self.seq += 1
             payload = {
                 "flash_sale_id": sale.pk, "customer_name": customer[0], "customer_phone": customer[1],
@@ -532,9 +763,12 @@ class Command(BaseCommand):
             DistribSettlement.objects.filter(pk=line.pk).update(**fields)
             line.refresh_from_db()
             if state == "P":
+                source, at = self.paid_source(kind, confirm_at, delivered_at)
                 settlement_service.confirm_paid(
-                    line, source=DistribSettlement.ConfirmationSource.DISTRIBUTOR, by=self.dist_user, at=self.paid_moment(kind, delivered_at),
+                    line, source=source, by=self.dist_user if source == DistribSettlement.ConfirmationSource.DISTRIBUTOR else None, at=at,
                 )
+                if source == DistribSettlement.ConfirmationSource.CUSTOMER:  # le code a 4 chiffres est invalide apres usage
+                    DistribSettlement.objects.filter(pk=line.pk).update(customer_confirmed_at=at, receipt_code="")
             elif state == "F":
                 settlement_service.declare_not_delivered(
                     line, self.dist_user, reason=DistribSettlement.NotDeliveredReason.ABSENT, note="",
@@ -542,6 +776,23 @@ class Command(BaseCommand):
                 DistribSettlement.objects.filter(pk=line.pk).update(declared_at=delivered_at + timedelta(hours=1))
             if state == "D" and kind == "live" and "receipt_line" not in self.__dict__:
                 self.receipt_line = line.pk
+
+    def paid_source(self, kind, confirm_at, delivered_at):
+        """Source et moment de « Livre et paye ». Historique V2 : melange grossiste / code cliente / confirmation
+        automatique (presomption apres `auto_confirm_hours`, seulement si l'echeance est passee)."""
+        source_enum = DistribSettlement.ConfirmationSource
+        if kind != "H":
+            return source_enum.DISTRIBUTOR, self.paid_moment(kind, delivered_at)
+        latest = self.now - timedelta(minutes=2)
+        source = self.rng.choices([w[0] for w in CONFIRM_SOURCE_WEIGHTS], weights=[w[1] for w in CONFIRM_SOURCE_WEIGHTS])[0]
+        if source == "auto":
+            at = confirm_at + timedelta(hours=self.distributor.auto_confirm_hours)
+            if at <= latest:
+                return source_enum.AUTO, at
+            source = "distributor"
+        if source == "customer":
+            return source_enum.CUSTOMER, min(delivered_at + timedelta(hours=self.rng.randint(1, 30)), latest)
+        return source_enum.DISTRIBUTOR, min(delivered_at + timedelta(hours=self.rng.randint(3, 20)), latest)
 
     def paid_moment(self, kind, delivered_at):
         """Moment de « Livré et payé » : toujours apres la livraison, jamais dans le futur. La vente
@@ -585,22 +836,32 @@ class Command(BaseCommand):
     # ── Releves, versements, commission ───────────────────────────────────
 
     def close_statements_and_payouts(self) -> None:
-        """Cloture la semaine d'il y a 15 jours (payee et acceptee), puis la derniere (selon la revendeuse)."""
-        statements.close_weekly_statements(now=self.now - timedelta(days=7))
+        """Cloture chaque semaine ecoulee (de la plus ancienne a la derniere) : tout est paye et accepte, sauf la
+        derniere semaine, qui depend de la revendeuse (a payer, declare en attente, conteste)."""
+        for weeks_back in range(14, 0, -1):
+            statements.close_weekly_statements(now=self.monday - timedelta(days=7 * weeks_back) + timedelta(hours=3))
         statements.close_weekly_statements(now=self.now)
+        last_period = (self.monday - timedelta(days=7)).date()
         for entry in self.resellers:
             invite = entry["invite"]
-            older_period = (self.monday - timedelta(days=14)).date()
             for statement in DistribStatement.objects.filter(invite=invite).order_by("period_start"):
-                behaviour = "paid_accepted" if statement.period_start <= older_period else entry["spec"]["statement_b"]
+                behaviour = entry["spec"]["statement_b"] if statement.period_start >= last_period else "paid_accepted"
                 if behaviour == "to_pay":
                     continue
                 payout = statements.declare_paid(statement, self.dist_user, f"DEMOOM{statement.pk:06d}{invite.pk}")
                 if behaviour == "paid_accepted":
-                    paid_at = statement.closed_at + timedelta(hours=5)
+                    paid_at = min(statement.closed_at + timedelta(hours=5), self.now - timedelta(minutes=10))
                     ResellerPayout.objects.filter(pk=payout.pk).update(paid_at=paid_at, contest_deadline=paid_at + statements.CONTEST_WINDOW)
                     payout.refresh_from_db()
                     statements.answer_payout(payout, entry["user"], accept=True)
+                elif behaviour == "paid_contested":  # « Pas recu » : visible dans le pilotage HayaFlash
+                    paid_at = self.now - timedelta(hours=30)
+                    ResellerPayout.objects.filter(pk=payout.pk).update(paid_at=paid_at, contest_deadline=paid_at + statements.CONTEST_WINDOW)
+                    payout.refresh_from_db()
+                    statements.answer_payout(
+                        payout, entry["user"], accept=False,
+                        reason=statements.contest_reason_text("no_money"),
+                    )
                 else:  # paye hier, en attente de la reponse de la revendeuse
                     paid_at = self.now - timedelta(hours=10)
                     ResellerPayout.objects.filter(pk=payout.pk).update(paid_at=paid_at, contest_deadline=paid_at + statements.CONTEST_WINDOW)
@@ -614,6 +875,7 @@ class Command(BaseCommand):
                 distributor=self.distributor, amount=Decimal(amount), paid_at=self.now - timedelta(days=2),
                 reference="DEMOOMHAYAFLASH", recorded_by=self.admin,
             )
+        Distributor.objects.filter(pk=self.distributor.pk).update(credit_ceiling=Decimal(DEFAULT_COMMISSION_CEILING))
 
     # ── Sortie : manifeste, rapport ───────────────────────────────────────
 
@@ -623,14 +885,15 @@ class Command(BaseCommand):
         statements_qs = DistribStatement.objects.filter(distributor=self.distributor)
         to_pay = statements_qs.filter(status=DistribStatement.Status.TO_PAY).order_by("-amount").first()
         accepted = statements_qs.filter(status=DistribStatement.Status.ACCEPTED).order_by("-amount").first()
+        contested = statements_qs.filter(status=DistribStatement.Status.CONTESTED).first()
         line = DistribSettlement.objects.filter(pk=getattr(self, "receipt_line", None)).select_related("order").first()
         customer = {"phone": line.order.customer_phone, "name": line.order.customer_name, "code": line.receipt_code} if line else None
         mobile, desktop = "mobile", "desktop"
         pages = [
             ("grossiste", desktop, "Tableau de bord grossiste (accueil)", "/distrib/"),
-            ("grossiste", desktop, "Catalogue de gros", "/distrib/catalogue/"),
+            ("grossiste", desktop, "Catalogue de gros (prix minimum et alerte)", "/distrib/catalogue/"),
             ("grossiste", desktop, "Liste des revendeuses", "/distrib/revendeurs/"),
-            ("grossiste", desktop, "Stock alloué", "/distrib/stock/"),
+            ("grossiste", desktop, "Stock alloué par produit", "/distrib/stock/"),
             ("grossiste", desktop, "Commandes (toutes)", "/distrib/commandes/"),
             ("grossiste", desktop, "Livraisons en cours", "/distrib/commandes/?statut=in_delivery"),
             ("grossiste", desktop, "Livrées et payées", "/distrib/commandes/?statut=paid_confirmed"),
@@ -641,6 +904,8 @@ class Command(BaseCommand):
             pages.append(("grossiste", desktop, "Relevé à régler (détail par livraison)", f"/distrib/releves/{to_pay.pk}/"))
         if accepted:
             pages.append(("grossiste", desktop, "Relevé payé et accepté (détail)", f"/distrib/releves/{accepted.pk}/"))
+        if contested:
+            pages.append(("grossiste", desktop, "Relevé contesté (détail)", f"/distrib/releves/{contested.pk}/"))
         pages += [
             ("revendeuse", mobile, "Page publique de la boutique", f"/s/{awa['seller'].public_slug}/"),
         ]
@@ -659,6 +924,9 @@ class Command(BaseCommand):
         pages += [
             ("cliente", mobile, "Confirmation de réception (téléphone + code)", "/distrib/confirmer/"),
             ("marche", mobile, "Marché : ventes en direct", "/ventes/"),
+            # Paiement hebdomadaire : réponse de la revendeuse (Fanta : versement déclaré, en attente) et pilotage HayaFlash.
+            ("revendeuse", mobile, "Versement à vérifier (réponse de la revendeuse)", "/distrib/mes-gains/", "fanta"),
+            ("admin", desktop, "Pilotage HayaFlash : relevés contestés et règlements", "/distrib/pilotage/signaux/", "admin"),
         ]
         return {
             "base_url": self.base_url,
@@ -670,7 +938,11 @@ class Command(BaseCommand):
                 {"role": "admin", "name": ADMIN["person"], "phone": ADMIN["phone"]},
             ],
             "customer": customer,
-            "pages": [{"n": i + 1, "actor": a, "device": d, "label": label, "path": p} for i, (a, d, label, p) in enumerate(pages)],
+            "pages": [
+                {"n": i + 1, "actor": page[0], "device": page[1], "label": page[2], "path": page[3],
+                 **({"account": page[4]} if len(page) > 4 else {})}
+                for i, page in enumerate(pages)
+            ],
         }
 
     def load_manifest(self) -> dict:
@@ -691,5 +963,48 @@ class Command(BaseCommand):
         out(f"\nURL À CAPTURER (dans l'ordre de la présentation, serveur : {manifest['base_url']})")
         for page in manifest["pages"]:
             out(f"  {page['n']:02d}  [{page['actor']:<10} {page['device']:<7}] {page['label']}\n        {manifest['base_url']}{page['path']}")
+        self.print_stats()
         out("\nLancer le serveur AVEC le module Distrib activé :")
         out("  DISTRIB_ENABLED=true python manage.py runserver --settings=config.settings.dev")
+
+    def print_stats(self) -> None:
+        """Rapport par revendeuse (ventes confirmees, CA, stock restant, taux de « Pas livre », du), puis CA du mois et releves."""
+        from django.db.models import Count, Q, Sum
+
+        out = self.stdout.write
+        S = DistribSettlement.Status
+        distributor = Distributor.objects.filter(user__phone=DISTRIBUTOR["phone"]).first()
+        if distributor is None:
+            return
+        now = timezone.now()
+        out("\nREVENDEUSES (90 jours glissants)")
+        out(f"  {'revendeuse':<22}{'profil':<12}{'ventes':>7}{'CA FCFA':>11}{'stock':>7}{'pas livré':>14}{'dû FCFA':>10}")
+        spec_by_phone = {r["phone"]: r for r in RESELLERS}
+        for invite in ResellerInvite.objects.filter(distributor=distributor, status=ResellerInvite.Status.ACCEPTED).order_by("phone"):
+            spec = spec_by_phone.get(invite.phone)
+            lines = DistribSettlement.objects.filter(invite=invite)
+            paid = lines.filter(status=S.PAID_CONFIRMED)
+            revenue = paid.aggregate(t=Sum("sale_amount"))["t"] or 0
+            considered = lines.exclude(status=S.CANCELLED).count()
+            failed = lines.filter(status=S.NOT_DELIVERED).count()
+            stock = sum(ImportedProduct.objects.filter(invite=invite).values_list("product__stock_available", flat=True))
+            rate = f"{failed}/{considered} ({100 * failed // considered if considered else 0} %)"
+            label = PROFILES[spec["profile"]]["label"] if spec else "-"
+            out(f"  {invite.display_name:<22}{label:<12}{paid.count():>7}{int(revenue):>11,}{stock:>7}{rate:>14}{int(ceilings.reseller_due(invite)):>10,}".replace(",", " "))
+
+        month_start = timezone.localtime(now).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        paid_all = DistribSettlement.objects.filter(distributor=distributor, status=S.PAID_CONFIRMED)
+        month = paid_all.filter(paid_confirmed_at__gte=month_start).aggregate(t=Sum("sale_amount"), n=Count("pk"))
+        last30 = paid_all.filter(paid_confirmed_at__gte=now - timedelta(days=30)).aggregate(t=Sum("sale_amount"), n=Count("pk"))
+        total = paid_all.aggregate(t=Sum("sale_amount"), n=Count("pk"))
+        share = 100 * (last30["n"] or 0) // (total["n"] or 1)
+        out(f"\nCA DU MOIS EN COURS : {int(month['t'] or 0):,} FCFA ({month['n']} ventes)".replace(",", " "))
+        out(f"CA 30 DERNIERS JOURS : {int(last30['t'] or 0):,} FCFA ({share} % des {total['n']} ventes confirmées sur 90 jours)".replace(",", " "))
+        out("\nRELEVÉS PAR STATUT")
+        for row in DistribStatement.objects.filter(distributor=distributor).values("status").annotate(n=Count("pk")).order_by("status"):
+            out(f"  {DistribStatement.Status(row['status']).label:<28}{row['n']:>4}")
+        out(f"  Versements : {ResellerPayout.objects.filter(distributor=distributor).count()} "
+            f"(dont contestés : {ResellerPayout.objects.filter(distributor=distributor, status=ResellerPayout.Status.CONTESTED).count()})")
+        below = imports_below_minimum(distributor)
+        out(f"\nALERTES : {below.count()} produit(s) importé(s) sous le prix minimum ; "
+            f"fiabilité 30 jours : {', '.join(reliability.reliability(distributor)['alert_labels']) or 'aucune'}")
