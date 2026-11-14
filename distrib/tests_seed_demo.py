@@ -42,10 +42,11 @@ User = get_user_model()
 def _fake_images(root: Path) -> None:
     """Images factices nommees comme les vraies (le nom du fichier fait le nom du produit)."""
     stems = {
-        "habits": ["abaya-brodee", "boubou-bazin-brode", "chemise-lin-homme", "ensemble-tailleur-femme", "robe-wax-cintree"],
+        "habits": ["abaya-brodee", "boubou-bazin-brode", "chemise-lin-homme", "ensemble-tailleur-femme", "robe-wax-cintree", "robe-dentelle-cocktail", "robe-longue-foulard"],
         "chaussures": ["baskets-bleu-marine", "escarpins-bordeaux", "escarpins-dores", "escarpins-moutarde-chainette", "mocassins-cuir-homme"],
         "sacs": ["sac-a-main-cuir-camel", "sac-a-main-cuir-creme", "sac-a-main-cuir-noir", "sac-bandouliere-beige-cognac", "sac-trapeze-taupe"],
         "parfums": ["eau-de-parfum-rose", "parfum-ambre-coffret-noir", "parfum-cristal-or", "parfum-flacon-noir-or", "parfum-oriental-ambre"],
+        "cosmetiques": ["lait-corporel-karite", "beurre-de-karite-pur", "huile-de-coco-visage", "savon-noir-africain", "gommage-corps-sucre"],
     }
     for category, names in stems.items():
         folder = root / "produits" / category
@@ -116,7 +117,7 @@ class SeedDemoDistribTests(TestCase):
 
         distributor = Distributor.objects.get()
         self.assertEqual(distributor.business_name, "Grossiste Démo Bamako")
-        self.assertEqual(WholesaleProduct.objects.count(), 20)
+        self.assertEqual(WholesaleProduct.objects.count(), 27)
         self.assertEqual(ResellerInvite.objects.filter(status=ResellerInvite.Status.ACCEPTED).count(), 15)
 
         # Tout est dans la plage de numeros fictifs.
@@ -230,7 +231,7 @@ class SeedDemoDistribTests(TestCase):
         self.run_seed(reset=True)
         self.assertEqual(Distributor.objects.count(), 1)
         self.assertEqual(Order.service_objects.count(), orders_before)  # meme scenario, recree
-        self.assertEqual(WholesaleProduct.objects.count(), 20)
+        self.assertEqual(WholesaleProduct.objects.count(), 27)
         self.assertNotEqual(Distributor.objects.get().pk, first_distributor)
 
         # La vraie boutique n'a pas bougé.

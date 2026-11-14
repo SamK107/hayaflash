@@ -62,7 +62,7 @@ DEMO_PASSWORD = "DemoHaya2026!"
 DEMO_PHONE_REGEX = r"^\+223700000\d{2}$"  # +223 70 00 00 xx : plage reservee a la demo
 DEMO_PHONE_RE = re.compile(DEMO_PHONE_REGEX)
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
-CATEGORIES = ("habits", "chaussures", "sacs", "parfums")
+CATEGORIES = ("habits", "chaussures", "sacs", "parfums", "cosmetiques")
 # Les categories de ventes de la plateforme (SaleCategory) n'ont ni « sacs » ni « parfums » ni « habits » :
 # on les range sous la categorie la plus proche. Le decoupage demo reste celui des dossiers d'images.
 SALE_CATEGORY = {
@@ -70,8 +70,9 @@ SALE_CATEGORY = {
     "chaussures": SaleCategory.CHAUSSURES,
     "sacs": SaleCategory.MODE,
     "parfums": SaleCategory.BEAUTE,
+    "cosmetiques": SaleCategory.BEAUTE,
 }
-PRICE_RANGE = {"habits": (5000, 20000), "chaussures": (6000, 18000), "sacs": (7000, 25000), "parfums": (4000, 15000)}
+PRICE_RANGE = {"habits": (5000, 20000), "chaussures": (6000, 18000), "sacs": (7000, 25000), "parfums": (4000, 15000), "cosmetiques": (2500, 9000)}
 # Prix de gros (FCFA) par nom de fichier ; les parfums « cristal or », « ambre coffret noir » et les sacs a main
 # en cuir sont en haut de fourchette. Un fichier absent de cette table recoit un prix de repli de sa categorie.
 WHOLESALE_PRICES = {
@@ -83,7 +84,12 @@ WHOLESALE_PRICES = {
     "sac-bandouliere-beige-cognac": 12000, "sac-trapeze-taupe": 9500,
     "eau-de-parfum-rose": 4500, "parfum-ambre-coffret-noir": 14000, "parfum-cristal-or": 15000,
     "parfum-flacon-noir-or": 8000, "parfum-oriental-ambre": 6500,
+    "robe-dentelle-cocktail": 15000, "robe-longue-foulard": 13500,
+    "lait-corporel-karite": 4500, "beurre-de-karite-pur": 3000, "huile-de-coco-visage": 5000,
+    "savon-noir-africain": 2500, "gommage-corps-sucre": 6500,
 }
+# Images ajoutees apres la premiere version du seed : classees en dernier pour ne pas changer les lots des revendeuses historiques.
+LATE_IMAGES = {"robe-dentelle-cocktail", "robe-longue-foulard"}
 MARKET_PRICES = {  # (prix catalogue, prix promo) des boutiques hors Distrib
     "creoles-dorees": (6000, 4500), "parure-bijoux-doree": (15000, 11500),
     "montre-doree-chronographe": (25000, 19000), "lunettes-soleil-noir-or": (9000, 6500),
@@ -93,13 +99,14 @@ _ACCENT_PHRASES = [("sac a main", "sac à main"), ("lunettes soleil", "lunettes 
 _ACCENT_WORDS = {
     "brodee": "brodée", "brode": "brodé", "cintree": "cintrée", "dores": "dorés", "dorees": "dorées",
     "doree": "dorée", "bandouliere": "bandoulière", "trapeze": "trapèze", "creoles": "créoles",
-    "chainette": "chaînette", "ecouteurs": "écouteurs", "creme": "crème",
+    "chainette": "chaînette", "karite": "karité", "sucre": "sucré", "ecouteurs": "écouteurs", "creme": "crème",
 }
 DESCRIPTIONS = {
     "habits": "Pièce soignée, tissu de qualité, coupe flatteuse. Plusieurs tailles disponibles.",
     "chaussures": "Finitions soignées, confortable toute la journée. Plusieurs pointures disponibles.",
     "sacs": "Sac solide aux belles finitions, doublure intérieure et poches pratiques.",
     "parfums": "Fragrance longue tenue, présentée dans un joli flacon. Idéal en cadeau.",
+    "cosmetiques": "Soin pour la peau, texture douce, non gras. Idéal pour la famille.",
 }
 
 # ── Revendeuses (numeros 11 a 15) ─────────────────────────────────────────
@@ -122,7 +129,7 @@ RESELLERS = [
     {
         "key": "mariam", "profile": "moyenne", "joined_days_ago": 90, "phone": "+22370000013", "person": "Mariam Coulibaly", "shop": "Les Parfums de Mariam",
         "zone": "Kalaban Coura, Bamako", "bio": "Parfums et coffrets cadeaux. Idéal pour les fêtes.",
-        "products": [("parfums", 5)], "category": SaleCategory.BEAUTE, "label": "parfums",
+        "products": [("parfums", 5), ("cosmetiques", 3)], "category": SaleCategory.BEAUTE, "label": "parfums + cosmétiques",
         "sales": {"A": "P1 P2 P1 P1", "B": "P1 P1"}, "scheduled": "Coffrets parfums de fin d'année",
         "statement_b": "to_pay",
     },
@@ -156,7 +163,7 @@ RESELLERS = [
     {
         "key": "ramata", "profile": "reguliere", "joined_days_ago": 88, "phone": "+22370000052", "person": "Ramata Sissoko",
         "shop": "Ramata Beauté", "zone": "Koutiala", "bio": "Parfums et sacs, expédition depuis Koutiala.",
-        "products": [("parfums", 4), ("sacs", 2)], "category": SaleCategory.BEAUTE, "label": "parfums + sacs",
+        "products": [("parfums", 3), ("cosmetiques", 4), ("sacs", 2)], "category": SaleCategory.BEAUTE, "label": "parfums + cosmétiques + sacs",
         "sales": {}, "statement_b": "paid_declared",
     },
     {
@@ -168,7 +175,7 @@ RESELLERS = [
     {
         "key": "djeneba", "profile": "moyenne", "joined_days_ago": 84, "phone": "+22370000054", "person": "Djénéba Fofana",
         "shop": "Djénéba Style", "zone": "Niamakoro, Bamako", "bio": "Habits et parfums, petites séries.",
-        "products": [("habits", 3), ("parfums", 2)], "category": SaleCategory.MODE, "label": "habits + parfums",
+        "products": [("habits", 3), ("cosmetiques", 2)], "category": SaleCategory.MODE, "label": "habits + cosmétiques",
         "sales": {}, "statement_b": "to_pay",
     },
     {
@@ -192,7 +199,7 @@ RESELLERS = [
     {
         "key": "fatim", "profile": "nouvelle", "joined_days_ago": 12, "phone": "+22370000058", "person": "Fatim Maïga",
         "shop": "Fatim Nouveautés", "zone": "Lafiabougou, Bamako", "bio": "Nouvelle boutique : habits et parfums.",
-        "products": [("habits", 2), ("parfums", 2)], "category": SaleCategory.MODE, "label": "habits + parfums",
+        "products": [("habits", 2), ("cosmetiques", 2)], "category": SaleCategory.MODE, "label": "habits + cosmétiques",
         "sales": {}, "statement_b": "to_pay",
     },
     {
@@ -338,7 +345,7 @@ class Command(BaseCommand):
         self.catalog_images: dict[str, list[Path]] = {}
         for category in CATEGORIES:
             folder = self.assets / "produits" / category
-            files = sorted(p for p in folder.glob("*") if p.suffix.lower() in IMAGE_EXTENSIONS) if folder.is_dir() else []
+            files = sorted((p for p in folder.glob("*") if p.suffix.lower() in IMAGE_EXTENSIONS), key=lambda p: (p.stem in LATE_IMAGES, p.name)) if folder.is_dir() else []
             self.catalog_images[category] = files
             if len(files) < 5:
                 self.stdout.write(self.style.WARNING(f"  images « {category} » : {len(files)} sur 5 (les images disponibles sont utilisées)"))
