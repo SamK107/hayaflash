@@ -24,6 +24,8 @@ def referral_link_view(request, code: str):
     l'accueil), sans cookie ni message ni clic. Cible fixe : aucune redirection ouverte.
     Au-delà de la limite par IP, même réponse, sans clic ni cookie. L'accueil affiche une
     bannière d'inscription seulement si le cookie désigne un partenaire éligible.
+    Premier lien gagnant : si le cookie désigne déjà un partenaire éligible, il n'est pas
+    remplacé (le clic est tout de même compté).
     """
     response = HttpResponseRedirect(reverse("home"))
     if rate_limit.referral_ip_limited(request):
@@ -32,6 +34,10 @@ def referral_link_view(request, code: str):
     if partner is None:
         return response
     PartnerClick.objects.create(partner=partner, ip_hash=request_ip_hash(request))
+    # Premier lien gagnant : un cookie déjà valide (partenaire encore éligible) n'est
+    # jamais réécrit. Le clic reste compté ; la durée de vie du cookie d'origine est conservée.
+    if find_partner_for_new_referral(request.COOKIES.get(COOKIE_NAME, "")) is not None:
+        return response
     response.set_cookie(
         COOKIE_NAME,
         partner.code,

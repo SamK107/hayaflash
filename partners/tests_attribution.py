@@ -102,6 +102,8 @@ class ReferralLinkTests(TestCase):
         self.assertEqual(resp["Location"], LANDING)
         self.assertNotIn("hf_ref", resp.cookies)
         self.assertEqual(PartnerClick.objects.count(), 3)
+        # Autre visiteuse : navigateur vierge (sinon elle garderait le cookie déjà posé).
+        self.client.cookies.clear()
         other = self.client.get("/r/AWA2026/", REMOTE_ADDR="196.200.9.10")
         self.assertIn("hf_ref", other.cookies)
 
