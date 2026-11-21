@@ -1,8 +1,14 @@
 # Programme partenaires : règles, formules, exemples
 
-> Référence des règles implémentées dans l'app `partners` (branche `feat/programme-partenaires`,
-> travail non commité). Les constantes viennent de `config/settings/base.py` (et `test.py`) ; les changer
-> ne touche que les NOUVEAUX partenaires (pourcentage) ou les calculs futurs.
+> Référence des règles implémentées dans l'app `partners`. L'app est **commitée** dans le dépôt
+> (commits #71 à #76 ; présente dans `integration/v2`). Les constantes viennent de `config/settings/base.py`
+> (et `test.py`) ; les changer ne touche que les NOUVEAUX partenaires (pourcentage) ou les calculs futurs.
+>
+> **Décisions de référence (`docs/EXECUTION_V2.md` § 3, 21/11/2026)** : D1 commission sur le net ;
+> D3 début des 12 mois au premier paiement encaissé après acceptation des conditions ; D9 rattachement
+> de grossistes possible (voir fin du document) ; D11 drapeau `PARTNER_REGISTRATIONS_OPEN` (à coder).
+> Stratégie : les partenaires sont des créateurs de contenu et influenceurs (`PartnerKind.creator`) ; le
+> profil `seller_pilot` reste dans le code, dormant ; un seul niveau de commission.
 
 ## Vocabulaire
 
@@ -12,6 +18,13 @@ inscrit via le lien » (ou « via votre lien »), « lien personnel », « code 
 `partners/tests_documents.py::VocabularyTests`, limité à `templates/partners/`, aux documents, au relevé, au
 CSV partenaire, aux messages types et aux libellés des modèles ; « Recommandé » reste autorisé ailleurs, il
 désigne le plan Pro). Les identifiants du code (`Referral`, `referral_id`) ne changent pas.
+
+Termes retenus (EXECUTION_V2 § 2) :
+- **« partenaire »** pour toute personne du programme ; en interne, son type est `PartnerKind.creator` (« créateur de contenu » / influenceur) ou `seller_pilot` (dormant) ;
+- **« lien personnel »** pour `/r/<code>/` ;
+- **« vendeur inscrit via le lien »** pour une vendeuse rattachée ;
+- **« grossiste rattaché »** pour un grossiste Distrib (D9) ;
+- **interdits** dans ce périmètre : « parrain », « parrainage », « filleul », « recommand* ».
 
 ## Constantes
 
@@ -244,3 +257,21 @@ la page publique. Corrigé **en place** (aucune acceptation réelle hors démo) 
   vient de créer**. Aucun `ALTER`, `DROP`, `UPDATE` ni `INSERT` sur `accounts`, `subscriptions`, `orders` ou toute autre
   table existante. Elle dépend de `accounts.0007` et `subscriptions.0009` (clés étrangères vers `SellerProfile`,
   `SubscriptionPayment` et `User`).
+
+## Remboursement d'un abonnement (procédure manuelle, proposée)
+
+Aucun remboursement n'est géré dans l'application : `PaymentStatus` ne contient pas d'état « remboursé ».
+La procédure suivante est **manuelle**, en attendant une éventuelle évolution (décision N2, `docs/releases/reports/pending/AUDIT_BRIEF_V2.md`).
+
+1. **Confirmer le remboursement hors application** (pièce de l'opérateur, référence). Aucun remboursement n'est demandé par la plateforme.
+2. **Commission non versée** (À valider ou Validée, sans versement) : l'annuler depuis la fiche du partenaire, avec un motif. L'annulation est journalisée (`partner.commission_cancelled`).
+3. **Commission déjà versée ou incluse dans un versement** : l'application refuse l'annulation (`cancel_entry`). Noter le montant à reprendre dans le journal de la tâche ou du suivi, et le **déduire à la main du versement suivant**, avec une note explicite dans le relevé. Aucune écriture négative automatique n'existe.
+4. **Trace obligatoire** : référence du remboursement, montant repris, date, auteur. Un règlement saisi n'est jamais modifié ; la correction passe par une nouvelle ligne tracée.
+
+## Décisions D9 : rattachement de grossistes (prévu, non codé)
+
+- Un partenaire peut amener des grossistes Distrib, rattachés par l'administration.
+- Le rattachement sera enregistré sur `Referral` (clé `distributor` facultative, contrainte « une seule cible »), **dès qu'il sera codé**.
+- Le calcul de la part du partenaire sur Distrib se fait **à la main**, par relevé, au début.
+- Aucune commission sur les revendeurs d'un grossiste : un seul niveau.
+- La source de commission générique (affectation paiement / ligne de Distrib) viendra plus tard (ROADMAP § 4, vague 3).

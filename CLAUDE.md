@@ -70,9 +70,17 @@ notifications/  → Modèle Notification, services WhatsApp/SMS, tâches Celery
 orders/         → Order + OrderItem, create_order() idempotent, dashboard LIVE HTMX
 payments/       → PaymentTransaction + LedgerEntry (COD V1, mock provider)
 products/       → Product + ProductMedia + ProductVariant + StockMovement
-subscriptions/  → Plan FREE/MEDIUM/PRO, Subscription, SubscriptionPayment (Orange Money),
-                  admin Django (simulation de plan sans paiement réel)
+subscriptions/  → Plan FREE/MEDIUM/PRO (BUSINESS prévu, SPEC_05), Subscription, SubscriptionPayment
+                  (Orange Money), admin Django (simulation de plan sans paiement réel)
+partners/       → Programme partenaires (créateurs de contenu) : Partner, Referral (lien personnel
+                  /r/<code>/, cookie hf_ref, premier lien gagnant), CommissionEntry (30 % du net),
+                  Payout, acceptations immuables. Règles : docs/releases/reports/partenaires_regles.md
+distrib/        → Grossistes et revendeurs (Distrib V1, interrupteur DISTRIB_ENABLED) ; spec
+                  docs/specs/SPEC_03_DISTRIB_V1.md
+studio/         → Studio photo (détourage) : **prévu, non codé** (docs/specs/SPEC_02_STUDIO_PHOTO.md)
 ```
+
+Décisions de référence V2 : `docs/EXECUTION_V2.md` (prévaut sur le brief de gouvernance v2).
 
 ---
 
@@ -179,6 +187,9 @@ docker-compose up
 | `docs/RUNBOOK_JOUR_J.md` | Déploiement VPS pas à pas (audit, secrets, staging, observabilité, sauvegardes, prod) |
 | `docs/SAUVEGARDES.md` | Sauvegardes, restauration, copie vers le disque D: du PC |
 | `docs/RUNBOOK_TEST_PAIEMENT.md` | Test de paiement réel à 100 FCFA (tarif spécial) + changer un tarif officiel |
+| `docs/EXECUTION_V2.md` | Règles d'exécution et décisions retenues V2 (source de vérité) |
+| `docs/specs/SPEC_05_PLANS_ET_BUSINESS.md` | Plans, BUSINESS, confiance des boutiques, avertissement de paiement |
+| `docs/ROADMAP_V2_V3.md` | Feuille de route V2 / V3, phasage en trois vagues (§ 4) |
 
 ---
 

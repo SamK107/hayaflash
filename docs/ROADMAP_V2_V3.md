@@ -207,3 +207,21 @@ Tant qu'il est coupé : **2 affiliations actives au maximum pour tout le revende
 Migrations additives uniquement (ex. `ResellerApplication`, `ResellerLevel`, champs opt-in /
 niveau minimum sur `Distributor`), rien dans `orders/`, `payments/`, `create_order` ;
 pas de script inline (CSP) ; staging 48 h vert, tag git + sauvegarde avant prod.
+
+---
+
+## 4. Phasage V2 en trois vagues (décidé le 21/11/2026)
+
+Source des décisions : `docs/EXECUTION_V2.md` § 3. Spécifications : `docs/specs/SPEC_05_PLANS_ET_BUSINESS.md` (plans, Business, confiance, avertissement) ; `docs/specs/SPEC_03_DISTRIB_V1.md` (Distrib) ; `docs/specs/SPEC_04_STATUTS_LIVRAISON_PAIEMENT.md` (livraison et paiement) ; `docs/specs/SPEC_02_STUDIO_PHOTO.md` (Studio).
+
+Ce phasage remplace le phasage P0 à P5 du « Brief de gouvernance v2 ».
+
+| Vague | Contenu | Condition d'entrée |
+|---|---|---|
+| **Vague 1 : fondations et confiance** | Plan BUSINESS en liste d'attente (`is_active = False`) ; `plan_has_feature` ; `is_pro` accepte BUSINESS ; niveaux de confiance (migration sans `RunPython`, drapeau `MARKET_REQUIRE_VERIFIED` faux) ; signalement par une cliente ; suspension et réactivation par l'admin (journal d'audit) ; avertissement de paiement sur la page de vente, le formulaire et la confirmation ; F12 (paramètre `s`) ; tarif fondateur (champ dédié) ; lien personnel qui garde le premier cookie (tâche B) ; drapeau `PARTNER_REGISTRATIONS_OPEN` (D11) | Lancement des pilotes validé (§ 0) |
+| **Vague 2 : fonctions Business** | Bilan vendeuse complet et export ; ligne « HayaFlash t'a fait gérer X FCFA » ; Mon stock étapes A et B ; boutique personnalisée et badge ; mise en avant bornée sur le Marché ; Studio photo (après Mon stock, D7) ; **ouverture de Business** dès que les conditions de SPEC_05 § 2.3 sont réunies | Vague 1 en production |
+| **Vague 3 : plus tard** | Fichier clientes ; ventes privées ; équipe sur la boutique ; plan annuel (D5) ; « Questions de la vente » si le fondateur la retient (SPEC_05 § 9) ; commission générique sur Distrib (affectation paiement / ligne) ; renouvellement des contrats partenaires (décision du fondateur, rien à coder) | Retours des premiers comptes Business, ou 15 partenaires actifs |
+
+**Règles de vague.** Aucune fonction n'est annoncée publiquement avant sa mise en production (D6). Chaque vague passe par staging 48 h, tag git et sauvegarde avant production. Une fonction qui change le comportement de FREE, MEDIUM ou PRO, des abonnés existants, du Marché pour une boutique existante ou un montant d'argent demande l'accord du fondateur (EXECUTION_V2 § 1, c).
+
+**Point ouvert.** Le calendrier de l'ouverture de Business (SPEC_05 point O5) n'est pas fixé.
