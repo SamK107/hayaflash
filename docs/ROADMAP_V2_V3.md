@@ -52,6 +52,7 @@ non-régression dédiés.
 | 4 | Stock étapes A (« Mon stock ») et B (quantité mise en vente, affichage) | Demande des pilotes |
 | 5 | Recherche sur le Marché + journal des recherches sans résultat | ≥ 30 boutiques actives |
 | 6 | Stock étape C (blocage strict par vente, touche `create_order`) | Ventes simultanées constatées |
+| 7 | Distrib V2 : annuaire des grossistes + candidatures revendeurs, puis niveaux revendeurs (voir § « Distrib V2 ») | ≥ 3 grossistes actifs (annuaire), ≥ 6 grossistes actifs ou ~mi-janvier 2027 (niveaux) |
 
 ## 2. Plages horaires communes des ventes live (« Marché du soir »)
 
@@ -94,10 +95,115 @@ des ventes flash, pas les lives TikTok eux-mêmes.
   commission HayaFlash et encours.
 - **Pilotage HayaFlash** : filtre « Distrib » dans le tableau de bord admin existant + une page
   dédiée (grossistes, encours, commissions, bouton Suspendre).
-- **Argent** : HayaFlash ne touche jamais l'argent des ventes. Commission : pilote 2 mois à 0 %,
+- **Argent** : HayaFlash ne touche jamais l'arg
+- ent des ventes. Commission : pilote 2 mois à 0 %,
   puis encours plafonné réglé chaque semaine (Orange Money), produits masqués au-delà du plafond ;
   prépaiement facultatif plus tard. Négociation : ouverture 10 %, cible 6–7 %, plancher 5 %,
   minimum ~250–300 FCFA par commande, plafond par commande.
 - **Reporté en V2** : inscription libre des grossistes, suspension automatique, notifications
   WhatsApp/SMS, sous-domaine distrib.hayaflash.com, stock commun, prépaiement.
 - **Hors code** : CGU (transmission de l'adresse de livraison au grossiste), contrat grossiste.
+
+## Tarification et paiement par vente (décidé le 04/11/2026)
+
+Rien n'est implémenté. Aucun changement de prix ni de quota en production pour l'instant.
+
+**Principe**
+- Prix actuels inchangés pendant le lancement (Gratuit 3 ventes/mois, Medium 2 000 FCFA, Pro 5 000 FCFA).
+- Les pilotes actives deviennent « prix fondateur » : elles gardent le prix actuel tant qu'elles restent abonnées.
+- Une hausse éventuelle ne concernera que les nouvelles inscrites, une fois la valeur prouvée par les bilans mensuels.
+- Pistes à tester plus tard : Medium 3 000 FCFA, Pro 7 500 à 10 000 FCFA avec plus de valeur (Studio photo, bilan mensuel, mise en avant sur le Marché).
+
+**Option « paiement par vente »** (500 à 1 000 FCFA par vente flash au-delà du quota gratuit)
+- Étape 1 : demander aux pilotes, avant la fin du mois Pro gratuit, leur préférence (abonnement ou paiement par vente).
+- Étape 2 : si demandé, gestion manuelle (paiement Orange Money, vente accordée via l'admin et le prix spécial par vendeuse).
+- Étape 3 : développement seulement si ≥ 50 % des pilotes actives le préfèrent, ou si la gestion manuelle dépasse ~10 vendeuses.
+- Zones sensibles : logique de quota (fail-closed) et circuit Orange Money. Tests de non-régression dédiés obligatoires.
+
+## Marché vivant (décidé le 03/11/2026)
+
+Rien n'est implémenté. Priorité à l'activation des pilotes ; seule la phase 1 peut avancer en parallèle.
+
+- **Phase 1 (maintenant, lot léger)** : message de bienvenue et 3 à 4 bulles d'orientation, uniquement sur le Marché et à la première visite (recherche, boutique, filtres, vente en cours). « Passer », « Ne plus afficher », « Revoir l'aide ». Mémoire en localStorage avec try/catch, code dans `hf-base.js` (CSP), aucune bibliothèque lourde. Pas de visite guidée si la cliente arrive directement sur une vente.
+- **Phase 2** : « Suivre la boutique » et « Préviens-moi » (notifications web). Déclencheur : premières ventes réelles des pilotes.
+- **Phase 3** : bulles d'activité réelle, teasers, badges, tri « Pour toi » par règles simples. Déclencheur : 10 à 20 boutiques actives.
+- **Phase 4** : recommandations et fil pro Distrib. Déclencheur : quelques milliers de visites par mois.
+- **Interdits** : fausse activité ou faux acheteurs, messagerie privée, commentaires publics, défilement infini.
+- **Données** : profil d'intérêt anonyme, durée de conservation courte, mention dans la politique de confidentialité.
+
+## Distrib V2 — Annuaire des grossistes, candidatures et niveaux revendeurs (décidé le 14/11/2026)
+
+Rien n'est implémenté. Aucune ligne de code avant le déclencheur. Complète Distrib V1
+(`docs/specs/SPEC_03_DISTRIB_V1.md`) sans en changer les règles : le grossiste garde le
+contrôle (rien n'est rattaché sans son accord), cloisonnement, argent jamais touché par HayaFlash.
+
+### Étape 1 — Annuaire et candidatures (déclencheur : ≥ 3 grossistes actifs)
+
+- **Annuaire** des grossistes, réservé aux vendeurs connectés (pas sur le Marché public).
+  Le grossiste choisit d'y figurer ou non (**opt-in**, désactivé par défaut).
+- **Fiche en lecture seule** : nom, description, catégories, marché ou quartier, produits avec
+  photos et descriptions. **Jamais** : prix de gros, numéro de téléphone, adresse exacte
+  (visibles seulement après affiliation acceptée). Tout contact passe par HayaFlash.
+- **Bouton « Devenir revendeur »** : nom personnel ou de la boutique (pré-rempli), quartier
+  (bouton géolocalisation avec consentement, on enregistre une position **approximative**),
+  message court prédéfini avec le nom du grossiste en paramètre. Plus tard : message vocal
+  optionnel (bambara).
+- **Garde-fous** : compte vendeur HayaFlash obligatoire ; **3 candidatures en attente** au
+  maximum ; une candidature expire après **14 jours** sans réponse ; pas de nouvelle
+  candidature au même grossiste pendant 30 jours après un refus.
+- **Côté grossiste** : liste des candidatures (nom, boutique, quartier, niveau, ancienneté) →
+  Accepter / Refuser. **Accepter crée une `ResellerInvite`** (circuit V1 existant, statut
+  accepté puisque le revendeur a lui-même demandé) : aucun nouveau circuit d'affiliation.
+- **Classement de l'annuaire** : grossistes les plus réactifs (délai de réponse aux
+  candidatures, taux de livraison) en tête. Motive aussi les grossistes.
+
+### Étape 2 — Niveaux revendeurs (déclencheur : ≥ 6 grossistes actifs, ou ~mi-janvier 2027)
+
+Objectif : le nombre de grossistes auxquels un revendeur peut être affilié **en même temps**
+se mérite par l'effort (prudence + motivation). Candidater reste libre (dans la limite
+ci-dessus) ; c'est l'**affiliation active** qui est plafonnée.
+
+| Niveau | Affiliations simultanées | Critères d'accès (provisoires) |
+|---|---|---|
+| Débutant | 1 | Compte créé |
+| Confirmé | 2 | 4 semaines glissantes, moyenne ≥ 5 livraisons payées / semaine, annulations + « pas livré » < 20 % |
+| Pro | 3 | 8 semaines au niveau Confirmé, moyenne ≥ 10 livraisons payées / semaine, respect des prix minimum |
+| Élite | 5 | 12 semaines au niveau Pro, incidents quasi nuls |
+
+**Seuils provisoires : à recalibrer sur les données réelles avant activation** (revue
+obligatoire, consignée dans le journal).
+
+**Règles**
+- **Ce qui compte** : uniquement les `DistribSettlement` au statut `paid_confirmed`, comptés
+  **par commande** (pas par ligne de produit), toutes affiliations confondues. Jamais une
+  déclaration du revendeur, jamais le nombre de ventes flash lancées. Point à trancher à la
+  calibration : compter ou non les confirmations par présomption (`confirmation_source`
+  automatique à 72 h).
+- **Calcul par le système** (tâche Celery quotidienne), jamais modifiable par le grossiste.
+  Correction manuelle réservée au staff, journalisée.
+- **Visibilité du niveau** : le revendeur lui-même, les grossistes auxquels il est affilié ou
+  candidat, et le staff HayaFlash. **Jamais** les clientes, le Marché ni la page publique.
+- **Le grossiste peut exiger un niveau minimum** (ex. « réservé Confirmé et plus »).
+- **Baisse de niveau** (performances sous le seuil 4 semaines de suite) : un seul niveau à la
+  fois ; **aucune affiliation en cours n'est coupée**, le revendeur ne peut simplement plus en
+  ajouter tant qu'il n'est pas remonté.
+- **Protection du revendeur** : rupture par le grossiste avec préavis de 7 jours (sauf fraude
+  ou impayé, motif obligatoire) ; ventes en cours menées à terme ; marges dues versées.
+- **Droits du grossiste** : prix de revente minimum, plafond de stock alloué par revendeur,
+  suspension motivée, statistiques par revendeur (règles V1 inchangées).
+
+**Activation** : interrupteur `DISTRIB_LEVELS_ENABLED` (faux par défaut), basculé à la main
+par l'admin — **pas** de déclenchement automatique sur le nombre de grossistes (un grossiste
+inscrit mais inactif, ou un départ qui ferait repasser à 5, rendrait le compteur instable).
+Tant qu'il est coupé : **2 affiliations actives au maximum pour tout le revendeur**, sans niveau affiché.
+
+**Rétroactivité** : aucune donnée à créer d'ici là. `DistribSettlement` conserve déjà
+`invite` (revendeur), `distributor`, `status`, `paid_confirmed_at`, `declared_at`,
+`created_at` : le jour de l'activation, chaque niveau est calculé sur tout l'historique.
+**Ne pas supprimer ni purger ces champs ou ces lignes** (hors données de test).
+
+### Contraintes techniques (rappel des règles communes)
+
+Migrations additives uniquement (ex. `ResellerApplication`, `ResellerLevel`, champs opt-in /
+niveau minimum sur `Distributor`), rien dans `orders/`, `payments/`, `create_order` ;
+pas de script inline (CSP) ; staging 48 h vert, tag git + sauvegarde avant prod.

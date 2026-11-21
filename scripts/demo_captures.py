@@ -29,6 +29,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DESKTOP = {"viewport": {"width": 1440, "height": 900}, "device_scale_factor": 2.5, "locale": "fr-FR"}
 # Decoupage pour un diaporama : une image = un « ecran » lisible. Au-dela, on garde les premiers ecrans.
+# Plateforme (accueil, Marche) : fenetre 16:9 pleine largeur, une seule image, sans connexion.
+WIDE = {"viewport": {"width": 1440, "height": 810}, "device_scale_factor": 2, "locale": "fr-FR"}
+EXTRA_PAGES = [
+    {"actor": "plateforme", "device": "wide", "label": "Accueil HayaFlash", "path": "/"},
+    {"actor": "plateforme", "device": "wide", "label": "Le Marche (ordinateur)", "path": "/ventes/"},
+]
 DESKTOP_SEGMENT_PX, MOBILE_SEGMENT_PX = 640, 844   # hauteur d'un ecran, en pixels CSS
 MAX_SEGMENTS = 3
 MERGE_RATIO = 1.3          # une page jusqu'a 1,3 ecran reste en une seule image
@@ -91,25 +97,29 @@ class Shooter:
 
     # ── Contextes et connexion ────────────────────────────────────────────
 
-    def context(self, actor: str, device: str):
-        key = (actor, device)
+    def context(self, actor: str, device: str, account: str | None = None):
+        key = (actor, device, account)
         if key not in self.contexts:
-            options = DESKTOP if device == "desktop" else self.mobile
+            options = {"desktop": DESKTOP, "wide": WIDE}.get(device, self.mobile)
             context = self.browser.new_context(service_workers="block", **options)
             context.set_default_timeout(LOAD_TIMEOUT_MS)
             self.contexts[key] = context
-            if actor in ("grossiste", "revendeuse"):
-                self.login(context, actor)
+            if actor in ("grossiste", "revendeuse", "admin"):
+                self.login(context, actor, account)
         return self.contexts[key]
 
-    def phone_for(self, actor: str) -> str:
-        wanted = "grossiste" if actor == "grossiste" else "revendeuse"
-        return next(a["phone"] for a in self.manifest["accounts"] if a["role"] == wanted)
+    def phone_for(self, actor: str, account: str | None = None) -> str:
+        """`account` : cle d'une revendeuse du manifeste (ex. « fanta ») ; sinon la premiere du role."""
+        wanted = actor if actor in ("grossiste", "admin") else "revendeuse"
+        accounts = [a for a in self.manifest["accounts"] if a["role"] == wanted]
+        if account:
+            accounts = [a for a in accounts if a.get("key") == account] or accounts
+        return accounts[0]["phone"]
 
-    def login(self, context, actor: str) -> None:
+    def login(self, context, actor: str, account: str | None = None) -> None:
         page = context.new_page()
         page.goto(f"{self.base_url}/login/", wait_until="load")
-        page.fill('input[name="phone"]', self.phone_for(actor))
+        page.fill('input[name="phone"]', self.phone_for(actor, account))
         page.fill('input[name="password"]', self.manifest["password"])
         with page.expect_navigation():
             page.locator('form button[type="submit"], form input[type="submit"]').first.click()
@@ -174,14 +184,14 @@ class Shooter:
 
     def capture(self, entry: dict) -> None:
         actor, label, path = entry["actor"], entry["label"], entry["path"]
-        context = self.context(actor, entry["device"])
+        context = self.context(actor, entry["device"], entry.get("account"))
         page = context.new_page()
         try:
             response = page.goto(f"{self.base_url}{path}", wait_until="load")
             if response is not None and response.status >= 400:
                 raise RuntimeError(f"HTTP {response.status}")
             self.settle(page)
-            self.shoot(page, actor, label, desktop=entry["device"] == "desktop")
+            self.shoot(page, actor, label, desktop=entry["device"] == "desktop", viewport_only=entry["device"] == "wide")
             if path == "/distrib/confirmer/":
                 self.capture_receipt_confirmation(page, actor)
             elif re.fullmatch(r"/seller/flash-sales/\d+/", path):
@@ -254,7 +264,7 @@ def main() -> int:
     with sync_playwright() as playwright:
         shooter = Shooter(playwright, manifest, base_url, out_dir)
         try:
-            for entry in manifest["pages"]:
+            for entry in [*manifest["pages"], *EXTRA_PAGES]:
                 shooter.capture(entry)
         finally:
             shooter.close()

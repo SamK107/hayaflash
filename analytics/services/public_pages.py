@@ -208,6 +208,16 @@ def resolve_flash_sale_public_page(request: HttpRequest, slug: str) -> dict[str,
         source="whatsapp",
     )
 
+    # Numero Orange Money du grossiste (lecture seule), une requete pour la page.
+    from distrib.models import ImportedProduct
+
+    om_numbers = {
+        pid: (number or "").strip()
+        for pid, number in ImportedProduct.objects.filter(
+            product_id__in=[p.pk for p in products]
+        ).values_list("product_id", "wholesale_product__distributor__orange_money_number")
+    }
+
     product_links: list[dict[str, Any]] = []
     for product in products:
         urls = build_order_share_urls(request, flash_sale=flash_sale, product=product)
@@ -215,6 +225,7 @@ def resolve_flash_sale_public_page(request: HttpRequest, slug: str) -> dict[str,
         product_links.append(
             {
                 "product": product,
+                "orange_money_number": om_numbers.get(product.pk) or "",
                 "order_url": urls["order_url"],
                 "whatsapp_url": build_tracked_whatsapp_url(
                     request,

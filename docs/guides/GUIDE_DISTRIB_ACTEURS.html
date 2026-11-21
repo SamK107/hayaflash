@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guide Distrib — qui fait quoi</title>
+<style>
+  :root { --bg:#fff; --fg:#1f2430; --muted:#5b6475; --line:#e3e6ec; --soft:#f6f7f9;
+          --brand:#E63946; --gold:#FFB800; --ok:#16a34a; --warn:#b45309;
+          --c-team:#4338ca; --c-wh:#0f766e; --c-re:#c2410c; --c-cl:#475569; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14171d; --fg:#e8eaf0; --muted:#9aa3b5; --line:#2a2f3a; --soft:#1c2029; --warn:#f59e0b; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 24px 16px 80px; }
+  h1 { font-size: 1.9rem; margin: 0 0 4px; }
+  h2 { font-size: 1.35rem; margin: 40px 0 8px; padding-top: 16px; border-top: 2px solid var(--line); }
+  h3 { font-size: 1.05rem; margin: 22px 0 6px; }
+  p, li { max-width: 72ch; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  nav.toc { background: var(--soft); border:1px solid var(--line); border-radius: 10px; padding: 12px 18px; }
+  nav.toc ol { margin: 6px 0 0; padding-left: 20px; columns: 2; }
+  @media (max-width:600px){ nav.toc ol { columns: 1; } }
+  table { border-collapse: collapse; width:100%; margin: 10px 0 16px; font-size: .94rem; }
+  th, td { border:1px solid var(--line); padding: 7px 10px; text-align:left; vertical-align: top; }
+  th { background: var(--soft); }
+  .tbl { overflow-x:auto; }
+  .tag { display:inline-block; font-size:.75rem; font-weight:700; color:#fff; border-radius:999px; padding:1px 9px; vertical-align: middle; }
+  .t-team{background:var(--c-team)} .t-wh{background:var(--c-wh)} .t-re{background:var(--c-re)} .t-cl{background:var(--c-cl)} .t-auto{background:#6b7280}
+  .box { border-left:4px solid var(--gold); background:var(--soft); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 14px 0; }
+  .box.warn { border-color: var(--warn); }
+  .box.ok { border-color: var(--ok); }
+  .box.internal { border-color: var(--brand); }
+  code { background: var(--soft); border:1px solid var(--line); border-radius:4px; padding:0 5px; font-size:.9em; }
+  .step { display:grid; grid-template-columns: 34px 1fr; gap: 10px; margin: 10px 0; }
+  .step b.n { background: var(--brand); color:#fff; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-size:.9rem; }
+  .step > div p { margin: 2px 0; }
+  .flow { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin: 10px 0; font-size:.9rem; }
+  .flow span { background: var(--soft); border:1px solid var(--line); border-radius:8px; padding:4px 10px; }
+  .flow i { color: var(--muted); font-style: normal; }
+  ul.check { list-style:none; padding-left:0; }
+  ul.check li::before { content:"☐ "; }
+  @media print {
+    :root { --bg:#fff; --fg:#000; }
+    .wrap { max-width:none; padding:0; }
+    h2 { break-after: avoid; } .box, table, .step { break-inside: avoid; }
+    nav.toc { display:none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Module Distrib — qui fait quoi</h1>
+<p class="sub">Guide des acteurs : grossiste, revendeur, cliente et équipe HayaFlash. De la création des comptes au paiement des marges et de la commission. Basé sur la spec <code>SPEC_03_DISTRIB_V1</code> (avenant A) et le code, état du 27/10/2026.</p>
+
+<nav class="toc">
+  <strong>Sommaire</strong>
+  <ol>
+    <li><a href="#vue">Vue d'ensemble</a></li>
+    <li><a href="#flux">Le parcours en 10 étapes</a></li>
+    <li><a href="#equipe-debut">Équipe HayaFlash : mise en place</a></li>
+    <li><a href="#grossiste">Le grossiste</a></li>
+    <li><a href="#revendeur">Le revendeur</a></li>
+    <li><a href="#cliente">La cliente</a></li>
+    <li><a href="#argent">L'argent : marge, relevé, commission</a></li>
+    <li><a href="#auto">Ce que le système fait seul</a></li>
+    <li><a href="#pilotage">Équipe HayaFlash : pilotage au quotidien</a></li>
+    <li><a href="#plafonds">Plafonds et blocages</a></li>
+    <li><a href="#cas">Cas particuliers</a></li>
+    <li><a href="#limites">Limites connues de la V1</a></li>
+    <li><a href="#checklists">Check-lists</a></li>
+  </ol>
+</nav>
+
+<h2 id="vue">1. Vue d'ensemble</h2>
+<p>Un <strong>grossiste</strong> met son catalogue à disposition de <strong>revendeurs</strong> (des boutiques HayaFlash). Le revendeur vend ces produits en vente flash comme d'habitude. Le grossiste <strong>livre</strong> la cliente, qui paie <strong>à la livraison</strong>. Ensuite, le grossiste reverse au revendeur sa marge, et paie une commission à HayaFlash.</p>
+
+<div class="tbl"><table>
+<tr><th>Acteur</th><th>Rôle</th><th>Ce qu'il doit faire</th><th>Facultatif</th></tr>
+<tr><td><span class="tag t-team">Équipe HayaFlash</span></td><td>Crée les grossistes, surveille, tranche les exceptions</td><td>Créer le compte, transmettre le mot de passe, suivre le pilotage, enregistrer les commissions reçues</td><td>Corriger une ligne, clore/rouvrir un relevé, suspendre</td></tr>
+<tr><td><span class="tag t-wh">Grossiste</span></td><td>Fournit les produits et livre</td><td>Tenir le catalogue, allouer le stock, livrer, déclarer « Pas livré » en cas d'échec, <strong>payer le relevé chaque semaine</strong> (réf. Orange Money), payer la commission à HayaFlash</td><td>« Livré et payé » avant les 72 h</td></tr>
+<tr><td><span class="tag t-re">Revendeur</span></td><td>Vend, ne gère ni stock ni livraison de gros</td><td>Accepter l'invitation, importer les produits, faire ses ventes flash</td><td>« Pas reçu » si un versement n'est pas arrivé</td></tr>
+<tr><td><span class="tag t-cl">Cliente</span></td><td>Achète et paie à la livraison</td><td>Rien</td><td>« J'ai reçu » avec le code à 4 chiffres</td></tr>
+</table></div>
+
+<div class="box ok"><strong>Principe directeur :</strong> le silence produit toujours le résultat juste. Quand tout va bien, personne n'a de bouton à cliquer pour valider une livraison : au bout de 72 h, la commande est présumée livrée et payée. Seule l'exception (échec de livraison, versement non reçu) demande un geste, avec un motif.</div>
+
+<h2 id="flux">2. Le parcours en 10 étapes</h2>
+<div class="step"><b class="n">1</b><div><p><span class="tag t-team">Équipe</span> crée le compte grossiste (<code>/distrib/pilotage/</code>) et lui transmet son mot de passe provisoire.</p></div></div>
+<div class="step"><b class="n">2</b><div><p><span class="tag t-wh">Grossiste</span> se connecte (<code>/distrib/connexion/</code>) et crée son <strong>catalogue de gros</strong>.</p></div></div>
+<div class="step"><b class="n">3</b><div><p><span class="tag t-wh">Grossiste</span> <strong>invite</strong> des revendeurs par numéro (<code>/distrib/revendeurs/</code>) puis les prévient lui-même (WhatsApp, appel).</p></div></div>
+<div class="step"><b class="n">4</b><div><p><span class="tag t-re">Revendeur</span> voit le bandeau sur <code>/seller/</code> et <strong>accepte</strong> (ou refuse).</p></div></div>
+<div class="step"><b class="n">5</b><div><p><span class="tag t-re">Revendeur</span> ouvre <em>Mes grossistes</em>, choisit un produit et <strong>l'importe</strong> en fixant son prix de vente (au moins le prix minimum).</p></div></div>
+<div class="step"><b class="n">6</b><div><p><span class="tag t-wh">Grossiste</span> <strong>alloue</strong> une quantité de stock à ce revendeur (<code>/distrib/stock/</code>). Le produit apparaît dans la boutique du revendeur avec ce stock.</p></div></div>
+<div class="step"><b class="n">7</b><div><p><span class="tag t-re">Revendeur</span> vend en <strong>vente flash</strong>. <span class="tag t-cl">Cliente</span> commande et reçoit un code à 4 chiffres. <span class="tag t-auto">Système</span> crée une ligne de suivi par article importé.</p></div></div>
+<div class="step"><b class="n">8</b><div><p><span class="tag t-wh">Grossiste</span> voit la commande (<code>/distrib/commandes/</code>) et <strong>livre</strong>. Échec : « Pas livré » + motif. Sinon, à 72 h la ligne passe automatiquement en « payée ».</p></div></div>
+<div class="step"><b class="n">9</b><div><p><span class="tag t-auto">Système</span> édite chaque <strong>lundi 00:05</strong> un relevé par revendeur. <span class="tag t-wh">Grossiste</span> paie par Orange Money et clique « Payé » avec la référence. <span class="tag t-re">Revendeur</span> confirme, ou se tait (accepté après 72 h).</p></div></div>
+<div class="step"><b class="n">10</b><div><p><span class="tag t-wh">Grossiste</span> paie la <strong>commission</strong> à HayaFlash (hors outil, Orange Money). <span class="tag t-team">Équipe</span> l'enregistre dans le pilotage.</p></div></div>
+
+<h2 id="equipe-debut">3. Équipe HayaFlash : mise en place</h2>
+
+<h3>3.1 Créer un compte grossiste</h3>
+<p>Page <code>/distrib/pilotage/</code> → « grossiste nouveau ». Seule l'équipe peut créer un grossiste : il n'y a pas d'inscription libre.</p>
+<div class="tbl"><table>
+<tr><th>Champ</th><th>À retenir</th></tr>
+<tr><td>Nom commercial, nom du contact</td><td>Le nom commercial est ce que les revendeurs voient (« <em>X</em> vous invite »).</td></tr>
+<tr><td>Téléphone de connexion</td><td>C'est son identifiant. Indicatif + numéro (format E.164).</td></tr>
+<tr><td>Numéro Orange Money</td><td>Facultatif.</td></tr>
+<tr><td>Taux de commission</td><td>6 % par défaut (5 à 6 % négocié).</td></tr>
+<tr><td>Commission offerte jusqu'au</td><td>Période d'essai : proposé à J+60. Avant cette date, la commission est calculée et affichée mais <strong>non facturable</strong>.</td></tr>
+</table></div>
+<div class="box warn"><strong>Mot de passe provisoire :</strong> affiché <strong>une seule fois</strong> à l'écran de confirmation (10 caractères), il n'est stocké nulle part en clair. Notez-le avant de quitter la page, puis transmettez-le au grossiste par un canal privé. Si le numéro correspond déjà à une boutique existante, le compte est rattaché tel quel et son mot de passe n'est pas modifié.</div>
+
+<h3>3.2 Mot de passe oublié ou à changer</h3>
+<p>Le grossiste n'a <strong>pas</strong> d'écran de changement de mot de passe en libre-service (celui de <code>/seller/parametres/</code> exige une boutique). L'équipe le réinitialise : admin Django → Utilisateurs → le compte → lien de changement de mot de passe, ou <code>python manage.py changepassword &lt;numéro&gt;</code> (à vérifier avant usage). Le revendeur, lui, a une boutique et peut le changer seul dans <code>/seller/parametres/</code>.</p>
+
+<h3>3.3 Réglages par grossiste (admin Django)</h3>
+<div class="tbl"><table>
+<tr><th>Réglage</th><th>Défaut</th><th>Effet</th></tr>
+<tr><td>Commission : taux / minimum / plafond</td><td>6 % / 250 / 1 500 FCFA par ligne</td><td>Calcul de la commission</td></tr>
+<tr><td><code>pilot_until</code></td><td>aucune</td><td>Commission non facturable avant cette date</td></tr>
+<tr><td><code>auto_confirm_hours</code></td><td>72 h</td><td>Délai de présomption de livraison</td></tr>
+<tr><td><code>payout_delay_days</code></td><td>3 jours</td><td>Au-delà, un relevé impayé est signalé en retard</td></tr>
+<tr><td><code>credit_ceiling</code></td><td>10 000 FCFA</td><td>Plafond de commission due à HayaFlash</td></tr>
+<tr><td><code>reseller_credit_ceiling</code></td><td>10 000 FCFA</td><td>Plafond de marges dues, par revendeur</td></tr>
+<tr><td>Seuils d'alerte de fiabilité</td><td>20 % / 1 / 1 (0 = désactivé)</td><td>Alertes du pilotage uniquement</td></tr>
+<tr><td><code>is_active</code> / <code>is_suspended</code></td><td>actif / non</td><td>Suspendre bloque nouvelles importations et allocations</td></tr>
+</table></div>
+
+<h2 id="grossiste">4. Le grossiste</h2>
+<p>Son espace est <code>/distrib/</code>, pensé pour téléphone (gros boutons). Les écrans principaux se rafraîchissent seuls toutes les 30 s.</p>
+
+<h3>4.1 Catalogue — <code>/distrib/catalogue/</code></h3>
+<ul>
+  <li>Pour chaque produit : nom, description, catégorie, <strong>prix de gros</strong>, <strong>prix de vente minimum</strong>, <strong>stock total</strong>, photos.</li>
+  <li>« Visible par les revendeurs » décoche un produit sans le supprimer.</li>
+  <li>Tous les montants sont en FCFA entiers.</li>
+</ul>
+
+<h3>4.2 Inviter des revendeurs — <code>/distrib/revendeurs/</code></h3>
+<ul>
+  <li>Saisir nom + indicatif + numéro. Le numéro doit être <strong>exactement</strong> celui du compte du revendeur.</li>
+  <li><strong>Aucun message automatique n'est envoyé.</strong> Le grossiste prévient le revendeur lui-même.</li>
+  <li>Statuts : invité → accepté / refusé / révoqué. Un refus ou une révocation peut être relancé en ressaisissant le numéro (nouveau consentement requis).</li>
+  <li><strong>Révoquer</strong> : plus de nouvelle importation ni allocation. Les commandes en cours restent suivies.</li>
+  <li>Un revendeur peut être rattaché à plusieurs grossistes.</li>
+</ul>
+
+<h3>4.3 Stock — <code>/distrib/stock/</code></h3>
+<ul>
+  <li><strong>Disponible</strong> = stock total − somme des quantités allouées. Impossible d'allouer au-delà.</li>
+  <li><strong>Allouer</strong> : quantité mise dans la boutique du revendeur. Le stock du produit du revendeur augmente d'autant.</li>
+  <li><strong>Reprendre</strong> : retire des unités non vendues (au plus le stock restant du revendeur).</li>
+  <li>Alerte si le revendeur a baissé son prix sous le minimum (pas de blocage en V1).</li>
+  <li>Si le revendeur est bloqué par un plafond, le message est affiché sur la ligne.</li>
+</ul>
+
+<h3>4.4 Commandes — <code>/distrib/commandes/</code></h3>
+<p>Le grossiste voit les commandes des produits importés, avec l'adresse de livraison de la cliente (le revendeur y a consenti lors de l'acceptation). Il ne voit <strong>jamais</strong> le code à 4 chiffres de la cliente.</p>
+<div class="tbl"><table>
+<tr><th>Situation</th><th>Action du grossiste</th><th>Résultat</th></tr>
+<tr><td>Livraison réussie, cliente a payé</td><td><strong>Rien</strong> (ou « Livré et payé » pour aller plus vite)</td><td>Ligne payée à 72 h après la confirmation de la commande, ou tout de suite si « Livré et payé »</td></tr>
+<tr><td>Cliente a refusé / absente / a annulé</td><td><strong>« Pas livré »</strong> + motif <em>avant</em> les 72 h</td><td>Statut final « non livré » : ni marge ni commission</td></tr>
+<tr><td>Autre motif</td><td>« Pas livré » + « Autre » + texte court obligatoire</td><td>Idem</td></tr>
+</table></div>
+<div class="box warn"><strong>« Pas livré » ne touche ni la commande, ni le stock.</strong> Le stock n'est pas remis automatiquement. Si le grossiste veut le récupérer, il utilise « Reprendre » dans l'écran Stock. Un « Pas livré » abusif n'est pas visible dans le stock mais dans l'indice de fiabilité de l'équipe (section 9).</div>
+
+<h3>4.5 Relevés — <code>/distrib/releves/</code></h3>
+<ol>
+  <li>Le lundi, un relevé par revendeur apparaît (statut <em>à payer</em>). Son montant est calculé, jamais saisi.</li>
+  <li>Le grossiste paie le revendeur <strong>par Orange Money, hors de HayaFlash</strong>.</li>
+  <li>Il ouvre le relevé, clique <strong>« Payé »</strong> et saisit la <strong>référence Orange Money</strong> (obligatoire).</li>
+  <li>Si le revendeur dit « Pas reçu » : une seule redéclaration est possible, avec une <strong>nouvelle</strong> référence différente. Après une seconde contestation, le relevé est escaladé à l'équipe HayaFlash.</li>
+  <li>Pas de paiement partiel : le relevé se règle en entier.</li>
+</ol>
+
+<h3>4.6 Commission HayaFlash</h3>
+<p>L'écran d'accueil affiche l'encours de commission. Le grossiste paie HayaFlash <strong>par Orange Money, hors outil</strong> ; l'équipe enregistre ensuite le règlement (section 9). Pendant la période d'essai, l'écran indique « Commission offerte (période d'essai) ».</p>
+
+<h2 id="revendeur">5. Le revendeur</h2>
+<p>Il doit avoir un compte HayaFlash <strong>avec boutique</strong>, au numéro invité. Il n'a aucune action de livraison, de stock de gros ni de validation de paiement à faire.</p>
+
+<div class="step"><b class="n">1</b><div><p><strong>Accepter l'invitation.</strong> Sur <code>/seller/</code>, bandeau « <em>X</em> vous invite ». Un clic ouvre la page des conditions : « le grossiste verra les commandes des produits importés, avec l'adresse de livraison, pour pouvoir livrer ». <strong>Accepter</strong> ou <strong>Refuser</strong>. Rien n'est rattaché sans acceptation.</p></div></div>
+<div class="step"><b class="n">2</b><div><p><strong>Importer un produit.</strong> <code>/distrib/mes-grossistes/</code> → le grossiste → catalogue. Il choisit un produit et fixe son <strong>prix de vente</strong>, au moins égal au prix minimum du grossiste. Le produit est créé dans sa boutique, photos copiées, <strong>stock à 0</strong> tant que le grossiste n'a rien alloué.</p></div></div>
+<div class="step"><b class="n">3</b><div><p><strong>Vendre.</strong> Il met le produit dans une vente flash, comme n'importe quel produit. Le produit importé est un produit normal : rien d'autre à faire.</p></div></div>
+<div class="step"><b class="n">4</b><div><p><strong>Suivre ses gains.</strong> <code>/distrib/mes-gains/</code> : confirmé, versé, restant dû, avec le compte à rebours « confirmée automatiquement dans … h ».</p></div></div>
+<div class="step"><b class="n">5</b><div><p><strong>Répondre à un versement</strong> (facultatif). Après « Payé » du grossiste : « Oui, reçu » ou <strong>« Pas reçu »</strong> avec un motif choisi dans une liste. Sans réponse en 72 h, le versement est considéré reçu.</p></div></div>
+
+<div class="box"><strong>Les liens « Mes grossistes » et « Mes gains »</strong> n'apparaissent sur <code>/seller/</code> que lorsqu'au moins une invitation a été acceptée. Une boutique qui n'a jamais été invitée ne voit rien de Distrib.</div>
+<p>Il n'y a <strong>aucun échange WhatsApp requis</strong> entre le revendeur et la cliente. Le revendeur ne peut pas bloquer le paiement de sa propre marge, ni la retarder en ne faisant rien.</p>
+
+<h2 id="cliente">6. La cliente</h2>
+<ul>
+  <li>Elle commande normalement sur <code>/f/&lt;slug&gt;/</code> ou <code>/order/</code> et paie à la livraison.</li>
+  <li>Sur l'écran « Commande envoyée », elle voit un <strong>code à 4 chiffres</strong> (seulement si la commande contient un produit importé).</li>
+  <li><strong>Confirmation facultative</strong> : depuis le même téléphone, un bandeau « Tu as reçu ta commande ? » apparaît sur les pages publiques. Sinon, lien « Confirmer un paiement » en bas des pages → <code>/distrib/confirmer/</code> : numéro + code → « J'ai reçu ma commande ». Une référence Orange Money peut être ajoutée (facultatif).</li>
+  <li>Sa confirmation passe la ligne en « payée » tout de suite. Si le grossiste avait déclaré « Pas livré », le statut ne change pas mais un <strong>signal de conflit</strong> part vers l'équipe.</li>
+  <li>5 échecs de code par heure et par numéro (20 par IP) sont tolérés.</li>
+</ul>
+
+<h2 id="argent">7. L'argent : marge, relevé, commission</h2>
+
+<div class="box"><strong>Exemple (1 article).</strong> Prix de gros 8 000 FCFA ; prix de vente fixé par le revendeur 10 000 FCFA.<br>
+• Marge du revendeur = 10 000 − 8 000 = <strong>2 000 FCFA</strong> (versée par le grossiste via le relevé du lundi).<br>
+• Commission HayaFlash = 6 % × 10 000 = 600, bornée entre 250 et 1 500 → <strong>600 FCFA</strong> (due par le grossiste, facturable seulement après <code>pilot_until</code>).<br>
+• Le système ne suit que ces deux montants. La comptabilité propre du grossiste (encaissement à la livraison, coût de son stock) lui appartient.</div>
+
+<div class="tbl"><table>
+<tr><th></th><th>Marge du revendeur</th><th>Commission HayaFlash</th></tr>
+<tr><td>Calcul</td><td>(prix de vente − prix de gros) × quantité</td><td>vente × taux, entre minimum et plafond, par ligne</td></tr>
+<tr><td>Déclenchée à</td><td>Ligne « payée »</td><td>Ligne « payée »</td></tr>
+<tr><td>Payée par</td><td>Le grossiste → le revendeur</td><td>Le grossiste → HayaFlash</td></tr>
+<tr><td>Rythme</td><td>Relevé chaque lundi</td><td>Au fil de l'eau, selon la demande de l'équipe</td></tr>
+<tr><td>Preuve</td><td>Référence Orange Money du « Payé »</td><td>Règlement enregistré au pilotage (montant + référence)</td></tr>
+<tr><td>Montants</td><td colspan="2">FCFA entiers, jamais de centimes, calculés par le système (aucun montant libre saisi)</td></tr>
+</table></div>
+
+<h3>Cycle de vie d'une ligne (un article importé commandé)</h3>
+<div class="flow"><span>Commandée</span><i>→</i><span>En livraison</span><i>→</i><span>Livrée par la boutique</span><i>→</i><span><strong>Payée</strong> (72 h, ou « Livré et payé », ou cliente)</span><i>→</i><span>Dans un relevé</span><i>→</i><span>Versée</span></div>
+<p>Sorties : <strong>annulée</strong> (la commande est annulée) ou <strong>non livrée</strong> (« Pas livré », statut final).</p>
+
+<h3>Cycle de vie d'un relevé</h3>
+<div class="flow"><span>À payer</span><i>→</i><span>Payé (réf. OM)</span><i>→</i><span>Accepté</span></div>
+<div class="flow"><span>Payé</span><i>→ « Pas reçu » →</i><span>Contesté</span><i>→ redéclaration →</i><span>Payé</span><i>→</i><span>Accepté</span> <i>ou 2ᵉ « Pas reçu » →</i><span>Escaladé (équipe)</span></div>
+
+<h2 id="auto">8. Ce que le système fait seul</h2>
+<div class="tbl"><table>
+<tr><th>Quand</th><th>Tâche</th></tr>
+<tr><td>Immédiatement à chaque commande</td><td>Crée une ligne de suivi par article importé. Une commande n'échoue <strong>jamais</strong> à cause de Distrib.</td></tr>
+<tr><td>Toutes les 5 min</td><td>Réconciliation : rattrape les lignes manquantes et synchronise les statuts</td></tr>
+<tr><td>Toutes les 15 min</td><td>Passe en « payée » les lignes dont l'échéance de 72 h est atteinte ; accepte les versements non contestés à temps</td></tr>
+<tr><td>Lundi 00:05 (Bamako)</td><td>Clôture de la semaine précédente : un relevé par revendeur avec les lignes payées non encore couvertes. Pas de relevé à 0 FCFA</td></tr>
+<tr><td>En continu</td><td>Si la commande est annulée après la confirmation automatique et que rien n'a été versé : la ligne est annulée et marge et commission retombent à 0 (journalisé). Sinon : un signal de conflit part vers l'équipe</td></tr>
+</table></div>
+<p>Les entrées de planification n'existent que si <code>DISTRIB_ENABLED</code> est actif. Il faut que le worker Celery <strong>et le beat</strong> tournent, sinon rien de tout cela ne se déclenche.</p>
+
+<h2 id="pilotage">9. Équipe HayaFlash : pilotage au quotidien</h2>
+<div class="box internal"><strong>Partie interne.</strong> Ne pas montrer aux grossistes ni aux revendeurs : l'indice de fiabilité leur est volontairement invisible en V1.</div>
+
+<h3>9.1 Écran <code>/distrib/pilotage/</code> (réservé au staff)</h3>
+<ul>
+  <li>Liste des grossistes, encours de commission, plafonds, retards de relevé, alertes de prix minimum.</li>
+  <li><strong>Indice de fiabilité</strong> sur 30 jours glissants : taux de « Pas livré » et motifs, conflits, versements contestés, relevés en retard, part des confirmations cliente / grossiste / automatique.</li>
+  <li><strong>Aucune sanction automatique.</strong> En cas d'alerte, l'équipe parle d'abord au grossiste en privé.</li>
+</ul>
+
+<h3>9.2 Actions de l'équipe</h3>
+<div class="tbl"><table>
+<tr><th>Action</th><th>Où</th><th>Quand l'utiliser</th></tr>
+<tr><td>Créer un grossiste</td><td><code>/distrib/pilotage/grossistes/nouveau/</code></td><td>Nouveau partenaire</td></tr>
+<tr><td><strong>Enregistrer un règlement de commission</strong></td><td>Pilotage, ligne du grossiste (montant entier + référence)</td><td>Après réception du paiement Orange Money du grossiste. Réduit l'encours</td></tr>
+<tr><td>Corriger une ligne</td><td><code>/distrib/pilotage/signaux/</code> (nouveau statut + motif obligatoire)</td><td>Conflit : cliente a confirmé une ligne « non livrée », ou commande annulée après paiement. Toute correction est journalisée (auteur, date, motif)</td></tr>
+<tr><td>Clore un relevé escaladé</td><td>Signaux</td><td>Après échange avec les deux parties, si le versement a bien eu lieu</td></tr>
+<tr><td>Rouvrir un relevé</td><td>Signaux</td><td>Si le versement n'a pas eu lieu : le grossiste pourra régler à nouveau</td></tr>
+<tr><td>Suspendre / réactiver un grossiste</td><td>Admin Django (<code>is_suspended</code> + motif)</td><td>Encours abusif, comportement douteux. Bloque nouvelles importations et allocations</td></tr>
+<tr><td>Ajuster taux, plafonds, délais</td><td>Admin Django</td><td>Négociation, grossiste de confiance</td></tr>
+</table></div>
+
+<h3>9.3 Routine suggérée</h3>
+<ul class="check">
+  <li>Chaque jour : ouvrir <em>Signaux</em> (conflits, relevés contestés ou escaladés).</li>
+  <li>Chaque lundi après 00:05 : vérifier que les relevés ont bien été générés.</li>
+  <li>Chaque mercredi : relancer les grossistes dont un relevé est encore « à payer » (délai de 3 jours).</li>
+  <li>Chaque semaine : regarder l'indice de fiabilité et l'encours de commission ; demander le paiement si besoin.</li>
+  <li>Après <code>pilot_until</code> : informer le grossiste que la commission devient facturable.</li>
+</ul>
+
+<h2 id="plafonds">10. Plafonds et blocages</h2>
+<div class="tbl"><table>
+<tr><th>Plafond</th><th>Mesure</th><th>≥ 80 %</th><th>&gt; 100 %</th></tr>
+<tr><td><code>reseller_credit_ceiling</code> (10 000)</td><td>Marges dues <strong>à un revendeur</strong></td><td>Alerte orange (grossiste, revendeur, pilotage)</td><td>Ce revendeur ne reçoit plus de <strong>nouvelles</strong> allocations ni importations : « Règle les marges dues pour débloquer »</td></tr>
+<tr><td><code>credit_ceiling</code> (10 000)</td><td>Commission due <strong>à HayaFlash</strong></td><td>Alerte orange</td><td>Aucune nouvelle allocation ni importation pour <strong>tout le grossiste</strong></td></tr>
+</table></div>
+<p>Ne sont <strong>jamais bloqués</strong> : les commandes en cours, les ventes flash ouvertes, la livraison. Le déblocage est automatique dès que le montant repasse sous le plafond. Les versements contestés restent comptés comme dus.</p>
+
+<h2 id="cas">11. Cas particuliers</h2>
+<div class="tbl"><table>
+<tr><th>Cas</th><th>Ce qui se passe</th></tr>
+<tr><td>La commande reste <em>en attente</em> (revendeur ne l'accepte pas)</td><td>Le compte à rebours ne démarre pas. Après 48 h, la commande expire, le stock revient chez le revendeur et la ligne est annulée</td></tr>
+<tr><td>Cliente confirme alors que le grossiste a mis « Pas livré »</td><td>Statut inchangé, <strong>conflit</strong> signalé à l'équipe, qui tranche</td></tr>
+<tr><td>Le grossiste ne paie pas le relevé</td><td>Le montant reste dû, alerte de retard, plafond qui finit par bloquer ses nouvelles allocations</td></tr>
+<tr><td>Le revendeur dit « Pas reçu » à tort</td><td>Le grossiste redéclare avec une nouvelle référence. Seconde contestation : l'équipe tranche</td></tr>
+<tr><td>Commande à plusieurs articles dont un seul importé</td><td>Suivi par article. « Pas livré » porte sur l'article concerné</td></tr>
+<tr><td>Le revendeur baisse son prix sous le minimum après coup</td><td>Alerte chez le grossiste et l'équipe, pas de blocage</td></tr>
+<tr><td>Coupure du module (<code>DISTRIB_ENABLED=false</code>)</td><td>Les pages <code>/distrib/</code> répondent 404, bandeaux et lien disparaissent. Les produits importés restent des produits normaux. À la réactivation, tout est rattrapé</td></tr>
+</table></div>
+
+<h2 id="limites">12. Limites connues de la V1</h2>
+<ul>
+  <li><strong>Pas de notification automatique</strong> d'invitation (pas de SMS au lancement) : le grossiste prévient le revendeur à la main.</li>
+  <li><strong>Pas de changement de mot de passe en libre-service</strong> pour un compte grossiste sans boutique.</li>
+  <li><strong>L'argent circule hors de l'outil</strong> (Orange Money). HayaFlash ne fait que calculer, tracer et enregistrer les références.</li>
+  <li>« Pas livré » ne remet pas le stock : le grossiste utilise « Reprendre ».</li>
+  <li>Pas de paiement partiel d'un relevé ; pas de procédure de litige dans l'outil.</li>
+  <li>Indice de fiabilité visible de l'équipe seulement.</li>
+</ul>
+<p class="sub">Ce guide a été rédigé d'après la spec et la lecture du code, sans test sur le staging. Les libellés exacts des boutons peuvent différer légèrement ; la recette est décrite dans <code>distrib/STAGING_CHECKLIST.md</code>.</p>
+
+<h2 id="checklists">13. Check-lists</h2>
+<h3><span class="tag t-team">Équipe</span> Onboarding d'un grossiste</h3>
+<ul class="check">
+  <li>Créer le compte, noter le mot de passe provisoire, le transmettre en privé.</li>
+  <li>Vérifier taux, <code>pilot_until</code> et plafonds.</li>
+  <li>Faire connecter le grossiste sur <code>/distrib/connexion/</code>.</li>
+  <li>Lui expliquer : 72 h, « Pas livré », relevé du lundi, commission.</li>
+  <li>Vérifier que Celery worker et beat tournent.</li>
+</ul>
+<h3><span class="tag t-wh">Grossiste</span> Démarrage</h3>
+<ul class="check">
+  <li>Créer 3 à 5 produits avec prix de gros, prix minimum, stock, photos.</li>
+  <li>Inviter ses revendeurs (numéros exacts) et les prévenir.</li>
+  <li>Allouer du stock dès qu'un revendeur a importé un produit.</li>
+  <li>Chaque lundi : payer le relevé et cliquer « Payé » avec la référence.</li>
+  <li>Déclarer « Pas livré » dès qu'une livraison échoue (avant 72 h).</li>
+</ul>
+<h3><span class="tag t-re">Revendeur</span> Démarrage</h3>
+<ul class="check">
+  <li>Avoir une boutique avec le numéro invité.</li>
+  <li>Accepter l'invitation sur <code>/seller/</code>.</li>
+  <li>Importer un produit au bon prix, attendre l'allocation de stock.</li>
+  <li>Faire ses ventes flash.</li>
+  <li>Consulter <em>Mes gains</em> ; répondre « Pas reçu » seulement si le versement n'est pas arrivé.</li>
+</ul>
+
+</div>
+</body>
+</html>

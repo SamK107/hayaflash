@@ -1,0 +1,87 @@
+diff --git a/accounts/models.py b/accounts/models.py
+index b0da4e2..e4586bc 100644
+--- a/accounts/models.py
++++ b/accounts/models.py
+@@ -13,7 +13,7 @@ from core.validators import IMAGE_VALIDATORS
+ 
+ phone_validator = RegexValidator(
+     regex=r"^\+?[1-9]\d{7,14}$",
+-    message="Phone number must be in international format.",
++    message="Le numéro de téléphone doit être au format international.",
+ )
+ 
+ 
+@@ -62,7 +62,7 @@ class User(AbstractBaseUser, PermissionsMixin):
+         max_length=16,
+         unique=True,
+         validators=[phone_validator],
+-        help_text="E.164 phone number used for authentication.",
++        help_text="Numéro de téléphone au format E.164, utilisé pour la connexion.",
+     )
+     email = models.EmailField(blank=True)
+     display_name = models.CharField(max_length=150)
+@@ -98,7 +98,7 @@ class SellerProfile(models.Model):
+         unique=True,
+         blank=True,
+         db_index=True,
+-        help_text="Public URL slug for seller storefront (/s/<slug>/).",
++        help_text="Identifiant public de la boutique dans l'adresse (/s/<identifiant>/).",
+     )
+     business_name = models.CharField(
+         max_length=160, blank=True, verbose_name="Nom commercial"
+diff --git a/analytics/models/share.py b/analytics/models/share.py
+index 74b72af..0c58da6 100644
+--- a/analytics/models/share.py
++++ b/analytics/models/share.py
+@@ -5,16 +5,16 @@ from django.utils.crypto import get_random_string
+ 
+ 
+ class ShareLinkType(models.TextChoices):
+-    SELLER = "seller", "Seller storefront"
+-    FLASH_SALE = "flash_sale", "Flash sale"
+-    PRODUCT = "product", "Product order link"
++    SELLER = "seller", "Boutique du vendeur"
++    FLASH_SALE = "flash_sale", "Vente flash"
++    PRODUCT = "product", "Lien de commande produit"
+ 
+ 
+ class ShareEventType(models.TextChoices):
+-    PAGE_VIEW = "page_view", "Page view"
+-    CLICK = "click", "Click"
+-    WHATSAPP_SHARE = "whatsapp_share", "WhatsApp share"
+-    CONVERSION = "conversion", "Order conversion"
++    PAGE_VIEW = "page_view", "Vue de page"
++    CLICK = "click", "Clic"
++    WHATSAPP_SHARE = "whatsapp_share", "Partage WhatsApp"
++    CONVERSION = "conversion", "Commande passée"
+ 
+ 
+ class ShareLink(models.Model):
+diff --git a/payments/models.py b/payments/models.py
+index 2217517..3b447d2 100644
+--- a/payments/models.py
++++ b/payments/models.py
+@@ -14,9 +14,9 @@ class PaymentProvider(models.TextChoices):
+ 
+ 
+ class PaymentTransactionStatus(models.TextChoices):
+-    PENDING = "pending", "Pending"
+-    SUCCESS = "success", "Success"
+-    FAILED = "failed", "Failed"
++    PENDING = "pending", "En attente"
++    SUCCESS = "success", "Réussi"
++    FAILED = "failed", "Échoué"
+ 
+ 
+ class LedgerEntryType(models.TextChoices):
+@@ -25,8 +25,8 @@ class LedgerEntryType(models.TextChoices):
+ 
+ 
+ class LedgerAccount(models.TextChoices):
+-    USER_WALLET = "user_wallet", "User wallet"
+-    PLATFORM_COMMISSION = "platform_commission", "Platform commission"
++    USER_WALLET = "user_wallet", "Portefeuille utilisateur"
++    PLATFORM_COMMISSION = "platform_commission", "Commission plateforme"
+ 
+ 
+ class PaymentTransaction(models.Model):

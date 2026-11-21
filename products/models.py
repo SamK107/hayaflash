@@ -67,6 +67,12 @@ class Product(models.Model):
         ordering = ["display_order", "-created_at"]
         verbose_name = "Produit"
         verbose_name_plural = "Produits"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(stock_available__gte=0),
+                name="product_stock_available_non_negatif",
+            ),
+        ]
         indexes = [
             models.Index(fields=["owner", "is_active"]),
             models.Index(fields=["created_at"]),
@@ -158,6 +164,12 @@ class ProductVariant(models.Model):
 
     class Meta:
         unique_together = ("product", "type", "value")
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(stock__gte=0),
+                name="productvariant_stock_non_negatif",
+            ),
+        ]
         verbose_name = "Variante"
         verbose_name_plural = "Variantes"
 

@@ -45,3 +45,8 @@ core/demo_assets/_planche_contact.html
 # Images et captures de la demo commerciale (seed_demo_distrib, scripts/demo_captures.py)
 /demo_assets/
 /demo_captures/
+
+# Fichiers lourds hors depot
+campagne/
+docs/presentation/*.pptx
+docs/presentation/*.pdf

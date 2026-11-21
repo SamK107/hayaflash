@@ -39,8 +39,8 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Installer les dépendances
-        run: pip install -r requirements.txt
+      - name: Installer les dépendances (versions épinglées)
+        run: pip install -r requirements-dev.txt
 
       - name: Vérification Django
         run: python manage.py check --settings=config.settings.test
@@ -48,9 +48,8 @@ jobs:
       - name: Migrations à jour ? (aucune migration manquante)
         run: python manage.py makemigrations --check --dry-run --settings=config.settings.test
 
-      - name: Tests + couverture
+      - name: Tests + couverture (global)
         run: |
-          pip install pytest-django pytest-cov
           pytest \
             --ds=config.settings.test_pg \
             -rs \
@@ -58,6 +57,65 @@ jobs:
             --cov-report=term-missing \
             --cov-fail-under=60 \
             -v
+
+      - name: Couverture des modules critiques (orders, payments, products, flash_sales)
+        # Même .coverage que l'étape précédente : pas de second run de la suite.
+        run: |
+          coverage report \
+            --include="orders/*,payments/*,products/*,flash_sales/*" \
+            --omit="*/tests*.py,*/migrations/*" \
+            --fail-under=CRITICAL_THRESHOLD
+
+  securite:
+    name: Sécurité (bandit, pip-audit, gitleaks, check --deploy)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout (historique complet pour gitleaks)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Installer les dépendances (versions épinglées)
+        run: pip install -r requirements-dev.txt
+
+      - name: Bandit (sévérité haute bloquante sur le code applicatif)
+        # -lll : seulement HIGH bloque. Les MEDIUM existants (mark_safe hf_seo.py,
+        # bind runserver_https.py, appels requests) sont à traiter, pas un gate.
+        run: |
+          bandit -r accounts analytics assist config core delivery distrib \
+            flash_sales notifications orders partners payments products subscriptions \
+            -lll -x "*/tests*.py,*/migrations/*,*/settings/test*.py" -q
+
+      - name: pip-audit (CVE sur requirements.txt)
+        run: pip-audit -r requirements.txt --desc on
+
+      - name: gitleaks (secrets dans l'historique)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: check --deploy (production simulée)
+        env:
+          ENVIRONMENT: prod
+          DJANGO_SETTINGS_MODULE: config.settings.prod
+          # Valeurs factices : seul le contrôle de configuration est exécuté.
+          SECRET_KEY: ci-check-${{ github.run_id }}-${{ github.run_attempt }}-not-a-secret-padding-xx
+          DATABASE_URL: postgres://ci:ci@localhost:5432/ci
+          ALLOWED_HOSTS: hayaflash.com
+          DEBUG: "false"
+          PAYMENTS_WEBHOOK_SECRET: ci-check-webhook-secret-not-real-0123456789
+          REDIS_URL: redis://localhost:6379/0
+          SECURE_SSL_REDIRECT: "true"
+        run: python manage.py check --deploy --fail-level WARNING
 
   lint:
     name: Lint (ruff)

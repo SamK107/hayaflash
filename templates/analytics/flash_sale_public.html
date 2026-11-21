@@ -404,6 +404,9 @@
               <i data-lucide="shopping-bag" class="w-4 h-4"></i>
               Commander · {{ p.price|thousands }} FCFA
             </button>
+            {% if row.orange_money_number %}
+            <p class="mt-2 text-center text-xs text-gray-500" data-testid="om-pay-line">Paiement par Orange Money sur {{ row.orange_money_number }}</p>
+            {% endif %}
             {% elif is_live %}<div class="w-full bg-gray-100 text-gray-400 py-3.5 rounded-xl font-bold text-sm text-center">Épuisé</div>
             {% else %}
             <div class="w-full bg-amber-50 text-amber-700 border border-amber-200 py-3.5 rounded-xl font-medium text-sm text-center flex items-center justify-center gap-2">
