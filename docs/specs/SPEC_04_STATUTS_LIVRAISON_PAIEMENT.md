@@ -134,6 +134,8 @@ On ne remplace **pas** `OrderStatus` ni `Delivery.Status`. On ajoute deux axes, 
 
 ## 5. Prépaiement
 
+> **Décision EXECUTION_V2 § 3 (21/11/2026) : le paiement se fait hors HayaFlash.** La plateforme ne gère, ne contrôle et ne reçoit aucun prépaiement. Le prépaiement décrit ci-dessous est une **pratique du vendeur**, hors de la plateforme : aucune de ses étapes n'est une fonction contrôlée par HayaFlash, et le « payé » n'a pas de preuve automatique côté plateforme. Les textes destinés aux clientes doivent présenter le paiement à la livraison comme la règle, et le prépaiement comme un risque pris par la cliente (SPEC_05 § 11).
+
 - **Option par vente**, choisie par le revendeur à la confirmation : `prepaid` ou `on_delivery`. Une vente peut proposer les deux, mais chaque commande n'a qu'un mode.
 - **Prépaiement (validé le 7 nov. 2026)** : la cliente paie avant la livraison sur le compte mobile money du bénéficiaire (`payment_receiver`). Le SMS de l'opérateur arrive au bénéficiaire dès que le paiement est effectif, quel que soit le moment (avant ou à la livraison). Le bénéficiaire marque « payé » depuis son tableau de bord après ce SMS. La plateforme ne reçoit pas de confirmation automatique en V1 : le SMS reste la preuve, et le « payé » reste une action humaine.
 - **Paiement à la livraison (D3, validé)** : la cliente paie sur le compte mobile money du bénéficiaire (`payment_receiver`). **Aucun espèces ne passe par le livreur.** Le livreur n'écrit rien et n'utilise aucune application pour cette étape : la vérification se fait par appel téléphonique.

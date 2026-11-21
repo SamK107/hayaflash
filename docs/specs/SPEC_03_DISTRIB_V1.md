@@ -144,6 +144,10 @@ les commandes, livraisons, paiements, marges dues aux revendeurs et commissions 
 ### 5.5 Commission HayaFlash et encours
 - Calculée **au passage à `paid_confirmed`** : 0 si `pilot_until` non dépassé ; sinon
   `clamp(sale_amount × rate, commission_min, commission_max)`, arrondi au FCFA.
+- **Plafond `commission_max` (1 500 FCFA) : par commande** (décision D2, EXECUTION_V2 § 3). La formule
+  ci-dessus est appliquée **par commande**, c'est-à-dire par ligne de suivi tant qu'une commande ne porte
+  qu'un produit importé (`distrib/services/commission.py`). Ce n'est ni un plafond par vente, ni par mois.
+  Le § 15.7 fait foi en cas d'écart.
 - **Encours** = somme des commissions confirmées − somme des `DistribPayment`.
 - Encours > `credit_ceiling` : alerte rouge sur les tableaux de bord grossiste et admin.
   Bouton admin « Suspendre » : bloque nouvelles importations et allocations ; action admin
