@@ -14,7 +14,6 @@ from django.views.decorators.http import require_POST
 from accounts.access import seller_required
 
 from .models import (
-    Plan,
     PaymentProvider,
     PaymentStatus,
     SubscriptionPayment,
@@ -25,6 +24,7 @@ from .services.plans import (
     get_official_price,
     get_price_quote,
     is_plan_active,
+    plan_has_feature,
     plan_offers,
 )
 
@@ -73,7 +73,7 @@ def checkout_view(request, plan: str):
     vendeur) ; le formulaire ne transmet aucun montant, et un champ amount
     force dans le POST est ignore (create_orange_payment recalcule).
     """
-    if plan not in (Plan.MEDIUM, Plan.PRO) or not is_plan_active(plan):
+    if not plan_has_feature(plan, "paid_subscription") or not is_plan_active(plan):
         return redirect("subscriptions:subscription")
 
     seller = _get_seller(request)

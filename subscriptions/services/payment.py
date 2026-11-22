@@ -22,7 +22,6 @@ from django.urls import reverse
 from django.utils import timezone
 
 from subscriptions.models import (
-    Plan,
     PaymentProvider,
     PaymentStatus,
     SellerPriceOverride,
@@ -121,7 +120,9 @@ def create_orange_payment(
     """
     from subscriptions.services.orange_money import initiate_payment, OrangeMoneyError
 
-    if plan not in (Plan.MEDIUM, Plan.PRO):
+    from subscriptions.services.plans import plan_has_feature
+
+    if not plan_has_feature(plan, "paid_subscription"):
         raise ValueError(f"Plan invalide : {plan}")
     if not is_plan_active(plan):
         raise PaymentNotAllowed("Ce plan n'est pas proposé pour le moment.")
