@@ -43,3 +43,8 @@ class SuspendedShopPublicPageTests(ViralGrowthFixture):
         existing.refresh_from_db()
         self.assertEqual(existing.customer_name, "Avant suspension")
         self.assertNotEqual(existing.status, "cancelled")
+
+    def test_home_no_longer_says_every_payment_is_tracked(self) -> None:
+        resp = self.client.get("/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, "Chaque paiement à la livraison est tracé")
