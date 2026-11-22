@@ -30,11 +30,14 @@ def current_period() -> str:
 
 
 def _active_referrals():
-    """Parrainages dont le vendeur est actif (commande non annulée, vente non annulée)."""
+    """Parrainages dont le vendeur est actif (commande non annulée, vente non annulée).
+
+    Les attributions à un grossiste (D9) n'ont pas de vendeuse : elles sont exclues.
+    """
     has_order = Order.service_objects.filter(flash_sale__owner_id=OuterRef("seller_id")).exclude(
         status=OrderStatus.CANCELLED
     ).exclude(flash_sale__status=FlashSaleStatus.CANCELLED)
-    return Referral.objects.filter(flagged=False).filter(Exists(has_order))
+    return Referral.objects.filter(flagged=False, seller__isnull=False).filter(Exists(has_order))
 
 
 def _live_entries():
@@ -58,7 +61,7 @@ def dashboard_stats() -> dict:
     )
     return {
         "clicks": PartnerClick.objects.count(),
-        "referrals": Referral.objects.count(),
+        "referrals": Referral.objects.filter(seller__isnull=False).count(),
         "active": _active_referrals().count(),
         "payers": _live_entries().values("referral_id").distinct().count(),
         "attributed_net_fcfa": money["attributed"] or 0,
@@ -80,7 +83,7 @@ def funnel() -> list[dict]:
     """Clics -> inscrits -> actifs -> payants, par partenaire, avec les taux."""
     partners = Partner.objects.annotate(
         clicks_n=Count("clicks", distinct=True),
-        signups_n=Count("referrals", distinct=True),
+        signups_n=Count("referrals", filter=Q(referrals__seller__isnull=False), distinct=True),
         payers_n=Count(
             "referrals",
             filter=Q(referrals__commissions__isnull=False)
@@ -115,7 +118,7 @@ def alerts() -> dict:
         Partner.objects.filter(status=PartnerStatus.ACTIVE)
         .annotate(
             last_click=Max("clicks__created_at"),
-            last_referral=Max("referrals__attributed_at"),
+            last_referral=Max("referrals__attributed_at", filter=Q(referrals__seller__isnull=False)),
             last_commission=Max("referrals__commissions__created_at"),
         )
         .order_by("name")

@@ -58,7 +58,7 @@ class PartnerClickAdmin(ReadOnlyAdmin):
 
 @admin.register(Referral)
 class ReferralAdmin(ReadOnlyAdmin):
-    list_display = ("partner", "seller", "source", "attributed_at", "first_paid_at", "commission_ends_at", "flagged")
+    list_display = ("partner", "seller", "distributor", "source", "attributed_at", "first_paid_at", "commission_ends_at", "flagged")
     list_filter = ("partner", "flagged", "source")
     search_fields = ("seller__user__phone", "seller__business_name")
 
