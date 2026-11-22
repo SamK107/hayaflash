@@ -126,6 +126,19 @@ class AttribuerGrossisteTests(TestCase):
         self.assertEqual(Referral.objects.filter(distributor=self.gros).count(), 1)
         self.assertEqual(AuditLog.objects.filter(action="partner.distributor_attributed").count(), 1)
 
+    def test_refuse_un_partenaire_non_actif_ou_sans_conditions(self):
+        prospect = make_partner(
+            code="PRO0001", phone="+22360000044", name="Prospect", status="prospect", phase="none", accept=False,
+        )
+        with self.assertRaises(DistributorAttributionError):
+            attribute_distributor(partner=prospect, distributor=self.gros)
+        sans_conditions = make_partner(
+            code="SAN0001", phone="+22360000045", name="Sans conditions", accept=False,
+        )
+        with self.assertRaises(DistributorAttributionError):
+            attribute_distributor(partner=sans_conditions, distributor=self.gros)
+        self.assertFalse(Referral.objects.filter(distributor=self.gros).exists())
+
     def test_refuse_une_source_inconnue(self):
         with self.assertRaises(DistributorAttributionError):
             attribute_distributor(partner=self.partner, distributor=self.gros, source="publique")

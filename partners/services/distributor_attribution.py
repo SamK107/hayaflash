@@ -11,11 +11,29 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from core.models import audit
-from partners.models import Partner, Referral, ReferralSource
+from partners.models import (
+    AcceptanceDocType,
+    Partner,
+    PartnerAcceptance,
+    PartnerStatus,
+    Referral,
+    ReferralSource,
+)
 
 
 class DistributorAttributionError(ValueError):
     """Attribution refusée (doublon, source inconnue). Le message est affichable en français."""
+
+
+def partner_can_bring_distributor(partner: Partner) -> bool:
+    """Partenaire actif (statut « Actif ») ayant accepté les conditions du programme, non invalidées."""
+    if partner.status != PartnerStatus.ACTIVE:
+        return False
+    return PartnerAcceptance.objects.filter(
+        partner=partner,
+        doc_type=AcceptanceDocType.PROGRAM_TERMS,
+        invalidation__isnull=True,
+    ).exists()
 
 
 def existing_partner_referral(distributor) -> Referral | None:
@@ -41,6 +59,10 @@ def attribute_distributor(
     """
     if source not in ReferralSource.values:
         raise DistributorAttributionError("Source d'attribution inconnue.")
+    if not partner_can_bring_distributor(partner):
+        raise DistributorAttributionError(
+            "Seul un partenaire actif, ayant accepté les conditions du programme, peut amener un grossiste."
+        )
     try:
         with transaction.atomic():
             if Referral.objects.select_for_update().filter(distributor=distributor).exists():
