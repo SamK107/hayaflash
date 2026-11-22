@@ -415,13 +415,13 @@ def seller_analytics_view(request):
     context = {
         "kpis": kpis,
         "sub": sub,
-        "is_pro": sub.is_pro,
+        "has_advanced_stats": sub.has_advanced_stats,
         # Serialises dans le template via |json_script (CSP : pas de JS inline).
         "timeline": timeline_30d,
         "top_products": get_top_products(seller.pk),
     }
 
-    if sub.is_pro:
+    if sub.has_advanced_stats:
         context["timeline_year"] = get_revenue_timeline_monthly(seller.pk)
 
     return render(request, "flash_sales/analytics_dashboard.html", context)

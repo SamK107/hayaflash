@@ -70,7 +70,7 @@
     </div>
     {% endif %}
 
-    {% if is_pro %}
+    {% if has_advanced_stats %}
     <!-- Graphique annuel (PRO) -->
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
         <div class="flex items-center justify-between mb-4">
@@ -99,5 +99,5 @@
 </div>
 
 {{ timeline|json_script:"hf-data-30d" }}
-{% if is_pro %}{{ timeline_year|json_script:"hf-data-year" }}{% endif %}
+{% if has_advanced_stats %}{{ timeline_year|json_script:"hf-data-year" }}{% endif %}
 {% endblock %}

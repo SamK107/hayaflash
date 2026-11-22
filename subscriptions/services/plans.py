@@ -51,6 +51,28 @@ DEFAULT_FEATURES = {
 }
 
 PAID_PLANS = (Plan.MEDIUM, Plan.PRO)
+
+# Matrice des droits (contrôle central, EXECUTION_V2 § 3). Un plan absent d'une
+# fonctionnalité n'y a pas accès. Ne pas y ajouter BUSINESS avant son ouverture
+# (SPEC_05 § 2.3) : un plan inconnu de la matrice est refusé (fail-closed).
+PLAN_FEATURES: dict[str, frozenset[str]] = {
+    "stats": frozenset({Plan.MEDIUM, Plan.PRO}),  # statistiques de ventes (30 jours)
+    "advanced_stats": frozenset({Plan.PRO}),  # analyses avancées, historique complet
+    "paid_subscription": frozenset(PAID_PLANS),  # plan payant : achetable, compté comme payé
+}
+
+
+def plan_has_feature(plan: str, feature: str) -> bool:
+    """Le plan donne-t-il droit à cette fonctionnalité ?
+
+    ``plan`` est le plan EFFECTIF (un abonnement expiré se traduit par FREE avant l'appel).
+    Plan inconnu : refusé. Fonctionnalité inconnue : erreur de programmation.
+    """
+    if feature not in PLAN_FEATURES:
+        raise ValueError(f"Fonctionnalité de plan inconnue : {feature!r}")
+    return plan in PLAN_FEATURES[feature]
+
+
 CACHE_KEY = "subscriptions:plan_config:v1"
 CACHE_TIMEOUT = 60
 

@@ -61,16 +61,30 @@ class Subscription(models.Model):
         return self.plan == Plan.PRO and not self.is_expired
 
     @property
+    def current_plan(self) -> str:
+        """Plan effectif pour les droits : un abonnement expiré retombe sur FREE."""
+        return Plan.FREE if self.is_expired else self.plan
+
+    # Droits : toujours via le contrôle central (matrice dans services/plans.py).
+    # is_medium / is_pro restent des identités de palier pour l'affichage uniquement.
+
+    @property
     def is_paid(self) -> bool:
-        return self.is_medium or self.is_pro
+        from subscriptions.services.plans import plan_has_feature
+
+        return plan_has_feature(self.current_plan, "paid_subscription")
 
     @property
     def has_stats(self) -> bool:
-        return self.is_medium or self.is_pro
+        from subscriptions.services.plans import plan_has_feature
+
+        return plan_has_feature(self.current_plan, "stats")
 
     @property
     def has_advanced_stats(self) -> bool:
-        return self.is_pro
+        from subscriptions.services.plans import plan_has_feature
+
+        return plan_has_feature(self.current_plan, "advanced_stats")
 
     @property
     def monthly_sales_limit(self):
