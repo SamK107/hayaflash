@@ -124,7 +124,20 @@ class SellerProfile(models.Model):
         verbose_name="Type de produits",
         help_text="Catégorie par défaut de vos ventes (modifiable vente par vente).",
     )
+    class TrustLevel(models.IntegerChoices):
+        UNVERIFIED = 0, "Non vérifiée"
+        BASIC = 1, "Vérifiée (basique)"
+        REINFORCED = 2, "Vérifiée (renforcée)"
+
     is_active = models.BooleanField(default=True)
+    # Niveau de confiance : equipe seulement (aucun badge public). Migration 0009 :
+    # les boutiques existantes passent au niveau 1, les nouvelles au niveau 0.
+    trust_level = models.PositiveSmallIntegerField(
+        choices=TrustLevel.choices,
+        default=TrustLevel.UNVERIFIED,
+        verbose_name="Niveau de confiance",
+        help_text="0 non vérifiée, 1 vérifiée, 2 vérifiée renforcée. Visible par l'équipe seulement.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

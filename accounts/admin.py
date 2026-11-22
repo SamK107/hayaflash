@@ -170,8 +170,8 @@ _action_reactivate = _suspension_action(active=True)
 
 @admin.register(SellerProfile)
 class SellerProfileAdmin(admin.ModelAdmin):
-    list_display  = ("seller_code", "user", "business_name", "current_plan", "is_active", "reports_count", "assisted_entry")
-    list_filter   = ("is_active",)
+    list_display  = ("seller_code", "user", "business_name", "current_plan", "is_active", "trust_level", "reports_count", "assisted_entry")
+    list_filter   = ("is_active", "trust_level")
     search_fields = ("seller_code", "business_name", "user__phone", "user__display_name")
     actions = [_action_free, _action_medium, _action_pro, _action_suspend, _action_reactivate]
 

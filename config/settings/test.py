@@ -204,6 +204,8 @@ RATELIMIT_ORDER_PHONE = (10, 10 * 60)
 RATELIMIT_REFERRAL_IP = (60, 60)
 RATELIMIT_PARTNER_LINK_IP = (30, 60)
 RATELIMIT_SHOP_REPORT_IP = (5, 60 * 60)
+# Marche : defaut faux (comme base.py). Les tests dedies surchargent via override_settings.
+MARKET_REQUIRE_VERIFIED = False
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 USE_TZ = True

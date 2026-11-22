@@ -23,7 +23,7 @@ Branche : `task/e-confiance-marche` (worktree `C:\projets\hf-e`). Base : `69a5cb
 
 **Non traité volontairement.** `/f/<slug>/` (page de vente directe) et la recherche : la page de vente n'est pas une surface du Marché listé ; à décider (voir questions).
 
-**Point d'arrêt règle d (à confirmer).** La correction masque toute boutique dont `SellerProfile.is_active` est faux. Aucune donnée de production n'est lue ici (interdit : action distante). Les boutiques inactives de la base locale sont à lister avant fusion (voir section « Vérifications »).
+**Point d'arrêt règle d (à confirmer).** La correction masque toute boutique dont `SellerProfile.is_active` est faux. Aucune donnée de production n'est lue ici (interdit : action distante). Les boutiques inactives en production sont à lister avant fusion (commande dans la section objectif 4).
 
 **Test.** `flash_sales/tests_marche_vendeuses.py` : 4 tests, écrits d'abord, rouges sur `integration/v2` (la boutique suspendue apparaissait dans le snapshot, la page, le compteur et les statistiques), verts après correction.
 
@@ -74,3 +74,28 @@ python manage.py shell -c "from accounts.models import SellerProfile as S; print
 ```
 
 **Tests.** `accounts/tests_suspension.py` (8 tests) : motif obligatoire, journal d'audit, aucune suppression, garde-fou de création, parcours admin en deux étapes.
+
+## 2026-11-22 — Objectif 5 : niveaux de confiance (D10)
+
+| Décision | Raison | Alternative écartée |
+|---|---|---|
+| `SellerProfile.trust_level` (`PositiveSmallIntegerField`, choix `TrustLevel` 0/1/2, défaut 0). | D10 : 0 non vérifiée, 1 vérifiée, 2 vérifiée renforcée. | Table séparée : écarté, un entier suffit. |
+| Migration `accounts/0009_sellerprofile_trust_level` **écrite à la main** : `AddField(default=1)` puis `AlterField(default=0)`, **sans RunPython**. `makemigrations --check` propre. Numéro vérifié : aucune autre branche locale ne prend `accounts/0009`. | Demande : toute boutique existante passe au niveau 1, les nouvelles au niveau 0. Django génère seul un `AddField(default=0)`, insuffisant. | Une seule opération avec défaut 1 : écarté, les nouvelles boutiques naîtraient au niveau 1. |
+| Drapeau `MARKET_REQUIRE_VERIFIED` (`config/settings/base.py`, lu par `_env_bool`, défaut faux). Vrai : le Marché ne liste que `trust_level >= 1`. Faux : aucun changement. | Demande. | — |
+| Le filtre est dans `marche_shop_q` (une seule règle pour toutes les surfaces du Marché), lu à chaque appel. | Une seule source de vérité pour le Marché. | Filtre dupliqué par surface : écarté. |
+| Indicateur côté admin seulement (colonne et filtre sur `SellerProfile`). Aucun badge public. Le champ n'est pas dans le formulaire de la vendeuse. | Demande. | — |
+
+**Effet de bord de la migration (à connaître).** SQLite reconstruit la table ; PostgreSQL ajoute la colonne avec défaut 1 puis change le défaut. Dans les deux cas les lignes existantes gardent 1.
+
+**Tests.** `flash_sales/tests_marche_confiance.py` : défaut 0 ; drapeau faux (boutique niveau 0 listée) ; drapeau vrai (niveau 0 exclu, niveaux 1 et 2 listés, suspendue exclue) ; page `/ventes/` dans les deux cas ; admin (colonne et filtre).
+
+## 2026-11-22 — Fin de tâche : suite des apps touchées
+
+Commande : `pytest --ds=config.settings.test accounts flash_sales core analytics orders --ignore=core/tests_deploy_nginx_recreate.py`
+Résultat : 1005 passed, 1 failed, 3 skipped, 1 xfailed.
+
+Échec : `flash_sales/tests_sms_disabled.py::SmsInactiveByDefaultTests::test_valeur_par_defaut_du_reglage_hors_tests`. Cause : environnement. Le test lance `python -I` ; sur cette machine `celery` est dans le site-packages utilisateur, ignoré par `-I`, donc l'import de `config/celery.py` échoue. Le réglage SMS n'est pas touché par cette tâche. À relancer sur un poste où `celery` est visible en mode isolé.
+
+Migrations : `accounts/0008_shopreport`, `accounts/0009_sellerprofile_trust_level`.
+
+Reste : committer la décision de branche (task/e-confiance-marche, depuis integration/v2) ; listage des boutiques `is_active=False` en production avant fusion ; questions ouvertes (/f/<slug>/ et commandes d'une boutique suspendue, connexion de la vendeuse suspendue).

@@ -130,6 +130,8 @@ DEBUG = _env_bool("DEBUG", default="false")
 # /order/). Affichage seulement : le prix facture est toujours celui de la vente.
 # Mettre a false pour revenir a l'affichage du seul prix applique.
 HAYAFLASH_PROMO_DISPLAY = _env_bool("HAYAFLASH_PROMO_DISPLAY", default="true")
+# Marché : si vrai, seules les boutiques vérifiées (trust_level >= 1) y sont listées. Défaut faux : inchangé.
+MARKET_REQUIRE_VERIFIED = _env_bool("MARKET_REQUIRE_VERIFIED", default="false")
 
 # Module Distrib (grossistes / revendeurs, docs/specs/SPEC_03_DISTRIB_V1.md §7).
 # Coupe par defaut : URLs /distrib/ en 404, aucun bandeau, aucun suivi. Les produits
