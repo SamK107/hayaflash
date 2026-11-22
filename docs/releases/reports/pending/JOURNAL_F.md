@@ -27,3 +27,31 @@ Objectif 2 (grossiste rattaché, D9) n'a pas besoin du drapeau : il est traité 
 | Pas de commission sur Distrib, pas de statut « réglée » par ligne. | D9. | — |
 
 Migration : `partners/0004`. Réversible au niveau schéma. Note : la réversion échoue si des lignes grossistes existent (la vendeuse redevient NOT NULL) : c'est voulu, elle doit être faite à la main.
+
+## 2026-11-22 : Fin de tâche (état au commit `610605d`)
+
+**Fait** (objectif 2, D9) :
+- Schéma : `Referral.seller` nullable, `Referral.distributor` (FK PROTECT, `related_name="partner_referral"`), CHECK « exactement une cible », unique conditionnelle sur `distributor`, immuabilité étendue. Migration `partners/0004_referral_grossiste` (AddField, AlterField, 2 AddConstraint, aucun RunPython). Commit `3c2e250`.
+- Compteurs et relevés filtrés sur `seller__isnull=False` (`reporting.py` : tableau de bord, entonnoir, dernière inscription, `_active_referrals` ; `payouts.py` : relevé ; `contract.py` ; `admin_views.py` : fiche partenaire). Un grossiste n'est jamais compté comme vendeuse.
+- Service `partners/services/distributor_attribution.py` : `attribute_distributor()` (source, date, refus de doublon, `AuditLog` `partner.distributor_attributed`). Commit `9ef311c`. Aucun appel public.
+- Admin grossistes : colonne « Apporté par », filtre (partenaire ou « Aucun partenaire »), saisie unique via le service, lecture seule ensuite. Commit `610605d`.
+- Tests : `partners/tests_grossiste.py` (14), `partners/tests_grossiste_admin.py` (6), `partners/tests_migration_0004.py` (3, lignes vendeuses réelles au schéma 0003, forward, contraintes, réversion).
+
+**Non fait** : objectif 1 (drapeau `PARTNER_REGISTRATIONS_OPEN`, D11). Point d'arrêt, voir la section du 22/11 ci-dessus. Aucun réglage ni test ajouté pour ce drapeau.
+
+**Décisions complémentaires** :
+- `Referral.seller` garde son `OneToOneField` (unicité déjà assurée, nulls distincts) ; seule la cible grossiste reçoit une contrainte unique conditionnelle. Évite un second index sur la même colonne.
+- Aucune commission, aucun statut « réglée » (D9).
+- Le service n'applique pas de condition d'éligibilité au partenaire (prospect, essai, contrat). Question ouverte.
+
+**Validation** :
+- `pytest --ds=config.settings.test partners` : 614 passed.
+- `pytest distrib --ignore=distrib/tests_seed_demo.py` : 345 passed, 1 skipped.
+- `makemigrations --check` : aucune migration manquante.
+- `ruff` sur les fichiers nouveaux : propre. Les RUF012 présents dans `partners/models.py` et les migrations existaient avant la tâche : non traités.
+- Non lancé : suite complète, tests de seed, `core/tests_deploy_nginx_recreate.py`.
+
+**Questions ouvertes** :
+1. D11 : lecture retenue ? A (ferme les nouvelles attributions de vendeuses seulement, clic et cookie intacts, défaut ouvert), B (ferme l'entrée dans le programme : création de partenaires, acceptation en ligne), ou C (filtre dans `find_partner_for_new_referral`, écartée : supprime le clic compté et le cookie).
+2. Attribution d'un grossiste : faut-il exiger un partenaire actif sous contrat (comme `accepts_new_referrals`) ? Aujourd'hui le service accepte tout partenaire existant.
+3. Un grossiste rattaché peut-il un jour être réattribué (cas d'erreur de saisie) ? Aujourd'hui non : correction par l'équipe en base, tracée à la main.
