@@ -8,9 +8,6 @@ l'acceptation écrite par l'équipe.
 
 from __future__ import annotations
 
-from datetime import timedelta
-
-from django.conf import settings
 from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
@@ -26,17 +23,16 @@ from partners.models import (
     PartnerPhase,
     PartnerStatus,
 )
-from partners.services.access_links import create_link
 from partners.services.acceptance import (
     REGISTRATIONS_CLOSED_MESSAGE,
     accept_document,
     registrations_open,
     self_service_closed_for,
 )
+from partners.services.access_links import create_link
 from partners.services.attribution import COOKIE_NAME
 from partners.tests_models import make_partner
 from partners.tests_public_documents import FACTICE
-
 
 CLOSED_HTML = escape(REGISTRATIONS_CLOSED_MESSAGE)
 
