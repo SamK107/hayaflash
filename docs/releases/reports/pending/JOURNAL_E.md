@@ -26,3 +26,15 @@ Branche : `task/e-confiance-marche` (worktree `C:\projets\hf-e`). Base : `69a5cb
 **Point d'arrêt règle d (à confirmer).** La correction masque toute boutique dont `SellerProfile.is_active` est faux. Aucune donnée de production n'est lue ici (interdit : action distante). Les boutiques inactives de la base locale sont à lister avant fusion (voir section « Vérifications »).
 
 **Test.** `flash_sales/tests_marche_vendeuses.py` : 4 tests, écrits d'abord, rouges sur `integration/v2` (la boutique suspendue apparaissait dans le snapshot, la page, le compteur et les statistiques), verts après correction.
+
+## 2026-11-22 — Objectif 2 : avertissement de paiement côté cliente
+
+**Gabarits.** L'audit ne liste pas les trois gabarits : la mention « paiement à la livraison » n'existe en dur que dans deux fichiers, `templates/analytics/flash_sale_public.html` (page de vente, tiroir de commande et confirmation du tiroir) et `templates/orders/client_order.html` (formulaire `/order/` et sa confirmation). Décision : le texte est mis dans le partiel unique `templates/partials/_payment_warning.html`, inclus dans les trois contextes (page de vente, formulaire, confirmation), soit 4 inclusions dans 2 fichiers. Écart avec « 3 gabarits » noté ici.
+
+**Texte.** Mot pour mot, sans guillemets. Apostrophe droite (`c'est`) conservée tel quel dans la demande.
+
+**Coquille.** « a la livraison » → « à la livraison » dans les deux gabarits.
+
+**Non touché.** `templates/core/legal/terms.html` (CGU, interdit) et `privacy.html` ; `templates/core/home.html` (texte marketing « Chaque paiement à la livraison est tracé »), hors gabarits acheteuse, signalé comme question.
+
+**Test.** `core/tests_avertissement_paiement.py` : texte unique dans les sources, inclusion dans les deux gabarits, présence sur la page de vente et sur `/order/` (2 occurrences chacune), absence de la coquille.

@@ -197,7 +197,8 @@
           </span>
         </button>
 
-        <p class="text-center text-xs text-gray-400">Paiement a la livraison · Commande via HayaFlash</p>
+        <p class="text-center text-xs text-gray-400">Commande via HayaFlash</p>
+        {% include "partials/_payment_warning.html" %}
       </form>
 
       <!-- Confirmation (apres reponse OK de l'API) -->
@@ -206,6 +207,7 @@
         <div>
           <p class="text-green-800 text-sm font-medium">Commande envoyée ! Le vendeur vous contactera pour confirmer la livraison.</p>
           <p class="text-green-700 text-xs mt-1" x-show="orderResult && orderResult.id">Référence commande #<span x-text="orderResult && orderResult.id"></span></p>
+          {% include "partials/_payment_warning.html" %}
         </div>
       </div>
       {% include "distrib/_receipt_hint.html" %}
