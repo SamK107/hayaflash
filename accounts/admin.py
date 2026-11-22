@@ -4,10 +4,11 @@ from datetime import timedelta
 
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django.db.models import Count, OuterRef, Subquery
 from django.utils import timezone
 from django.utils.html import format_html
 
-from .models import SellerProfile, User
+from .models import SellerProfile, ShopReport, User
 
 
 class SellerProfileInline(admin.StackedInline):
@@ -118,10 +119,22 @@ _action_pro    = _seller_set_plan("pro",    "Pro",     90)
 
 @admin.register(SellerProfile)
 class SellerProfileAdmin(admin.ModelAdmin):
-    list_display  = ("seller_code", "user", "business_name", "current_plan", "is_active", "assisted_entry")
+    list_display  = ("seller_code", "user", "business_name", "current_plan", "is_active", "reports_count", "assisted_entry")
     list_filter   = ("is_active",)
     search_fields = ("seller_code", "business_name", "user__phone", "user__display_name")
     actions = [_action_free, _action_medium, _action_pro]
+
+    @admin.display(description="Signalements", ordering="_reports_count")
+    def reports_count(self, obj):
+        count = getattr(obj, "_reports_count", None)
+        if count is None:
+            count = obj.shop_reports.count()
+        if not count:
+            return 0
+        from django.urls import reverse
+
+        url = reverse("admin:accounts_shopreport_changelist") + f"?shop__id__exact={obj.pk}"
+        return format_html('<a href="{}">{}</a>', url, count)
 
     @admin.display(description="Plan actuel")
     def current_plan(self, obj):
@@ -150,4 +163,41 @@ class SellerProfileAdmin(admin.ModelAdmin):
         )
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related("user").prefetch_related("subscription")
+        return (
+            super()
+            .get_queryset(request)
+            .select_related("user")
+            .prefetch_related("subscription")
+            .annotate(_reports_count=Count("shop_reports", distinct=True))
+        )
+
+
+@admin.register(ShopReport)
+class ShopReportAdmin(admin.ModelAdmin):
+    """Signalements de cliente. Lecture seule sauf statut et note interne ; aucun envoi automatique."""
+
+    list_display = ("created_at", "shop", "reason", "status", "shop_reports_total")
+    list_filter = ("status", "reason", ("shop", admin.RelatedOnlyFieldListFilter))
+    search_fields = ("shop__business_name", "shop__seller_code", "message")
+    list_select_related = ("shop",)
+    readonly_fields = ("shop", "reason", "message", "contact", "created_at")
+    fields = ("shop", "reason", "message", "contact", "created_at", "status", "internal_note")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def get_queryset(self, request):
+        totals = (
+            ShopReport.objects.filter(shop_id=OuterRef("shop_id"))
+            .values("shop_id")
+            .annotate(n=Count("id"))
+            .values("n")
+        )
+        return super().get_queryset(request).annotate(_shop_total=Subquery(totals))
+
+    @admin.display(description="Signalements (boutique)")
+    def shop_reports_total(self, obj):
+        return obj._shop_total

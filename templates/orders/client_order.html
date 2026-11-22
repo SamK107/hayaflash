@@ -208,6 +208,7 @@
           <p class="text-green-800 text-sm font-medium">Commande envoyée ! Le vendeur vous contactera pour confirmer la livraison.</p>
           <p class="text-green-700 text-xs mt-1" x-show="orderResult && orderResult.id">Référence commande #<span x-text="orderResult && orderResult.id"></span></p>
           {% include "partials/_payment_warning.html" %}
+          {% if seller_slug %}<p class="text-xs text-gray-600 mt-2">Un problème avec cette boutique ? <a href="{% url 'shop_report' seller_slug %}" class="font-semibold text-primary underline">Signale-la ici</a>.</p>{% endif %}
         </div>
       </div>
       {% include "distrib/_receipt_hint.html" %}

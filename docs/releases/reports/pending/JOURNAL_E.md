@@ -38,3 +38,19 @@ Branche : `task/e-confiance-marche` (worktree `C:\projets\hf-e`). Base : `69a5cb
 **Non touché.** `templates/core/legal/terms.html` (CGU, interdit) et `privacy.html` ; `templates/core/home.html` (texte marketing « Chaque paiement à la livraison est tracé »), hors gabarits acheteuse, signalé comme question.
 
 **Test.** `core/tests_avertissement_paiement.py` : texte unique dans les sources, inclusion dans les deux gabarits, présence sur la page de vente et sur `/order/` (2 occurrences chacune), absence de la coquille.
+
+## 2026-11-22 — Objectif 3 : signalement de boutique (ShopReport)
+
+| Décision | Raison | Alternative écartée |
+|---|---|---|
+| Modèle `accounts.ShopReport` (migration `accounts/0008_shopreport`) : boutique (`PROTECT`), motif (4 choix), message 500 car. max, contact 120 car. max facultatif, statut `new/handled/closed`, note interne, date. | Même app que `SellerProfile` ; aucune donnée supprimée. | App dédiée : écarté, un seul modèle. |
+| Page publique `/signaler/<slug>/` (`accounts/report_views.py`), sans compte, `csrf` actif, `never_cache`. Boutique inconnue ou inactive : 404, comme `/s/<slug>/`. | Réponse qui ne révèle rien de plus que la boutique publique. | Réponse 200 générique pour une boutique inconnue : écarté, incohérent avec `/s/`. |
+| Limite par IP réutilise `core/services/rate_limit.py` (`hit`, fail-open) : `RATELIMIT_SHOP_REPORT_IP = (5, 3600)`, toutes les soumissions (pas seulement les échecs). Dépassement : 429 avec message neutre. | Mécanisme existant ; clé `shopreport:ip:<hmac>`. | Nouveau cache ad hoc : écarté. |
+| Anti-bot : `core/services/honeypot.py` (champ piège + jeton signé). Rejet anti-bot : message générique, rien enregistré. | Mécanisme déjà utilisé à l'inscription. | — |
+| Aucun envoi automatique (SMS, WhatsApp, e-mail). Le contact de la cliente n'est pas écrit dans les journaux. | Interdits permanents + demande. | — |
+| Admin : `ShopReportAdmin` (filtres statut, motif, boutique ; compteur par boutique ; lecture seule sauf statut et note ; ni ajout ni suppression). Colonne « Signalements » sur la boutique (lien vers la liste filtrée). | Demande. | — |
+| Lien « Signale-la ici » sur la confirmation de la page de vente et du formulaire `/order/` (`{% if seller_slug %}` pour `/order/`, qui n'a pas de slug en cas d'erreur). | Demande (page de confirmation). | — |
+
+**Points d'attention.** `SellerProfileAdmin` avait déjà un `get_queryset` (préchargements) : la méthode est fusionnée, pas dupliquée. La vérification `makemigrations --check` est faite à la fin (objectif 5 ajoute un champ à `SellerProfile`).
+
+**Tests.** `accounts/tests_shop_reports.py` (12) ; `core/tests_avertissement_paiement.py` : liens vers le formulaire (2 tests de plus).

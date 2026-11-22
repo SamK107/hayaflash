@@ -577,6 +577,8 @@ RATELIMIT_REGISTER_PHONE = (5, 30 * 60)
 RATELIMIT_ORDER_PHONE = (10, 10 * 60)
 RATELIMIT_REFERRAL_IP = (60, 60)
 RATELIMIT_PARTNER_LINK_IP = (30, 60)
+# Signalement public d'une boutique : 5 soumissions par heure et par IP (toutes, pas seulement les echecs).
+RATELIMIT_SHOP_REPORT_IP = (5, 60 * 60)
 
 # ── Django REST Framework ─────────────────────────────────────────────────────
 # ── Django REST Framework ─────────────────────────────────────────────────────

@@ -62,3 +62,18 @@ class PaymentWarningPagesTests(ViralGrowthFixture):
         # Formulaire + confirmation.
         self.assertContains(resp, WARNING, count=2)
         self.assertNotContains(resp, "a la livraison")
+
+
+class ReportLinkOnConfirmationTests(ViralGrowthFixture):
+    def test_sale_page_confirmation_links_to_report_form(self) -> None:
+        url = reverse("public_flash_sale", kwargs={"slug": self.sale.public_slug})
+        resp = self.client.get(url)
+        report_url = reverse("shop_report", kwargs={"slug": self.seller.public_slug})
+        self.assertContains(resp, f'href="{report_url}"')
+        self.assertContains(resp, "Signale-la ici")
+
+    def test_order_confirmation_links_to_report_form(self) -> None:
+        url = reverse("client_order") + f"?flash_sale_id={self.sale.pk}&product_id={self.product.pk}"
+        resp = self.client.get(url)
+        report_url = reverse("shop_report", kwargs={"slug": self.seller.public_slug})
+        self.assertContains(resp, f'href="{report_url}"')
