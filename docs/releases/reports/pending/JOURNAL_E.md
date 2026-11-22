@@ -54,3 +54,23 @@ Branche : `task/e-confiance-marche` (worktree `C:\projets\hf-e`). Base : `69a5cb
 **Points d'attention.** `SellerProfileAdmin` avait déjà un `get_queryset` (préchargements) : la méthode est fusionnée, pas dupliquée. La vérification `makemigrations --check` est faite à la fin (objectif 5 ajoute un champ à `SellerProfile`).
 
 **Tests.** `accounts/tests_shop_reports.py` (12) ; `core/tests_avertissement_paiement.py` : liens vers le formulaire (2 tests de plus).
+
+## 2026-11-22 — Objectif 4 : suspension et réactivation par l'équipe
+
+| Décision | Raison | Alternative écartée |
+|---|---|---|
+| Mécanisme existant : `SellerProfile.is_active` (déjà lu par `/s/`, sitemap, Marché). Pas de nouveau champ, pas de migration. | Demande : réutiliser l'existant. | Nouveau champ `suspended_at` : écarté, redondant. |
+| Service `accounts/services/suspension.py` : `suspend_shop` / `reactivate_shop`, motif obligatoire (1 à 300 car.), `select_for_update`, refus si déjà dans cet état, entrée `AuditLog` (`shop.suspended` / `shop.reactivated`, `actor`, `ip`, `metadata.reason`). | Demande (qui, quand, motif). | — |
+| Admin : actions « Suspendre » et « Réactiver » sur `SellerProfile`, en deux étapes : page de confirmation avec motif obligatoire (`templates/admin/accounts/sellerprofile/suspension_form.html`). | Motif obligatoire imposé côté serveur. | Champ de motif dans le formulaire de la boutique : écarté, pas de motif sans action. |
+| Garde-fou : `flash_sales/services/crud.py::_ensure_shop_can_sell` dans `create_flash_sale` et `clone_flash_sale` (les deux créent une vente). Lève `SaleRuleError`. | Demande : une boutique suspendue ne lance plus de vente. Couvre aussi la saisie assistée (même service). | Garde dans `enforce_creation_rules` : écarté, cette fonction sert aussi à la modification d'une vente existante (hors demande). |
+| Aucune suppression ; ventes, commandes et abonnement inchangés. | Demande. | — |
+
+**Ce qui n'est PAS changé (volontairement).** Connexion de la vendeuse (`User.is_active` intact) ; commandes sur une vente déjà ouverte ; modification de ventes existantes ; abonnement et quota.
+
+**Point d'arrêt règle c / d (à trancher avant fusion).** Le Marché (objectif 1) et la création (objectif 4) excluent toute boutique dont `is_active` est faux. Une boutique déjà désactivée à la main avant ce chantier, mais légitime, disparaîtrait donc du Marché. Je n'ai pas accès à la production (interdit). Vérification à faire, lecture seule, par le fondateur :
+
+```
+python manage.py shell -c "from accounts.models import SellerProfile as S; print(list(S.objects.filter(is_active=False).values_list('seller_code','business_name')))"
+```
+
+**Tests.** `accounts/tests_suspension.py` (8 tests) : motif obligatoire, journal d'audit, aucune suppression, garde-fou de création, parcours admin en deux étapes.

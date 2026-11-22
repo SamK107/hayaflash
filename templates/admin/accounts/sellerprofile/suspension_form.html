@@ -1,0 +1,49 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+  &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+  &rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+  &rsaquo; {{ label }}
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <p>
+    {% if active %}
+      Réactiver {{ shops|length }} boutique(s). Elles réapparaissent sur le Marché et peuvent de nouveau créer des ventes.
+    {% else %}
+      Suspendre {{ shops|length }} boutique(s). Elles disparaissent du Marché et ne peuvent plus créer de vente.
+      Rien n'est supprimé ; les ventes et commandes existantes restent consultables.
+    {% endif %}
+    Le motif est enregistré dans le journal d'audit (qui, quand, pourquoi).
+  </p>
+
+  <ul>
+    {% for shop in shops %}
+      <li>{{ shop.business_name|default:"(sans nom)" }} · {{ shop.seller_code }} · {% if shop.is_active %}active{% else %}suspendue{% endif %}</li>
+    {% endfor %}
+  </ul>
+
+  <form method="post" action="{{ request.path }}">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="{{ action_name }}">
+    <input type="hidden" name="select_across" value="0">
+    <input type="hidden" name="apply" value="1">
+    {% for pk in selected %}
+      <input type="hidden" name="_selected_action" value="{{ pk }}">
+    {% endfor %}
+    <p>
+      <label for="id_reason"><strong>Motif (obligatoire)</strong></label><br>
+      <textarea id="id_reason" name="reason" rows="3" cols="80" maxlength="300" required></textarea>
+    </p>
+    <div class="submit-row">
+      <input type="submit" class="default" value="{{ label }}">
+      <a href="{% url opts|admin_urlname:'changelist' %}">Annuler</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

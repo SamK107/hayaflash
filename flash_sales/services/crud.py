@@ -10,9 +10,21 @@ from django.utils import timezone
 from core.validators import validate_file_field
 from flash_sales.models import FlashSale, FlashSaleStatus
 from flash_sales.services.rules import (  # noqa: F401  (re-export : API historique)
+    SaleRuleError,
     can_seller_create_sale,
     enforce_creation_rules,
 )
+
+SHOP_SUSPENDED_MESSAGE = (
+    "Cette boutique est suspendue : création de vente impossible pour le moment. "
+    "Contactez l'équipe HayaFlash."
+)
+
+
+def _ensure_shop_can_sell(owner) -> None:
+    """Une boutique suspendue (SellerProfile.is_active faux) ne lance plus de vente."""
+    if not owner.is_active:
+        raise SaleRuleError(SHOP_SUSPENDED_MESSAGE)
 
 
 def create_flash_sale(
@@ -28,6 +40,7 @@ def create_flash_sale(
     max_orders: int | None = None,
 ) -> FlashSale:
     """Cree une nouvelle vente flash pour un vendeur."""
+    _ensure_shop_can_sell(owner)
     if end_time <= start_time:
         raise ValidationError("La date de fin doit être après la date de début.")
     if start_time < timezone.now():
@@ -104,6 +117,7 @@ def clone_flash_sale(*, sale: FlashSale, seller) -> FlashSale:
     """
     if sale.owner != seller:
         raise PermissionDenied("Cette vente ne vous appartient pas.")
+    _ensure_shop_can_sell(seller)
 
     now = timezone.now()
     new_start = now + timedelta(days=1)

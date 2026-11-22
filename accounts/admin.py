@@ -3,10 +3,15 @@ from __future__ import annotations
 from datetime import timedelta
 
 from django.contrib import admin, messages
+from django.contrib.admin import helpers
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.db.models import Count, OuterRef, Subquery
 from django.utils import timezone
+from django.template.response import TemplateResponse
 from django.utils.html import format_html
+
+from accounts.services.suspension import SuspensionError, reactivate_shop, suspend_shop
+from core.services.client_ip import get_client_ip
 
 from .models import SellerProfile, ShopReport, User
 
@@ -117,12 +122,58 @@ _action_medium = _seller_set_plan("medium", "Medium",  90)
 _action_pro    = _seller_set_plan("pro",    "Pro",     90)
 
 
+def _suspension_action(*, active: bool):
+    """Suspendre / reactiver des boutiques. Motif obligatoire, page de confirmation, AuditLog."""
+    label = "Réactiver" if active else "Suspendre"
+    service = reactivate_shop if active else suspend_shop
+    template = "admin/accounts/sellerprofile/suspension_form.html"
+
+    def action(modeladmin, request, queryset):
+        if request.POST.get("apply"):
+            reason = request.POST.get("reason", "")
+            if not reason.strip():
+                messages.error(request, "Le motif est obligatoire : aucune boutique modifiée.")
+                return None
+            ip = get_client_ip(request)
+            ip = None if ip in ("", "unknown") else ip
+            done = 0
+            for shop in queryset:
+                try:
+                    service(shop, actor=request.user, reason=reason, ip=ip)
+                    done += 1
+                except SuspensionError as exc:
+                    messages.error(request, f"{shop.business_name or shop.seller_code} : {exc}")
+            if done:
+                verb = "réactivée(s)" if active else "suspendue(s)"
+                messages.success(request, f"[OK] {done} boutique(s) {verb}.")
+            return None
+        context = {
+            **modeladmin.admin_site.each_context(request),
+            "opts": modeladmin.model._meta,
+            "title": f"{label} la boutique",
+            "label": label,
+            "active": active,
+            "shops": list(queryset),
+            "selected": request.POST.getlist(helpers.ACTION_CHECKBOX_NAME),
+            "action_name": action.__name__,
+        }
+        return TemplateResponse(request, template, context)
+
+    action.__name__ = "reactivate_shops" if active else "suspend_shops"
+    action.short_description = f"{label} la boutique (motif obligatoire)"
+    return action
+
+
+_action_suspend   = _suspension_action(active=False)
+_action_reactivate = _suspension_action(active=True)
+
+
 @admin.register(SellerProfile)
 class SellerProfileAdmin(admin.ModelAdmin):
     list_display  = ("seller_code", "user", "business_name", "current_plan", "is_active", "reports_count", "assisted_entry")
     list_filter   = ("is_active",)
     search_fields = ("seller_code", "business_name", "user__phone", "user__display_name")
-    actions = [_action_free, _action_medium, _action_pro]
+    actions = [_action_free, _action_medium, _action_pro, _action_suspend, _action_reactivate]
 
     @admin.display(description="Signalements", ordering="_reports_count")
     def reports_count(self, obj):
