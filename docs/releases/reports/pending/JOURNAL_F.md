@@ -55,3 +55,17 @@ Migration : `partners/0004`. Réversible au niveau schéma. Note : la réversion
 1. D11 : lecture retenue ? A (ferme les nouvelles attributions de vendeuses seulement, clic et cookie intacts, défaut ouvert), B (ferme l'entrée dans le programme : création de partenaires, acceptation en ligne), ou C (filtre dans `find_partner_for_new_referral`, écartée : supprime le clic compté et le cookie).
 2. Attribution d'un grossiste : faut-il exiger un partenaire actif sous contrat (comme `accepts_new_referrals`) ? Aujourd'hui le service accepte tout partenaire existant.
 3. Un grossiste rattaché peut-il un jour être réattribué (cas d'erreur de saisie) ? Aujourd'hui non : correction par l'équipe en base, tracée à la main.
+
+## 2026-11-22 : Reprise après décisions du fondateur
+
+- **D11, lecture B, défaut fermé** : `PARTNER_REGISTRATIONS_OPEN` (base.py, défaut `false`, test.py ouvert pour les parcours existants). Ferme seulement l'acceptation en ligne de la lettre d'essai par un partenaire sans lettre (`self_service_closed_for`, `partners/services/acceptance.py`). Création admin, acceptation écrite, partenaires existants, liens, `hf_ref`, clics et attributions inchangés. Commits `08ff099`, `2703cc9`. Tests : `partners/tests_registrations_flag.py` (11 : fermé et ouvert, partenaire nouveau et existant, acceptation écrite, clic et cookie inchangés, défaut du réglage).
+- **Attribution grossiste** : seul un partenaire au statut Actif avec acceptation non invalidée des conditions du programme peut amener un grossiste (`partner_can_bring_distributor`). Commit `1564986`. Tests : prospect et partenaire sans conditions refusés.
+- **Attribution grossiste immuable** : inchangé. Correction future par action admin avec motif et AuditLog, hors périmètre.
+
+**Validation finale (périmètre réduit demandé)** : `pytest --ds=config.settings.test partners` : 626 passed, 107 subtests passed. Une exécution élargie (distrib, accounts, core) a été lancée puis non attendue : aucun résultat retenu, non comptée comme validée.
+
+**Non fait / reste** : distrib, accounts, core non revalidés dans cette reprise (la suite distrib précédente, hors seed, était verte : 345 passed, 1 skipped, avant le drapeau et la règle grossiste). Aucun test d'admin supplémentaire après la règle grossiste (les 6 tests admin passent avec la règle). Lint : `public_views.py` I001 pré-existant.
+
+**Questions ouvertes** :
+1. Le défaut fermé change le parcours de première acceptation en ligne pour tout nouveau partenaire dès déploiement (les partenaires existants ne changent pas). À confirmer avant mise en production.
+2. Le gabarit affiche encore « Aucun document n'est à accepter » sous le message de fermeture. Acceptable, à trancher si on veut un texte unique.
