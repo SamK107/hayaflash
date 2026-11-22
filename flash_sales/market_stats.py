@@ -25,6 +25,7 @@ from django.db.models.functions import Coalesce, NullIf, TruncHour
 from django.utils import timezone
 
 from core.choices import SaleCategory
+from flash_sales.services.marche_visibility import marche_shop_q
 
 # ── Seuils d'affichage (sous le seuil : indicateur masque) ────────────────
 MARKET_MIN_ORDERS_HOUR = 3      # commandes de la derniere heure
@@ -74,7 +75,9 @@ def compute_market_stats(now=None) -> dict[str, Any]:
     now = now or timezone.now()
     local_now = timezone.localtime(now)
     day_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
-    valid = Order.service_objects.exclude(status=OrderStatus.CANCELLED)
+    valid = Order.service_objects.exclude(status=OrderStatus.CANCELLED).filter(
+        marche_shop_q("flash_sale__owner")
+    )
     today = valid.filter(created_at__gte=day_start, created_at__lte=now)
 
     # 1. Commandes par heure (aujourd'hui), tronquees dans le fuseau local.
@@ -121,6 +124,7 @@ def compute_market_stats(now=None) -> dict[str, Any]:
     # 4. Livraisons en cours (statut Delivery.IN_TRANSIT ; pas de champ ville).
     transit = (
         Delivery.objects.filter(status=Delivery.Status.IN_TRANSIT)
+        .filter(marche_shop_q("order__flash_sale__owner"))
         .exclude(order__status=OrderStatus.CANCELLED)
         .aggregate(n=Count("id"), shops=Count("order__flash_sale__owner", distinct=True))
     )

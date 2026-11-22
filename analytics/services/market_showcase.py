@@ -63,6 +63,7 @@ def build_showcase(live_sales, other_ids, now=None) -> tuple[dict[int, dict], li
     produits des ventes en direct (les plus commandes aujourd'hui, puis les plus
     fortes promos, puis l'ordre d'affichage ; 2 par boutique au plus).
     """
+    from flash_sales.services.marche_visibility import marche_shop_q
     from orders.models import OrderItem, OrderStatus
     from products.models import FlashSaleProduct, ProductMedia
 
@@ -74,6 +75,7 @@ def build_showcase(live_sales, other_ids, now=None) -> tuple[dict[int, dict], li
 
     links = list(
         FlashSaleProduct.objects.filter(
+            marche_shop_q("flash_sale__owner"),
             flash_sale_id__in=all_ids, is_active=True, product__is_active=True,
             product__stock_available__gt=0,
         )
