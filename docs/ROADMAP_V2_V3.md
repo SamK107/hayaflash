@@ -224,4 +224,15 @@ Ce phasage remplace le phasage P0 à P5 du « Brief de gouvernance v2 ».
 
 **Règles de vague.** Aucune fonction n'est annoncée publiquement avant sa mise en production (D6). Chaque vague passe par staging 48 h, tag git et sauvegarde avant production. Une fonction qui change le comportement de FREE, MEDIUM ou PRO, des abonnés existants, du Marché pour une boutique existante ou un montant d'argent demande l'accord du fondateur (EXECUTION_V2 § 1, c).
 
-**Point ouvert.** Le calendrier de l'ouverture de Business (SPEC_05 point O5) n'est pas fixé.
+**Ouverture de Business (SPEC_05 § 2.3, point O5 résolu le 22/11/2026).** Business s'ouvre quand trois conditions sont réunies :
+1. la condition D6 est remplie (bilan complet et ligne de valeur en production, plus Mon stock étapes A et B ou Studio photo) ;
+2. **14 jours de fonctionnement en production sans incident** après la mise en production de la dernière de ces fonctions ;
+3. **accord explicite du fondateur**.
+
+La **liste d'attente est un signal, pas une condition** : son nombre ne déclenche ni n'avance l'ouverture.
+
+**Tarif fondateur (SPEC_05 § 6, point O2 résolu le 22/11/2026).**
+- Cohorte limitée à **20 comptes ou 60 jours après l'ouverture de Business**, le premier des deux.
+- Prix **verrouillé tant que l'abonnement est continu** ; **perdu après plus de 30 jours d'interruption**.
+- **Mise en œuvre en P3 seulement** : rien n'est codé avant.
+- Le « 8 » du brief désigne la cohorte des partenaires fondateurs, pas Business.
