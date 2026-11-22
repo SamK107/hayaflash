@@ -99,3 +99,15 @@ Résultat : 1005 passed, 1 failed, 3 skipped, 1 xfailed.
 Migrations : `accounts/0008_shopreport`, `accounts/0009_sellerprofile_trust_level`.
 
 Reste : committer la décision de branche (task/e-confiance-marche, depuis integration/v2) ; listage des boutiques `is_active=False` en production avant fusion ; questions ouvertes (/f/<slug>/ et commandes d'une boutique suspendue, connexion de la vendeuse suspendue).
+
+## 2026-11-22 — Décisions du fondateur appliquées
+
+- La connexion de la vendeuse suspendue n'est **pas** bloquée (voulu, ne rien changer).
+- Page `/f/<slug>/` d'une boutique suspendue : page neutre « Boutique indisponible pour le moment. » (`analytics/shop_unavailable.html`, HTTP 200, sans vente, sans bouton, sans nom de boutique). Implémenté par `resolve_flash_sale_public_page` (`shop_unavailable`) et la vue.
+- Nouvelles commandes d'une boutique suspendue : refusées par `assert_flash_sale_accepts_orders` (message `MSG_SHOP_UNAVAILABLE`), donc par `create_order`, l'API et `/order/`. Les commandes déjà passées ne sont pas modifiées (aucun statut touché, test dédié).
+- Test `flash_sales/tests_marche_vendeuses.py::test_market_stats_ignore_orders_from_inactive_shop` : ses commandes étaient créées après suspension. Elles sont maintenant créées pendant que la boutique est active (cas réel), puis la boutique est suspendue. Assertion inchangée.
+- Phrase « Chaque paiement à la livraison est tracé » retirée de `templates/core/home.html` (le reste du paragraphe est conservé). Remarque non traitée : « Votre argent est protégé. » dans le même paragraphe, affirmation à faire relire.
+
+**Tests ciblés** : `analytics/tests_boutique_suspendue.py` (4), `flash_sales/tests_marche_vendeuses.py`, `accounts/tests_suspension.py`, `orders/tests_create_order_validation.py`, `orders/tests_fenetre_et_idempotence_api.py`. Pas de suite complète.
+
+**Migrations** : aucune dans cette passe.

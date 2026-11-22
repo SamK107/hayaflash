@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Boutique indisponible — HayaFlash{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-white flex flex-col items-center justify-center px-6 py-12 text-center">
+  <div class="w-full max-w-md">
+    <h1 class="text-xl font-black text-gray-900 mb-2">Boutique indisponible</h1>
+    <p class="text-sm text-gray-500 mb-6">Boutique indisponible pour le moment.</p>
+    <a href="{% url 'flash_sale_calendar' %}" class="inline-block bg-primary text-white font-bold px-6 py-3 rounded-xl text-sm">Voir le Marché</a>
+  </div>
+</div>
+{% endblock %}

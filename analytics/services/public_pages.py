@@ -190,6 +190,9 @@ def resolve_flash_sale_public_page(request: HttpRequest, slug: str) -> dict[str,
     )
     if flash_sale is None:
         return {"not_found": True}
+    if not flash_sale.owner.is_active:
+        # Boutique suspendue : page neutre, sans vente ni bouton de commande.
+        return {"shop_unavailable": True}
 
     version = get_page_version(flash_page_version_key(cleaned))
     share_link = get_or_create_flash_sale_share_link(flash_sale=flash_sale)

@@ -104,8 +104,12 @@ class MarketHidesInactiveShopsTests(TestCase):
             })
 
         _order(self.active_live, "+22370000201")
+        # Les commandes de la boutique ont ete passees AVANT sa suspension : on la
+        # reactive le temps de les creer (la prise de commande refuse une boutique suspendue).
+        SellerProfile.objects.filter(pk=self.inactive.pk).update(is_active=True)
         _order(self.inactive_live, "+22370000202")
         _order(self.inactive_live, "+22370000203")
+        SellerProfile.objects.filter(pk=self.inactive.pk).update(is_active=False)
         with mock.patch.object(market_stats, "MARKET_MIN_ORDERS_HOUR", 1), \
                 mock.patch.object(market_stats, "MARKET_MIN_SHOPS", 1):
             stats = compute_market_stats()

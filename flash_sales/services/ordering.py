@@ -27,6 +27,9 @@ MSG_OUTSIDE_WINDOW = (
 )
 
 
+MSG_SHOP_UNAVAILABLE = "Boutique indisponible pour le moment."
+
+
 def assert_flash_sale_accepts_orders(flash_sale: FlashSale | None) -> None:
     """
     Autorise la prise de commande : ``flash_sale`` doit exister, avoir un statut
@@ -38,6 +41,9 @@ def assert_flash_sale_accepts_orders(flash_sale: FlashSale | None) -> None:
         raise ValidationError(
             {"flash_sale": "Vente introuvable : impossible de passer commande."}
         )
+    if not flash_sale.owner.is_active:
+        # Boutique suspendue : les commandes deja passees ne sont pas concernees (controle a la prise seule).
+        raise ValidationError({"flash_sale": MSG_SHOP_UNAVAILABLE})
     if flash_sale.status not in ORDERABLE_STATUSES:
         raise ValidationError({"flash_sale": MSG_SALE_ENDED})
     if not flash_sale.is_live():
