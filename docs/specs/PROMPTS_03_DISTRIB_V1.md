@@ -1,7 +1,7 @@
 # Prompts Claude Code — Distrib V1
 
 Référence unique : `docs/specs/SPEC_03_DISTRIB_V1.md` (§1–14 + **Avenant A §15, prioritaire**).
-`docs/evolutions/SPEC_DISTRIB.md` est obsolète : ne pas l'utiliser.
+`docs/archive/SPEC_DISTRIB.md` est obsolète (archivé le 21/11/2026) : ne pas l'utiliser.
 
 Mode d'emploi : **une session Claude Code par prompt**, dans l'ordre. Ne lancer le suivant qu'après
 avoir lu le rapport de fin du précédent. Tout se fait sur la branche `feature/distrib`.
@@ -13,7 +13,7 @@ avoir lu le rapport de fin du précédent. Tout se fait sur la branche `feature/
 ```
 Tu travailles sur HayaFlash (Django, en production avec de vrais clients).
 Lis CLAUDE.md, docs/ROADMAP_V2_V3.md §0 et docs/specs/SPEC_03_DISTRIB_V1.md EN ENTIER
-(l'Avenant A §15 prévaut sur le reste). Ignore docs/evolutions/SPEC_DISTRIB.md (obsolète).
+(l'Avenant A §15 prévaut sur le reste). Ignore docs/archive/SPEC_DISTRIB.md (obsolète).
 
 Règles : aucun push, merge, déploiement ni action VPS. Aucun fichier hors périmètre §8.
 

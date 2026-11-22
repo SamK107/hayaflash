@@ -1,5 +1,7 @@
 # Audit de l'existant — Brief de gouvernance v2
 
+> **Note du 2026-11-21 :** cet audit a été réalisé **avant le commit de la migration `products/0011_stock_non_negatif.py`**, qui était alors non suivie (§ 6 et § 7, N9). Elle est désormais suivie sur `integration/v2`. Les constats sur la branche `feat/seed-demo-distrib-v2` et le `git status` du 20/11 restent exacts à cette date, mais ne reflètent plus l'état courant du dépôt.
+
 Date : 2026-11-20 · Mode : **lecture seule** (aucune modification, aucune migration, aucun commit, aucun test lancé).
 Référence : état réel du répertoire de travail (`git status` du 20/11 : branche `feat/seed-demo-distrib-v2`, fichiers modifiés et non suivis inclus).
 Brief audité : `docs/HayaFlash — Brief de gouvernance v2.md` (le chemin `docs/BRIEF_GOUVERNANCE_V2.md` demandé n'existe pas ; c'est ce fichier qui a été lu).
