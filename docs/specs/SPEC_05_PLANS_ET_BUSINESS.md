@@ -57,9 +57,12 @@ Business se justifie par des outils qui font gagner du temps ou de l'argent, jam
 
 ### 2.3 Ouverture (D6)
 
-Business s'ouvre quand **les deux conditions** sont réunies :
-- le bilan complet vendeuse et la ligne de valeur « HayaFlash t'a fait gérer X FCFA » sont en production ;
-- au moins une fonction à forte valeur est en production : **Mon stock étapes A et B**, ou **Studio photo**.
+Business s'ouvre quand **les trois conditions** sont réunies (décision du 22/11/2026, point O5 résolu) :
+- la condition D6 est remplie : le bilan complet vendeuse et la ligne de valeur « HayaFlash t'a fait gérer X FCFA » sont en production ; et au moins une fonction à forte valeur est en production : **Mon stock étapes A et B**, ou **Studio photo** ;
+- **14 jours de fonctionnement en production sans incident** après la mise en production de la dernière de ces fonctions ;
+- le fondateur donne son accord explicite (EXECUTION_V2 § 1, c : le plan change ce que voient les vendeuses).
+
+La **liste d'attente est un signal, pas une condition** : son nombre ne déclenche ni n'avance l'ouverture.
 
 Avant l'ouverture : liste d'attente et tarif fondateur (§ 6). Aucun prix public affiché, aucune relance par message.
 
@@ -120,8 +123,15 @@ Décision D6 : les premiers abonnés Business gardent leur prix tant qu'ils rest
 
 - **Mécanisme dédié** : un champ sur l'abonnement (`founder_price`, entier FCFA, nullable), posé à la souscription pendant la phase d'attente. Un abonné avec `founder_price` renouvelle à ce prix.
 - **Interdit** : utiliser `SellerPriceOverride`. Il est limité à 30 jours (`SPECIAL_PRICE_MAX_DAYS`) et sert au test de paiement, pas à un prix verrouillé.
-- Nombre de places : 8 (reprend le chiffre du brief de gouvernance ; **non décidé**, à confirmer par le fondateur, point O2).
 - Le champ n'est pas modifiable depuis l'espace vendeuse.
+
+**Règles de cohorte (décision du 22/11/2026, point O2 résolu)**
+- **Cohorte limitée à 20 comptes ou 60 jours après l'ouverture de Business, selon ce qui arrive en premier.** Au-delà, le prix fondateur n'est plus proposé.
+- Le prix est **verrouillé tant que l'abonnement est continu**.
+- Une **interruption de plus de 30 jours** fait perdre le prix fondateur : le compte revient au prix courant à sa reprise.
+- **Mise en œuvre en P3 seulement** (ROADMAP § 4, vague 2 ou 3 selon l'ouverture) ; rien n'est codé avant.
+
+**Précision.** Le chiffre « 8 » du brief de gouvernance désigne la **cohorte des partenaires fondateurs** (`PARTNER_FOUNDER_SLOTS = 8`, `partners/models.py`), **pas** les comptes Business.
 
 ---
 
@@ -206,10 +216,10 @@ Les CGU ne sont **pas** modifiées. La formulation d'un passage aux CGU est soum
 | # | Point | Qui décide |
 |---|---|---|
 | O1 | Seuil du niveau 2 (« Fiable ») | Fondateur, après calibrage sur les bilans réels |
-| O2 | Nombre de places du tarif fondateur (8 proposées) | Fondateur |
+| O2 | Tarif fondateur Business : **résolu le 22/11/2026** — 20 comptes ou 60 jours (le premier des deux), prix verrouillé tant que l'abonnement est continu, perdu après plus de 30 jours d'interruption, P3 seulement (§ 6). Le « 8 » du brief concerne les partenaires fondateurs. | — |
 | O3 | Relecture juridique de l'avertissement (§ 11) | Avocat |
 | O4 | Décision sur « Questions de la vente » (§ 9) | Fondateur |
-| O5 | Ouverture de Business (§ 2.3) : calendrier | Fondateur, selon l'état des fonctions |
+| O5 | Ouverture de Business (§ 2.3) : **résolu le 22/11/2026** — D6 remplie, 14 jours de production sans incident, accord explicite du fondateur ; liste d'attente = signal seulement. | — |
 
 ---
 
