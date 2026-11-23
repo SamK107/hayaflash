@@ -18,11 +18,15 @@ TO = [("partners", "0004_referral_grossiste")]
 
 
 def _migrate(targets):
+    # accounts reste à sa dernière migration (trust_level, 0009) : sans cela, le modèle
+    # historique de SellerProfile ne contient pas la colonne NOT NULL présente en base.
     executor = MigrationExecutor(connection)
     executor.loader.build_graph()
-    executor.migrate(targets)
+    accounts_latest = [n for n in executor.loader.graph.leaf_nodes() if n[0] == "accounts"]
+    all_targets = list(targets) + accounts_latest
+    executor.migrate(all_targets)
     executor.loader.build_graph()
-    return executor.loader.project_state(targets).apps
+    return executor.loader.project_state(all_targets).apps
 
 
 class ReferralGrossisteMigrationTests(TransactionTestCase):
