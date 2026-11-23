@@ -130,6 +130,8 @@ DEBUG = _env_bool("DEBUG", default="false")
 # /order/). Affichage seulement : le prix facture est toujours celui de la vente.
 # Mettre a false pour revenir a l'affichage du seul prix applique.
 HAYAFLASH_PROMO_DISPLAY = _env_bool("HAYAFLASH_PROMO_DISPLAY", default="true")
+# Marché : si vrai, seules les boutiques vérifiées (trust_level >= 1) y sont listées. Défaut faux : inchangé.
+MARKET_REQUIRE_VERIFIED = _env_bool("MARKET_REQUIRE_VERIFIED", default="false")
 
 # Module Distrib (grossistes / revendeurs, docs/specs/SPEC_03_DISTRIB_V1.md §7).
 # Coupe par defaut : URLs /distrib/ en 404, aucun bandeau, aucun suivi. Les produits
@@ -577,6 +579,8 @@ RATELIMIT_REGISTER_PHONE = (5, 30 * 60)
 RATELIMIT_ORDER_PHONE = (10, 10 * 60)
 RATELIMIT_REFERRAL_IP = (60, 60)
 RATELIMIT_PARTNER_LINK_IP = (30, 60)
+# Signalement public d'une boutique : 5 soumissions par heure et par IP (toutes, pas seulement les echecs).
+RATELIMIT_SHOP_REPORT_IP = (5, 60 * 60)
 
 # ── Django REST Framework ─────────────────────────────────────────────────────
 # ── Django REST Framework ─────────────────────────────────────────────────────

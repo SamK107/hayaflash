@@ -8,6 +8,7 @@ from core.choices import SaleCategory
 
 from .market_stats import get_market_stats
 from .models import FlashSale
+from .services.marche_visibility import marche_shop_q
 from .services.ordering import live_now_q, upcoming_q
 
 SOON_WINDOW = timedelta(hours=1)
@@ -28,8 +29,8 @@ def _calendar_groups(now):
         "title", "public_slug", "start_time", "end_time", "category", "status",
         "owner__business_name", "owner__category", "owner__avatar",
     )
-    live = list(base.filter(live_now_q(now)).order_by("end_time"))
-    upcoming = list(base.filter(upcoming_q(now)).order_by("start_time")[:UPCOMING_LIMIT])
+    live = list(base.filter(live_now_q(now), marche_shop_q()).order_by("end_time"))
+    upcoming = list(base.filter(upcoming_q(now), marche_shop_q()).order_by("start_time")[:UPCOMING_LIMIT])
 
     groups = []
     if live:

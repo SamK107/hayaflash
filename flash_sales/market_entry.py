@@ -20,6 +20,7 @@ from django.db.models import Count, Min, Q
 from django.utils import timezone
 
 from core.demo_data import DEMO_PHONE_PREFIX, demo_data_visible
+from flash_sales.services.marche_visibility import marche_shop_q
 from flash_sales.services.ordering import live_now_q, upcoming_q
 
 MARKET_ENTRY_CACHE_KEY = "hf:market:entry:v1"
@@ -35,7 +36,7 @@ def compute_market_entry(now=None) -> dict[str, Any]:
     from flash_sales.models import FlashSale
 
     now = now or timezone.now()
-    sales = FlashSale.objects.all()
+    sales = FlashSale.objects.filter(marche_shop_q())
     if not demo_data_visible():
         sales = sales.exclude(owner__user__phone__startswith=DEMO_PHONE_PREFIX)
     agg = sales.aggregate(

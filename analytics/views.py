@@ -63,6 +63,8 @@ def flash_sale_public_page(request, slug: str):
     context = resolve_flash_sale_public_page(request, slug)
     if context.get("not_found"):
         raise Http404("Vente flash introuvable.")
+    if context.get("shop_unavailable"):
+        return render(request, "analytics/shop_unavailable.html", status=200)
 
     source = normalize_tracking_source(request.GET.get("src"))
     share_link = context.get("share_link")

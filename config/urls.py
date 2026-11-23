@@ -41,6 +41,7 @@ urlpatterns = [
     path("platform-admin/saisie/", include("assist.urls")),
     path("distrib/", include("distrib.urls")),
     path("", include("partners.urls")),
+    path("", include("accounts.report_urls")),
     path("", include("analytics.urls")),
     path("", include("core.urls")),
 ] + [

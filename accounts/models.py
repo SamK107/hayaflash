@@ -124,7 +124,20 @@ class SellerProfile(models.Model):
         verbose_name="Type de produits",
         help_text="Catégorie par défaut de vos ventes (modifiable vente par vente).",
     )
+    class TrustLevel(models.IntegerChoices):
+        UNVERIFIED = 0, "Non vérifiée"
+        BASIC = 1, "Vérifiée (basique)"
+        REINFORCED = 2, "Vérifiée (renforcée)"
+
     is_active = models.BooleanField(default=True)
+    # Niveau de confiance : equipe seulement (aucun badge public). Migration 0009 :
+    # les boutiques existantes passent au niveau 1, les nouvelles au niveau 0.
+    trust_level = models.PositiveSmallIntegerField(
+        choices=TrustLevel.choices,
+        default=TrustLevel.UNVERIFIED,
+        verbose_name="Niveau de confiance",
+        help_text="0 non vérifiée, 1 vérifiée, 2 vérifiée renforcée. Visible par l'équipe seulement.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -150,3 +163,49 @@ class SellerProfile(models.Model):
             resize_uploaded_image(self.avatar)
 
         super().save(*args, **kwargs)
+
+
+class ShopReport(models.Model):
+    """Signalement d'une boutique par une cliente (formulaire public, sans compte).
+
+    Aucun envoi automatique : l'équipe lit, traite, classe. Jamais supprimé :
+    la boutique est protégée (PROTECT) tant qu'un signalement existe.
+    """
+
+    class Reason(models.TextChoices):
+        NOT_CONFORM = "not_conform", "Produit non conforme"
+        NOT_DELIVERED = "not_delivered", "Non livré"
+        SCAM_SUSPECTED = "scam_suspected", "Arnaque suspectée"
+        OTHER = "other", "Autre"
+
+    class Status(models.TextChoices):
+        NEW = "new", "Nouveau"
+        HANDLED = "handled", "Traité"
+        CLOSED = "closed", "Classé"
+
+    shop = models.ForeignKey(
+        SellerProfile,
+        on_delete=models.PROTECT,
+        related_name="shop_reports",
+        verbose_name="Boutique",
+    )
+    reason = models.CharField(max_length=20, choices=Reason.choices, verbose_name="Motif")
+    message = models.CharField(max_length=500, blank=True, verbose_name="Message")
+    contact = models.CharField(max_length=120, blank=True, verbose_name="Contact (facultatif)")
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.NEW,
+        db_index=True,
+        verbose_name="Statut",
+    )
+    internal_note = models.TextField(blank=True, verbose_name="Note interne (équipe)")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Date")
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Signalement de boutique"
+        verbose_name_plural = "Signalements de boutiques"
+
+    def __str__(self) -> str:
+        return f"Signalement {self.pk} · {self.shop_id} · {self.get_reason_display()}"

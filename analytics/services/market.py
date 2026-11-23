@@ -45,6 +45,7 @@ def _percent_sold(items_sold: int, stock: int | None) -> int | None:
 def compute_market_snapshot(now=None) -> dict[str, Any]:
     """Calcule le snapshot (sans cache)."""
     from flash_sales.models import FlashSale
+    from flash_sales.services.marche_visibility import marche_shop_q
     from flash_sales.services.ordering import live_now_q, recently_ended_q, upcoming_q
     from orders.models import Order, OrderItem, OrderStatus
     from products.models import FlashSaleProduct
@@ -52,7 +53,7 @@ def compute_market_snapshot(now=None) -> dict[str, Any]:
     now = now or timezone.now()
 
     live_sales = list(
-        FlashSale.objects.filter(live_now_q(now))
+        FlashSale.objects.filter(live_now_q(now), marche_shop_q())
         .select_related("owner")
         .only(
             "title", "public_slug", "end_time", "category",
@@ -62,7 +63,7 @@ def compute_market_snapshot(now=None) -> dict[str, Any]:
     )
     live_ids = [s.pk for s in live_sales]
     ended = list(
-        FlashSale.objects.filter(recently_ended_q(now))
+        FlashSale.objects.filter(recently_ended_q(now), marche_shop_q())
         .select_related("owner")
         .only(
             "title", "public_slug", "end_time", "category",
@@ -128,7 +129,7 @@ def compute_market_snapshot(now=None) -> dict[str, Any]:
         )
 
     upcoming_ids = list(
-        FlashSale.objects.filter(upcoming_q(now))
+        FlashSale.objects.filter(upcoming_q(now), marche_shop_q())
         .order_by("start_time")
         .values_list("pk", flat=True)[:UPCOMING_LIMIT]
     )

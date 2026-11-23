@@ -134,6 +134,11 @@ def partner_link_ip_limited(request: HttpRequest) -> bool:
     return _limited(f"partnerlink:ip:{get_client_ip(request)}", "RATELIMIT_PARTNER_LINK_IP")
 
 
+def shop_report_ip_limited(request: HttpRequest) -> bool:
+    """Limite par IP sur le formulaire public de signalement de boutique (toutes soumissions)."""
+    return _limited(f"shopreport:ip:{get_client_ip(request)}", "RATELIMIT_SHOP_REPORT_IP")
+
+
 def login_ip_limited(request: HttpRequest) -> bool:
     return _limited(f"login:ip:{get_client_ip(request)}", "RATELIMIT_LOGIN_IP")
 
