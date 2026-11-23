@@ -976,7 +976,7 @@ class Command(BaseCommand):
 
     def print_stats(self) -> None:
         """Rapport par revendeuse (ventes confirmees, CA, stock restant, taux de « Pas livre », du), puis CA du mois et releves."""
-        from django.db.models import Count, Q, Sum
+        from django.db.models import Count, Sum
 
         out = self.stdout.write
         S = DistribSettlement.Status
