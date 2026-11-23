@@ -32,6 +32,24 @@ FULL_PLACES_MESSAGE = "Les places sont actuellement toutes attribuées."
 NAME_MESSAGE = "Indiquez votre nom complet."
 CHECKBOX_MESSAGE = "Cochez la case pour confirmer que vous avez lu et accepté le document."
 LETTER_REQUIRED_MESSAGE = "La lettre d'essai doit être acceptée avant les conditions du programme."
+REGISTRATIONS_CLOSED_MESSAGE = (
+    "Les inscriptions en ligne sont fermées pour le moment. Contactez l'équipe HayaFlash."
+)
+
+
+def registrations_open() -> bool:
+    """Drapeau D11 (lecture B) : inscription en libre-service de nouveaux partenaires."""
+    return bool(getattr(settings, "PARTNER_REGISTRATIONS_OPEN", False))
+
+
+def self_service_closed_for(partner: Partner) -> bool:
+    """Vrai si le drapeau est fermé et que le partenaire s'inscrit en ligne pour la première fois.
+
+    Une nouvelle inscription est un partenaire qui doit encore accepter la lettre d'essai. Les
+    partenaires déjà engagés (lettre acceptée, essai ou contrat) ne sont jamais concernés. La
+    création par l'équipe et l'acceptation écrite ne passent pas par ce contrôle.
+    """
+    return not registrations_open() and pending_document(partner) == AcceptanceDocType.TRIAL_LETTER
 
 
 def places_left() -> int:

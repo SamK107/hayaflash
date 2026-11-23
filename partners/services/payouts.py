@@ -203,7 +203,7 @@ def statement_text(partner: Partner, period: str) -> str:
     _, end = period_bounds(period)
     anon = _anonymous_ids(partner)
 
-    referrals = Referral.objects.filter(partner=partner, attributed_at__lt=end)
+    referrals = Referral.objects.filter(partner=partner, attributed_at__lt=end, seller__isnull=False)
     valid_ids = list(referrals.filter(flagged=False).values_list("seller_id", flat=True))
     active = sum(1 for d in activation_dates(valid_ids).values() if d < end)
     payers = (

@@ -73,7 +73,7 @@ def quarterly_statuses(partners, *, today: date | None = None) -> dict[int, dict
     partners = list(partners)
     by_partner: dict[int, list[int]] = {p.pk: [] for p in partners}
     phones = {p.pk: p.phone for p in partners}
-    rows = Referral.objects.filter(partner__in=partners, flagged=False).values_list(
+    rows = Referral.objects.filter(partner__in=partners, flagged=False, seller__isnull=False).values_list(
         "partner_id", "seller_id", "seller__user__phone"
     )
     for partner_id, seller_id, seller_phone in rows:

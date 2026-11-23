@@ -118,6 +118,8 @@ PARTNER_REFERRAL_COOKIE_DAYS = 30
 PARTNER_INACTIVE_ALERT_DAYS = 60
 PARTNER_TRIAL_DAYS = 30
 PARTNER_ACCEPT_LINK_DAYS = 30
+# Tests : ouvert pour les parcours publics existants ; les tests de fermeture le désactivent.
+PARTNER_REGISTRATIONS_OPEN = True
 
 # ── Identite de l'editeur (documents du programme partenaires) ───────────────
 # Jamais de valeur inventee : tout est lu dans l'environnement. Un document dont une

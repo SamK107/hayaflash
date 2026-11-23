@@ -83,7 +83,7 @@ def partner_detail(request, pk: int):
     referral_url = qr.referral_url(request, partner)
     qr_unavailable = qr.unavailable_reason(partner)
     referrals = list(
-        Referral.objects.filter(partner=partner)
+        Referral.objects.filter(partner=partner, seller__isnull=False)
         .select_related("seller__user")
         .order_by("-attributed_at")
     )

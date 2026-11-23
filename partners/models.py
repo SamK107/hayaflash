@@ -201,14 +201,31 @@ class ReferralSource(models.TextChoices):
 
 
 class Referral(models.Model):
+    """Attribution d'une cible à un partenaire : une vendeuse OU un grossiste (D9).
+
+    Une seule cible par attribution (contrainte ``referral_exactement_une_cible``). Le
+    grossiste rattaché ne génère aucune commission ici : la part est calculée à la main
+    par relevé (D9).
+    """
+
     partner = models.ForeignKey(
         Partner, on_delete=models.PROTECT, related_name="referrals", verbose_name="Partenaire"
     )
     seller = models.OneToOneField(
         "accounts.SellerProfile",
         on_delete=models.PROTECT,
+        null=True,
+        blank=True,
         related_name="referral",
         verbose_name="Vendeur inscrit via le lien",
+    )
+    distributor = models.ForeignKey(
+        "distrib.Distributor",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="partner_referral",
+        verbose_name="Grossiste rattaché",
     )
     attributed_at = models.DateTimeField(default=timezone.now, verbose_name="Attribué le")
     source = models.CharField(
@@ -227,19 +244,39 @@ class Referral(models.Model):
             models.Index(fields=["partner", "attributed_at"]),
             models.Index(fields=["partner", "signup_ip_hash", "attributed_at"]),
         ]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(seller__isnull=False, distributor__isnull=True)
+                    | Q(seller__isnull=True, distributor__isnull=False)
+                ),
+                name="referral_exactement_une_cible",
+            ),
+            models.UniqueConstraint(
+                fields=["distributor"],
+                condition=Q(distributor__isnull=False),
+                name="referral_unique_distributor",
+            ),
+        ]
 
     def __str__(self) -> str:
+        if self.distributor_id:
+            return f"{self.partner.code} -> grossiste {self.distributor_id}"
         return f"{self.partner.code} -> vendeur {self.seller_id}"
 
     def save(self, *args, **kwargs):
-        """Le parrain et le vendeur d'un parrainage ne changent jamais."""
+        """Le parrain et la cible (vendeuse ou grossiste) d'une attribution ne changent jamais."""
         if self.pk:
             old = (
                 Referral.objects.filter(pk=self.pk)
-                .values("partner_id", "seller_id")
+                .values("partner_id", "seller_id", "distributor_id")
                 .first()
             )
-            if old and (old["partner_id"] != self.partner_id or old["seller_id"] != self.seller_id):
+            if old and (
+                old["partner_id"] != self.partner_id
+                or old["seller_id"] != self.seller_id
+                or old["distributor_id"] != self.distributor_id
+            ):
                 raise ValidationError(
                     "Une inscription via le lien ne peut être ni réattribuée ni déplacée."
                 )

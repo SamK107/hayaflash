@@ -23,8 +23,10 @@ from partners.models import (
 from partners.services.access_links import resolve_token
 from partners.services.acceptance import (
     CHECKBOX_MESSAGE,
+    REGISTRATIONS_CLOSED_MESSAGE,
     accept_document,
     pending_document,
+    self_service_closed_for,
 )
 from partners.services import verification
 from partners.services.attribution import request_ip_hash
@@ -123,6 +125,9 @@ def document_page(request, token: str):
         return _not_found(request)
     if link.acceptance_id:
         return _final_page(request, link.acceptance)
+    if self_service_closed_for(link.partner):  # D11 : inscription en ligne fermée
+        ctx = _context(request, token, link, link.partner, error=REGISTRATIONS_CLOSED_MESSAGE, doc_type=None, registrations_closed=True)
+        return _secure(render(request, "partners/public/document.html", ctx))
     return _secure(render(request, "partners/public/document.html", _context(request, token, link, link.partner)))
 
 
@@ -139,6 +144,9 @@ def document_accept(request, token: str):
     if link.acceptance_id:  # un jeton = une acceptation (jamais de blocage sur l'IP)
         return _final_page(request, link.acceptance, error=USED_LINK_MESSAGE, status=409)
 
+    if self_service_closed_for(partner):  # D11 : inscription en ligne fermée
+        ctx = _context(request, token, link, partner, error=REGISTRATIONS_CLOSED_MESSAGE, doc_type=None, registrations_closed=True)
+        return _secure(render(request, "partners/public/document.html", ctx))
     doc_type = pending_document(partner)
     if doc_type is None:
         ctx = _context(request, token, link, partner, error="Aucun document n'est à accepter pour le moment.")
