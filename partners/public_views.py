@@ -126,7 +126,7 @@ def document_page(request, token: str):
     if link.acceptance_id:
         return _final_page(request, link.acceptance)
     if self_service_closed_for(link.partner):  # D11 : inscription en ligne fermée
-        ctx = _context(request, token, link, link.partner, error=REGISTRATIONS_CLOSED_MESSAGE, doc_type=None)
+        ctx = _context(request, token, link, link.partner, error=REGISTRATIONS_CLOSED_MESSAGE, doc_type=None, registrations_closed=True)
         return _secure(render(request, "partners/public/document.html", ctx))
     return _secure(render(request, "partners/public/document.html", _context(request, token, link, link.partner)))
 
@@ -145,7 +145,7 @@ def document_accept(request, token: str):
         return _final_page(request, link.acceptance, error=USED_LINK_MESSAGE, status=409)
 
     if self_service_closed_for(partner):  # D11 : inscription en ligne fermée
-        ctx = _context(request, token, link, partner, error=REGISTRATIONS_CLOSED_MESSAGE, doc_type=None)
+        ctx = _context(request, token, link, partner, error=REGISTRATIONS_CLOSED_MESSAGE, doc_type=None, registrations_closed=True)
         return _secure(render(request, "partners/public/document.html", ctx))
     doc_type = pending_document(partner)
     if doc_type is None:

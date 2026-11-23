@@ -21,7 +21,11 @@
   {% else %}
   <div class="hf-p-card">
     <h1 class="hf-p-section-title">Vos documents HayaFlash</h1>
+    {% if registrations_closed %}
+    <p class="hf-p-muted">Les inscriptions de partenaires ne sont pas ouvertes pour le moment.</p>
+    {% else %}
     <p class="hf-p-muted">Bonjour {{ partner.name }}. Aucun document n'est à accepter pour le moment.</p>
+    {% endif %}
   </div>
   {% endif %}
 

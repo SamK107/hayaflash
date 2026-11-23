@@ -86,6 +86,9 @@ class RegistrationsClosedTests(_Base):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, CLOSED_HTML)
         self.assertIsNone(resp.context["doc_type"])
+        self.assertContains(resp, "Les inscriptions de partenaires ne sont pas ouvertes pour le moment.")
+        self.assertNotContains(resp, "Aucun document n&#x27;est")
+        self.assertNotContains(resp, "Aucun document n'est")
 
     def test_nouveau_partenaire_ne_peut_pas_accepter_la_lettre(self):
         resp, _ = self.post_accept(self.nouveau, **self.letter_data("Nouvelle Partenaire"))
