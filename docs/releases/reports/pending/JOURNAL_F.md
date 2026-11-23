@@ -69,3 +69,8 @@ Migration : `partners/0004`. Réversible au niveau schéma. Note : la réversion
 **Questions ouvertes** :
 1. Le défaut fermé change le parcours de première acceptation en ligne pour tout nouveau partenaire dès déploiement (les partenaires existants ne changent pas). À confirmer avant mise en production.
 2. Le gabarit affiche encore « Aucun document n'est à accepter » sous le message de fermeture. Acceptable, à trancher si on veut un texte unique.
+
+## 2026-11-23 : Consigne de mise en service du drapeau
+
+Avant d'intégrer le premier créateur (et sur l'environnement de test), définir `PARTNER_REGISTRATIONS_OPEN=True`.
+Sans cette variable, la première acceptation en ligne d'un nouveau partenaire est refusée (défaut fermé, D11).
