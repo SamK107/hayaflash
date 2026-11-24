@@ -64,7 +64,7 @@ jobs:
           coverage report \
             --include="orders/*,payments/*,products/*,flash_sales/*" \
             --omit="*/tests*.py,*/migrations/*" \
-            --fail-under=CRITICAL_THRESHOLD
+            --fail-under=88
 
   securite:
     name: Sécurité (bandit, pip-audit, gitleaks, check --deploy)
@@ -108,7 +108,7 @@ jobs:
           ENVIRONMENT: prod
           DJANGO_SETTINGS_MODULE: config.settings.prod
           # Valeurs factices : seul le contrôle de configuration est exécuté.
-          SECRET_KEY: ci-check-${{ github.run_id }}-${{ github.run_attempt }}-not-a-secret-padding-xx
+          SECRET_KEY: ci-check-fixed-value-not-a-secret-hayaflash-padding-xxxxxxxxxxxxxxxxxxxxxxxx
           DATABASE_URL: postgres://ci:ci@localhost:5432/ci
           ALLOWED_HOSTS: hayaflash.com
           DEBUG: "false"
