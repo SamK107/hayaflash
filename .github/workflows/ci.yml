@@ -64,7 +64,7 @@ jobs:
           coverage report \
             --include="orders/*,payments/*,products/*,flash_sales/*" \
             --omit="*/tests*.py,*/migrations/*" \
-            --fail-under=CRITICAL_THRESHOLD
+            --fail-under=88
 
   securite:
     name: Sécurité (bandit, pip-audit, gitleaks, check --deploy)
