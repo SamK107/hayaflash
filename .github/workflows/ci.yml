@@ -108,7 +108,7 @@ jobs:
           ENVIRONMENT: prod
           DJANGO_SETTINGS_MODULE: config.settings.prod
           # Valeurs factices : seul le contrôle de configuration est exécuté.
-          SECRET_KEY: ci-check-${{ github.run_id }}-${{ github.run_attempt }}-not-a-secret-padding-xx
+          SECRET_KEY: ci-check-fixed-value-not-a-secret-hayaflash-padding-xxxxxxxxxxxxxxxxxxxxxxxx
           DATABASE_URL: postgres://ci:ci@localhost:5432/ci
           ALLOWED_HOSTS: hayaflash.com
           DEBUG: "false"
